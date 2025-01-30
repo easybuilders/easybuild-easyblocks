@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -106,6 +106,9 @@ class EB_WPS(EasyBlock):
             wrfdir = os.path.join(wrf, det_wrf_subdir(get_software_version('WRF')))
         else:
             raise EasyBuildError("WRF module not loaded?")
+        netcdf_fortran = get_software_root('NETCDFMINFORTRAN')
+        if netcdf_fortran:
+            env.setvar('NETCDFF_DIR', netcdf_fortran)
 
         self.compile_script = 'compile'
 

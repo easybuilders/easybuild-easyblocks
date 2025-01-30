@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -340,7 +340,7 @@ class EB_OpenFOAM(EasyBlock):
             cleancmd = "wcleanAll"
 
         # make directly in install directory
-        cmd_tmpl = "%(precmd)s && %(cleancmd)s && %(prebuildopts)s %(makecmd)s" % {
+        cmd_tmpl = "%(precmd)s && %(cleancmd)s && %(prebuildopts)s bash %(makecmd)s" % {
             'precmd': precmd,
             'cleancmd': cleancmd,
             'prebuildopts': self.cfg['prebuildopts'],
@@ -371,8 +371,8 @@ class EB_OpenFOAM(EasyBlock):
 
                 if self.looseversion >= LooseVersion('2406'):
                     # Also build the plugins
-                    cmd += ' && %s %s -log' % (self.cfg['prebuildopts'],
-                                               os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
+                    cmd += ' && %s bash %s -log' % (self.cfg['prebuildopts'],
+                                                    os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
 
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
 
