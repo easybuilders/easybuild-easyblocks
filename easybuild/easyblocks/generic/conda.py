@@ -96,7 +96,7 @@ class Conda(Binary):
 
             # use --force to ignore existing installation directory
             cmd = "%s %s env create %s %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                         force, env_spec, self.installdir)
+                                                    force, env_spec, self.installdir)
             run_cmd(cmd, log_all=True, simple=True)
 
         else:
@@ -110,7 +110,7 @@ class Conda(Binary):
                 self.log.info("Installed conda requirements")
 
             cmd = "%s %s create %s -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                        force, self.installdir, install_args)
+                                                force, self.installdir, install_args)
             run_cmd(cmd, log_all=True, simple=True)
 
         # clean up
