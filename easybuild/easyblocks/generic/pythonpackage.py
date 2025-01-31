@@ -853,7 +853,7 @@ class PythonPackage(ExtensionEasyBlock):
                         actual_installdir = test_installdir
                     # Export the temporary installdir as an environment variable
                     # Some tests (e.g. for astropy) require to be run in the installdir
-                    env.setvar('EB_TEST_INSTALLDIR', actual_installdir)
+                    env.setvar('EB_PYTHONPACKAGE_TEST_INSTALLDIR', actual_installdir)
 
                     self.log.debug("Pre-creating subdirectories in %s: %s", actual_installdir, self.all_pylibdirs)
                     for pylibdir in self.all_pylibdirs:
