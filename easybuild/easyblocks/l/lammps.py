@@ -245,7 +245,7 @@ class EB_LAMMPS(CMakeMake):
             if os.path.exists(self.start_dir) and os.listdir(self.start_dir):
                 self.cur_version = translate_lammps_version(self.version, path=self.start_dir)
             else:
-                self.cur_version = translate_lammps_version(self.version, path=self.installdir+'/')
+                self.cur_version = translate_lammps_version(self.version, path=self.installdir)
         else:
             self.cur_version = self.version
         self.ref_version = translate_lammps_version(ref_version)
