@@ -183,7 +183,7 @@ def translate_lammps_version(version, path=""):
     except KeyError:
         # avoid failing miserably under --module-only --force
         if os.path.exists(path) and os.listdir(path):
-            with open("%ssrc/version.h" % (path)) as file:
+            with open(os.path.join(path, 'src', 'version.h')) as file:
                 file_contents = file.read()
             lines = re.split('\n', file_contents)
             regex = r'\d+ \S+ \d+'
