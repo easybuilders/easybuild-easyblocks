@@ -483,7 +483,7 @@ class EB_LAMMPS(CMakeMake):
         super(EB_LAMMPS, self).install_step()
         # Copy LICENCE and version file so these can be used with `--module-only`
         version_file = os.path.join(self.start_dir, 'src/version.h')
-        copy_file(version_file, os.path.join(self.installdir, 'src/version.h'))
+        copy_file(version_file, os.path.join(self.installdir, 'src', 'version.h'))
         license_file = os.path.join(self.start_dir, 'LICENSE')
         copy_file(license_file, os.path.join(self.installdir, 'LICENSE'))
         # Copy over the examples so we can repeat the sanity check
