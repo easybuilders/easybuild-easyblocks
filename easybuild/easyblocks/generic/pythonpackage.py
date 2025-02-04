@@ -474,7 +474,6 @@ class PythonPackage(ExtensionEasyBlock):
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
 
-        self.py_installopts = []
         self.install_cmd_output = ''
 
         # make sure there's no site.cfg in $HOME, because setup.py will find it and use it
@@ -499,8 +498,6 @@ class PythonPackage(ExtensionEasyBlock):
         # figure out whether this Python package is being installed for multiple Python versions
         self.multi_python = 'Python' in self.cfg['multi_deps']
 
-        # determine install command
-        self.use_setup_py = False
         self.determine_install_command()
 
         # avoid that pip (ab)uses $HOME/.cache/pip
@@ -517,7 +514,9 @@ class PythonPackage(ExtensionEasyBlock):
         """
         Determine install command to use.
         """
+        self.py_installopts = []
         if self.cfg.get('use_pip', True) or self.cfg.get('use_pip_editable', False):
+            self.use_setup_py = False
             self.install_cmd = PIP_INSTALL_CMD
 
             pip_verbose = self.cfg.get('pip_verbose', None)
@@ -546,8 +545,8 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             self.use_setup_py = True
             self.install_cmd = SETUP_PY_INSTALL_CMD
-            install_target = self.cfg.get_ref('install_target')
 
+            install_target = self.cfg.get_ref('install_target')
             if install_target == EASY_INSTALL_TARGET:
                 self.install_cmd += " %(loc)s"
                 self.py_installopts.append('--no-deps')

@@ -240,6 +240,7 @@ class EB_PyTorch(PythonPackage):
         if self.cfg['use_pip'] is None and pytorch_version >= '2.0':
             self.log.info("Auto-enabling use of pip to install PyTorch >= 2.0, since 'use_pip' is not set")
             self.cfg['use_pip'] = True
+            self.determine_install_command()
 
     def fetch_step(self, skip_checksums=False):
         """Fetch sources for installing PyTorch, including those for tests."""
