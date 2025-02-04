@@ -387,9 +387,10 @@ class PythonPackage(ExtensionEasyBlock):
             extra_vars = {}
         extra_vars.update({
             'buildcmd': [None, "Command for building the package (e.g. for custom builds resulting in a whl file). "
-                               "When using setup.py this will be passed to setup.py and defaults to 'build'. "
+                               "When using setup.py it will be auto-generated based using the value of 'build_target'. "
                                "Otherwise it will be used as-is. A value of None then skips the build step. "
-                               "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
+                               "The template %(python)s will be replaced by the currently used Python binary.", CUSTOM],
+            'build_target': ['build', "Option to pass to setup.py for building", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected. "
                                   "Defaults to True unless 'use_pip_for_deps' or 'use_pip_requirement' is True.",
@@ -399,7 +400,7 @@ class PythonPackage(ExtensionEasyBlock):
                                                   "(default: ['bin/*'])", CUSTOM],
             'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
                                   "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
-            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
+            'install_target': ['install', "Option to pass to setup.py for installation", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
                                    "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
@@ -784,23 +785,32 @@ class PythonPackage(ExtensionEasyBlock):
         run_shell_cmd(cmd % {'python': self.python_cmd}, hidden=True)
 
     def build_step(self):
-        """Build Python package using setup.py"""
+        """Build Python package using setup.py or pip"""
+
+        if get_software_root('CMake'):
+            include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
+            library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
+            env.setvar("CMAKE_INCLUDE_PATH", include_paths)
+            env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
         # inject extra '%(python)s' template value before getting value of 'buildcmd' custom easyconfig parameter
         self.cfg.template_values['python'] = self.python_cmd
         build_cmd = self.cfg['buildcmd']
 
         if self.use_setup_py:
-
-            if get_software_root('CMake'):
-                include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
-                library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
-                env.setvar("CMAKE_INCLUDE_PATH", include_paths)
-                env.setvar("CMAKE_LIBRARY_PATH", library_paths)
-
+            # For setup.py-based builds the `buildcmd` was used as the argument to setup.py
+            # and may even contain options such as: buildcmd = 'build --customize=eb_customize.py'
+            # But it should be a command to execute, so prepend 'python setup.py' only when it is surely not.
             if not build_cmd:
-                build_cmd = 'build'  # Default value for setup.py
-            build_cmd = f"{self.python_cmd} setup.py {build_cmd}"
+                build_cmd = f"{self.python_cmd} setup.py {self.cfg['build_target']}"
+            elif any(build_cmd.startswith(cmd) for cmd in ('build ', 'build_ext ')) or re.match(r'\w+', build_cmd):
+                if ' ' not in build_cmd:
+                    self.log.deprecated("Use 'build_target' instead of 'buildcmd' "
+                                        "to pass the build target to setup.py", '5.1')
+                else:
+                    self.log.deprecated("Use 'build_target' and 'buildopts' instead of 'buildcmd' "
+                                        "to pass arguments to setup.py", '5.1')
+                build_cmd = f"{self.python_cmd} setup.py {build_cmd}"
 
         if build_cmd:
             cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
