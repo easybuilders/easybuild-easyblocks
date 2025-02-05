@@ -43,7 +43,7 @@ from easybuild.base import fancylogger
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, mkdir, copy_file
+from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext
@@ -183,14 +183,13 @@ def translate_lammps_version(version, path=""):
     except KeyError:
         # avoid failing miserably under --module-only --force
         if os.path.exists(path) and os.listdir(path):
-            with open(os.path.join(path, 'src', 'version.h')) as file:
-                file_contents = file.read()
-            lines = re.split('\n', file_contents)
-            regex = r'\d+ \S+ \d+'
-            result = re.search(regex, lines[0])
-            gen_version = result.group()
-            items = [x for x in re.split(' ', gen_version) if x]
-            return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+            txt = read_file(os.path.join(path, 'src', 'version.h'))
+            result = re.search(r'(?<=LAMMPS_VERSION ")\d+ \S+ \d+', txt)
+            if result:
+                day, month, year = result.group().split(' ')
+            else:
+                raise EasyBuildError("Failed to parse LAMMPS version: '%s'", txt)
+            return '.'.join([year, month_map[month.upper()], '%02d' % int(day)])
         else:
             raise ValueError("Version %s cannot be generated" % version)
 
@@ -242,6 +241,7 @@ class EB_LAMMPS(CMakeMake):
 
         # version 1.3.2 is used in the test suite to check easyblock can be initialised
         if self.version != '1.3.2':
+            # take into account that build directory may not be available (in case of --module-only)
             if os.path.exists(self.start_dir) and os.listdir(self.start_dir):
                 self.cur_version = translate_lammps_version(self.version, path=self.start_dir)
             else:
