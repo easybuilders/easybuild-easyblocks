@@ -125,6 +125,18 @@ def get_workspace_members(crate_dir):
     return [os.path.join(crate_dir, m) for m in members]
 
 
+def get_checksum(src, log):
+    """Get the checksum from an extracted source"""
+    checksum = src['checksum']
+    if isinstance(checksum, dict):
+        try:
+            checksum = checksum[src['name']]
+        except KeyError:
+            log.warning('No checksum for %s in %s', checksum, src['name'])
+            checksum = None
+    return checksum
+
+
 class Cargo(ExtensionEasyBlock):
     """Support for installing Cargo packages (Rust)"""
 
@@ -257,12 +269,13 @@ class Cargo(ExtensionEasyBlock):
                 except KeyError:
                     git_sources[git_key] = src
                 else:
-                    previous_checksum = previous_source['checksum']
-                    current_checksum = src['checksum']
+                    previous_checksum = get_checksum(previous_source, self.log)
+                    current_checksum = get_checksum(src, self.log)
                     if previous_checksum and current_checksum and previous_checksum != current_checksum:
-                        raise EasyBuildError("Sources for the same git repository need to be identical."
-                                             "Mismatch found for %s rev %s in %s vs %s",
-                                             git_repo, rev, previous_source['name'], src['name'])
+                        raise EasyBuildError("Sources for the same git repository need to be identical. "
+                                             "Mismatch found for %s rev %s in %s (checksum: %s) vs %s (checksum: %s)",
+                                             git_repo, rev, previous_source['name'], previous_checksum,
+                                             src['name'], current_checksum)
                     self.log.info("Source %s already extracted to %s by %s. Skipping extraction.",
                                   src['name'], previous_source['finalpath'], previous_source['name'])
                     src['finalpath'] = previous_source['finalpath']
