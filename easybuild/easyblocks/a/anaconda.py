@@ -53,16 +53,6 @@ class EB_Anaconda(Binary):
         self.log.info("Installing %s using command '%s'..." % (self.name, cmd))
         run_shell_cmd(cmd)
 
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for.
-        """
-        return {
-            'MANPATH': ['man', os.path.join('share', 'man')],
-            'PATH': ['bin', 'sbin'],
-            'PKG_CONFIG_PATH': [os.path.join(x, 'pkgconfig') for x in ['lib', 'lib32', 'lib64', 'share']],
-        }
-
     def sanity_check_step(self):
         """
         Custom sanity check for Anaconda and Miniconda
