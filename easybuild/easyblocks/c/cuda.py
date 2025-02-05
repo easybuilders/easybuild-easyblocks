@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2024 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -358,7 +358,7 @@ class EB_CUDA(Binary):
         guesses.update({
             'CPATH': inc_path,
             'LD_LIBRARY_PATH': lib_path,
-            'LIBRARY_PATH': ['lib64', os.path.join('stubs', 'lib64')],
+            'LIBRARY_PATH': lib_path + [os.path.join('stubs', 'lib64')],
             'PATH': bin_path,
             'PKG_CONFIG_PATH': ['pkgconfig'],
         })
