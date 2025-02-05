@@ -198,13 +198,7 @@ class Cargo(ExtensionEasyBlock):
         """Constructor for Cargo easyblock."""
         super(Cargo, self).__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
-        env.setvar('CARGO_HOME', self.cargo_home)
-        env.setvar('RUSTC', 'rustc')
-        env.setvar('RUSTDOC', 'rustdoc')
-        env.setvar('RUSTFMT', 'rustfmt')
-        env.setvar('RUSTFLAGS', self.rustc_optarch())
-        env.setvar('RUST_LOG', 'DEBUG')
-        env.setvar('RUST_BACKTRACE', '1')
+        self.set_cargo_vars()
 
         # Populate sources from "crates" list of tuples
         sources = []
@@ -231,10 +225,30 @@ class Cargo(ExtensionEasyBlock):
 
         self.cfg.update('sources', sources)
 
+    def set_cargo_vars(self):
+        """Set environment variables for Rust compilation and Cargo"""
+        env.setvar('CARGO_HOME', self.cargo_home)
+        env.setvar('RUSTC', 'rustc')
+        env.setvar('RUSTDOC', 'rustdoc')
+        env.setvar('RUSTFMT', 'rustfmt')
+        env.setvar('RUSTFLAGS', self.rustc_optarch())
+        env.setvar('RUST_LOG', 'DEBUG')
+        env.setvar('RUST_BACKTRACE', '1')
+
     @property
     def crates(self):
         """Return the crates as defined in the EasyConfig"""
         return self.cfg['crates']
+
+    def load_module(self, *args, **kwargs):
+        """(Re)set environment variables after loading module file.
+
+        Required here to ensure the variables are defined for stand-alone installations and extensions,
+        because the environment is reset to the initial environment right before loading the module.
+        """
+
+        super(Cargo, self).load_module(*args, **kwargs)
+        self.set_cargo_vars()
 
     def extract_step(self):
         """
