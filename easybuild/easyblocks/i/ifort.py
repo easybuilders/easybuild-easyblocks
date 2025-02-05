@@ -87,4 +87,3 @@ class EB_ifort(EB_icc, IntelBase):
         custom_commands = ["which ifort"]
 
         IntelBase.sanity_check_step(self, custom_paths=custom_paths, custom_commands=custom_commands)
-
