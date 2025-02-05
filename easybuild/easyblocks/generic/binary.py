@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -131,7 +131,7 @@ class Binary(EasyBlock):
                 raise EasyBuildError("Incorrect value type for install_cmds, should be list or tuple: ",
                                      install_cmds)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Copy installation to actual installation directory in case of a staged installation."""
         if self.cfg.get('staged_install', False):
             staged_installdir = self.installdir
@@ -145,7 +145,7 @@ class Binary(EasyBlock):
                 raise EasyBuildError("Failed to move staged install from %s to %s: %s",
                                      staged_installdir, self.installdir, err)
 
-        super(Binary, self).post_install_step()
+        super(Binary, self).post_processing_step()
 
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""

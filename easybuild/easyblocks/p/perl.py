@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -155,7 +155,7 @@ class EB_Perl(ConfigureMake):
             # from specified sysroot rather than from host OS
             setvar('OPENSSL_PREFIX', sysroot)
 
-    def post_install_step(self, *args, **kwargs):
+    def post_processing_step(self, *args, **kwargs):
         """
         Custom post-installation step for Perl: avoid excessive long shebang lines in Perl scripts.
         """
@@ -177,7 +177,7 @@ class EB_Perl(ConfigureMake):
             # specify pattern for paths (relative to install dir) of files for which shebang should be patched
             self.cfg['fix_perl_shebang_for'] = 'bin/*'
 
-        super(EB_Perl, self).post_install_step(*args, **kwargs)
+        super(EB_Perl, self).post_processing_step(*args, **kwargs)
 
     def sanity_check_step(self):
         """Custom sanity check for Perl."""

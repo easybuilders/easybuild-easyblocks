@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -90,9 +90,9 @@ class EB_DualSPHysics(CMakeMakeCp):
         ]
         super(EB_DualSPHysics, self).install_step()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Custom post-installation step: ensure rpath is patched into binaries/libraries if configured."""
-        super(EB_DualSPHysics, self).post_install_step()
+        super(EB_DualSPHysics, self).post_processing_step()
 
         if build_option('rpath'):
             # only the compiled binary (e.g. DualSPHysics5.0CPU_linux64) is rpath'd, the precompiled libraries

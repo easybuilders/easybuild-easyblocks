@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2024 Vrije Universiteit Brussel
+# Copyright 2021-2025 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,12 +29,7 @@ EasyBuild support for installing a wrapper module file for OpenSSL
 """
 import os
 import re
-
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    # fallback for Python 2.7, should be removed for EasyBuild >= 5.0
-    from urlparse import urlparse
+from urllib.parse import urlparse
 
 from easybuild.tools import LooseVersion
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -145,7 +145,7 @@ class EB_Clang_minus_AOMP(Bundle):
             raise EasyBuildError("Could not find 'ROCm-Device-Libs' source directory in %s", self.builddir)
 
         num_comps = len(self.cfg['components'])
-        for idx, comp in enumerate(self.comp_cfgs):
+        for idx, (comp, _) in enumerate(self.comp_instances):
             name = comp['name']
             msg = "configuring bundle component %s %s (%d/%d)..." % (name, comp['version'], idx + 1, num_comps)
             print_msg(msg)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,7 +43,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import mkdir, copy_file
-from easybuild.tools.run import run_shell_cmd, parse_log_for_error
+from easybuild.tools.run import run_shell_cmd
 
 
 def make_R_install_option(opt, values, cmdline=False):
@@ -183,8 +183,10 @@ class RPackage(ExtensionEasyBlock):
         """
         Check output of installation command, and clean up installation if needed.
         """
-        errors = parse_log_for_error(output, regExp="^ERROR:")
+        errors = re.findall(r"^ERROR:.*", output, flags=re.I | re.M)
+
         if errors:
+            self.log.info("R package %s failed with error:\n%s", self.name, '\n'.join(errors))
             self.handle_installation_errors()
             cmd = "R -q --no-save"
             stdin = """

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -966,11 +966,11 @@ class EB_GCC(ConfigureMake):
         else:
             super(EB_GCC, self).install_step(*args, **kwargs)
 
-    def post_install_step(self, *args, **kwargs):
+    def post_processing_step(self, *args, **kwargs):
         """
         Post-processing after installation: add symlinks for cc, c++, f77, f95
         """
-        super(EB_GCC, self).post_install_step(*args, **kwargs)
+        super(EB_GCC, self).post_processing_step(*args, **kwargs)
 
         # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')

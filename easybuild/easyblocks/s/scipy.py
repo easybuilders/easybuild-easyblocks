@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,15 +51,17 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
     """Support for installing the scipy Python package as part of a Python installation."""
 
     @staticmethod
-    def extra_options():
+    def extra_options(extra_vars=None):
         """Easyconfig parameters specific to scipy."""
-        extra_vars = ({
+        extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
+        extra_vars = MesonNinja.extra_options(extra_vars=extra_vars)
+        extra_vars.update({
             'enable_slow_tests': [False, "Run scipy test suite, including tests marked as slow", CUSTOM],
             'ignore_test_result': [None, "Run scipy test suite, but ignore test failures (True/False/None). Default "
                                          "(None) implies True for scipy < 1.9, and False for scipy >= 1.9", CUSTOM],
         })
 
-        return PythonPackage.extra_options(extra_vars=extra_vars)
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Set scipy-specific test command."""

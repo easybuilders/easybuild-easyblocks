@@ -1,5 +1,5 @@
 # #
-# Copyright 2021-2024 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ import os
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
-from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
+from easybuild.easyblocks.tbb import get_tbb_gccprefix
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.run import run_shell_cmd
 

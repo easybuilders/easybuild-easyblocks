@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,7 +48,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, find_flexlm_license
-from easybuild.tools.filetools import mkdir, read_file, remove_file, write_file
+from easybuild.tools.filetools import read_file, remove_file, write_file
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -68,20 +68,14 @@ ACTIVATION_TYPES = [
 
 # silent.cfg parameter name for type of license activation (cfr. options listed above)
 ACTIVATION_NAME = 'ACTIVATION_TYPE'  # since icc/ifort v2013_sp1, impi v4.1.1, imkl v11.1
-ACTIVATION_NAME_2012 = 'ACTIVATION'  # previous activation type parameter used in older versions
 # silent.cfg parameter name for install prefix
 INSTALL_DIR_NAME = 'PSET_INSTALL_DIR'
 # silent.cfg parameter name for install mode
 INSTALL_MODE_NAME = 'PSET_MODE'
-# Older (2015 and previous) silent.cfg parameter name for install mode
-INSTALL_MODE_NAME_2015 = 'INSTALL_MODE'
-# Install mode for 2016 version
+# Install mode since 2016 version
 INSTALL_MODE = 'install'
-# Install mode for 2015 and older versions
-INSTALL_MODE_2015 = 'NONRPM'
 # silent.cfg parameter name for license file/server specification
 LICENSE_FILE_NAME = 'ACTIVATION_LICENSE_FILE'  # since icc/ifort v2013_sp1, impi v4.1.1, imkl v11.1
-LICENSE_FILE_NAME_2012 = 'PSET_LICENSE_FILE'  # previous license file parameter used in older versions
 LICENSE_SERIAL_NUMBER = 'ACTIVATION_SERIAL_NUMBER'
 
 COMP_ALL = 'ALL'
@@ -136,12 +130,7 @@ class IntelBase(EasyBlock):
         """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
 
         guesses = super(IntelBase, self).make_module_req_guess()
-
-        if self.cfg['m32']:
-            guesses['PATH'] = [os.path.join(self.subdir, 'bin32')]
-        else:
-            guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
-
+        guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
         guesses['MANPATH'] = [os.path.join(self.subdir, 'man')]
 
         # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
@@ -155,13 +144,8 @@ class IntelBase(EasyBlock):
 
     def get_custom_paths_tools(self, binaries):
         """Custom sanity check paths for certain Intel tools."""
-        if self.cfg['m32']:
-            files = [os.path.join('bin32', b) for b in binaries]
-            dirs = ['lib32', 'include']
-        else:
-            files = [os.path.join('bin64', b) for b in binaries]
-            dirs = ['lib64', 'include']
-
+        files = [os.path.join('bin64', b) for b in binaries]
+        dirs = ['lib64', 'include']
         custom_paths = {
             'files': [os.path.join(self.subdir, f) for f in files],
             'dirs': [os.path.join(self.subdir, d) for d in dirs],
@@ -176,12 +160,6 @@ class IntelBase(EasyBlock):
             'serial_number': [None, "Serial number for the product", CUSTOM],
             'requires_runtime_license': [True, "Boolean indicating whether or not a runtime license is required",
                                          CUSTOM],
-            # 'usetmppath':
-            # workaround for older SL5 version (5.5 and earlier)
-            # used to be True, but False since SL5.6/SL6
-            # disables TMP_PATH env and command line option
-            'usetmppath': [False, "Use temporary path for installation", CUSTOM],
-            'm32': [False, "Enable 32-bit toolchain", CUSTOM],
             'components': [None, "List of components to install", CUSTOM],
         })
 
@@ -374,8 +352,8 @@ class IntelBase(EasyBlock):
         ]) % {
             'install_dir_name': silent_cfg_names_map.get('install_dir_name', INSTALL_DIR_NAME),
             'install_dir': silent_cfg_names_map.get('install_dir', self.installdir),
-            'install_mode': silent_cfg_names_map.get('install_mode', INSTALL_MODE_2015),
-            'install_mode_name': silent_cfg_names_map.get('install_mode_name', INSTALL_MODE_NAME_2015),
+            'install_mode': silent_cfg_names_map.get('install_mode', INSTALL_MODE),
+            'install_mode_name': silent_cfg_names_map.get('install_mode_name', INSTALL_MODE_NAME),
         }
 
         if self.install_components is not None:
@@ -404,15 +382,6 @@ class IntelBase(EasyBlock):
         write_file(silentcfg, silent)
         self.log.debug("Contents of %s:\n%s", silentcfg, silent)
 
-        # workaround for mktmp: create tmp dir and use it
-        tmpdir = os.path.join(self.cfg['start_dir'], 'mytmpdir')
-        mkdir(tmpdir, parents=True)
-
-        tmppathopt = ''
-        if self.cfg['usetmppath']:
-            env.setvar('TMP_PATH', tmpdir)
-            tmppathopt = "-t %s" % tmpdir
-
         # set some extra env variables
         env.setvar('LOCAL_INSTALL_VERBOSE', '1')
         env.setvar('VERBOSE_MODE', '1')
@@ -423,7 +392,6 @@ class IntelBase(EasyBlock):
         cmd = ' '.join([
             self.cfg['preinstallopts'],
             './install.sh',
-            tmppathopt,
             '-s ' + silentcfg,
             self.cfg['installopts'],
         ])

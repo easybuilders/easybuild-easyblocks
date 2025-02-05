@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -136,10 +136,10 @@ class EB_EasyBuildMeta(PythonPackage):
         except OSError as err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Remove setuptools.pth file that hard includes a system-wide (site-packages) path, if it is there."""
 
-        super(EB_EasyBuildMeta, self).post_install_step()
+        super(EB_EasyBuildMeta, self).post_processing_step()
 
         setuptools_pth = os.path.join(self.installdir, self.pylibdir, 'setuptools.pth')
         if os.path.exists(setuptools_pth):
