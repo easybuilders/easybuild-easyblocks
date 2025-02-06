@@ -227,6 +227,7 @@ class EB_LAMMPS(CMakeMake):
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
             'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
+            'install_python_packages': [True, "Install Python packages (if Python is a dependency).", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -432,7 +433,7 @@ class EB_LAMMPS(CMakeMake):
 
         # Make sure it uses the Python we want
         python_dir = get_software_root('Python')
-        if python_dir:
+        if python_dir and self.cfg['install_python_packages']:
             # Find the Python .so lib
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'LDLIBRARY\'))"'
             (python_lib, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
@@ -456,7 +457,7 @@ class EB_LAMMPS(CMakeMake):
             # Older LAMMPS need more hints to get things right as they use deprecated CMake packages
             self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib_path)
             self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % python_include_dir)
-        else:
+        elif self.cfg['install_python_packages']:
             raise EasyBuildError("Expected to find a Python dependency as sanity check commands rely on it!")
 
         return super(EB_LAMMPS, self).configure_step()
@@ -470,74 +471,82 @@ class EB_LAMMPS(CMakeMake):
         copy_dir(examples_dir, os.path.join(self.installdir, 'examples'), symlinks=True)
         potentials_dir = os.path.join(self.start_dir, 'potentials')
         copy_dir(potentials_dir, os.path.join(self.installdir, 'potentials'))
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
-            # From ver 2Aug2023:
-            # "make install in a CMake based installation will no longer install
-            # the LAMMPS python module. make install-python can be used for that"
-            # https://github.com/lammps/lammps/releases/tag/stable_2Aug2023
-            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-            site_packages = os.path.join(self.installdir, 'lib', 'python%s' % pyshortver, 'site-packages')
 
-            mkdir(site_packages, parents=True)
+        python = get_software_version('Python')
+        if python and self.cfg['install_python_packages']:
+            if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
+                # From ver 2Aug2023:
+                # "make install in a CMake based installation will no longer install
+                # the LAMMPS python module. make install-python can be used for that"
+                # https://github.com/lammps/lammps/releases/tag/stable_2Aug2023
+                pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+                site_packages = os.path.join(self.installdir, 'lib', 'python%s' % pyshortver, 'site-packages')
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
-            self.python_dir = os.path.join(self.lammpsdir, 'python')
+                mkdir(site_packages, parents=True)
 
-            # The -i flag is added through a patch to the lammps source file python/install.py
-            # This patch is necessary because the current lammps only allows
-            # the lammps python package to be installed system-wide or in user site-packages
-            cmd = 'python %(python_dir)s/install.py -p %(python_dir)s/lammps \
-                   -l %(builddir)s/easybuild_obj/liblammps.so \
-                   -v %(lammpsdir)s/src/version.h -w %(builddir)s/easybuild_obj -i %(site_packages)s' % {
-                'python_dir': self.python_dir,
-                'builddir': self.builddir,
-                'lammpsdir': self.lammpsdir,
-                'site_packages': site_packages,
-            }
+                self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
+                self.python_dir = os.path.join(self.lammpsdir, 'python')
 
-            run_cmd(cmd, log_all=True, simple=False)
+                # The -i flag is added through a patch to the lammps source file python/install.py
+                # This patch is necessary because the current lammps only allows
+                # the lammps python package to be installed system-wide or in user site-packages
+                cmd = 'python %(python_dir)s/install.py -p %(python_dir)s/lammps \
+                       -l %(builddir)s/easybuild_obj/liblammps.so \
+                       -v %(lammpsdir)s/src/version.h -w %(builddir)s/easybuild_obj -i %(site_packages)s' % {
+                    'python_dir': self.python_dir,
+                    'builddir': self.builddir,
+                    'lammpsdir': self.lammpsdir,
+                    'site_packages': site_packages,
+                }
+
+                run_cmd(cmd, log_all=True, simple=False)
 
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
 
-        # Output files need to go somewhere (and has to work for --module-only as well)
-        execution_dir = tempfile.mkdtemp()
+        custom_commands = []
+        python = get_software_version('Python')
+        if python and self.cfg['install_python_packages']:
+            # Output files need to go somewhere (and has to work for --module-only as well)
+            execution_dir = tempfile.mkdtemp()
 
-        if self.cfg['sanity_check_test_inputs']:
-            sanity_check_test_inputs = self.cfg['sanity_check_test_inputs']
-        else:
-            sanity_check_test_inputs = [
-                'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
-                'hugoniostat', 'indent', 'melt', 'min', 'msst',
-                'nemd', 'obstacle', 'pour', 'voronoi',
+            if self.cfg['sanity_check_test_inputs']:
+                sanity_check_test_inputs = self.cfg['sanity_check_test_inputs']
+            else:
+                sanity_check_test_inputs = [
+                    'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
+                    'hugoniostat', 'indent', 'melt', 'min', 'msst',
+                    'nemd', 'obstacle', 'pour', 'voronoi',
+                ]
+
+            custom_commands = [
+                # LAMMPS test - you need to call specific test file on path
+                'from lammps import lammps; l=lammps(); l.file("%s")' %
+                # Examples are part of the install with paths like (installdir)/examples/filename/in.filename
+                os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
+                # And this should be done for every file specified above
+                for check_file in sanity_check_test_inputs
             ]
 
-        custom_commands = [
-            # LAMMPS test - you need to call specific test file on path
-            'from lammps import lammps; l=lammps(); l.file("%s")' %
-            # Examples are part of the install with paths like (installdir)/examples/filename/in.filename
-            os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
-            # And this should be done for every file specified above
-            for check_file in sanity_check_test_inputs
-        ]
+            # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
+            if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Sep2021')):
+                custom_commands = [cmd + '; l.finalize()' for cmd in custom_commands]
 
-        # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Sep2021')):
-            custom_commands = [cmd + '; l.finalize()' for cmd in custom_commands]
+            custom_commands = ["""python -c '%s'""" % cmd for cmd in custom_commands]
 
-        custom_commands = ["""python -c '%s'""" % cmd for cmd in custom_commands]
+            # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
+            if self.toolchain.options.get('usempi', None):
+                custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
 
-        # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
-        if self.toolchain.options.get('usempi', None):
-            custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
+            # Requires liblammps.so to be findable by the runtime linker (which it might not be if using
+            # rpath and filtering out LD_LIBRARY_PATH)
+            set_ld_library_path = ''
+            if self.installdir not in os.getenv('LD_LIBRARY_PATH', default=''):
+                # Use LIBRARY_PATH to set it
+                set_ld_library_path = "LD_LIBRARY_PATH=$LIBRARY_PATH:$LD_LIBRARY_PATH "
+            custom_commands = ["cd %s && " % execution_dir + set_ld_library_path + cmd for cmd in custom_commands]
 
-        # Requires liblammps.so to be findable by the runtime linker (which it might not be if using
-        # rpath and filtering out LD_LIBRARY_PATH)
-        set_ld_library_path = ''
-        if self.installdir not in os.getenv('LD_LIBRARY_PATH', default=''):
-            # Use LIBRARY_PATH to set it
-            set_ld_library_path = "LD_LIBRARY_PATH=$LIBRARY_PATH:$LD_LIBRARY_PATH "
-        custom_commands = ["cd %s && " % execution_dir + set_ld_library_path + cmd for cmd in custom_commands]
+        custom_commands += ['lmp -h']
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
@@ -550,7 +559,7 @@ class EB_LAMMPS(CMakeMake):
         }
 
         python = get_software_version('Python')
-        if python:
+        if python and self.cfg['install_python_packages']:
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
             pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
             custom_paths['dirs'].append(pythonpath)
@@ -563,7 +572,7 @@ class EB_LAMMPS(CMakeMake):
         txt = super(EB_LAMMPS, self).make_module_extra()
 
         python = get_software_version('Python')
-        if python:
+        if python and self.cfg['install_python_packages']:
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
             pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
             txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
