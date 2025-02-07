@@ -669,6 +669,21 @@ class EB_LLVM(CMakeMake):
             os.path.join(prev_dir, lib_dir_runtime),
         ]))
 
+        #######################################################
+        # PROBLEM!!!: 
+        # Binaries and libraries produced during runtimes make use of the newly built Clang compiler which is not
+        # rpath-wrapped. This causes the executable to be produced without rpath (if required) and with 
+        # runpath set to $ORIGIN. This causes 2 problems:
+        #  - Binaries produced for the runtimes will fail the sanity check
+        #  - Runtimes libraries that link to libLLVM.so like `libomptarget.so` need LD_LIBRARY_PATH to work.
+        #    This is because even if an executable compiled with the new llvm has rpath pointing to $EBROOTLLVM/lib,
+        #    it will not be resolved with the executable's rpath, but the library's runpath (rpath is ignored if runpath is set).
+        #    Even if libLLVM.so is a direct dependency of the executable, it needs to be resolved both for the executable
+        #    and the library.
+        #
+        # Is this true for every runtime?? For now it only seems to be a problem with libomptarget.so and llvm-omp-kernel-replay ??
+        #################################################
+
         # Needed for passing the variables to the build command
         with _wrap_env(bin_dir, lib_path):
             # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
