@@ -35,7 +35,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, copy_file, remove_dir
+from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, copy_file, remove_dir, remove_file
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, X86_64, get_cpu_architecture
 
@@ -44,6 +44,9 @@ class EB_Java(PackedBinary):
     """Support for installing Java as a packed binary file (.tar.gz)
     Use the PackedBinary easyblock and set some extra paths.
     """
+    # List of AWT and related libraries, relative to the %(installdir)/lib
+    AWT_LIBS = ['libawt.so', 'libawt_headless.so', 'libawt_xawt.so', 'libfontmanager.so', 'libjawt.so', 'liblcms.so',
+                'libsplashscreen.so', 'libjsound.so']
 
     @staticmethod
     def extra_options(extra_vars=None):
@@ -62,9 +65,11 @@ class EB_Java(PackedBinary):
             'patch_interpreter': [True, "Whether or not to use patchelf to patch the interpreter in executables when "
                                         "sysroot is used", CUSTOM],
             # Also patch shared libraries in lib/server by default
-            'bin_lib_subdirs': [['bin', 'lib', 'lib/server', 'lib64', 'lib64/server'],
+            'bin_lib_subdirs': [['bin', 'lib', 'lib/server'],
                                 "List of subdirectories for binaries and libraries, which is used "
                                 "during sanity check to check RPATH linking and banned/required libraries", CUSTOM],
+            'exclude_awt_libs': [True, "Whether or to exclude the awt (and related) libraries from being installed ",
+                                 CUSTOM],
         })
         return extra_vars
 
@@ -107,6 +112,16 @@ class EB_Java(PackedBinary):
             copy_dir(os.path.join(self.builddir, 'jdk%s' % self.version), self.installdir)
         else:
             PackedBinary.install_step(self)
+        if self.cfg.get('exclude_awt_libs', True):
+            # Remove AWT and related libraries, so we can install those at GCCcore level
+            # and provide those with the necessary dependencies
+            # Separating those enables us to keep the core Java at system toolchain level
+            # See https://github.com/easybuilders/easybuild-easyconfigs/pull/22245#issuecomment-2635560327
+            self.log.info("Stripping awt and related libraries from Java installation")
+            for lib in self.AWT_LIBS:
+                filename = os.path.join(self.installdir, 'lib', lib)
+                self.log.debug("Removing %s" % filename)
+                remove_file(filename)
 
     def sanity_check_step(self):
         """Custom sanity check for Java."""
