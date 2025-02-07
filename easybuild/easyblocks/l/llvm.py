@@ -941,6 +941,7 @@ class EB_LLVM(CMakeMake):
         check_files = []
         check_bin_files = []
         check_lib_files = []
+        check_librt_files = []
         check_inc_files = []
         check_dirs = ['include/llvm', 'include/llvm-c', 'lib/cmake/llvm']
         custom_commands = [
@@ -1017,19 +1018,19 @@ class EB_LLVM(CMakeMake):
         #     ]]
         #     check_dirs += ['include/sanitizer', 'include/fuzzer', 'include/orc', 'include/xray']
         if 'libunwind' in self.final_runtimes:
-            check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libunwind.a']]
+            check_librt_files += ['libunwind.a']
             if self.build_shared:
-                check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libunwind.so']]
+                check_librt_files += ['libunwind.so']
             check_inc_files += ['unwind.h', 'libunwind.h', 'mach-o/compact_unwind_encoding.h']
         if 'libcxx' in self.final_runtimes:
-            check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libc++.a']]
+            check_librt_files += ['libc++.a']
             if self.build_shared:
-                check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libc++.so']]
+                check_librt_files += ['libc++.so']
             check_dirs += ['include/c++/v1']
         if 'libcxxabi' in self.final_runtimes:
-            check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libc++abi.a']]
+            check_librt_files += ['libc++abi.a']
             if self.build_shared:
-                check_files += [os.path.join(lib_dir_runtime, _) for _ in ['libc++abi.so']]
+                check_librt_files += ['libc++abi.so']
 
         if 'polly' in self.final_projects:
             check_lib_files += ['libPolly.a', 'libPollyISL.a']
@@ -1053,7 +1054,7 @@ class EB_LLVM(CMakeMake):
             # as static libraries and linked into the libomptarget.so shared library
             omp_lib_files += ['libomptarget.so']
             if LooseVersion(self.version) < LooseVersion('19'):
-                ['libomptarget.rtl.%s.so' % arch]
+                omp_lib_files += ['libomptarget.rtl.%s.so' % arch]
             if 'NVPTX' in self.cfg['build_targets']:
                 if LooseVersion(self.version) < LooseVersion('19'):
                     omp_lib_files += ['libomptarget.rtl.cuda.so']
@@ -1068,10 +1069,14 @@ class EB_LLVM(CMakeMake):
                 check_lib_files += omp_lib_files
             else:
                 # Starting from LLVM 19, omp related libraries are installed the runtime library directory
-                check_files += [os.path.join(lib_dir_runtime, _) for _ in omp_lib_files]
+                check_librt_files += omp_lib_files
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
+            check_librt_files += ['libarcher.so']
+            # In LLVM >= 19 OpenMP tools are build in different places, the purely openmp ones are built as projects
+            # like `libarcher.so` while other related to offload are built as runtimes
+            check_bin_files += ['llvm-omp-kernel-replay', 'llvm-omp-device-info']
         if self.cfg['python_bindings']:
             custom_commands += ["python -c 'import clang'"]
             custom_commands += ["python -c 'import mlir'"]
@@ -1084,6 +1089,7 @@ class EB_LLVM(CMakeMake):
 
         check_files += [os.path.join('bin', _) for _ in check_bin_files]
         check_files += [os.path.join('lib', _) for _ in check_lib_files]
+        check_files += [os.path.join(lib_dir_runtime, _) for _ in check_librt_files]
         check_files += [os.path.join('include', _) for _ in check_inc_files]
 
         custom_paths = {
