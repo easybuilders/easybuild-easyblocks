@@ -224,6 +224,7 @@ class EB_LLVM(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
+            'use_pic': [True, "Build with Position Independent Code (PIC)", CUSTOM],
             'amd_gfx_list': [None, "List of AMDGPU targets to build for. Possible values: " +
                              ', '.join(AMDGPU_GFX_SUPPORT), CUSTOM],
             'assertions': [False, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
@@ -419,7 +420,8 @@ class EB_LLVM(CMakeMake):
             print_warning("`amd_gfx` specified, but AMDGPU not in manually specified build targets.")
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
-        if self.toolchain.options['pic']:
+        # if self.toolchain.options['pic']:
+        if self.cfg['use_pic']:
             general_opts['CMAKE_POSITION_INDEPENDENT_CODE'] = 'ON'
 
         general_opts['LLVM_TARGETS_TO_BUILD'] = '"%s"' % ';'.join(build_targets)
