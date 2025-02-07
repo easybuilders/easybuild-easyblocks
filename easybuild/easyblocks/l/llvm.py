@@ -45,7 +45,7 @@ from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import (apply_regex_substitutions, change_dir,
-                                       copy_dir, mkdir, symlink, which)
+                                       copy_dir, mkdir, symlink, which, copy_file, remove_file)
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import (AARCH32, AARCH64, POWER, RISCV64,
@@ -271,6 +271,8 @@ class EB_LLVM(CMakeMake):
         self.final_runtimes = []
         self.gcc_prefix = None
         self.runtimes_cmake_args = {
+            'CMAKE_C_COMPILER': [],
+            'CMAKE_CXX_COMPILER': [],
             'CMAKE_C_FLAGS': [],
             'CMAKE_CXX_FLAGS': [],
             'CMAKE_EXE_LINKER_FLAGS': [],
@@ -679,12 +681,50 @@ class EB_LLVM(CMakeMake):
         #  - Binaries produced for the runtimes will fail the sanity check
         #  - Runtimes libraries that link to libLLVM.so like `libomptarget.so` need LD_LIBRARY_PATH to work.
         #    This is because even if an executable compiled with the new llvm has rpath pointing to $EBROOTLLVM/lib,
-        #    it will not be resolved with the executable's rpath, but the library's runpath (rpath is ignored if runpath is set).
-        #    Even if libLLVM.so is a direct dependency of the executable, it needs to be resolved both for the executable
-        #    and the library.
+        #    it will not be resolved with the executable's rpath, but the library's runpath
+        #    (rpath is ignored if runpath is set).
+        #    Even if libLLVM.so is a direct dependency of the executable, it needs to be resolved both for the
+        #    executable and the library.
         #
-        # Is this true for every runtime?? For now it only seems to be a problem with libomptarget.so and llvm-omp-kernel-replay ??
+        # Here we create a mock binary for the current stage by copying the previous one, rpath-wrapping it and
+        # and than pass the rpath-wrapped binary to the runtimes build as the compiler.
         #################################################
+        bin_dir_new = os.path.join(stage_dir, 'bin')
+        with _wrap_env(bin_dir_new, lib_path):
+            if build_option('rpath'):
+                prev_clang = os.path.join(bin_dir, 'clang')
+                prev_clangxx = os.path.join(bin_dir, 'clang++')
+                nxt_clang = os.path.join(bin_dir_new, 'clang')
+                nxt_clangxx = os.path.join(bin_dir_new, 'clang++')
+                copy_file(prev_clang, nxt_clang)
+                copy_file(prev_clangxx, nxt_clangxx)
+
+                tmp_toolchain = Clang(name='Clang', version='1')
+                tmp_toolchain.prepare_rpath_wrappers(
+                    rpath_include_dirs=[
+                        # Don't need stage dir here as LD_LIBRARY_PATH is set during build, this is only needed for
+                        # installed binaries with rpath
+                        os.path.join(self.installdir, 'lib'),
+                        os.path.join(self.installdir, 'lib64'),
+                        os.path.join(self.installdir, lib_dir_runtime),
+                        ]
+                    )
+                remove_file(nxt_clang)
+                remove_file(nxt_clangxx)
+                self.log.info(
+                    "Prepared MOCK rpath wrappers needed to rpath-wrap also the new compilers produced "
+                    "by the project build and than used for the runtimes build"
+                    )
+                clang_mock = which('clang')
+                clangxx_mock = which('clang++')
+
+                clang_mock_wrapper_dir = os.path.dirname(clang_mock)
+
+                symlink(os.path.join(stage_dir, 'opt'), os.path.join(clang_mock_wrapper_dir, 'opt'))
+
+                self.runtimes_cmake_args['CMAKE_C_COMPILER'] = [clang_mock]
+                self.runtimes_cmake_args['CMAKE_CXX_COMPILER'] = [clangxx_mock]
+
 
         # Needed for passing the variables to the build command
         with _wrap_env(bin_dir, lib_path):
