@@ -201,9 +201,9 @@ class Binary(EasyBlock):
                 match = re.match(pattern, path)
                 if match:
                     env_var = match.group(1)
-                    self.log.debug("Found environment variable in extra_paths: %s", env_var)
+                    self.log.debug("Found environment variable in extra_rpaths: %s", env_var)
                     rest_of_path = match.group(2)
-                    env_value = os.environ.get(env_var, None)
+                    env_value = os.environ.get(env_var.lstrip('$'), None)  # Strip leading $ from env var name
                     if env_value is None:
                         raise EasyBuildError("An environment variable '%s' was used in the 'extra_rpaths' option, "
                                              "but could not be resolved because it was not found in the environment ",
