@@ -29,16 +29,11 @@ EasyBlock for installing Java, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-import stat
 
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.easyblocks.j.java import EB_Java
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, copy_file, remove
-from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, X86_64, get_cpu_architecture
+from easybuild.tools.filetools import remove
 
 
 class EB_Java_minus_awtlibs(EB_Java):
@@ -90,7 +85,8 @@ class EB_Java_minus_awtlibs(EB_Java):
             'dirs': [],
         }
         custom_commands = []
-        # Don't call Java's sanity_check_step, but the packed-binary one. Otherwise, these would just be overwritten again
+        # Don't call Java's sanity_check_step, but the packed-binary one.
+        # Otherwise, these custom_*'s would just be overwritten again
         super(EB_Java, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
