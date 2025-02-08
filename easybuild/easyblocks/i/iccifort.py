@@ -41,6 +41,26 @@ class EB_iccifort(EB_ifort, EB_icc):
     Class that can be used to install iccifort
     """
 
+    def __init__(self, *args, **kwargs):
+        """Constructor, initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        # Exclude 'compiler/include' for CPATH, including it causes problems, e.g. with complex.h and std::complex
+        # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
+        self.module_load_environment.CPATH.remove(os.path.join(self.comp_libs_subdir, 'compiler/include'))
+
+        # remove entries from LIBRARY_PATH that icc and co already know about at compile time
+        # only do this for iccifort merged installations so that icc can still find ifort
+        # libraries and vice versa for split installations
+        if self.comp_libs_subdir:
+            excluded_library_paths = [os.path.join(self.comp_libs_subdir, path) for path in (
+                'compiler/lib/intel64',
+                'lib',
+                'lib/intel64',
+            )]
+            for excluded_path in excluded_library_paths:
+                self.module_load_environment.LIBRARY_PATH.remove(excluded_path)
+
     def sanity_check_step(self):
         """Custom sanity check paths for iccifort."""
         EB_icc.sanity_check_step(self)
@@ -56,19 +76,3 @@ class EB_iccifort(EB_ifort, EB_icc):
         txt += self.module_generator.set_environment('EBVERSIONIFORT', self.version)
 
         return txt
-
-    def make_module_req_guess(self):
-        # Use EB_icc because its make_module_req_guess deliberately omits 'include' for CPATH:
-        # including it causes problems, e.g. with complex.h and std::complex
-        # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
-        # whereas EB_ifort adds 'include' but that's only needed if icc and ifort are separate
-        guesses = EB_icc.make_module_req_guess(self)
-
-        # remove entries from LIBRARY_PATH that icc and co already know about at compile time
-        # only do this for iccifort merged installations so that icc can still find ifort
-        # libraries and vice versa for split installations
-        if self.comp_libs_subdir is not None:
-            compiler_library_paths = [os.path.join(self.comp_libs_subdir, p)
-                                      for p in ('lib', 'compiler/lib/intel64', 'lib/ia32', 'lib/intel64')]
-            guesses['LIBRARY_PATH'] = [p for p in guesses['LIBRARY_PATH'] if p not in compiler_library_paths]
-        return guesses
