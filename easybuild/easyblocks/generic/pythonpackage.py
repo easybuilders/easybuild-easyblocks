@@ -50,7 +50,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, which
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import ModEnvVarType, get_software_root
 from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
 from easybuild.tools.utilities import nub
 from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
@@ -515,8 +515,8 @@ class PythonPackage(ExtensionEasyBlock):
 
         # avoid that lib subdirs are appended to $*LIBRARY_PATH if they don't provide libraries
         # typically, only lib/pythonX.Y/site-packages should be added to $PYTHONPATH (see make_module_extra)
-        self.module_load_environment.LD_LIBRARY_PATH.type = "PATH_WITH_TOP_FILES"
-        self.module_load_environment.LIBRARY_PATH.type = "PATH_WITH_TOP_FILES"
+        self.module_load_environment.LD_LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
+        self.module_load_environment.LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
 
     def determine_install_command(self):
         """
