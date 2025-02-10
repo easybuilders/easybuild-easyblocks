@@ -60,7 +60,8 @@ class EB_ifort(EB_icc, IntelBase):
 
         # define list of subdirectories in search paths of module load environment
         # add additional paths to those of ICC only needed for separate ifort installations
-        self.module_load_environment.CPATH.append(os.path.join(self.comp_libs_subdir, 'compiler/include'))
+        for envar in self.module_load_environment.alias('HEADERS'):
+            envar.append(os.path.join(self.comp_libs_subdir, 'compiler/include'))
 
     def sanity_check_step(self):
         """Custom sanity check paths for ifort."""
