@@ -453,6 +453,7 @@ class EB_imkl(IntelBase):
             compiler_subdir,
             os.path.join(self.mkl_basedir, 'lib', 'intel64'),
         ]
+        self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
         self.module_load_environment.CPATH = [
             os.path.join(self.mkl_basedir, 'include'),
             os.path.join(self.mkl_basedir, 'include', 'fftw'),
