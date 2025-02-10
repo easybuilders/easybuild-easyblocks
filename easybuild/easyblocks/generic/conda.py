@@ -57,14 +57,20 @@ class Conda(Binary):
         """Initialize class variables."""
         super().__init__(*args, **kwargs)
 
-        # Set common search paths used by conda to module load environment
+        # Do not add installation to search paths for headers or libraries to avoid
+        # that the conda environment is used by other software at building or linking time.
         # LD_LIBRARY_PATH issue discusses here:
         # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
-        self.module_load_environment.PATH = ['bin', 'sbin']
-        self.module_load_environment.MANPATH = ['man', os.path.join('share', 'man')]
-        self.module_load_environment.PKG_CONFIG_PATH = [
-            os.path.join(x, 'pkgconfig') for x in ['lib', 'lib32', 'lib64', 'share']
-        ]
+        mod_env_headers = self.module_load_environment.alias_vars('HEADERS')
+        mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
+        mod_env_cmake = ['CMAKE_LIBRARY_PATH', 'CMAKE_PREFIX_PATH']
+        for disallowed_var in mod_env_headers + mod_env_libs + mod_env_cmake:
+            try:
+                delattr(self.module_load_environment, disallowed_var)
+            except AttributeError:
+                pass
+            else:
+                self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def extract_step(self):
         """Copy sources via extract_step of parent, if any are specified."""
