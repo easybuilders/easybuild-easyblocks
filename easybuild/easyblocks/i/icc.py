@@ -107,15 +107,15 @@ class EB_icc(IntelBase):
             except TypeError:
                 raise EasyBuildError(f"Cannot prepend {self.comp_libs_subdir} to {subdir_paths}: wrong data type")
 
-        self.module_load_environment.PATH = [os.path.join(self.comp_libs_subdir, path) for path in (
+        self.module_load_environment.PATH = comp_libs_subdir_paths(
             'bin/intel64',
             'ipp/bin/intel64',
             'mpi/intel64/bin',
             'tbb/bin/emt64',
             'tbb/bin/intel64',
-        )]
+        )
         # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
-        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join(self.comp_libs_subdir, path) for path in (
+        self.module_load_environment.LD_LIBRARY_PATH = comp_libs_subdir_paths(
             'lib',
             'compiler/lib/intel64',
             'debugger/ipt/intel64/lib',
@@ -123,25 +123,25 @@ class EB_icc(IntelBase):
             'mkl/lib/intel64',
             'mpi/intel64',
             f"tbb/lib/intel64/{get_tbb_gccprefix(os.path.join(self.installdir, 'tbb/lib/intel64'))}",
-        )]
+        )
         # 'include' is deliberately omitted, including it causes problems, e.g. with complex.h and std::complex
         # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
-        self.module_load_environment.CPATH = [os.path.join(self.comp_libs_subdir, path) for path in (
+        self.module_load_environment.set_alias_vars('HEADERS', comp_libs_subdir_paths(
             'daal/include',
             'ipp/include',
             'mkl/include',
             'tbb/include',
-        )]
-        self.module_load_environment.CLASSPATH = [os.path.join(self.comp_libs_subdir, 'daal/lib/daal.jar')]
-        self.module_load_environment.DAALROOT = [os.path.join(self.comp_libs_subdir, 'daal')]
-        self.module_load_environment.IPPROOT = [os.path.join(self.comp_libs_subdir, 'ipp')]
-        self.module_load_environment.MANPATH = [os.path.join(self.comp_libs_subdir, path) for path in (
+        ))
+        self.module_load_environment.CLASSPATH = comp_libs_subdir_paths('daal/lib/daal.jar')
+        self.module_load_environment.DAALROOT = comp_libs_subdir_paths('daal')
+        self.module_load_environment.IPPROOT = comp_libs_subdir_paths('ipp')
+        self.module_load_environment.MANPATH = comp_libs_subdir_paths(
             'debugger/gdb/intel64/share/man',
             'man/common',
             'man/en_US',
             'share/man',
-        )]
-        self.module_load_environment.TBBROOT = [os.path.join(self.comp_libs_subdir, 'tbb')]
+        )
+        self.module_load_environment.TBBROOT = comp_libs_subdir_paths('tbb')
 
         # Debugger requires INTEL_PYTHONHOME, which only allows for a single value
         self.debuggerpath = f"debugger_{self.version.split('.')[0]}"
@@ -154,7 +154,7 @@ class EB_icc(IntelBase):
         )
 
         # 'lib/intel64' is deliberately listed last, so it gets precedence over subdirs
-        self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(self.comp_libs_subdir, 'lib/intel64'))
+        self.module_load_environment.LD_LIBRARY_PATH.extend(comp_libs_subdir_paths('lib/intel64'))
 
         self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
 
