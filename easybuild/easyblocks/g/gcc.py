@@ -203,12 +203,17 @@ class EB_GCC(ConfigureMake):
             self.log.warning('Setting withnvptx to False, since we are building on a RISC-V system')
             self.cfg['withnvptx'] = False
 
-        # define list of subdirectories in search paths of module load environment
-        self.module_load_environment.PATH = ['bin']
-        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib64']
-        # GCC can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        self.module_load_environment.CPATH = []
-        self.module_load_environment.LIBRARY_PATH = ['lib', 'lib64'] if get_cpu_family() == RISCV else []
+        # GCC can find its own headers and libraries in most cases, but we had
+        # cases where paths top libraries needed to be set explicitly
+        # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3256
+        # Therefore, remove paths from header search paths but keep paths in LIBRARY_PATH
+        for header_search_path in self.module_load_environment.alias_vars('HEADERS'):
+            try:
+                delattr(self.module_load_environment, header_search_path)
+            except AttributeError:
+                pass
+            else:
+                self.log.debug(f"Removing ${header_search_path} from module file of {self.name}")
 
     def create_dir(self, dirname):
         """
