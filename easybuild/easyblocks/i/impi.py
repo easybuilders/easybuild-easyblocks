@@ -284,12 +284,14 @@ class EB_impi(IntelBase):
         self.module_load_environment.PATH = path_dirs
         self.module_load_environment.LD_LIBRARY_PATH = lib_dirs
         self.module_load_environment.LIBRARY_PATH = lib_dirs
-        self.module_load_environment.CPATH = include_dirs
         self.module_load_environment.MANPATH = [manpath]
         if fi_provider_path is not None:
             self.module_load_environment.FI_PROVIDER_PATH = fi_provider_path
         if mic_library_path is not None:
             self.module_load_environment.MIC_LD_LIBRARY_PATH = mic_library_path
+
+        # include paths to headers (e.g. CPATH)
+        self.module_load_environment.set_alias_vars('HEADERS', include_dirs)
 
         return super().make_module_step(*args, **kwargs)
 
