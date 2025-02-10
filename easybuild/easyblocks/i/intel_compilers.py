@@ -163,9 +163,7 @@ class EB_intel_minus_compilers(IntelBase):
         self.module_load_environment.TBBROOT = [self.tbb_subdir]
 
         # include paths to headers (e.g. CPATH)
-        self.module_load_environment.set_alias_vars('HEADERS',
-            os.path.join(self.tbb_subdir, 'include')
-        )
+        self.module_load_environment.set_alias_vars('HEADERS', os.path.join(self.tbb_subdir, 'include'))
 
         return super().make_module_step(*args, **kwargs)
 
@@ -180,7 +178,7 @@ class EB_intel_minus_compilers(IntelBase):
         if res.exit_code == 0 and multiarch_out:
             multi_arch_inc_dir_cmd = '|'.join([
                 "gcc -E -Wp,-v -xc /dev/null 2>&1",
-                f"grep {multiarch_out}$" ,
+                f"grep {multiarch_out}$",
                 "grep -v /include-fixed/",
             ])
             res = run_shell_cmd(multi_arch_inc_dir_cmd, hidden=True)
