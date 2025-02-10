@@ -100,6 +100,12 @@ class EB_icc(IntelBase):
         # in deeper directories, and symlinked in top-level directories
         # however, not all binaries are symlinked (e.g. mcpcom is not)
         # we only need to include the deeper directories (same as compilervars.sh)
+        def comp_libs_subdir_paths(*subdir_paths):
+            """Utility method to prepend self.comp_libs_subdir to list of paths"""
+            try:
+                return [os.path.join(self.comp_libs_subdir, path) for path in subdir_paths]
+            except TypeError:
+                raise EasyBuildError(f"Cannot prepend {self.comp_libs_subdir} to {subdir_paths}: wrong data type")
 
         self.module_load_environment.PATH = [os.path.join(self.comp_libs_subdir, path) for path in (
             'bin/intel64',
