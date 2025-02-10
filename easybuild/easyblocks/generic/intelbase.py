@@ -137,7 +137,9 @@ class IntelBase(EasyBlock):
 
         # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
         # because that leads to problem when the libraries included with VTune/Advisor/Inspector are being picked up
-        for disallowed_var in ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']:
+        mod_env_headers = self.module_load_environment.alias_vars('HEADERS')
+        mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
+        for disallowed_var in mod_env_headers + mod_env_libs:
             try:
                 delattr(self.module_load_environment, disallowed_var)
             except AttributeError:
