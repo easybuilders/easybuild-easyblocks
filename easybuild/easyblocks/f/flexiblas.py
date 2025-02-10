@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2024 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -84,6 +84,9 @@ class EB_FlexiBLAS(CMakeMake):
             self.blas_libs = [x for x in dep_names if x not in build_dep_names]
 
         self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')
+
+        # custom CPATH to FlexiBLAS headers
+        self.module_load_environment.CPATH = [os.path.join('include', 'flexiblas')]
 
     def configure_step(self):
         """Custom configuration for FlexiBLAS, based on which BLAS libraries are included as dependencies."""
@@ -223,12 +226,3 @@ class EB_FlexiBLAS(CMakeMake):
             custom_commands.append("flexiblas list | grep %s" % blas_lib.upper())
 
         super(EB_FlexiBLAS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Customize CPATH for FlexiBLAS."""
-
-        guesses = super(EB_FlexiBLAS, self).make_module_req_guess()
-
-        guesses.update({'CPATH': [os.path.join('include', 'flexiblas')]})
-
-        return guesses

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -57,14 +57,13 @@ class EB_Advisor(IntelBase):
         else:
             self.subdir = os.path.join('advisor', 'latest')
 
+        # prepare module load environment
+        self.prepare_intel_tools_env()
+
     def prepare_step(self, *args, **kwargs):
         """Since 2019u3 there is no license required."""
         kwargs['requires_runtime_license'] = False
         super(EB_Advisor, self).prepare_step(*args, **kwargs)
-
-    def make_module_req_guess(self):
-        """Find reasonable paths for Advisor"""
-        return self.get_guesses_tools()
 
     def sanity_check_step(self):
         """Custom sanity check paths for Advisor"""

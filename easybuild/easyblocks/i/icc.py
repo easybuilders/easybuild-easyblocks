@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -66,9 +66,7 @@ class EB_icc(IntelBase):
         """Constructor, initialize class variables."""
         super(EB_icc, self).__init__(*args, **kwargs)
 
-        self.debuggerpath = None
-
-        self.comp_libs_subdir = None
+        self.comp_libs_subdir = ""
 
         # need to make sure version is an actual version
         # required because of support in SystemCompiler generic easyblock to specify 'system' as version,
@@ -91,6 +89,68 @@ class EB_icc(IntelBase):
                     f"Missing components specification, required for version {self.version}. "
                     f"Using {self.cfg['components']} instead."
                 )
+
+        # define list of subdirectories in search paths of module load environment
+        # some of these paths only apply to certain versions, but that doesn't really matter
+        # existence of paths is checked by module generator before 'prepend-paths' statements are included
+
+        # new directory layout since Intel Parallel Studio XE 2016
+        # https://software.intel.com/en-us/articles/new-directory-layout-for-intel-parallel-studio-xe-2016
+        # in recent Intel compiler distributions, the actual binaries are
+        # in deeper directories, and symlinked in top-level directories
+        # however, not all binaries are symlinked (e.g. mcpcom is not)
+        # we only need to include the deeper directories (same as compilervars.sh)
+
+        self.module_load_environment.PATH = [os.path.join(self.comp_libs_subdir, path) for path in (
+            'bin/intel64',
+            'ipp/bin/intel64',
+            'mpi/intel64/bin',
+            'tbb/bin/emt64',
+            'tbb/bin/intel64',
+        )]
+        # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join(self.comp_libs_subdir, path) for path in (
+            'lib',
+            'compiler/lib/intel64',
+            'debugger/ipt/intel64/lib',
+            'ipp/lib/intel64',
+            'mkl/lib/intel64',
+            'mpi/intel64',
+            f"tbb/lib/intel64/{get_tbb_gccprefix(os.path.join(self.installdir, 'tbb/lib/intel64'))}",
+        )]
+        # 'include' is deliberately omitted, including it causes problems, e.g. with complex.h and std::complex
+        # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
+        self.module_load_environment.CPATH = [os.path.join(self.comp_libs_subdir, path) for path in (
+            'daal/include',
+            'ipp/include',
+            'mkl/include',
+            'tbb/include',
+        )]
+        self.module_load_environment.CLASSPATH = [os.path.join(self.comp_libs_subdir, 'daal/lib/daal.jar')]
+        self.module_load_environment.DAALROOT = [os.path.join(self.comp_libs_subdir, 'daal')]
+        self.module_load_environment.IPPROOT = [os.path.join(self.comp_libs_subdir, 'ipp')]
+        self.module_load_environment.MANPATH = [os.path.join(self.comp_libs_subdir, path) for path in (
+            'debugger/gdb/intel64/share/man',
+            'man/common',
+            'man/en_US',
+            'share/man',
+        )]
+        self.module_load_environment.TBBROOT = [os.path.join(self.comp_libs_subdir, 'tbb')]
+
+        # Debugger requires INTEL_PYTHONHOME, which only allows for a single value
+        self.debuggerpath = f"debugger_{self.version.split('.')[0]}"
+        self.module_load_environment.LD_LIBRARY_PATH.extend([
+            os.path.join(self.debuggerpath, 'libipt/intel64/lib'),
+            'daal/lib/intel64_lin',  # out of self.comp_libs_subdir to not break libipt library loading for gdb
+        ])
+        self.module_load_environment.PATH.append(
+            os.path.join(self.debuggerpath, 'gdb', 'intel64', 'bin')
+        )
+
+        # 'lib/intel64' is deliberately listed last, so it gets precedence over subdirs
+        self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(self.comp_libs_subdir, 'lib/intel64'))
+
+        self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
 
     def sanity_check_step(self):
         """Custom sanity check paths for icc."""
@@ -118,98 +178,24 @@ class EB_icc(IntelBase):
 
         super(EB_icc, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """
-        Additional paths to consider for prepend-paths statements in module file
+        Additional paths for module load environment that are conditional
         """
-        prefix = None
-
-        guesses = super(EB_icc, self).make_module_req_guess()
-
-        # guesses per environment variables
-        # some of these paths only apply to certain versions, but that doesn't really matter
-        # existence of paths is checked by module generator before 'prepend-paths' statements are included
-        guesses.update({
-            'CLASSPATH': ['daal/lib/daal.jar'],
-            # 'include' is deliberately omitted, including it causes problems, e.g. with complex.h and std::complex
-            # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
-            'CPATH': ['daal/include', 'ipp/include', 'mkl/include', 'tbb/include'],
-            'DAALROOT': ['daal'],
-            'IPPROOT': ['ipp'],
-            'LD_LIBRARY_PATH': ['lib'],
-            'MANPATH': ['debugger/gdb/intel64/share/man', 'man/common', 'man/en_US', 'share/man'],
-            'PATH': [],
-            'TBBROOT': ['tbb'],
-        })
-
-        # 64-bit toolkit
-        guesses['PATH'].extend([
-            'bin/intel64',
-            'debugger/gdb/intel64/bin',
-            'ipp/bin/intel64',
-            'mpi/intel64/bin',
-            'tbb/bin/emt64',
-            'tbb/bin/intel64',
-        ])
-
-        # in the end we set 'LIBRARY_PATH' equal to 'LD_LIBRARY_PATH'
-        guesses['LD_LIBRARY_PATH'].extend([
-            'compiler/lib/intel64',
-            'debugger/ipt/intel64/lib',
-            'ipp/lib/intel64',
-            'mkl/lib/intel64',
-            'mpi/intel64',
-            'tbb/lib/intel64/%s' % get_tbb_gccprefix(os.path.join(self.installdir, 'tbb/lib/intel64')),
-        ])
-
-        # new directory layout since Intel Parallel Studio XE 2016
-        # https://software.intel.com/en-us/articles/new-directory-layout-for-intel-parallel-studio-xe-2016
-        prefix = self.comp_libs_subdir
-        # Debugger requires INTEL_PYTHONHOME, which only allows for a single value
-        self.debuggerpath = 'debugger_%s' % self.version.split('.')[0]
-
-        guesses['LD_LIBRARY_PATH'].extend([
-            os.path.join(self.debuggerpath, 'libipt/intel64/lib'),
-            'daal/lib/intel64_lin',
-        ])
-
-        # 'lib/intel64' is deliberately listed last, so it gets precedence over subdirs
-        guesses['LD_LIBRARY_PATH'].append('lib/intel64')
-
-        guesses['LIBRARY_PATH'] = guesses['LD_LIBRARY_PATH']
-
-        # set debugger path
-        if self.debuggerpath:
-            guesses['PATH'].append(os.path.join(self.debuggerpath, 'gdb', 'intel64', 'bin'))
-
-        # in recent Intel compiler distributions, the actual binaries are
-        # in deeper directories, and symlinked in top-level directories
-        # however, not all binaries are symlinked (e.g. mcpcom is not)
-        # we only need to include the deeper directories (same as compilervars.sh)
-        if prefix and os.path.isdir(os.path.join(self.installdir, prefix)):
-            for key, subdirs in guesses.items():
-                guesses[key] = [os.path.join(prefix, subdir) for subdir in subdirs]
-
-            # The for loop above breaks libipt library loading for gdb - this fixes that
-            guesses['LD_LIBRARY_PATH'].append('daal/lib/intel64_lin')
-            if self.debuggerpath:
-                guesses['LD_LIBRARY_PATH'].append(os.path.join(self.debuggerpath, 'libipt/intel64/lib'))
-
         # only set $IDB_HOME if idb exists
         idb_home_subdir = 'bin/intel64'
         if os.path.isfile(os.path.join(self.installdir, idb_home_subdir, 'idb')):
-            guesses['IDB_HOME'] = [idb_home_subdir]
+            self.module_load_environment.IDB_HOME = [idb_home_subdir]
 
-        return guesses
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self, *args, **kwargs):
         """Additional custom variables for icc: $INTEL_PYTHONHOME."""
         txt = super(EB_icc, self).make_module_extra(*args, **kwargs)
 
-        if self.debuggerpath:
-            intel_pythonhome = os.path.join(self.installdir, self.debuggerpath, 'python', 'intel64')
-            if os.path.isdir(intel_pythonhome):
-                txt += self.module_generator.set_environment('INTEL_PYTHONHOME', intel_pythonhome)
+        intel_pythonhome = os.path.join(self.installdir, self.debuggerpath, 'python', 'intel64')
+        if os.path.isdir(intel_pythonhome):
+            txt += self.module_generator.set_environment('INTEL_PYTHONHOME', intel_pythonhome)
 
         # on Debian/Ubuntu, /usr/include/x86_64-linux-gnu needs to be included in $CPATH for icc
         res = run_shell_cmd("gcc -print-multiarch", fail_on_error=False)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -53,6 +53,19 @@ class Conda(Binary):
         })
         return extra_vars
 
+    def __init__(self, *args, **kwargs):
+        """Initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        # Set common search paths used by conda to module load environment
+        # LD_LIBRARY_PATH issue discusses here:
+        # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
+        self.module_load_environment.PATH = ['bin', 'sbin']
+        self.module_load_environment.MANPATH = ['man', os.path.join('share', 'man')]
+        self.module_load_environment.PKG_CONFIG_PATH = [
+            os.path.join(x, 'pkgconfig') for x in ['lib', 'lib32', 'lib64', 'share']
+        ]
+
     def extract_step(self):
         """Copy sources via extract_step of parent, if any are specified."""
         if self.src:
@@ -74,7 +87,7 @@ class Conda(Binary):
 
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
-        cmd = "%s config --add create_default_packages setuptools" % conda_cmd
+        cmd = f"{conda_cmd} config --add create_default_packages setuptools"
         run_shell_cmd(cmd)
 
         if self.cfg['environment_file'] or self.cfg['remote_environment']:
@@ -85,26 +98,26 @@ class Conda(Binary):
                 env_spec = self.cfg['remote_environment']
 
             # use --force to ignore existing installation directory
-            cmd = "%s %s env create --force %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                         env_spec, self.installdir)
+            cmd = f"{self.cfg['preinstallopts']} {conda_cmd} env create "
+            cmd += f"--force {env_spec} -p {self.installdir}"
             run_shell_cmd(cmd)
 
         else:
 
             if self.cfg['requirements']:
 
-                install_args = "-y %s " % self.cfg['requirements']
+                install_args = f"-y {self.cfg['requirements']} "
                 if self.cfg['channels']:
                     install_args += ' '.join('-c ' + chan for chan in self.cfg['channels'])
 
                 self.log.info("Installed conda requirements")
 
-            cmd = "%s %s create --force -y -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                        self.installdir, install_args)
+            cmd = f"{self.cfg['preinstallopts']} {conda_cmd} create "
+            cmd += f"--force -y -p {self.installdir} {install_args}"
             run_shell_cmd(cmd)
 
         # clean up
-        cmd = "%s clean -ya" % conda_cmd
+        cmd = f"{conda_cmd} clean -ya"
         run_shell_cmd(cmd)
 
     def make_module_extra(self):
@@ -115,15 +128,3 @@ class Conda(Binary):
         txt += self.module_generator.set_environment('CONDA_DEFAULT_ENV', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for.
-        """
-        # LD_LIBRARY_PATH issue discusses here
-        # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
-        return {
-            'PATH': ['bin', 'sbin'],
-            'MANPATH': ['man', os.path.join('share', 'man')],
-            'PKG_CONFIG_PATH': [os.path.join(x, 'pkgconfig') for x in ['lib', 'lib32', 'lib64', 'share']],
-        }

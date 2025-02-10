@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -58,13 +58,12 @@ class EB_Inspector(IntelBase):
         elif loosever >= LooseVersion('2021'):
             self.subdir = os.path.join('inspector', 'latest')
 
+        # prepare module load environment
+        self.prepare_intel_tools_env()
+
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
         super(EB_Inspector, self).make_installdir(dontcreate=True)
-
-    def make_module_req_guess(self):
-        """Find reasonable paths for Inspector"""
-        return self.get_guesses_tools()
 
     def sanity_check_step(self):
         """Custom sanity check paths for Intel Inspector."""
