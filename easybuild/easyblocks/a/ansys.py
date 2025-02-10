@@ -47,6 +47,29 @@ class EB_ANSYS(PackedBinary):
         super(EB_ANSYS, self).__init__(*args, **kwargs)
         self.ansysver = None
 
+        # custom extra module environment entries for ANSYS
+        bin_dirs = [
+            'tgrid/bin',
+            'Framework/bin/Linux64',
+            'aisol/bin/linx64',
+            'RSM/bin',
+            'ansys/bin',
+            'autodyn/bin',
+            'CFD-Post/bin',
+            'CFX/bin',
+            'fluent/bin',
+            'TurboGrid/bin',
+            'polyflow/bin',
+            'Icepak/bin',
+            'icemcfd/linux64_amd/bin'
+        ]
+        if LooseVersion(self.version) >= LooseVersion('19.0'):
+            bin_dirs.append('CEI/bin')
+        # use glob pattern as we don't know exact version at this stage
+        # it will be expanded before injection into the module file
+        ansysver_glob = 'v[0-9]*'
+        self.module_load_environment.PATH = [os.path.join(ansysver_glob, d) for d in bin_dirs]
+
     def install_step(self):
         """Custom install procedure for ANSYS."""
         # Sources (e.g. iso files) may drop the execute permissions
@@ -76,35 +99,6 @@ class EB_ANSYS(PackedBinary):
                 raise EasyBuildError("Failed to isolate version subdirectory in %s: %s", self.installdir, entries)
         else:
             self.ansysver = 'v' + ''.join(self.version.split('.')[0:2])
-
-    def make_module_req_guess(self):
-        """Custom extra module file entries for ANSYS."""
-
-        if self.ansysver is None:
-            self.set_ansysver()
-
-        guesses = super(EB_ANSYS, self).make_module_req_guess()
-        dirs = [
-            'tgrid/bin',
-            'Framework/bin/Linux64',
-            'aisol/bin/linx64',
-            'RSM/bin',
-            'ansys/bin',
-            'autodyn/bin',
-            'CFD-Post/bin',
-            'CFX/bin',
-            'fluent/bin',
-            'TurboGrid/bin',
-            'polyflow/bin',
-            'Icepak/bin',
-            'icemcfd/linux64_amd/bin'
-        ]
-        if LooseVersion(self.version) >= LooseVersion('19.0'):
-            dirs.append('CEI/bin')
-
-        guesses['PATH'] = [os.path.join(self.ansysver, d) for d in dirs]
-
-        return guesses
 
     def make_module_extra(self):
         """Define extra environment variables required by Ansys"""

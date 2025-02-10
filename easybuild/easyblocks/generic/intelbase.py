@@ -128,19 +128,22 @@ class IntelBase(EasyBlock):
 
     def get_guesses_tools(self):
         """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
+        self.log.deprecated("IntelBase.get_guesses_tools() is replaced by IntelBase.prepare_intel_tools_env()", '6.0')
 
-        guesses = super(IntelBase, self).make_module_req_guess()
-        guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
-        guesses['MANPATH'] = [os.path.join(self.subdir, 'man')]
+    def prepare_intel_tools_env(self):
+        """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
+        self.module_load_environment.PATH = [os.path.join(self.subdir, 'bin64')]
+        self.module_load_environment.MANPATH = [os.path.join(self.subdir, 'man')]
 
         # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
         # because that leads to problem when the libraries included with VTune/Advisor/Inspector are being picked up
-        for key in ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']:
-            if key in guesses:
-                self.log.debug("Purposely not updating $%s in %s module file", key, self.name)
-                del guesses[key]
-
-        return guesses
+        for disallowed_var in ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']:
+            try:
+                delattr(self.module_load_environment, disallowed_var)
+            except AttributeError:
+                pass
+            else:
+                self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def get_custom_paths_tools(self, binaries):
         """Custom sanity check paths for certain Intel tools."""
