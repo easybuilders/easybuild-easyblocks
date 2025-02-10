@@ -71,6 +71,12 @@ class EB_ABAQUS(Binary):
             self.log.info("Auto-enabling installation of fe-safe components for ABAQUS versions >= 2020")
             self.cfg['with_fe_safe'] = True
 
+        # add custom paths to $PATH
+        path_subdirs = ['Commands']
+        if self.cfg['with_tosca']:
+            path_subdirs.append(os.path.join('cae', 'linux_a64', 'code', 'command'))
+        self.module_load_environment.PATH.extend(path_subdirs)
+
     def extract_step(self):
         """Use default extraction procedure instead of the one for the Binary easyblock."""
         EasyBlock.extract_step(self)
@@ -352,20 +358,6 @@ class EB_ABAQUS(Binary):
             custom_commands.append("ToscaPython.sh --help")
 
         super(EB_ABAQUS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Update $PATH guesses for ABAQUS."""
-        guesses = super(EB_ABAQUS, self).make_module_req_guess()
-
-        path_subdirs = ['Commands']
-        if self.cfg['with_tosca']:
-            path_subdirs.append(os.path.join('cae', 'linux_a64', 'code', 'command'))
-
-        guesses.update({
-            'PATH': path_subdirs,
-        })
-
-        return guesses
 
     def make_module_extra(self):
         """Add LM_LICENSE_FILE path if specified"""
