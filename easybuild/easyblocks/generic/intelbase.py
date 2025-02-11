@@ -140,12 +140,8 @@ class IntelBase(EasyBlock):
         mod_env_headers = self.module_load_environment.alias_vars('HEADERS')
         mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
         for disallowed_var in mod_env_headers + mod_env_libs:
-            try:
-                delattr(self.module_load_environment, disallowed_var)
-            except AttributeError:
-                pass
-            else:
-                self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def get_custom_paths_tools(self, binaries):
         """Custom sanity check paths for certain Intel tools."""

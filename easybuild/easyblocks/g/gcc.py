@@ -207,13 +207,9 @@ class EB_GCC(ConfigureMake):
         # cases where paths top libraries needed to be set explicitly
         # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3256
         # Therefore, remove paths from header search paths but keep paths in LIBRARY_PATH
-        for header_search_path in self.module_load_environment.alias_vars('HEADERS'):
-            try:
-                delattr(self.module_load_environment, header_search_path)
-            except AttributeError:
-                pass
-            else:
-                self.log.debug(f"Removing ${header_search_path} from module file of {self.name}")
+        for disallowed_var in self.module_load_environment.alias_vars('HEADERS'):
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def create_dir(self, dirname):
         """
