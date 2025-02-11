@@ -480,7 +480,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
+            self.lammpsdir = os.path.join(self.builddir, '%s-*' % self.name.lower())
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
