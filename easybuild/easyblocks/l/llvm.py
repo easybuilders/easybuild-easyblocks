@@ -244,6 +244,7 @@ class EB_LLVM(CMakeMake):
             'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
             'build_runtimes': [False, "Build the LLVM runtimes (compiler-rt, libunwind, libcxx, libcxxabi)", CUSTOM],
             'build_openmp': [True, "Build the LLVM OpenMP runtime", CUSTOM],
+            'build_openmp_offload': [True, "Build the LLVM OpenMP offload runtime", CUSTOM],
             'build_openmp_tools': [True, "Build the LLVM OpenMP tools interface", CUSTOM],
             'usepolly': [False, "Build Clang with polly", CUSTOM],
             'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
@@ -332,11 +333,16 @@ class EB_LLVM(CMakeMake):
             self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
         if self.cfg['build_openmp']:
             self.final_projects.append('openmp')
+        if self.cfg['build_openmp_offload']:
+            if not self.cfg['build_openmp']:
+                raise EasyBuildError("Building OpenMP offload requires building OpenMP runtime")
             # LLVM 19 added a new runtime target for explicit offloading
             # https://discourse.llvm.org/t/llvm-19-1-0-no-library-libomptarget-nvptx-sm-80-bc-found/81343
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self.log.debug("Explicitly enabling OpenMP offloading for LLVM >= 19")
                 self.final_runtimes.append('offload')
+            else:
+                self.log.warning("OpenMP offloading is included with the OpenMP runtime for LLVM < 19")
         if self.cfg['build_openmp_tools']:
             if not self.cfg['build_openmp']:
                 raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
@@ -466,7 +472,7 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['LIBOMP_HWLOC_INSTALL_DIR'] = hwloc_root
 
         if 'openmp' in self.final_projects:
-            if LooseVersion(self.version) >= LooseVersion('19'):
+            if LooseVersion(self.version) >= LooseVersion('19') and self.cfg['build_openmp_offload']:
                 self._cmakeopts['LIBOMPTARGET_PLUGINS_TO_BUILD'] = ';'.join(self.offload_targets)
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
@@ -1092,26 +1098,28 @@ class EB_LLVM(CMakeMake):
         if 'openmp' in self.final_projects:
             omp_lib_files = []
             omp_lib_files += ['libomp.so', 'libompd.so']
-            # Judging from the build process/logs of LLVM 19, the omptarget plugins (rtl.<device>.so) are now built
-            # as static libraries and linked into the libomptarget.so shared library
-            omp_lib_files += ['libomptarget.so']
-            if LooseVersion(self.version) < LooseVersion('19'):
-                omp_lib_files += ['libomptarget.rtl.%s.so' % arch]
-            if 'NVPTX' in self.cfg['build_targets']:
+            if self.cfg['build_openmp_offload']:
+                # Judging from the build process/logs of LLVM 19, the omptarget plugins (rtl.<device>.so) are now built
+                # as static libraries and linked into the libomptarget.so shared library
+                omp_lib_files += ['libomptarget.so']
                 if LooseVersion(self.version) < LooseVersion('19'):
-                    omp_lib_files += ['libomptarget.rtl.cuda.so']
-                omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
-            if 'AMDGPU' in self.cfg['build_targets']:
-                if LooseVersion(self.version) < LooseVersion('19'):
-                    omp_lib_files += ['libomptarget.rtl.amdgpu.so']
-                omp_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+                    omp_lib_files += ['libomptarget.rtl.%s.so' % arch]
+                if 'NVPTX' in self.cfg['build_targets']:
+                    if LooseVersion(self.version) < LooseVersion('19'):
+                        omp_lib_files += ['libomptarget.rtl.cuda.so']
+                    omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
+                if 'AMDGPU' in self.cfg['build_targets']:
+                    if LooseVersion(self.version) < LooseVersion('19'):
+                        omp_lib_files += ['libomptarget.rtl.amdgpu.so']
+                    omp_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
 
-            if LooseVersion(self.version) < LooseVersion('19'):
-                # Before LLVM 19, omp related libraries are installed under `ROOT/lib``
-                check_lib_files += omp_lib_files
-            else:
-                # Starting from LLVM 19, omp related libraries are installed the runtime library directory
-                check_librt_files += omp_lib_files
+                if LooseVersion(self.version) < LooseVersion('19'):
+                    # Before LLVM 19, omp related libraries are installed under `ROOT/lib``
+                    check_lib_files += omp_lib_files
+                else:
+                    # Starting from LLVM 19, omp related libraries are installed the runtime library directory
+                    check_librt_files += omp_lib_files
+                    check_bin_files += ['llvm-omp-kernel-replay', 'llvm-omp-device-info']
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
