@@ -49,7 +49,6 @@ KNOWN_SYSTEM_COMPILERS = {
     'GCCcore': 'gcc',
     'icc': 'icc',
     'ifort': 'ifort',
-    'systemcompilergcc-py-sw': 'gcc',  # used in test suite
 }
 
 
