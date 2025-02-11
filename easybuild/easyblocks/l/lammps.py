@@ -43,7 +43,7 @@ from easybuild.base import fancylogger
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, mkdir
+from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext
@@ -159,11 +159,8 @@ ref_version = '29Sep2021'
 _log = fancylogger.getLogger('easyblocks.lammps')
 
 
-def translate_lammps_version(version):
+def translate_lammps_version(version, path=""):
     """Translate the LAMMPS version into something that can be used in a comparison"""
-    items = [x for x in re.split('(\\d+)', version) if x]
-    if len(items) < 3:
-        raise ValueError("Version %s does not have (at least) 3 elements" % version)
     month_map = {
        "JAN": '01',
        "FEB": '02',
@@ -178,7 +175,23 @@ def translate_lammps_version(version):
        "NOV": '11',
        "DEC": '12'
     }
-    return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+    items = [x for x in re.split('(\\d+)', version) if x]
+    if len(items) < 3:
+        raise ValueError("Version %s does not have (at least) 3 elements" % version)
+    try:
+        return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+    except KeyError:
+        # avoid failing miserably under --module-only --force
+        if os.path.exists(path) and os.listdir(path):
+            txt = read_file(os.path.join(path, 'src', 'version.h'))
+            result = re.search(r'(?<=LAMMPS_VERSION ")\d+ \S+ \d+', txt)
+            if result:
+                day, month, year = result.group().split(' ')
+            else:
+                raise EasyBuildError("Failed to parse LAMMPS version: '%s'", txt)
+            return '.'.join([year, month_map[month.upper()], '%02d' % int(day)])
+        else:
+            raise ValueError("Version %s cannot be generated" % version)
 
 
 class EB_LAMMPS(CMakeMake):
@@ -194,9 +207,46 @@ class EB_LAMMPS(CMakeMake):
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
 
+    def update_kokkos_cpu_mapping(self):
+        """Add new kokkos_cpu_mapping to the list based on in which version they were added to LAMMPS"""
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
+            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
+            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
+            self.kokkos_cpu_mapping['cortex_a72'] = 'ARMV81'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
+            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
+            self.kokkos_cpu_mapping['icelake'] = 'ICX'
+            self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
+
+    @staticmethod
+    def extra_options(**kwargs):
+        """Custom easyconfig parameters for LAMMPS"""
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
+            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
+            'kokkos': [True, "Enable kokkos build.", CUSTOM],
+            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
+            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
+            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step for LAMMPS."""
+        super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
+
         # version 1.3.2 is used in the test suite to check easyblock can be initialised
         if self.version != '1.3.2':
-            self.cur_version = translate_lammps_version(self.version)
+            # take into account that build directory may not be available (in case of --module-only)
+            if os.path.exists(self.start_dir) and os.listdir(self.start_dir):
+                self.cur_version = translate_lammps_version(self.version, path=self.start_dir)
+            else:
+                self.cur_version = translate_lammps_version(self.version, path=self.installdir)
         else:
             self.cur_version = self.version
         self.ref_version = translate_lammps_version(ref_version)
@@ -216,38 +266,6 @@ class EB_LAMMPS(CMakeMake):
 
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
         self.update_kokkos_cpu_mapping()
-
-    @staticmethod
-    def extra_options(**kwargs):
-        """Custom easyconfig parameters for LAMMPS"""
-        extra_vars = CMakeMake.extra_options()
-        extra_vars.update({
-            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
-            'kokkos': [True, "Enable kokkos build.", CUSTOM],
-            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
-            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
-        })
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
-
-    def update_kokkos_cpu_mapping(self):
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
-            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
-            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
-            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
-            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
-            self.kokkos_cpu_mapping['icelake'] = 'ICX'
-            self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
-
-    def prepare_step(self, *args, **kwargs):
-        """Custom prepare step for LAMMPS."""
-        super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and self.cuda:
@@ -464,6 +482,11 @@ class EB_LAMMPS(CMakeMake):
     def install_step(self):
         """Install LAMMPS and examples/potentials."""
         super(EB_LAMMPS, self).install_step()
+        # Copy LICENCE and version file so these can be used with `--module-only`
+        version_file = os.path.join(self.start_dir, 'src', 'version.h')
+        copy_file(version_file, os.path.join(self.installdir, 'src', 'version.h'))
+        license_file = os.path.join(self.start_dir, 'LICENSE')
+        copy_file(license_file, os.path.join(self.installdir, 'LICENSE'))
         # Copy over the examples so we can repeat the sanity check
         # (some symlinks may be broken)
         examples_dir = os.path.join(self.start_dir, 'examples')
@@ -480,7 +503,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
+            self.lammpsdir = os.path.join(self.builddir, '%s-*%s' % (self.name.lower(), self.version))
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
@@ -542,6 +565,8 @@ class EB_LAMMPS(CMakeMake):
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [
+                os.path.join('src', 'version.h'),
+                'LICENSE',
                 os.path.join('bin', 'lmp'),
                 os.path.join('include', 'lammps', 'library.h'),
                 os.path.join('lib', 'liblammps.%s' % shlib_ext),
