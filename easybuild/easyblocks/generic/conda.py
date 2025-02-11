@@ -65,12 +65,8 @@ class Conda(Binary):
         mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
         mod_env_cmake = ['CMAKE_LIBRARY_PATH', 'CMAKE_PREFIX_PATH']
         for disallowed_var in mod_env_headers + mod_env_libs + mod_env_cmake:
-            try:
-                delattr(self.module_load_environment, disallowed_var)
-            except AttributeError:
-                pass
-            else:
-                self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def extract_step(self):
         """Copy sources via extract_step of parent, if any are specified."""
