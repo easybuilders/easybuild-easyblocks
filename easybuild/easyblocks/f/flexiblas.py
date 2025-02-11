@@ -36,7 +36,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 IMKL_CONF_TEMPLATE = """[IMKL]
@@ -94,7 +94,8 @@ class EB_FlexiBLAS(CMakeMake):
             'FLEXIBLAS_DEFAULT': self.cfg['flexiblas_default'] or self.blas_libs[0],
         }
 
-        supported_blas_libs = ['BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
+        supported_blas_libs = ['BLIS', 'NETLIB',
+                               'AOCL-BLAS', 'OpenBLAS', 'imkl']
 
         # make sure that default backend is a supported library
         flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
@@ -105,7 +106,8 @@ class EB_FlexiBLAS(CMakeMake):
         unsupported_libs = [x for x in self.blas_libs if x not in supported_blas_libs]
         if unsupported_libs:
             raise EasyBuildError("One or more unsupported libraries used: %s", ', '.join(unsupported_libs))
-
+        if 'AOCL-BLAS' in self.blas_libs:
+            self.blas_libs[self.blas_libs.index('AOCL-BLAS')] = 'AOCL_mt'
         # list of BLAS libraries to use is specified via -DEXTRA=...
         configopts['EXTRA'] = ';'.join(self.blas_libs)
 
@@ -132,7 +134,10 @@ class EB_FlexiBLAS(CMakeMake):
                 except KeyError:
                     raise EasyBuildError("Compiler family not supported yet: %s", comp_family)
             else:
-                configopts[key] = blas_lib.lower()
+                if blas_lib == 'AOCL_mt':
+                    configopts[key] = 'blis-mt'
+                else:
+                    configopts[key] = blas_lib.lower()
 
         # only add configure options to configopts easyconfig parameter if they're not defined yet,
         # to allow easyconfig to override specifies settings
@@ -182,7 +187,7 @@ class EB_FlexiBLAS(CMakeMake):
             "make test",
             self.cfg['testopts'],
         ])
-        run_cmd(test_cmd)
+        run_shell_cmd(test_cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for FlexiBLAS."""
