@@ -812,22 +812,22 @@ class EB_LLVM(CMakeMake):
         else:
             self.log.info("Building LLVM")
             print_msg("Building stage 1/1")
-        change_dir(self.llvm_obj_dir_stage1)
-        super(EB_LLVM, self).build_step(verbose, path)
-        # import shutil
-        # change_dir(self.builddir)
-        # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-        # shutil.rmtree('llvm.obj.1', ignore_errors=True)
-        # shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
+        # change_dir(self.llvm_obj_dir_stage1)
+        # super(EB_LLVM, self).build_step(verbose, path)
+        import shutil
+        change_dir(self.builddir)
+        print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+        shutil.rmtree('llvm.obj.1', ignore_errors=True)
+        shutil.copytree(os.path.join('..', 'llvm.obj.1'), 'llvm.obj.1')
         if self.cfg['bootstrap']:
             self.log.info("Building stage 2")
             print_msg("Building stage 2/3")
-            self.configure_step2()
-            self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
-            # change_dir(self.builddir)
-            # print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
-            # shutil.rmtree('llvm.obj.2', ignore_errors=True)
-            # shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
+            # self.configure_step2()
+            # self.build_with_prev_stage(self.llvm_obj_dir_stage1, self.llvm_obj_dir_stage2)
+            change_dir(self.builddir)
+            print_msg("TESTING!!!: Copying from previosu build (REMOVE ME)")
+            shutil.rmtree('llvm.obj.2', ignore_errors=True)
+            shutil.copytree(os.path.join('..', 'llvm.obj.2'), 'llvm.obj.2')
 
             self.log.info("Building stage 3")
             print_msg("Building stage 3/3")
@@ -1016,8 +1016,9 @@ class EB_LLVM(CMakeMake):
             gcc_prefix_compilers += ['clang', 'clang++']
 
         if 'clang-tools-extra' in self.final_projects:
+            # clang-pseudo removed with LLVM 20
             check_bin_files += [
-                'clangd', 'clang-tidy', 'clang-pseudo', 'clang-include-fixer', 'clang-query', 'clang-move',
+                'clangd', 'clang-tidy', 'clang-include-fixer', 'clang-query', 'clang-move',
                 'clang-reorder-fields', 'clang-include-cleaner', 'clang-apply-replacements',
                 'clang-change-namespace', 'pp-trace', 'modularize'
             ]
