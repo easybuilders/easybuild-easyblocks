@@ -1124,9 +1124,6 @@ class EB_LLVM(CMakeMake):
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
             check_librt_files += ['libarcher.so']
-            # In LLVM >= 19 OpenMP tools are build in different places, the purely openmp ones are built as projects
-            # like `libarcher.so` while other related to offload are built as runtimes
-            check_bin_files += ['llvm-omp-kernel-replay', 'llvm-omp-device-info']
         if self.cfg['python_bindings']:
             custom_commands += ["python -c 'import clang'"]
             custom_commands += ["python -c 'import mlir'"]
