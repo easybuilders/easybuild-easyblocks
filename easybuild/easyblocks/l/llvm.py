@@ -47,7 +47,7 @@ from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import (apply_regex_substitutions, change_dir,
                                        copy_dir, mkdir, symlink, which, copy_file, remove_file)
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_cmd, run_shell_cmd
 from easybuild.tools.systemtools import (AARCH32, AARCH64, POWER, RISCV64,
                                          X86_64, get_cpu_architecture,
                                          get_shared_lib_ext)
@@ -188,7 +188,8 @@ def sanity_check_gcc_prefix(compilers, gcc_prefix, installdir):
     rgx = re.compile('Selected GCC installation: (.*)')
     for comp in compilers:
         cmd = "%s -v" % os.path.join(installdir, 'bin', comp)
-        out, _ = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+        res = run_shell_cmd(cmd, fail_on_error=False)
+        out = res.output
         mch = rgx.search(out)
         if mch is None:
             raise EasyBuildError("Failed to extract GCC installation path from output of `%s`: %s", cmd, out)
@@ -789,11 +790,11 @@ class EB_LLVM(CMakeMake):
             change_dir(stage_dir)
             self.log.debug("Configuring %s", stage_dir)
             cmd = "cmake %s %s" % (self.cfg['configopts'], os.path.join(self.llvm_src_dir, 'llvm'))
-            run_cmd(cmd, log_all=True)
+            run_shell_cmd(cmd)
 
             self.log.debug("Building %s", stage_dir)
             cmd = "make %s VERBOSE=1" % self.make_parallel_opts
-            run_cmd(cmd, log_all=True)
+            run_shell_cmd(cmd)
 
         change_dir(curdir)
 
@@ -842,7 +843,8 @@ class EB_LLVM(CMakeMake):
             lib_path = os.path.join(basedir, lib_dir_runtime)
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
             cmd = "make -j %s check-all" % parallel
-            (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            out = res.output
             self.log.debug(out)
 
         rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
