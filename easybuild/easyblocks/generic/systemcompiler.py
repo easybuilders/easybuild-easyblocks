@@ -51,6 +51,7 @@ KNOWN_SYSTEM_COMPILERS = {
     'ifort': 'ifort',
 }
 
+
 def extract_compiler_version(compiler_name):
     """Extract compiler version for provided compiler_name."""
     # look for 3-4 digit version number, surrounded by spaces
