@@ -168,10 +168,10 @@ class Bundle(EasyBlock):
             # are correctly resolved with the component name/version before values are copied over to self.cfg
             with comp_cfg.allow_unresolved_templates():
                 comp_sources = comp_cfg['sources']
+                comp_source_urls = comp_cfg['source_urls']
             if not comp_sources:
                 raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
             # If per-component source URLs are provided, attach them directly to the relevant sources
-            comp_source_urls = comp_cfg['source_urls']
             if comp_source_urls:
                 for source in comp_sources:
                     if isinstance(source, str):
