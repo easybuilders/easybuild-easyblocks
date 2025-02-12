@@ -28,9 +28,6 @@ EasyBuild support for installing software using 'conda', implemented as an easyb
 @author: Jillian Rowe (New York University Abu Dhabi)
 @author: Kenneth Hoste (HPC-UGent)
 """
-
-import os
-
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_shell_cmd
