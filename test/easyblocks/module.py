@@ -443,8 +443,13 @@ def suite():
 
     for easyblock in easyblocks:
         eb_fn = os.path.basename(easyblock)
-        # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
+
         if eb_fn == 'systemcompiler.py':
+            # skip SystemCompiler, will be tested through its childs
+            continue
+
+        # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
+        if eb_fn == 'systemcompilergcc.py':
             # use GCC as name when testing SystemCompiler easyblock
             innertest = make_inner_test(easyblock, name='GCC', version='system')
         elif eb_fn == 'systemmpi.py':
