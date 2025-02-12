@@ -152,7 +152,6 @@ class EB_intel_minus_compilers(IntelBase):
             os.path.join(tbb_lib_prefix, tbb_lib_gccdir),
         ]
         self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
-        self.module_load_environment.CPATH = [os.path.join(self.tbb_subdir, 'include')]
         self.module_load_environment.MANPATH = [
             os.path.join(os.path.dirname(self.compilers_subdir), 'documentation', 'en', 'man', 'common'),
             os.path.join(self.compilers_subdir, 'share', 'man'),
@@ -163,6 +162,9 @@ class EB_intel_minus_compilers(IntelBase):
         )]
         self.module_load_environment.TBBROOT = [self.tbb_subdir]
 
+        # include paths to headers (e.g. CPATH)
+        self.module_load_environment.set_alias_vars('HEADERS', os.path.join(self.tbb_subdir, 'include'))
+
         return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
@@ -171,19 +173,23 @@ class EB_intel_minus_compilers(IntelBase):
 
         # On Debian/Ubuntu, /usr/include/x86_64-linux-gnu, or whatever dir gcc uses, needs to be included
         # in $CPATH for Intel C compiler
-        res = run_shell_cmd("gcc -print-multiarch")
+        res = run_shell_cmd("gcc -print-multiarch", hidden=True)
         multiarch_out = res.output.strip()
         if res.exit_code == 0 and multiarch_out:
             multi_arch_inc_dir_cmd = '|'.join([
                 "gcc -E -Wp,-v -xc /dev/null 2>&1",
-                "grep %s$" % multiarch_out,
+                f"grep {multiarch_out}$",
                 "grep -v /include-fixed/",
             ])
-            res = run_shell_cmd(multi_arch_inc_dir_cmd)
+            res = run_shell_cmd(multi_arch_inc_dir_cmd, hidden=True)
             multiarch_inc_dir = res.output.strip()
             if res.exit_code == 0 and multiarch_inc_dir:
-                self.log.info("Adding multiarch include path %s to $CPATH in generated module file", multiarch_inc_dir)
                 # system location must be appended at the end, so use append_paths
-                txt += self.module_generator.append_paths('CPATH', [multiarch_inc_dir], allow_abs=True)
+                for envar in self.module_load_environment.alias_vars('HEADERS'):
+                    self.log.info(
+                        f"Adding multiarch include path '{multiarch_inc_dir}' to ${envar} in generated module file"
+                    )
+                    # system location must be appended at the end, so use append_paths
+                    txt += self.module_generator.append_paths(envar, [multiarch_inc_dir], allow_abs=True)
 
         return txt

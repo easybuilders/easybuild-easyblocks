@@ -203,12 +203,13 @@ class EB_GCC(ConfigureMake):
             self.log.warning('Setting withnvptx to False, since we are building on a RISC-V system')
             self.cfg['withnvptx'] = False
 
-        # define list of subdirectories in search paths of module load environment
-        self.module_load_environment.PATH = ['bin']
-        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib64']
-        # GCC can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        self.module_load_environment.CPATH = []
-        self.module_load_environment.LIBRARY_PATH = ['lib', 'lib64'] if get_cpu_family() == RISCV else []
+        # GCC can find its own headers and libraries in most cases, but we had
+        # cases where paths top libraries needed to be set explicitly
+        # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3256
+        # Therefore, remove paths from header search paths but keep paths in LIBRARY_PATH
+        for disallowed_var in self.module_load_environment.alias_vars('HEADERS'):
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def create_dir(self, dirname):
         """

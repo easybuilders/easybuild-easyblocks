@@ -454,12 +454,15 @@ class EB_imkl(IntelBase):
             os.path.join(self.mkl_basedir, 'lib', 'intel64'),
         ]
         self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
-        self.module_load_environment.CPATH = [
+        self.module_load_environment.CMAKE_PREFIX_PATH = [self.mkl_basedir]
+        self.module_load_environment.PKG_CONFIG_PATH = pkg_config_path
+
+        # include paths to headers (e.g. CPATH)
+        include_dirs = [
             os.path.join(self.mkl_basedir, 'include'),
             os.path.join(self.mkl_basedir, 'include', 'fftw'),
         ]
-        self.module_load_environment.CMAKE_PREFIX_PATH = [self.mkl_basedir]
-        self.module_load_environment.PKG_CONFIG_PATH = pkg_config_path
+        self.module_load_environment.set_alias_vars('HEADERS', include_dirs)
 
         if LooseVersion(self.version) < LooseVersion('2021'):
             self.module_load_environment.MANPATH = ['man', os.path.join('man', 'en_US')]

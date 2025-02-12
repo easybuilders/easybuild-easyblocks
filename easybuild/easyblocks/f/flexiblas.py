@@ -86,7 +86,7 @@ class EB_FlexiBLAS(CMakeMake):
         self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')
 
         # custom CPATH to FlexiBLAS headers
-        self.module_load_environment.CPATH = [os.path.join('include', 'flexiblas')]
+        self.module_load_environment.set_alias_vars('HEADERS', [os.path.join('include', 'flexiblas')])
 
     def configure_step(self):
         """Custom configuration for FlexiBLAS, based on which BLAS libraries are included as dependencies."""
