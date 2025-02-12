@@ -97,6 +97,11 @@ class EB_CPLEX(Binary):
         }
         noqanda = [r'Installing\.\.\..*\n.*------.*\n\n.*============.*\n.*$']
 
+        cmd = ''.join([
+            self.cfg['preinstallopts'],
+            cmd,
+            self.cfg['installopts'],
+        ])
         run_cmd_qa(cmd, qanda, no_qa=noqanda, log_all=True, simple=True)
 
         # fix permissions on install dir
