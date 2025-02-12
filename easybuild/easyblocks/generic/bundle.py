@@ -121,7 +121,7 @@ class Bundle(EasyBlock):
             comp_cfg['version'] = comp_version
 
             # determine easyblock to use for this component
-            # - if an easyblock is specified explicitely, that will be used
+            # - if an easyblock is specified explicitly, that will be used
             # - if not, a software-specific easyblock will be considered by get_easyblock_class
             # - if no easyblock was found, default_easyblock is considered
             comp_easyblock = comp_specs.get('easyblock')
@@ -142,6 +142,10 @@ class Bundle(EasyBlock):
             if easyblock == 'Bundle':
                 raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
 
+            if easyblock_class.run_all_steps.__code__ is not EasyBlock.run_all_steps.__code__:
+                raise EasyBuildError("Easyblock %s overrides the run_all_steps() method, and cannot be used to install "
+                                     "a component in a bundle", easyblock)
+
             comp_cfg.easyblock = easyblock_class
 
             # make sure that extra easyconfig parameters are known, so they can be set
@@ -157,6 +161,11 @@ class Bundle(EasyBlock):
             comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = comp_cfg['patches'] = []
 
             for key in self.cfg['default_component_specs']:
+                if key == 'easyblock':
+                    raise EasyBuildError("You cannot use 'easyblock' within 'default_component_specs'. Instead, use "
+                                         "the 'default_easyblock' easyconfig parameter (a custom easyblock for a "
+                                         "component will still be preferred if it exists), or explicitly specify the "
+                                         "easyblock to be used for each component")
                 comp_cfg[key] = self.cfg['default_component_specs'][key]
 
             for key in comp_specs:
