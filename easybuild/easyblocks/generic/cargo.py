@@ -125,6 +125,18 @@ def get_workspace_members(crate_dir):
     return [os.path.join(crate_dir, m) for m in members]
 
 
+def get_checksum(src, log):
+    """Get the checksum from an extracted source"""
+    checksum = src['checksum']
+    if isinstance(checksum, dict):
+        try:
+            checksum = checksum[src['name']]
+        except KeyError:
+            log.warning('No checksum for %s in %s', checksum, src['name'])
+            checksum = None
+    return checksum
+
+
 class Cargo(ExtensionEasyBlock):
     """Support for installing Cargo packages (Rust)"""
 
@@ -186,13 +198,7 @@ class Cargo(ExtensionEasyBlock):
         """Constructor for Cargo easyblock."""
         super(Cargo, self).__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
-        env.setvar('CARGO_HOME', self.cargo_home)
-        env.setvar('RUSTC', 'rustc')
-        env.setvar('RUSTDOC', 'rustdoc')
-        env.setvar('RUSTFMT', 'rustfmt')
-        env.setvar('RUSTFLAGS', self.rustc_optarch())
-        env.setvar('RUST_LOG', 'DEBUG')
-        env.setvar('RUST_BACKTRACE', '1')
+        self.set_cargo_vars()
 
         # Populate sources from "crates" list of tuples
         sources = []
@@ -219,10 +225,30 @@ class Cargo(ExtensionEasyBlock):
 
         self.cfg.update('sources', sources)
 
+    def set_cargo_vars(self):
+        """Set environment variables for Rust compilation and Cargo"""
+        env.setvar('CARGO_HOME', self.cargo_home)
+        env.setvar('RUSTC', 'rustc')
+        env.setvar('RUSTDOC', 'rustdoc')
+        env.setvar('RUSTFMT', 'rustfmt')
+        env.setvar('RUSTFLAGS', self.rustc_optarch())
+        env.setvar('RUST_LOG', 'DEBUG')
+        env.setvar('RUST_BACKTRACE', '1')
+
     @property
     def crates(self):
         """Return the crates as defined in the EasyConfig"""
         return self.cfg['crates']
+
+    def load_module(self, *args, **kwargs):
+        """(Re)set environment variables after loading module file.
+
+        Required here to ensure the variables are defined for stand-alone installations and extensions,
+        because the environment is reset to the initial environment right before loading the module.
+        """
+
+        super(Cargo, self).load_module(*args, **kwargs)
+        self.set_cargo_vars()
 
     def extract_step(self):
         """
@@ -257,12 +283,13 @@ class Cargo(ExtensionEasyBlock):
                 except KeyError:
                     git_sources[git_key] = src
                 else:
-                    previous_checksum = previous_source['checksum']
-                    current_checksum = src['checksum']
+                    previous_checksum = get_checksum(previous_source, self.log)
+                    current_checksum = get_checksum(src, self.log)
                     if previous_checksum and current_checksum and previous_checksum != current_checksum:
-                        raise EasyBuildError("Sources for the same git repository need to be identical."
-                                             "Mismatch found for %s rev %s in %s vs %s",
-                                             git_repo, rev, previous_source['name'], src['name'])
+                        raise EasyBuildError("Sources for the same git repository need to be identical. "
+                                             "Mismatch found for %s rev %s in %s (checksum: %s) vs %s (checksum: %s)",
+                                             git_repo, rev, previous_source['name'], previous_checksum,
+                                             src['name'], current_checksum)
                     self.log.info("Source %s already extracted to %s by %s. Skipping extraction.",
                                   src['name'], previous_source['finalpath'], previous_source['name'])
                     src['finalpath'] = previous_source['finalpath']
