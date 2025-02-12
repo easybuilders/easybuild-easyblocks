@@ -182,7 +182,7 @@ class EB_Rosetta(EasyBlock):
             os.chdir(self.srcdir)
         except OSError as err:
             raise EasyBuildError("Failed to change to %s: %s", self.srcdir, err)
-        par = "-j {self.cfg.parallel}" if self.cfg.parallel > 1 else ""
+        par = f"-j {self.cfg.parallel}" if self.cfg.parallel > 1 else ""
         cmd = "python ./scons.py %s %s bin" % (self.cfg['buildopts'], par)
         run_shell_cmd(cmd)
 

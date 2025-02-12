@@ -177,7 +177,7 @@ class EB_Molpro(ConfigureMake, Binary):
 
             if build_option('mpi_tests'):
                 # extensive test
-                run_shell_cmd(f"make MOLPRO_OPTIONS='-n{self.cfg.parallel}")
+                run_shell_cmd(f"make MOLPRO_OPTIONS='-n{self.cfg.parallel}' test")
             else:
                 self.log.info("Skipping extensive testing of Molpro since MPI testing is disabled")
 
