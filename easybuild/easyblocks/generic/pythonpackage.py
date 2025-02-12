@@ -387,7 +387,7 @@ class PythonPackage(ExtensionEasyBlock):
             extra_vars = {}
         extra_vars.update({
             'buildcmd': [None, "Command for building the package (e.g. for custom builds resulting in a whl file). "
-                               "When using setup.py it will be auto-generated based using the value of 'build_target'. "
+                               "When using setup.py it will be auto-generated using the value of 'build_target'. "
                                "Otherwise it will be used as-is. A value of None then skips the build step. "
                                "The template %(python)s will be replaced by the currently used Python binary.", CUSTOM],
             'build_target': ['build', "Option to pass to setup.py for building", CUSTOM],
