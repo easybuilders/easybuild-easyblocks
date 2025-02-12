@@ -757,6 +757,21 @@ class EB_Clang(CMakeMake):
 
         super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
+    def make_module_step(self, *args, **kwargs):
+        """
+        Set paths for module load environment based on the actual installation files
+        """
+        # Ensure that installation files are not added to search paths to headers and libs
+        mod_env_headers = self.module_load_environment.alias_vars('HEADERS')
+        mod_env_libs = ['LIBRARY_PATH']
+        for disallowed_var in mod_env_headers + mod_env_libs:
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
+        # Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
+        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib64', self.runtime_lib_path]
+
+        return super().make_module_step(*args, **kwargs)
+
     def make_module_extra(self):
         """Custom variables for Clang module."""
         txt = super(EB_Clang, self).make_module_extra()
@@ -766,15 +781,3 @@ class EB_Clang(CMakeMake):
         if self.cfg['python_bindings']:
             txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join("lib", "python"))
         return txt
-
-    def make_module_req_guess(self):
-        """
-        Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        """
-        guesses = super(EB_Clang, self).make_module_req_guess()
-        guesses.update({
-            'CPATH': [],
-            'LIBRARY_PATH': [],
-            'LD_LIBRARY_PATH': ['lib', 'lib64', self.runtime_lib_path],
-        })
-        return guesses
