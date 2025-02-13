@@ -80,6 +80,9 @@ class EB_WPS(EasyBlock):
         else:
             self.wps_subdir = 'WPS-%s' % self.version
 
+        self.module_load_environment.LD_LIBRARY_PATH = self.wps_subdir
+        self.module_load_environment.PATH = [self.wps_subdir, os.path.join(self.wps_subdir, 'util')]
+
     @staticmethod
     def extra_options():
         extra_vars = {
@@ -388,14 +391,6 @@ class EB_WPS(EasyBlock):
             'dirs': [],
         }
         super(EB_WPS, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Make sure PATH and LD_LIBRARY_PATH are set correctly."""
-        return {
-            'PATH': [self.wps_subdir, os.path.join(self.wps_subdir, 'util')],
-            'LD_LIBRARY_PATH': [self.wps_subdir],
-            'MANPATH': [],
-        }
 
     def make_module_extra(self):
         """Add netCDF environment variables to module file."""
