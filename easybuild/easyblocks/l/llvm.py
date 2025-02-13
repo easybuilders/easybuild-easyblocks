@@ -47,7 +47,7 @@ from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import (apply_regex_substitutions, change_dir,
                                        copy_dir, mkdir, symlink, which, copy_file, remove_file)
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd, run_shell_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import (AARCH32, AARCH64, POWER, RISCV64,
                                          X86_64, get_cpu_architecture,
                                          get_shared_lib_ext)
@@ -681,9 +681,9 @@ class EB_LLVM(CMakeMake):
         ]))
 
         #######################################################
-        # PROBLEM!!!: 
+        # PROBLEM!!!:
         # Binaries and libraries produced during runtimes make use of the newly built Clang compiler which is not
-        # rpath-wrapped. This causes the executable to be produced without rpath (if required) and with 
+        # rpath-wrapped. This causes the executable to be produced without rpath (if required) and with
         # runpath set to $ORIGIN. This causes 2 problems:
         #  - Binaries produced for the runtimes will fail the sanity check
         #  - Runtimes libraries that link to libLLVM.so like `libomptarget.so` need LD_LIBRARY_PATH to work.
@@ -731,7 +731,6 @@ class EB_LLVM(CMakeMake):
 
                 self.runtimes_cmake_args['CMAKE_C_COMPILER'] = [clang_mock]
                 self.runtimes_cmake_args['CMAKE_CXX_COMPILER'] = [clangxx_mock]
-
 
         # Needed for passing the variables to the build command
         with _wrap_env(bin_dir, lib_path):
