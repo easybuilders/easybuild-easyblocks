@@ -50,7 +50,9 @@ class EB_Xmipp(SCons):
     def __init__(self, *args, **kwargs):
         """Initialize Xmipp-specific variables."""
         super(EB_Xmipp, self).__init__(*args, **kwargs)
+
         self.xmipp_modules = ['xmippCore', 'xmipp', 'xmippViz']
+
         if LooseVersion(self.version) >= LooseVersion('3.20.07'):
             self.cfg['start_dir'] = os.path.join(self.builddir, 'xmipp-' + self.version)
             self.srcdir = os.path.join(self.cfg['start_dir'], 'src')
@@ -61,7 +63,11 @@ class EB_Xmipp(SCons):
             self.srcdir = os.path.join(self.builddir, 'src')
             self.cfgfile = os.path.join(self.builddir, 'xmipp.conf')
             self.xmipp_exe = os.path.join(self.srcdir, 'xmipp', 'xmipp')
+
         self.use_cuda = False
+
+        self.module_load_environment.LD_LIBRARY_PATH = ['lib', os.path.join('bindings', 'python')]
+        self.module_load_environment.PYTHONPATH = [os.path.join('bindings', 'python'), 'pylib']
 
     def extract_step(self):
         """Extract Xmipp sources."""
@@ -296,12 +302,3 @@ class EB_Xmipp(SCons):
         txt += self.module_generator.set_environment('XMIPP_HOME', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
-
-    def make_module_req_guess(self):
-        """Custom guesses for environment variables for Xmipp."""
-        guesses = super(EB_Xmipp, self).make_module_req_guess()
-        guesses.update({
-            'LD_LIBRARY_PATH': ['lib', os.path.join('bindings', 'python')],
-            'PYTHONPATH': [os.path.join('bindings', 'python'), 'pylib'],
-        })
-        return guesses
