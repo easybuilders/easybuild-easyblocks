@@ -219,6 +219,11 @@ class EB_LLVM(CMakeMake):
         'usepolly',
     ]
 
+    symlink_lst = [
+        ('x86_64-unknown-linux-gnu', 'x86_64-pc-linux'),
+        ('x86_64-unknown-linux-gnu', 'x86_64-pc-linux-gnu'),
+    ]
+
     cfg_compilers = ['clang', 'clang++', 'flang']
 
     @staticmethod
@@ -937,6 +942,22 @@ class EB_LLVM(CMakeMake):
             # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
             self._set_gcc_prefix()
             create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.installdir)
+
+        # This is needed as some older build system will select a different naming scheme for the library leading to
+        # The correct target <__config_site> and libclang_rt.builtins.a not being found
+        # An example is building BOOST
+        resdir_version = self.version.split('.')[0]
+        clang_lib = os.path.join(self.installdir, 'lib', 'clang', resdir_version, 'lib')
+
+        for orig, other in self.symlink_lst:
+            for dirname in ['include', 'lib', clang_lib]:
+                src = os.path.join(self.installdir, dirname, orig)
+                dst = os.path.join(self.installdir, dirname, other)
+                if os.path.exists(src) and not os.path.exists(dst):
+                    self.log.info(
+                        "Creating symlink for %s to %s for better compatibility with expected --target", src, dst
+                        )
+                    symlink(src, dst)
 
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
