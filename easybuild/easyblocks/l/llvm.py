@@ -219,11 +219,17 @@ class EB_LLVM(CMakeMake):
         'usepolly',
     ]
 
+    # Create symlink between equivalent host triples, useful so that other build processes that relies on older
+    # triple names can still work when passing the old name to --target
     symlink_lst = [
         ('x86_64-unknown-linux-gnu', 'x86_64-pc-linux'),
         ('x86_64-unknown-linux-gnu', 'x86_64-pc-linux-gnu'),
     ]
 
+    # From LLVM19, GCC_INSTALL_PREFIX is not supported anymore to hardcode the GCC installation path into the binaries
+    # Now every compilers needs a .cfg file with the --gcc-install-dir option
+    # This list tells which compilers need to have a .cfg file created
+    # NOTE: flang.cfg is the expected name also for the `flang-new` compiler
     cfg_compilers = ['clang', 'clang++', 'flang']
 
     @staticmethod
