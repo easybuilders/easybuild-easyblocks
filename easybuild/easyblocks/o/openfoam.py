@@ -58,7 +58,7 @@ from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture
 
 class EB_OpenFOAM(EasyBlock):
     """Support for building and installing OpenFOAM."""
-    
+
     @staticmethod
     def extra_options():
         """Custom easyconfig parameter specific to OpenFOAM."""
