@@ -83,10 +83,18 @@ class EB_AOCC(PackedBinary):
         super(EB_AOCC, self).__init__(*args, **kwargs)
 
         self.clangversion = self.cfg['clangversion']
+        # AOCC is based on Clang. Try to guess the clangversion from the AOCC version
+        # if clangversion is not specified in the easyconfig
+        if self.clangversion is None:
+            self.clangversion = self._aocc_guess_clang_version()
+
         self.gcc_prefix = None
 
         # Bypass the .mod file check for GCCcore installs
         self.cfg['skip_mod_files_sanity_check'] = True
+
+        self.module_load_environment.C_INCLUDE_PATH = 'include'
+        self.module_load_environment.CPLUS_INCLUDE_PATH = 'include'
 
     def _aocc_guess_clang_version(self):
         map_aocc_to_clang_ver = {
@@ -207,11 +215,6 @@ class EB_AOCC(PackedBinary):
         # or via 'accept_eula = True' in easyconfig file
         self.check_accepted_eula(more_info='http://developer.amd.com/wordpress/media/files/AOCC_EULA.pdf')
 
-        # AOCC is based on Clang. Try to guess the clangversion from the AOCC version
-        # if clangversion is not specified in the easyconfig
-        if self.clangversion is None:
-            self.clangversion = self._aocc_guess_clang_version()
-
         super(EB_AOCC, self).install_step()
 
     def post_processing_step(self):
@@ -299,13 +302,3 @@ class EB_AOCC(PackedBinary):
         # setting the AOCChome path
         txt += self.module_generator.set_environment('AOCChome', self.installdir)
         return txt
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for.
-        Include C_INCLUDE_PATH and CPLUS_INCLUDE_PATH as an addition to default ones
-        """
-        guesses = super(EB_AOCC, self).make_module_req_guess()
-        guesses['C_INCLUDE_PATH'] = ['include']
-        guesses['CPLUS_INCLUDE_PATH'] = ['include']
-        return guesses
