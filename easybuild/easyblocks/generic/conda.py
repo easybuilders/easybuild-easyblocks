@@ -31,7 +31,7 @@ EasyBuild support for installing software using 'conda', implemented as an easyb
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.build_log import EasyBuildError
 
 
@@ -58,7 +58,7 @@ class Conda(Binary):
         # that the conda environment is used by other software at building or linking time.
         # LD_LIBRARY_PATH issue discusses here:
         # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
-        mod_env_headers = self.module_load_environment.alias_vars('HEADERS')
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
         mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
         mod_env_cmake = ['CMAKE_LIBRARY_PATH', 'CMAKE_PREFIX_PATH']
         for disallowed_var in mod_env_headers + mod_env_libs + mod_env_cmake:

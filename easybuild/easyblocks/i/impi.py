@@ -43,7 +43,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
@@ -291,7 +291,7 @@ class EB_impi(IntelBase):
             self.module_load_environment.MIC_LD_LIBRARY_PATH = mic_library_path
 
         # include paths to headers (e.g. CPATH)
-        self.module_load_environment.set_alias_vars('HEADERS', include_dirs)
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, include_dirs)
 
         return super().make_module_step(*args, **kwargs)
 

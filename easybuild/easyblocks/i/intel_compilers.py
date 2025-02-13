@@ -33,6 +33,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.tbb import get_tbb_gccprefix
 from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -163,7 +164,7 @@ class EB_intel_minus_compilers(IntelBase):
         self.module_load_environment.TBBROOT = [self.tbb_subdir]
 
         # include paths to headers (e.g. CPATH)
-        self.module_load_environment.set_alias_vars('HEADERS', os.path.join(self.tbb_subdir, 'include'))
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, os.path.join(self.tbb_subdir, 'include'))
 
         return super().make_module_step(*args, **kwargs)
 
@@ -185,7 +186,7 @@ class EB_intel_minus_compilers(IntelBase):
             multiarch_inc_dir = res.output.strip()
             if res.exit_code == 0 and multiarch_inc_dir:
                 # system location must be appended at the end, so use append_paths
-                for envar in self.module_load_environment.alias_vars('HEADERS'):
+                for envar in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
                     self.log.info(
                         f"Adding multiarch include path '{multiarch_inc_dir}' to ${envar} in generated module file"
                     )

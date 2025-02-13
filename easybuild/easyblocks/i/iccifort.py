@@ -34,6 +34,7 @@ EasyBuild support for installing the Intel compiler suite, implemented as an eas
 import os
 from easybuild.easyblocks.icc import EB_icc
 from easybuild.easyblocks.ifort import EB_ifort
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 
 
 class EB_iccifort(EB_ifort, EB_icc):
@@ -47,7 +48,7 @@ class EB_iccifort(EB_ifort, EB_icc):
 
         # Exclude 'compiler/include' for CPATH, including it causes problems, e.g. with complex.h and std::complex
         # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
-        for envar in self.module_load_environment.alias('HEADERS'):
+        for envar in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
             envar.remove(os.path.join(self.comp_libs_subdir, 'compiler/include'))
 
         # remove entries from LIBRARY_PATH that icc and co already know about at compile time

@@ -36,6 +36,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import write_file
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -86,7 +87,7 @@ class EB_FlexiBLAS(CMakeMake):
         self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')
 
         # custom CPATH to FlexiBLAS headers
-        self.module_load_environment.set_alias_vars('HEADERS', [os.path.join('include', 'flexiblas')])
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, [os.path.join('include', 'flexiblas')])
 
     def configure_step(self):
         """Custom configuration for FlexiBLAS, based on which BLAS libraries are included as dependencies."""

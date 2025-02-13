@@ -47,7 +47,7 @@ from easybuild.tools.config import ERROR
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink, which
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
@@ -762,7 +762,7 @@ class EB_Clang(CMakeMake):
         Set paths for module load environment based on the actual installation files
         """
         # Ensure that installation files are not added to search paths to headers and libs
-        mod_env_headers = self.module_load_environment.alias_vars('HEADERS')
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
         mod_env_libs = ['LIBRARY_PATH']
         for disallowed_var in mod_env_headers + mod_env_libs:
             self.module_load_environment.remove(disallowed_var)

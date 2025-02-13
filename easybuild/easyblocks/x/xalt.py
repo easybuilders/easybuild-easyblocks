@@ -35,7 +35,7 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -65,7 +65,7 @@ class EB_XALT(ConfigureMake):
         self.module_load_environment.COMPILER_PATH = 'bin'
         self.module_load_environment.PATH = 'bin'
 
-        mod_env_headers = self.module_load_environment.alias_vars('HEADERS')
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
         mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
         mod_env_cmake = ['CMAKE_LIBRARY_PATH', 'CMAKE_PREFIX_PATH']
         for disallowed_var in mod_env_headers + mod_env_libs + mod_env_cmake:

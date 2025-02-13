@@ -49,6 +49,7 @@ from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, find_flexlm_license
 from easybuild.tools.filetools import read_file, remove_file, write_file
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -137,7 +138,7 @@ class IntelBase(EasyBlock):
 
         # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
         # because that leads to problem when the libraries included with VTune/Advisor/Inspector are being picked up
-        mod_env_headers = self.module_load_environment.alias_vars('HEADERS')
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
         mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
         for disallowed_var in mod_env_headers + mod_env_libs:
             self.module_load_environment.remove(disallowed_var)

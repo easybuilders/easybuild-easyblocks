@@ -41,6 +41,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.intelbase import IntelBase, COMP_ALL
 from easybuild.easyblocks.tbb import get_tbb_gccprefix
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -126,7 +127,7 @@ class EB_icc(IntelBase):
         )
         # 'include' is deliberately omitted, including it causes problems, e.g. with complex.h and std::complex
         # cfr. https://software.intel.com/en-us/forums/intel-c-compiler/topic/338378
-        self.module_load_environment.set_alias_vars('HEADERS', comp_libs_subdir_paths(
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, comp_libs_subdir_paths(
             'daal/include',
             'ipp/include',
             'mkl/include',
@@ -208,7 +209,7 @@ class EB_icc(IntelBase):
         multiarch_inc_subdir = res.output.strip()
         if res.exit_code == 0 and multiarch_inc_subdir:
             multiarch_inc_dir = os.path.join('/usr', 'include', multiarch_inc_subdir)
-            for envar in self.module_load_environment.alias_vars('HEADERS'):
+            for envar in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
                 self.log.info(f"Adding multiarch include path '{multiarch_inc_dir}' to ${envar} in generated module")
                 # system location must be appended at the end, so use append_paths
                 txt += self.module_generator.append_paths(envar, [multiarch_inc_dir], allow_abs=True)
