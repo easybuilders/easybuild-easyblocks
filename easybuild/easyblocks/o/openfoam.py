@@ -67,7 +67,7 @@ class EB_OpenFOAM(EasyBlock):
             'sanity_check_motorbike': [True, "Should the motorbike sanity check run?", CUSTOM],
         })
         return extra_vars
-    
+
     def __init__(self, *args, **kwargs):
         """Specify that OpenFOAM should be built in install dir."""
 
