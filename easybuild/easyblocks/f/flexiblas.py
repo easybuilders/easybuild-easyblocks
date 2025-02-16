@@ -97,7 +97,7 @@ class EB_FlexiBLAS(CMakeMake):
             'FLEXIBLAS_DEFAULT': self.cfg['flexiblas_default'] or self.blas_libs[0],
         }
 
-        supported_blas_libs = ['BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
+        supported_blas_libs = ['AOCL-BLAS', 'BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
 
         # make sure that default backend is a supported library
         flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
@@ -108,7 +108,8 @@ class EB_FlexiBLAS(CMakeMake):
         unsupported_libs = [x for x in self.blas_libs if x not in supported_blas_libs]
         if unsupported_libs:
             raise EasyBuildError("One or more unsupported libraries used: %s", ', '.join(unsupported_libs))
-
+        if 'AOCL-BLAS' in self.blas_libs:
+            self.blas_libs[self.blas_libs.index('AOCL-BLAS')] = 'AOCL_mt'
         # list of BLAS libraries to use is specified via -DEXTRA=...
         configopts['EXTRA'] = ';'.join(self.blas_libs)
 
@@ -134,6 +135,8 @@ class EB_FlexiBLAS(CMakeMake):
                     configopts[key] = mkl_compiler_mapping[comp_family]
                 except KeyError:
                     raise EasyBuildError("Compiler family not supported yet: %s", comp_family)
+            elif blas_lib == 'AOCL_mt':
+                configopts[key] = 'blis-mt'
             else:
                 configopts[key] = blas_lib.lower()
 
