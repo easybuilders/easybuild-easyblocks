@@ -39,6 +39,7 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.icc import EB_icc  # @UnresolvedImport
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -60,7 +61,7 @@ class EB_ifort(EB_icc, IntelBase):
 
         # define list of subdirectories in search paths of module load environment
         # add additional paths to those of ICC only needed for separate ifort installations
-        for envar in self.module_load_environment.alias('HEADERS'):
+        for envar in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
             envar.append(os.path.join(self.comp_libs_subdir, 'compiler/include'))
 
     def sanity_check_step(self):

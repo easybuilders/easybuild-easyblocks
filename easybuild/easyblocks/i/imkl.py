@@ -48,7 +48,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, move_file, remove_dir, write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -462,7 +462,7 @@ class EB_imkl(IntelBase):
             os.path.join(self.mkl_basedir, 'include'),
             os.path.join(self.mkl_basedir, 'include', 'fftw'),
         ]
-        self.module_load_environment.set_alias_vars('HEADERS', include_dirs)
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, include_dirs)
 
         if LooseVersion(self.version) < LooseVersion('2021'):
             self.module_load_environment.MANPATH = ['man', os.path.join('man', 'en_US')]

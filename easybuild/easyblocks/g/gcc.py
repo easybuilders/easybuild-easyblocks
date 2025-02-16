@@ -50,7 +50,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file
 from easybuild.tools.filetools import mkdir, move_file, read_file, symlink, which, write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
 from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext, get_os_name, get_os_type
@@ -207,7 +207,7 @@ class EB_GCC(ConfigureMake):
         # cases where paths top libraries needed to be set explicitly
         # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3256
         # Therefore, remove paths from header search paths but keep paths in LIBRARY_PATH
-        for disallowed_var in self.module_load_environment.alias_vars('HEADERS'):
+        for disallowed_var in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
             self.module_load_environment.remove(disallowed_var)
             self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 

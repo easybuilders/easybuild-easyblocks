@@ -34,6 +34,7 @@ import stat
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.tools.filetools import adjust_permissions, remove_dir
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -48,7 +49,7 @@ class EB_Anaconda(Binary):
         # that the Anaconda environment is used by other software at building or linking time.
         # LD_LIBRARY_PATH issue discusses here:
         # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
-        mod_env_headers = self.module_load_environment.alias_vars('HEADERS')
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
         mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
         mod_env_cmake = ['CMAKE_LIBRARY_PATH', 'CMAKE_PREFIX_PATH']
         for disallowed_var in mod_env_headers + mod_env_libs + mod_env_cmake:
