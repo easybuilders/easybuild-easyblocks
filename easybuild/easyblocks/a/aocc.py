@@ -93,9 +93,6 @@ class EB_AOCC(PackedBinary):
         # Bypass the .mod file check for GCCcore installs
         self.cfg['skip_mod_files_sanity_check'] = True
 
-        self.module_load_environment.C_INCLUDE_PATH = 'include'
-        self.module_load_environment.CPLUS_INCLUDE_PATH = 'include'
-
     def _aocc_guess_clang_version(self):
         map_aocc_to_clang_ver = {
             '2.3.0': '11.0.0',
