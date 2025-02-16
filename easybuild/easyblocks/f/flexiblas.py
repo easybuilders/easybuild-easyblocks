@@ -97,8 +97,7 @@ class EB_FlexiBLAS(CMakeMake):
             'FLEXIBLAS_DEFAULT': self.cfg['flexiblas_default'] or self.blas_libs[0],
         }
 
-        supported_blas_libs = ['BLIS', 'NETLIB',
-                               'AOCL-BLAS', 'OpenBLAS', 'imkl']
+        supported_blas_libs = ['AOCL-BLAS', 'BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
 
         # make sure that default backend is a supported library
         flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
