@@ -65,6 +65,8 @@ class EB_CUDAcompat(Binary):
         """Initialize custom class variables for CUDACompat."""
         super(EB_CUDAcompat, self).__init__(*args, **kwargs)
         self._has_nvidia_smi = None
+        # avoid building software with this compat libraries
+        self.module_load_environment.remove('LIBRARY_PATH')
 
     @property
     def has_nvidia_smi(self):
@@ -213,17 +215,6 @@ class EB_CUDAcompat(Binary):
             # E.g. libcuda.so.1 -> libcuda.so
             unversioned_symlink = versioned_symlink.rsplit('.', 1)[0]
             symlink(versioned_symlink, os.path.join(libdir, unversioned_symlink), use_abspath_source=False)
-
-    def make_module_req_guess(self):
-        """Don't try to guess anything."""
-        return dict()
-
-    def make_module_extra(self):
-        """Skip the changes from the Binary EasyBlock and (only) set LD_LIBRARY_PATH."""
-
-        txt = super(Binary, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', 'lib')
-        return txt
 
     def sanity_check_step(self):
         """Check for core files (unversioned libs, symlinks)"""
