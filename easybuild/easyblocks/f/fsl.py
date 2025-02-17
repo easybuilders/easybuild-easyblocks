@@ -53,8 +53,8 @@ class EB_FSL(EasyBlock):
 
         self.fsldir = None
 
-        self.module_load_environment.PATH = ["fsl/bin"]
-        self.module_load_environment.LD_LIBRARY_PATH = ["fsl/lib"]
+        self.module_load_environment.PATH = [os.path.join('fsl', 'bin')]
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join('fsl', 'lib')]
 
     def configure_step(self):
         """Configure FSL build: set FSLDIR env var."""
