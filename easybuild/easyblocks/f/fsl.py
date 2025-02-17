@@ -53,6 +53,9 @@ class EB_FSL(EasyBlock):
 
         self.fsldir = None
 
+        self.module_load_environment.PATH = [os.path.join('fsl', 'bin')]
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join('fsl', 'lib')]
+
     def configure_step(self):
         """Configure FSL build: set FSLDIR env var."""
 
@@ -132,18 +135,6 @@ class EB_FSL(EasyBlock):
     def install_step(self):
         """Building was performed in install dir, no explicit install step required."""
         pass
-
-    def make_module_req_guess(self):
-        """Set correct PATH and LD_LIBRARY_PATH variables."""
-
-        guesses = super(EB_FSL, self).make_module_req_guess()
-
-        guesses.update({
-            'PATH': ["fsl/bin"],
-            'LD_LIBRARY_PATH': ["fsl/lib"],
-        })
-
-        return guesses
 
     def make_module_extra(self):
         """Add setting of FSLDIR in module."""
