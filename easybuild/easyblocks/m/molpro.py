@@ -27,15 +27,16 @@ EasyBuild support for Molpro, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 """
+import glob
 import os
 import shutil
 import re
-from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, read_file, symlink
@@ -245,6 +246,16 @@ class EB_Molpro(ConfigureMake, Binary):
     def sanity_check_step(self):
         """Custom sanity check for Molpro."""
         prefix_subdir = os.path.basename(self.full_prefix)
+        if not prefix_subdir:
+            # we need to guess the installation prefix whenever the configure step is skipped
+            # there are two possibles installation types:
+            #   - A: installation located at the top level of self.installdir
+            #   - B: installation located inside a subdirectory with a name specific to the
+            #        installation type and platform (e.g. molpros_2012_1_Linux_x86_64_i8)
+            path_to_bin = glob.glob(os.path.join(self.installdir, 'molpro*', 'bin'))
+            if len(path_to_bin) > 0:
+                prefix_subdir = os.path.relpath(os.path.dirname(path_to_bin[0]), self.installdir)
+
         files_to_check = ['bin/molpro']
         dirs_to_check = []
         if LooseVersion(self.version) >= LooseVersion('2015') or not self.cfg['precompiled_binaries']:
