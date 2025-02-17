@@ -157,6 +157,6 @@ class EB_VEP(EasyBlock):
             perl_libpath.extend([os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)])
 
         self.module_load_environment.PATH = ''
-        setattr(self.module_load_environment, 'PERL%sLIB' % perl_majver, perl_libpath)
+        setattr(self.module_load_environment, f'PERL{perl_majver}LIB', perl_libpath)
 
         return super(EB_VEP, self).make_module_step(*args, **kwargs)
