@@ -61,8 +61,6 @@ class EB_FreeSurfer(Tarball):
             os.path.join('mni', 'bin'), 'tktools',
         ])
 
-        return guesses
-
     def make_module_extra(self):
         """Define FreeSurfer-specific environment variable in generated module file."""
         txt = super(EB_FreeSurfer, self).make_module_extra()
