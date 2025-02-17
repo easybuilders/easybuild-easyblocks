@@ -66,7 +66,7 @@ class EB_Trinity(EasyBlock):
             sep = '-v'
         else:
             sep = '_r'
-        self.trinityrnaseq_subdir = 'trinityrnaseq%s%s' % (sep, self.version)
+        self.trinityrnaseq_subdir = f'trinityrnaseq{sep}{self.version}'
 
         self.module_load_environment.PATH = self.trinityrnaseq_subdir
         self.module_load_environment.TRINITY_HOME = self.trinityrnaseq_subdir
