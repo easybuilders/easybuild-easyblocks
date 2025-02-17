@@ -37,6 +37,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -62,8 +63,13 @@ class EB_itac(IntelBase):
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2019.0."
             )
 
+        # add cutom paths to the module load environment
         self.module_load_environment.PATH = ['bin', 'bin/intel64', 'bin64']
         self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib/intel64', 'lib64', 'slib']
+        # avoid software building against itac
+        self.module_load_environment.remove('LIBRARY_PATH')
+        for disallowed_var in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
+            self.module_load_environment.remove(disallowed_var)
 
     def prepare_step(self, *args, **kwargs):
         """
