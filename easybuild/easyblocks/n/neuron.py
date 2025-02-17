@@ -34,6 +34,7 @@ import re
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
@@ -100,8 +101,9 @@ class EB_NEURON(CMakeMake):
         sanity_check_dirs = ['include', 'share/nrn']
 
         if self.with_python:
-            sanity_check_dirs += [os.path.join("lib", "python"),
-                                  os.path.join("lib", "python%(pyshortver)s", "site-packages")]
+            sanity_check_dirs += [os.path.join("lib", "python")]
+            if LooseVersion(self.version) < LooseVersion('8'):
+                sanity_check_dirs += [os.path.join("lib", "python%(pyshortver)s", "site-packages")]
 
         # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
