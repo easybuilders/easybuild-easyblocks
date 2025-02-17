@@ -172,6 +172,19 @@ class EB_NEURON(CMakeMake):
         # cleanup
         self.clean_up_fake_module(fake_mod_data)
 
+    def make_module_step(self, *args, **kwargs):
+        """
+        Custom paths of NEURON module load environment
+        """
+        if self.with_python:
+            # location of neuron python package
+            if LooseVersion(self.version) < LooseVersion('8'):
+                self.module_load_environment.PYTHONPATH = [os.path.join("lib", "python*", "site-packages")]
+            else:
+                self.module_load_environment.PYTHONPATH = [os.path.join('lib', 'python')]
+
+        return super(EB_NEURON, self).make_module_step(*args, **kwargs)
+
     def make_module_extra(self):
         """Define extra module entries required."""
 
