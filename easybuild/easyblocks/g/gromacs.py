@@ -572,9 +572,8 @@ class EB_GROMACS(CMakeMake):
 
         return lib_subdir
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """Custom library subdirectories for GROMACS."""
-        guesses = super(EB_GROMACS, self).make_module_req_guess()
         if not self.lib_subdir:
             try:
                 self.lib_subdir = self.get_lib_subdir()
@@ -584,12 +583,12 @@ class EB_GROMACS(CMakeMake):
                     self.log.info("You are forcing module creation for a non-existent installation!")
                 else:
                     raise error
-        guesses.update({
-            'LD_LIBRARY_PATH': [self.lib_subdir],
-            'LIBRARY_PATH': [self.lib_subdir],
-            'PKG_CONFIG_PATH': [os.path.join(self.lib_subdir, 'pkgconfig')],
-        })
-        return guesses
+
+        self.module_load_environment.LD_LIBRARY_PATH = [self.lib_subdir]
+        self.module_load_environment.LIBRARY_PATH = [self.lib_subdir]
+        self.module_load_environment.PKG_CONFIG_PATH = [os.path.join(self.lib_subdir, 'pkgconfig')]
+
+        return super().make_module_step(*args, **kwargs)
 
     def sanity_check_step(self):
         """Custom sanity check for GROMACS."""
