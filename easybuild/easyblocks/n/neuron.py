@@ -31,7 +31,6 @@ EasyBuild support for building and installing NEURON, implemented as an easybloc
 import os
 import re
 
-from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
@@ -41,164 +40,80 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
-from easybuild.tools import LooseVersion
-
 
 class EB_NEURON(CMakeMake):
     """Support for building/installing NEURON."""
 
-    def __init__(self, *args, **kwargs):
-        """Initialisation of custom class variables for NEURON."""
-        super(EB_NEURON, self).__init__(*args, **kwargs)
-
-        self.hostcpu = 'UNKNOWN'
-        self.with_python = False
-        self.pylibdir = 'UNKNOWN'
-
     @staticmethod
     def extra_options():
         """Custom easyconfig parameters for NEURON."""
-
         extra_vars = {
             'paranrn': [True, "Enable support for distributed simulations.", CUSTOM],
         }
         return CMakeMake.extra_options(extra_vars)
 
+    def __init__(self, *args, **kwargs):
+        """Initialisation of custom class variables for NEURON."""
+        super(EB_NEURON, self).__init__(*args, **kwargs)
+
+        self.with_python = False
+        self.pylibdir = 'UNKNOWN'
+
     def configure_step(self):
         """Custom configuration procedure for NEURON."""
-        if LooseVersion(self.version) < LooseVersion('7.8.1'):
-
-            # make sure we're using the correct configure command
-            # (required because custom easyconfig parameters from CMakeMake are picked up)
-            self.cfg['configure_cmd'] = "./configure"
-
-            # enable support for distributed simulations if desired
-            if self.cfg['paranrn']:
-                self.cfg.update('configopts', '--with-paranrn')
-
-            # specify path to InterViews if it is available as a dependency
-            interviews_root = get_software_root('InterViews')
-            if interviews_root:
-                self.cfg.update('configopts', "--with-iv=%s" % interviews_root)
-            else:
-                self.cfg.update('configopts', "--without-iv")
-
-            # optionally enable support for Python as alternative interpreter
-            python_root = get_software_root('Python')
-            if python_root:
-                self.with_python = True
-                self.cfg.update('configopts', "--with-nrnpython=%s/bin/python" % python_root)
-
-            # determine host CPU type
-            cmd = "./config.guess"
-            res = run_shell_cmd(cmd)
-
-            self.hostcpu = res.output.split('\n')[0].split('-')[0]
-            self.log.debug("Determined host CPU type as %s" % self.hostcpu)
-
-            # determine Python lib dir
-            self.pylibdir = det_pylibdir()
-
-            # complete configuration with configure_method of parent
-            ConfigureMake.configure_step(self)
+        # enable support for distributed simulations if desired
+        if self.cfg['paranrn']:
+            self.cfg.update('configopts', '-DNRN_ENABLE_MPI=ON')
         else:
-            # enable support for distributed simulations if desired
-            if self.cfg['paranrn']:
-                self.cfg.update('configopts', '-DNRN_ENABLE_MPI=ON')
-            else:
-                self.cfg.update('configopts', '-DNRN_ENABLE_MPI=OFF')
+            self.cfg.update('configopts', '-DNRN_ENABLE_MPI=OFF')
 
-            # specify path to InterViews if it is available as a dependency
-            interviews_root = get_software_root('InterViews')
-            if interviews_root:
-                self.cfg.update('configopts', "-DIV_DIR=%s -DNRN_ENABLE_INTERVIEWS=ON" % interviews_root)
-            else:
-                self.cfg.update('configopts', "-DNRN_ENABLE_INTERVIEWS=OFF")
+        # specify path to InterViews if it is available as a dependency
+        interviews_root = get_software_root('InterViews')
+        if interviews_root:
+            self.cfg.update('configopts', f"-DIV_DIR={interviews_root} -DNRN_ENABLE_INTERVIEWS=ON")
+        else:
+            self.cfg.update('configopts', "-DNRN_ENABLE_INTERVIEWS=OFF")
 
-            # no longer used it seems
-            self.hostcpu = ''
+        # optionally enable support for Python as alternative interpreter
+        python_root = get_software_root('Python')
+        if python_root:
+            self.with_python = True
+            self.cfg.update('configopts', f"-DNRN_ENABLE_PYTHON=ON -DPYTHON_EXECUTABLE={python_root}/bin/python")
+            self.cfg.update('configopts', "-DNRN_ENABLE_MODULE_INSTALL=ON "
+                            f"-DNRN_MODULE_INSTALL_OPTIONS='--prefix={self.installdir}'")
+        else:
+            self.cfg.update('configopts', "-DNRN_ENABLE_PYTHON=OFF")
 
-            # optionally enable support for Python as alternative interpreter
-            python_root = get_software_root('Python')
-            if python_root:
-                self.with_python = True
-                self.cfg.update('configopts', "-DNRN_ENABLE_PYTHON=ON -DPYTHON_EXECUTABLE=%s/bin/python" % python_root)
-                self.cfg.update('configopts', "-DNRN_ENABLE_MODULE_INSTALL=ON "
-                                "-DNRN_MODULE_INSTALL_OPTIONS='--prefix=%s'" % self.installdir)
-            else:
-                self.cfg.update('configopts', "-DNRN_ENABLE_PYTHON=OFF")
+        # determine Python lib dir
+        self.pylibdir = det_pylibdir()
 
-            # determine Python lib dir
-            self.pylibdir = det_pylibdir()
-
-            # complete configuration with configure_method of parent
-            CMakeMake.configure_step(self)
-
-    def install_step(self):
-        """Custom install procedure for NEURON."""
-
-        super(EB_NEURON, self).install_step()
-
-        # with the CMakeMake, the python module is installed automatically
-        if LooseVersion(self.version) < LooseVersion('7.8.1'):
-            if self.with_python:
-                pypath = os.path.join('src', 'nrnpython')
-                try:
-                    pwd = os.getcwd()
-                    os.chdir(pypath)
-                except OSError as err:
-                    raise EasyBuildError("Failed to change to %s: %s", pypath, err)
-
-                cmd = "python setup.py install --prefix=%s" % self.installdir
-                run_shell_cmd(cmd)
-
-                try:
-                    os.chdir(pwd)
-                except OSError as err:
-                    raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
+        # complete configuration with configure_method of parent
+        CMakeMake.configure_step(self)
 
     def sanity_check_step(self):
         """Custom sanity check for NEURON."""
         shlib_ext = get_shared_lib_ext()
-        binpath = os.path.join(self.hostcpu, 'bin')
-        libpath = os.path.join(self.hostcpu, 'lib', 'lib%s.' + shlib_ext)
-        # hoc_ed is not included in the sources of 7.4. However, it is included in the binary distribution.
-        # Nevertheless, the binary has a date old enough (June 2014, instead of November 2015 like all the
-        # others) to be considered a mistake in the distribution
-        binaries = ["neurondemo", "nrngui", "nrniv", "nrnivmodl", "nocmodl", "modlunit", "nrnmech_makefile",
-                    "mkthreadsafe"]
-        libs = ["nrniv"]
-        sanity_check_dirs = ['share/nrn']
 
-        if LooseVersion(self.version) < LooseVersion('7.4'):
-            binaries += ["hoc_ed"]
+        binaries = ["mkthreadsafe", "modlunit", "neurondemo", "nocmodl", "nrngui", "nrniv", "nrnivmodl",
+                    "nrnmech_makefile", "nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
+        libs = ["nrniv", "rxdmath"]
+        sanity_check_dirs = ['include', 'share/nrn']
 
-        if LooseVersion(self.version) < LooseVersion('7.8.1'):
-            binaries += ["bbswork.sh", "hel2mos1.sh", "ivoc", "memacs", "mos2nrn", "mos2nrn2.sh", "oc"]
-            binaries += ["nrn%s" % x for x in ["iv_makefile", "oc", "oc_makefile", "ocmodl"]]
-            libs += ["ivoc", "ivos", "memacs", "meschach", "neuron_gnu", "nrnmpi", "nrnoc", "nrnpython",
-                     "oc", "ocxt", "scopmath", "sparse13", "sundials"]
-            sanity_check_dirs += ['include/nrn']
-        # list of included binaries changed with cmake. See
-        # https://github.com/neuronsimulator/nrn/issues/899
-        else:
-            binaries += ["nrnpyenv.sh", "set_nrnpyenv.sh", "sortspike"]
-            libs += ["rxdmath"]
-            sanity_check_dirs += ['include']
-            if self.with_python:
-                sanity_check_dirs += [os.path.join("lib", "python"),
-                                      os.path.join("lib", "python%(pyshortver)s", "site-packages")]
+        if self.with_python:
+            sanity_check_dirs += [os.path.join("lib", "python"),
+                                  os.path.join("lib", "python%(pyshortver)s", "site-packages")]
 
         # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
         # ensure that we only add to paths specified in the EasyConfig
-        sanity_check_files = [os.path.join(binpath, x) for x in binaries] + [libpath % x for x in libs]
-        self.cfg['sanity_check_paths'] = {
-                'files': sanity_check_files,
-                'dirs': sanity_check_dirs,
-        }
+        sanity_check_files = [os.path.join('bin', x) for x in binaries]
+        sanity_check_files += [f'lib/lib{soname}.{shlib_ext}' for soname in libs]
 
-        super(EB_NEURON, self).sanity_check_step()
+        custom_paths = {
+            'files': sanity_check_files,
+            'dirs': sanity_check_dirs,
+        }
+        super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths)
 
         try:
             fake_mod_data = self.load_fake_module()
@@ -221,8 +136,7 @@ class EB_NEURON(CMakeMake):
         validate_regexp = re.compile(r"^\s+-65\s*\n\s+5\s*\n\s+-68.134337", re.M)
         if res.exit_code or not validate_regexp.search(res.output):
             raise EasyBuildError("Validation of NEURON demo run failed.")
-        else:
-            self.log.info("Validation of NEURON demo OK!")
+        self.log.info("Validation of NEURON demo OK!")
 
         if build_option('mpi_tests'):
             nproc = self.cfg['parallel']
@@ -239,14 +153,13 @@ class EB_NEURON(CMakeMake):
 
             valid = True
             for i in range(0, nproc):
-                validate_regexp = re.compile("I am %d of %d" % (i, nproc))
+                validate_regexp = re.compile(f"I am {i:d} of {nproc:d}")
                 if not validate_regexp.search(res.output):
                     valid = False
                     break
             if res.exit_code or not valid:
                 raise EasyBuildError("Validation of parallel hello world run failed.")
-            else:
-                self.log.info("Parallel hello world OK!")
+            self.log.info("Parallel hello world OK!")
         else:
             self.log.info("Skipping MPI testing of NEURON since MPI testing is disabled")
 
@@ -279,8 +192,8 @@ class EB_NEURON(CMakeMake):
             val = os.getenv(var)
             if val:
                 txt += self.module_generator.set_environment(var, val)
-                self.log.debug("%s set to %s, adding it to module" % (var, val))
+                self.log.debug(f"{var} set to {val}, adding it to module")
             else:
-                self.log.debug("%s not set: %s" % (var, os.environ.get(var, None)))
+                self.log.debug(f"{var} not set: {os.environ.get(var, None)}")
 
         return txt
