@@ -46,11 +46,3 @@ class EB_MTL4(Tarball):
         }
 
         super(EB_MTL4, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Adjust CPATH for MTL4."""
-
-        guesses = super(EB_MTL4, self).make_module_req_guess()
-        guesses.update({'CPATH': 'include'})
-
-        return guesses
