@@ -62,6 +62,9 @@ class EB_itac(IntelBase):
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2019.0."
             )
 
+        self.module_load_environment.PATH = ['bin', 'bin/intel64', 'bin64']
+        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib/intel64', 'lib64', 'slib']
+
     def prepare_step(self, *args, **kwargs):
         """
         Custom prepare step for itac: don't require runtime license for oneAPI versions (>= 2021)
@@ -119,16 +122,6 @@ class EB_itac(IntelBase):
         }
 
         super(EB_itac, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for
-        """
-        guesses = {
-            'PATH': ['bin', 'bin/intel64', 'bin64'],
-            'LD_LIBRARY_PATH': ['lib', 'lib/intel64', 'lib64', 'slib'],
-        }
-        return guesses
 
     def make_module_extra(self):
         """Overwritten from IntelBase to add extra txt"""
