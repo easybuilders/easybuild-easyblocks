@@ -170,17 +170,6 @@ class EB_NEURON(CMakeMake):
         # cleanup
         self.clean_up_fake_module(fake_mod_data)
 
-    def make_module_req_guess(self):
-        """Custom guesses for environment variables (PATH, ...) for NEURON."""
-
-        guesses = super(EB_NEURON, self).make_module_req_guess()
-
-        guesses.update({
-            'PATH': [os.path.join(self.hostcpu, 'bin')],
-        })
-
-        return guesses
-
     def make_module_extra(self):
         """Define extra module entries required."""
 
