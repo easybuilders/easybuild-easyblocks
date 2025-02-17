@@ -67,6 +67,14 @@ class EB_Molpro(ConfigureMake, Binary):
         self.cleanup_token_symlink = False
         self.license_token = os.path.join(os.path.expanduser('~'), '.molpro', 'token')
 
+        # custom paths in module load environment
+        # add glob patterns for all possible locations of executables, non-existent ones will be ignored
+        self.module_load_environment.PATH = [
+            'bin',
+            '*/bin',
+            '*/utilities',
+        ]
+
     def extract_step(self):
         """Extract Molpro source files, or just copy in case of binary install."""
         if self.cfg['precompiled_binaries']:
@@ -233,14 +241,6 @@ class EB_Molpro(ConfigureMake, Binary):
                 self.log.debug("Symlink to license token %s removed", self.license_token)
             except OSError as err:
                 raise EasyBuildError("Failed to remove %s: %s", self.license_token, err)
-
-    def make_module_req_guess(self):
-        """Customize $PATH guesses for Molpro module."""
-        guesses = super(EB_Molpro, self).make_module_req_guess()
-        guesses.update({
-            'PATH': [os.path.join(os.path.basename(self.full_prefix), x) for x in ['bin', 'utilities']],
-        })
-        return guesses
 
     def sanity_check_step(self):
         """Custom sanity check for Molpro."""
