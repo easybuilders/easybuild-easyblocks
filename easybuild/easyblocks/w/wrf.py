@@ -76,6 +76,10 @@ class EB_WRF(EasyBlock):
 
         self.wrfsubdir = det_wrf_subdir(self.version)
 
+        main_dir = os.path.join(self.wrfsubdir, 'main')
+        self.module_load_environment.LD_LIBRARY_PATH = main_dir
+        self.module_load_environment.PATH = main_dir
+
     @staticmethod
     def extra_options():
         extra_vars = {
@@ -430,16 +434,6 @@ class EB_WRF(EasyBlock):
         }
 
         super(EB_WRF, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Path-like environment variable updates specific to WRF."""
-
-        maindir = os.path.join(self.wrfsubdir, 'main')
-        return {
-            'PATH': [maindir],
-            'LD_LIBRARY_PATH': [maindir],
-            'MANPATH': [],
-        }
 
     def make_module_extra(self):
         """Add netCDF environment variables to module file."""
