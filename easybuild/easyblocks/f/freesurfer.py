@@ -54,7 +54,7 @@ class EB_FreeSurfer(Tarball):
 
     def __init__(self, *args, **kwargs):
         """Custom constructor for FLUENT easyblock, initialize/define class parameters."""
-        guesses = super(EB_FreeSurfer, self).__init__(*args, **kwargs)
+        super(EB_FreeSurfer, self).__init__(*args, **kwargs)
 
         self.module_load_environment.PATH.extend([
             os.path.join('fsfast', 'bin'),
