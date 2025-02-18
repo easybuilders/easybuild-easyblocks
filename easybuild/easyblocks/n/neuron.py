@@ -59,8 +59,14 @@ class EB_NEURON(CMakeMake):
         """Initialisation of custom class variables for NEURON."""
         super(EB_NEURON, self).__init__(*args, **kwargs)
 
-        self.with_python = False
+        self.python_root = None
         self.pylibdir = 'UNKNOWN'
+
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step with python detection"""
+        super(EB_NEURON, self).prepare_step(*args, **kwargs)
+
+        self.python_root = get_software_root('Python')
 
     def configure_step(self):
         """Custom configuration procedure for NEURON."""
@@ -78,12 +84,14 @@ class EB_NEURON(CMakeMake):
             self.cfg.update('configopts', "-DNRN_ENABLE_INTERVIEWS=OFF")
 
         # optionally enable support for Python as alternative interpreter
-        python_root = get_software_root('Python')
-        if python_root:
-            self.with_python = True
-            self.cfg.update('configopts', f"-DNRN_ENABLE_PYTHON=ON -DPYTHON_EXECUTABLE={python_root}/bin/python")
-            self.cfg.update('configopts', "-DNRN_ENABLE_MODULE_INSTALL=ON "
-                            f"-DNRN_MODULE_INSTALL_OPTIONS='--prefix={self.installdir}'")
+        if self.python_root:
+            python_cfgopts = " ".join([
+                "-DNRN_ENABLE_PYTHON=ON",
+                f"-DPYTHON_EXECUTABLE={self.python_root}/bin/python",
+                "-DNRN_ENABLE_MODULE_INSTALL=ON",
+                f"-DNRN_MODULE_INSTALL_OPTIONS='--prefix={self.installdir}'",
+            ])
+            self.cfg.update('configopts', python_cfgopts)
         else:
             self.cfg.update('configopts', "-DNRN_ENABLE_PYTHON=OFF")
 
@@ -125,7 +133,7 @@ class EB_NEURON(CMakeMake):
         libs = ["nrniv", "rxdmath"]
         sanity_check_dirs = ['include', 'share/nrn']
 
-        if self.with_python:
+        if self.python_root:
             sanity_check_dirs += [os.path.join("lib", "python")]
             if LooseVersion(self.version) < LooseVersion('8'):
                 sanity_check_dirs += [os.path.join("lib", "python%(pyshortver)s", "site-packages")]
@@ -165,7 +173,7 @@ class EB_NEURON(CMakeMake):
             f"{demo_sanity_cmd} | grep -c '{demo_regexp_soma}'",
         ]
 
-        if self.with_python:
+        if self.python_root:
             custom_commands.append("python -c 'import neuron; neuron.test()'")
 
         super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
@@ -174,7 +182,7 @@ class EB_NEURON(CMakeMake):
         """
         Custom paths of NEURON module load environment
         """
-        if self.with_python:
+        if self.python_root:
             # location of neuron python package
             if LooseVersion(self.version) < LooseVersion('8'):
                 self.module_load_environment.PYTHONPATH = [os.path.join("lib", "python*", "site-packages")]
