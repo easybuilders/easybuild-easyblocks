@@ -27,6 +27,7 @@ EasyBuild support for PETSc, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 """
+import glob
 import os
 import re
 
@@ -40,6 +41,8 @@ from easybuild.tools.filetools import symlink, apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+
+DEFAULT_ARCH_PATTERN = "arch*"  # default arch is 'arch-linux-c-debug'
 
 NO_MPI_CXX_EXT_FLAGS = '-DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX'
 
@@ -78,16 +81,56 @@ class EB_PETSc(ConfigureMake):
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 3.9"
             )
 
+        self.with_python = False
         self.petsc_arch = self.cfg['petsc_arch']
         self.petsc_subdir = ""
-        self.prefix_inc = ''
-        self.prefix_lib = ''
-        self.prefix_bin = os.path.join(self.prefix_inc, 'lib', 'petsc')
-
-        self.with_python = False
+        self.petsc_root = self.installdir
 
         if self.cfg['sourceinstall']:
             self.build_in_installdir = True
+            # sourceinstall installations place files inside an extra 'petsc-version' subdir
+            # with some files located under 'petsc-version' and others under 'petsc-version/arch*'
+            self.petsc_subdir = f"{self.name.lower()}-{self.version}"
+            self.petsc_root = os.path.join(self.installdir, self.petsc_subdir)
+
+        self.module_load_environment.CPATH = self.inc_dirs
+        self.module_load_environment.LD_LIBRARY_PATH = self.lib_dir
+        self.module_load_environment.PATH = self.bin_dir
+
+    @property
+    def arch_subdir(self):
+        """Return subdir name with PETSC_ARCH or a suitable glob pattern"""
+        arch_subdir = ""
+        if self.cfg['sourceinstall']:
+            arch_subdir = DEFAULT_ARCH_PATTERN
+            if self.petsc_arch:
+                arch_subdir = str(self.petsc_arch)
+        return arch_subdir
+
+    @property
+    def bin_dir(self):
+        """Return relative path to directory with executables of PETSc"""
+        return os.path.join(self.petsc_subdir, 'lib', 'petsc', 'bin')
+
+    @property
+    def cnf_dir(self):
+        """Return relative path to directory with configuration executables of PETSc"""
+        return os.path.join(self.petsc_subdir, self.arch_subdir, 'lib', 'petsc', 'conf')
+
+    @property
+    def lib_dir(self):
+        """Return relative path to directory with libraries of PETSc"""
+        return os.path.join(self.petsc_subdir, self.arch_subdir, 'lib')
+
+    @property
+    def inc_dirs(self):
+        """Return relative path to directory with headers of PETSc"""
+        if self.cfg['sourceinstall']:
+            return [
+                os.path.join(self.petsc_subdir, 'include'),
+                os.path.join(self.petsc_subdir, self.arch_subdir, 'include'),
+            ]
+        return ['include']
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
@@ -98,6 +141,7 @@ class EB_PETSc(ConfigureMake):
         build_deps = self.cfg.dependencies(build_only=True)
         if get_software_root('Python') and not any(x['name'] == 'Python' for x in build_deps):
             self.with_python = True
+            self.module_load_environment.PYTHONPATH = self.bin_dir
             self.log.info("Python included as runtime dependency, so enabling Python support")
 
     def configure_step(self):
@@ -295,13 +339,6 @@ class EB_PETSc(ConfigureMake):
             else:
                 raise EasyBuildError("Failed to determine PETSC_ARCH setting.")
 
-            self.petsc_subdir = self.name.lower()
-            self.prefix_lib = os.path.join(self.petsc_subdir, self.petsc_arch)
-            self.prefix_inc = os.path.join(self.petsc_subdir, self.petsc_arch)
-            self.prefix_bin = os.path.join(self.petsc_subdir, self.petsc_arch)
-        else:
-            self.petsc_subdir = '%s-%s' % (self.name.lower(), self.version)
-
         # Make sure to set test_parallel before self.cfg['parallel'] is set to None
         if self.cfg['test_parallel'] is None and self.cfg['parallel']:
             self.cfg['test_parallel'] = self.cfg['parallel']
@@ -340,57 +377,44 @@ class EB_PETSc(ConfigureMake):
         """
         if not self.cfg['sourceinstall']:
             super(EB_PETSc, self).install_step()
-            petsc_root = self.installdir
-        else:
-            petsc_root = os.path.join(self.installdir, self.petsc_subdir)
+
         # Remove MPI-CXX flags added during configure to prevent them from being passed to consumers of PETsc
-        petsc_variables_path = os.path.join(petsc_root, 'lib', 'petsc', 'conf', 'petscvariables')
+        petsc_variables_path = os.path.join(self.petsc_root, 'lib', 'petsc', 'conf', 'petscvariables')
         if os.path.isfile(petsc_variables_path):
             fix = (r'^(CXX_FLAGS|CXX_LINKER_FLAGS|CONFIGURE_OPTIONS)( = .*)%s(.*)$' % NO_MPI_CXX_EXT_FLAGS,
                    r'\1\2\3')
             apply_regex_substitutions(petsc_variables_path, [fix])
 
-    def make_module_req_guess(self):
-        """Specify PETSc custom values for PATH, CPATH and LD_LIBRARY_PATH."""
-
-        guesses = super(EB_PETSc, self).make_module_req_guess()
-
-        guesses.update({
-            'CPATH': [os.path.join(self.prefix_lib, 'include'), os.path.join(self.prefix_inc, 'include')],
-            'LD_LIBRARY_PATH': [os.path.join(self.prefix_lib, 'lib')],
-            'PATH': [os.path.join(self.prefix_bin, 'bin')],
-            # see https://www.mcs.anl.gov/petsc/documentation/faq.html#sparse-matrix-ascii-format
-            'PYTHONPATH': [os.path.join('lib', 'petsc', 'bin')],
-        })
-
-        return guesses
-
     def make_module_extra(self):
         """Set PETSc specific environment variables (PETSC_DIR, PETSC_ARCH)."""
         txt = super(EB_PETSc, self).make_module_extra()
 
+        txt += self.module_generator.set_environment('PETSC_DIR', self.petsc_root)
         if self.cfg['sourceinstall']:
-            txt += self.module_generator.set_environment('PETSC_DIR', os.path.join(self.installdir, self.petsc_subdir))
             txt += self.module_generator.set_environment('PETSC_ARCH', self.petsc_arch)
-        else:
-            txt += self.module_generator.set_environment('PETSC_DIR', self.installdir)
 
         return txt
 
     def sanity_check_step(self):
         """Custom sanity check for PETSc"""
 
+        libext = 'a'
         if self.cfg['shared_libs']:
             libext = get_shared_lib_ext()
-        else:
-            libext = 'a'
+
+        if self.cfg['sourceinstall'] and not self.petsc_arch:
+            # in module only runs we need to determine PETSC_ARCH from the installation files
+            for arch_subdir in glob.glob(os.path.join(self.petsc_root, '*', 'lib', 'petsc')):
+                self.petsc_arch = arch_subdir.split(os.sep)[-3]
 
         custom_paths = {
-            'files': [os.path.join(self.prefix_lib, 'lib', 'libpetsc.%s' % libext)],
-            'dirs': [os.path.join(self.prefix_bin, 'bin'), os.path.join(self.prefix_inc, 'include'),
-                     os.path.join(self.prefix_lib, 'include')]
+            'files': [
+                os.path.join(self.bin_dir, 'petscmpiexec'),
+                os.path.join(self.cnf_dir, 'petscvariables'),
+                os.path.join(self.lib_dir, f'libpetsc.{libext}'),
+            ],
+            'dirs': self.inc_dirs,
         }
-        custom_paths['dirs'].append(os.path.join(self.prefix_lib, 'lib', 'petsc', 'conf'))
 
         custom_commands = []
         if self.with_python:
