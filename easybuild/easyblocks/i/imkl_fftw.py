@@ -54,10 +54,12 @@ class EB_imkl_minus_FFTW(EB_imkl):
         self.mkl_basedir = os.getenv('MKLROOT')
         self.build_mkl_fftw_interfaces(os.path.join(self.installdir, 'lib'))
 
-    def make_module_req_guess(self):
-        """Custom guesses for imkl-FFTW module file"""
-        # bypass custom paths for imkl, only use standard library location
-        return super(EB_imkl, self).make_module_req_guess()
+    def make_module_step(self, *args, **kwargs):
+        """
+        Custom paths of imkl are unnecessary as imkl-FFTW only ships libraries under the 'lib' subdir
+        Use generic make_module_step skipping imkl
+        """
+        return super(EB_imkl, self).make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Custom extra variables to set in module file"""

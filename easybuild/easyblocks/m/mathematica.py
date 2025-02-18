@@ -49,6 +49,13 @@ class EB_Mathematica(Binary):
         }
         return Binary.extra_options(extra_vars)
 
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+        super(EB_Mathematica, self).__init__(*args, **kwargs)
+
+        # custom paths in module load environment
+        self.module_load_environment.PATH = ['bin', 'Executables']
+
     def configure_step(self):
         """No configuration for Mathematica."""
         # ensure a license server is specified
@@ -142,12 +149,3 @@ class EB_Mathematica(Binary):
         custom_commands = ['mathematica --version']
 
         super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Add both 'bin' and 'Executables' directories to PATH."""
-
-        guesses = super(EB_Mathematica, self).make_module_req_guess()
-
-        guesses.update({'PATH': ['bin', 'Executables']})
-
-        return guesses

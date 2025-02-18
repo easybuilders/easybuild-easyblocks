@@ -225,25 +225,6 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         """Do nothing."""
         pass
 
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for.  Return known dict for the system MPI.
-        """
-        guesses = {}
-        if self.cfg['generate_standalone_module']:
-            if self.mpi_prefix in ['/usr', '/usr/local']:
-                # Force off adding paths to module since unloading such a module would be a potential shell killer
-                print_warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
-                              self.mpi_prefix)
-            else:
-                if self.cfg['name'] in ['OpenMPI', 'SpectrumMPI']:
-                    guesses = ConfigureMake.make_module_req_guess(self)
-                elif self.cfg['name'] in ['impi']:
-                    guesses = EB_impi.make_module_req_guess(self)
-                else:
-                    raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
-        return guesses
-
     def make_module_step(self, fake=False):
         """
         Custom module step for SystemMPI: make 'EBROOT' and 'EBVERSION' reflect actual system MPI version
@@ -269,12 +250,34 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         self.installdir = self.mpi_prefix
 
         # Generate module
-        res = super(SystemMPI, self).make_module_step(fake=fake)
+        module_generator_class = Bundle
+        if self.cfg['generate_standalone_module']:
+            if self.mpi_prefix in ['/usr', '/usr/local']:
+                # reset module load environment for system MPI in default $PATHS
+                # as such a module would be a potential shell killer
+                print_warning(
+                    "Ignoring option 'generate_standalone_module' since installation prefix is "
+                    f"already in $PATH: {self.mpi_prefix}"
+                )
+                module_vars = [str(env_var) for env_var in self.module_load_environment]
+                for env_var in module_vars:
+                    delattr(self.module_load_environment, env_var)
+            else:
+                # determine system MPI easyblock module to generate standalone module
+                if self.cfg['name'] in ['OpenMPI', 'SpectrumMPI']:
+                    module_generator_class = ConfigureMake
+                elif self.cfg['name'] in ['impi']:
+                    module_generator_class = EB_impi
+                else:
+                    raise EasyBuildError(f"Cannot generate standalone module for SystemMPI of {self.cfg['name']}")
+
+        module_path = module_generator_class.make_module_step(self, fake=fake)
 
         # Reset version and installdir to EasyBuild values
         self.installdir = self.orig_installdir
         self.cfg['version'] = self.orig_version
-        return res
+
+        return module_path
 
     def make_module_extend_modpath(self):
         """

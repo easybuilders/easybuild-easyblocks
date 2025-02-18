@@ -443,8 +443,13 @@ def suite():
 
     for easyblock in easyblocks:
         eb_fn = os.path.basename(easyblock)
-        # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
+
         if eb_fn == 'systemcompiler.py':
+            # skip SystemCompiler, will be tested through its childs
+            continue
+
+        # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
+        if eb_fn == 'systemcompilergcc.py':
             # use GCC as name when testing SystemCompiler easyblock
             innertest = make_inner_test(easyblock, name='GCC', version='system')
         elif eb_fn == 'systemmpi.py':
@@ -462,6 +467,9 @@ def suite():
                        'inspector.py', 'itac.py', 'tbb.py', 'vtune.py']:
             # family of IntelBase easyblocks have a minimum version support based on currently supported toolchains
             innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], version='9999.9')
+        elif eb_fn == 'aocc.py':
+            # custom easyblock for AOCC expects a version it can map to a Clang version
+            innertest = make_inner_test(easyblock, name='AOCC', version='4.2.0')
         elif eb_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')

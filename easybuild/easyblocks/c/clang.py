@@ -47,7 +47,7 @@ from easybuild.tools.config import ERROR
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink, which
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
@@ -753,6 +753,21 @@ class EB_Clang(CMakeMake):
 
         super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
+    def make_module_step(self, *args, **kwargs):
+        """
+        Set paths for module load environment based on the actual installation files
+        """
+        # Ensure that installation files are not added to search paths to headers and libs
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
+        mod_env_libs = ['LIBRARY_PATH']
+        for disallowed_var in mod_env_headers + mod_env_libs:
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
+        # Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
+        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib64', self.runtime_lib_path]
+
+        return super().make_module_step(*args, **kwargs)
+
     def make_module_extra(self):
         """Custom variables for Clang module."""
         txt = super(EB_Clang, self).make_module_extra()
@@ -762,15 +777,3 @@ class EB_Clang(CMakeMake):
         if self.cfg['python_bindings']:
             txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join("lib", "python"))
         return txt
-
-    def make_module_req_guess(self):
-        """
-        Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        """
-        guesses = super(EB_Clang, self).make_module_req_guess()
-        guesses.update({
-            'CPATH': [],
-            'LIBRARY_PATH': [],
-            'LD_LIBRARY_PATH': ['lib', 'lib64', self.runtime_lib_path],
-        })
-        return guesses

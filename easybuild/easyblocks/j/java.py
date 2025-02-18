@@ -129,12 +129,10 @@ class EB_Java(PackedBinary):
                 if elf_interp is None:
                     raise EasyBuildError("Failed to isolate ELF interpreter!")
 
-                module_guesses = self.make_module_req_guess()
-
-                bindirs = [os.path.join(self.installdir, bindir) for bindir in module_guesses['PATH'] if
-                           os.path.exists(os.path.join(self.installdir, bindir))]
-                # Make sure these are unique real paths
-                bindirs = list(set([os.path.realpath(path) for path in bindirs]))
+                # Expand paths in PATH and make sure these are unique real paths
+                bindirs = nub([x for bindir in self.module_load_environment.PATH
+                               for x in self.expand_module_search_path(bindir)])
+                bindirs = [os.path.realpath(os.path.join(self.installdir, bindir)) for bindir in bindirs]
                 for bindir in bindirs:
                     for path in os.listdir(bindir):
                         path = os.path.join(bindir, path)
@@ -166,10 +164,10 @@ class EB_Java(PackedBinary):
                             res = run_shell_cmd("patchelf --print-rpath %s" % path, hidden=True)
                             self.log.debug("RPATH for %s (after shrinking): %s" % (path, res.output))
 
-                libdirs = [os.path.join(self.installdir, libdir) for libdir in module_guesses['LIBRARY_PATH'] if
-                           os.path.exists(os.path.join(self.installdir, libdir))]
-                # Make sure these are unique real paths
-                libdirs = list(set([os.path.realpath(path) for path in libdirs]))
+                # Expand paths in LIBRARY_PATH and make sure these are unique real paths
+                libdirs = nub([x for ld in self.module_load_environment.LIBRARY_PATH
+                               for x in self.expand_module_search_path(ld)])
+                libdirs = [os.path.realpath(os.path.join(self.installdir, ld)) for ld in libdirs]
                 shlib_ext = '.' + get_shared_lib_ext()
                 for libdir in libdirs:
                     for path, _, filenames in os.walk(libdir):

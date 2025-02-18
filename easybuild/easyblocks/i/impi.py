@@ -43,7 +43,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.toolchain.mpi import get_mpi_cmd_template
@@ -227,16 +227,21 @@ class EB_impi(IntelBase):
 
         super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """
-        A dictionary of possible directories to look for
+        Set paths for module load environment based on the actual installation files
         """
-        guesses = super(EB_impi, self).make_module_req_guess()
         manpath = 'man'
+        fi_provider_path = None
+        mic_library_path = None
 
         impi_ver = LooseVersion(self.version)
         if impi_ver >= LooseVersion('2021'):
             mpi_subdir = self.get_versioned_subdir('mpi')
+            path_dirs = [
+                os.path.join(mpi_subdir, 'bin'),
+                os.path.join(mpi_subdir, 'libfabric', 'bin'),
+            ]
             lib_dirs = [
                 os.path.join(mpi_subdir, 'lib'),
                 os.path.join(mpi_subdir, 'libfabric', 'lib'),
@@ -244,46 +249,51 @@ class EB_impi(IntelBase):
             if impi_ver < LooseVersion('2021.11'):
                 lib_dirs.insert(1, os.path.join(mpi_subdir, 'lib', 'release'))
             include_dirs = [os.path.join(mpi_subdir, 'include')]
-            path_dirs = [
-                os.path.join(mpi_subdir, 'bin'),
-                os.path.join(mpi_subdir, 'libfabric', 'bin'),
-            ]
+
             if impi_ver >= LooseVersion('2021.11'):
                 manpath = os.path.join(mpi_subdir, 'share', 'man')
             else:
                 manpath = os.path.join(mpi_subdir, 'man')
 
             if self.cfg['ofi_internal']:
-                libfabric_dir = os.path.join(mpi_subdir, 'libfabric')
-                lib_dirs.append(os.path.join(libfabric_dir, 'lib'))
-                path_dirs.append(os.path.join(libfabric_dir, 'bin'))
-                guesses['FI_PROVIDER_PATH'] = [os.path.join(libfabric_dir, 'lib', 'prov')]
+                lib_dirs.append(os.path.join(mpi_subdir, 'libfabric', 'lib'))
+                path_dirs.append(os.path.join(mpi_subdir, 'libfabric', 'bin'))
+                fi_provider_path = [os.path.join(mpi_subdir, 'libfabric', 'lib', 'prov')]
 
         elif impi_ver >= LooseVersion('2019'):
+            path_dirs = [os.path.join('intel64', 'bin')]
             # The "release" library is default in v2019. Give it precedence over intel64/lib.
             # (remember paths are *prepended*, so the last path in the list has highest priority)
-            lib_dirs = [os.path.join('intel64', x) for x in ['lib', os.path.join('lib', 'release')]]
+            lib_dirs = [
+                os.path.join('intel64', 'lib'),
+                os.path.join('intel64', 'lib', 'release'),
+            ]
             include_dirs = [os.path.join('intel64', 'include')]
-            path_dirs = [os.path.join('intel64', 'bin')]
+
             if self.cfg['ofi_internal']:
                 lib_dirs.append(os.path.join('intel64', 'libfabric', 'lib'))
                 path_dirs.append(os.path.join('intel64', 'libfabric', 'bin'))
-                guesses['FI_PROVIDER_PATH'] = [os.path.join('intel64', 'libfabric', 'lib', 'prov')]
+                fi_provider_path = [os.path.join('intel64', 'libfabric', 'lib', 'prov')]
+
         else:
+            path_dirs = [os.path.join('bin', 'intel64'), 'bin64']
             lib_dirs = [os.path.join('lib', 'em64t'), 'lib64']
             include_dirs = ['include64']
-            path_dirs = [os.path.join('bin', 'intel64'), 'bin64']
-            guesses['MIC_LD_LIBRARY_PATH'] = [os.path.join('mic', 'lib')]
+            mic_library_path = [os.path.join('mic', 'lib')]
 
-        guesses.update({
-            'PATH': path_dirs,
-            'LD_LIBRARY_PATH': lib_dirs,
-            'LIBRARY_PATH': lib_dirs,
-            'MANPATH': [manpath],
-            'CPATH': include_dirs,
-        })
+        self.module_load_environment.PATH = path_dirs
+        self.module_load_environment.LD_LIBRARY_PATH = lib_dirs
+        self.module_load_environment.LIBRARY_PATH = lib_dirs
+        self.module_load_environment.MANPATH = [manpath]
+        if fi_provider_path is not None:
+            self.module_load_environment.FI_PROVIDER_PATH = fi_provider_path
+        if mic_library_path is not None:
+            self.module_load_environment.MIC_LD_LIBRARY_PATH = mic_library_path
 
-        return guesses
+        # include paths to headers (e.g. CPATH)
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, include_dirs)
+
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self, *args, **kwargs):
         """Overwritten from Application to add extra txt"""

@@ -37,6 +37,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.filetools import change_dir, extract_file
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -51,6 +52,19 @@ class EB_Libint(CMakeMake):
             'with_fortran': [False, "Enable Fortran support", CUSTOM],
         }
         return CMakeMake.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+        super(EB_Libint, self).__init__(*args, **kwargs)
+
+        # add custom paths to headers to module load environment
+        libint_includes = ['include']
+        if LooseVersion(self.version) >= LooseVersion('2.0'):
+            libint_includes.append(os.path.join('include', 'libint2'))
+        else:
+            libint_includes.append(os.path.join('include', 'libint'))
+
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, libint_includes)
 
     def configure_step(self):
         """Add some extra configure options."""
@@ -167,15 +181,3 @@ class EB_Libint(CMakeMake):
                 'dirs': [],
             }
         super(EB_Libint, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Specify correct CPATH for this installation."""
-        guesses = super(EB_Libint, self).make_module_req_guess()
-        if LooseVersion(self.version) >= LooseVersion('2.0'):
-            libint_include = os.path.join('include', 'libint2')
-        else:
-            libint_include = os.path.join('include', 'libint')
-        guesses.update({
-            'CPATH': ['include', libint_include],
-        })
-        return guesses

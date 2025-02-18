@@ -147,7 +147,7 @@ class EB_VEP(EasyBlock):
 
         super(EB_VEP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """Custom guesses for environment variables (PATH, ...) for VEP."""
         perl_majver = get_major_perl_version()
 
@@ -156,9 +156,7 @@ class EB_VEP(EasyBlock):
             perl_ver = get_software_version('Perl')
             perl_libpath.extend([os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)])
 
-        guesses = super(EB_VEP, self).make_module_req_guess()
-        guesses = {
-            'PATH': '',
-            'PERL%sLIB' % perl_majver: perl_libpath,
-        }
-        return guesses
+        self.module_load_environment.PATH = ''
+        setattr(self.module_load_environment, f'PERL{perl_majver}LIB', perl_libpath)
+
+        return super(EB_VEP, self).make_module_step(*args, **kwargs)

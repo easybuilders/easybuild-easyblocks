@@ -48,7 +48,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, move_file, remove_dir, write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -434,44 +434,49 @@ class EB_imkl(IntelBase):
 
         super(EB_imkl, self).sanity_check_step(custom_paths=custom_paths)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """
-        A dictionary of possible directories to look for
+        Set paths for module load environment based on the actual installation files
         """
-        guesses = super(EB_imkl, self).make_module_req_guess()
-
         if LooseVersion(self.version) >= LooseVersion('2021'):
             compiler_subdir = os.path.join(self.get_versioned_subdir('compiler'), self.compiler_libdir)
-            pkg_config_path = [os.path.join(self.mkl_basedir, 'tools', 'pkgconfig'),
-                               os.path.join(self.mkl_basedir, 'lib', 'pkgconfig')]
+            pkg_config_path = [
+                os.path.join(self.mkl_basedir, 'tools', 'pkgconfig'),
+                os.path.join(self.mkl_basedir, 'lib', 'pkgconfig'),
+            ]
         else:
             compiler_subdir = os.path.join('lib', 'intel64')
             pkg_config_path = [os.path.join(self.mkl_basedir, 'bin', 'pkgconfig')]
-            guesses['MANPATH'] = ['man', os.path.join('man', 'en_US')]
-            guesses['MIC_LD_LIBRARY_PATH'] = [
-                os.path.join('lib', 'intel64_lin_mic'),
-                os.path.join(self.mkl_basedir, 'lib', 'mic'),
-            ]
-        library_path = [
+
+        self.module_load_environment.PATH = []
+        self.module_load_environment.LD_LIBRARY_PATH = [
             compiler_subdir,
             os.path.join(self.mkl_basedir, 'lib', 'intel64'),
         ]
-        cpath = [
+        self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
+        self.module_load_environment.CMAKE_PREFIX_PATH = [self.mkl_basedir]
+        self.module_load_environment.PKG_CONFIG_PATH = pkg_config_path
+
+        # include paths to headers (e.g. CPATH)
+        include_dirs = [
             os.path.join(self.mkl_basedir, 'include'),
             os.path.join(self.mkl_basedir, 'include', 'fftw'),
         ]
-        cmake_prefix_path = [self.mkl_basedir]
-        guesses.update({
-            'PATH': [],
-            'LD_LIBRARY_PATH': library_path,
-            'LIBRARY_PATH': library_path,
-            'CPATH': cpath,
-            'CMAKE_PREFIX_PATH': cmake_prefix_path,
-            'PKG_CONFIG_PATH': pkg_config_path,
-        })
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, include_dirs)
+
+        if LooseVersion(self.version) < LooseVersion('2021'):
+            self.module_load_environment.MANPATH = ['man', os.path.join('man', 'en_US')]
+            self.module_load_environment.MIC_LD_LIBRARY_PATH = [
+                os.path.join('lib', 'intel64_lin_mic'),
+                os.path.join(self.mkl_basedir, 'lib', 'mic'),
+            ]
+
         if self.cfg['flexiblas']:
-            guesses['FLEXIBLAS_LIBRARY_PATH'] = os.path.join(library_path[1], 'flexiblas')
-        return guesses
+            self.module_load_environment.FLEXIBLAS_LIBRARY_PATH = os.path.join(
+                self.mkl_basedir, 'lib', 'intel64', 'flexiblas'
+            )
+
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Overwritten from Application to add extra txt"""

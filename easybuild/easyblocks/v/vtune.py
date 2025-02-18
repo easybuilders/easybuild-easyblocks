@@ -60,6 +60,9 @@ class EB_VTune(IntelBase):
         elif loosever >= LooseVersion('2020'):
             self.subdir = 'vtune_profiler'
 
+        # prepare module load environment
+        self.prepare_intel_tools_env()
+
     def prepare_step(self, *args, **kwargs):
         """Since 2019u3 there is no license required."""
         kwargs['requires_runtime_license'] = False
@@ -68,10 +71,6 @@ class EB_VTune(IntelBase):
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
         super(EB_VTune, self).make_installdir(dontcreate=True)
-
-    def make_module_req_guess(self):
-        """Find reasonable paths for VTune"""
-        return self.get_guesses_tools()
 
     def sanity_check_step(self):
         """Custom sanity check paths for VTune."""

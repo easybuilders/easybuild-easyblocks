@@ -57,6 +57,20 @@ class EB_Trinity(EasyBlock):
 
         self.build_in_installdir = True
 
+        version = LooseVersion(self.version)
+        if version >= LooseVersion('2.0') and version < LooseVersion('2.3'):
+            sep = '-'
+        elif version >= LooseVersion('2.3') and version < LooseVersion('2.9'):
+            sep = '-Trinity-v'
+        elif version >= LooseVersion('2.9') and version < LooseVersion('3.0'):
+            sep = '-v'
+        else:
+            sep = '_r'
+        self.trinityrnaseq_subdir = f'trinityrnaseq{sep}{self.version}'
+
+        self.module_load_environment.PATH = self.trinityrnaseq_subdir
+        self.module_load_environment.TRINITY_HOME = self.trinityrnaseq_subdir
+
     @staticmethod
     def extra_options():
         """Custom easyconfig parameters for Trinity."""
@@ -312,14 +326,6 @@ class EB_Trinity(EasyBlock):
         """Custom sanity check for Trinity."""
 
         version = LooseVersion(self.version)
-        if version >= LooseVersion('2.0') and version < LooseVersion('2.3'):
-            sep = '-'
-        elif version >= LooseVersion('2.3') and version < LooseVersion('2.9'):
-            sep = '-Trinity-v'
-        elif version >= LooseVersion('2.9') and version < LooseVersion('3.0'):
-            sep = '-v'
-        else:
-            sep = '_r'
         # Chrysalis
         if version >= LooseVersion('2.9') and version < LooseVersion('2000'):
             chrysalis_bin = os.path.join('Chrysalis', 'bin')
@@ -344,8 +350,6 @@ class EB_Trinity(EasyBlock):
             inchworm_files.extend(['FastaToDeBruijn', 'fastaToKmerCoverageStats'])
         inchworm_bin_files = [os.path.join(inchworm_bin, x) for x in inchworm_files]
 
-        path = 'trinityrnaseq%s%s' % (sep, self.version)
-
         # folders path
         dir_path = ['util']
         if version < LooseVersion('2.9'):
@@ -353,21 +357,10 @@ class EB_Trinity(EasyBlock):
 
         # these lists are definitely non-exhaustive, but better than nothing
         custom_paths = {
-            'files': [os.path.join(path, x) for x in (inchworm_bin_files + chrysalis_bin_files)],
-            'dirs': [os.path.join(path, x) for x in dir_path]
+            'files': [os.path.join(self.trinityrnaseq_subdir, x) for x in (inchworm_bin_files + chrysalis_bin_files)],
+            'dirs': [os.path.join(self.trinityrnaseq_subdir, x) for x in dir_path]
         }
 
-        super(EB_Trinity, self).sanity_check_step(custom_paths=custom_paths)
+        custom_commands = ["Trinity --version | grep 'Trinity version'"]
 
-    def make_module_req_guess(self):
-        """Custom tweaks for PATH variable for Trinity."""
-
-        guesses = super(EB_Trinity, self).make_module_req_guess()
-
-        install_rootdir = os.path.basename(self.cfg['start_dir'].strip('/'))
-        guesses.update({
-            'PATH': [install_rootdir],
-            'TRINITY_HOME': [install_rootdir],
-        })
-
-        return guesses
+        super(EB_Trinity, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

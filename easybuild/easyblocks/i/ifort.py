@@ -39,6 +39,7 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.icc import EB_icc  # @UnresolvedImport
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -57,6 +58,11 @@ class EB_ifort(EB_icc, IntelBase):
             raise EasyBuildError(
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
             )
+
+        # define list of subdirectories in search paths of module load environment
+        # add additional paths to those of ICC only needed for separate ifort installations
+        for envar in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
+            envar.append(os.path.join(self.comp_libs_subdir, 'compiler/include'))
 
     def sanity_check_step(self):
         """Custom sanity check paths for ifort."""
@@ -83,13 +89,3 @@ class EB_ifort(EB_icc, IntelBase):
         custom_commands = ["which ifort"]
 
         IntelBase.sanity_check_step(self, custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """
-        Additional paths to consider for prepend-paths statements in module file
-        """
-        guesses = super(EB_ifort, self).make_module_req_guess()
-        # This enables the creation of fortran 2008 bindings in MPI
-        guesses['CPATH'].append('include')
-
-        return guesses

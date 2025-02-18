@@ -49,6 +49,7 @@ from easybuild.framework.easyconfig.types import ensure_iterable_license_specs
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, find_flexlm_license
 from easybuild.tools.filetools import read_file, remove_file, write_file
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -128,19 +129,20 @@ class IntelBase(EasyBlock):
 
     def get_guesses_tools(self):
         """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
+        self.log.deprecated("IntelBase.get_guesses_tools() is replaced by IntelBase.prepare_intel_tools_env()", '6.0')
 
-        guesses = super(IntelBase, self).make_module_req_guess()
-        guesses['PATH'] = [os.path.join(self.subdir, 'bin64')]
-        guesses['MANPATH'] = [os.path.join(self.subdir, 'man')]
+    def prepare_intel_tools_env(self):
+        """Find reasonable paths for a subset of Intel tools, ignoring CPATH, LD_LIBRARY_PATH and LIBRARY_PATH"""
+        self.module_load_environment.PATH = [os.path.join(self.subdir, 'bin64')]
+        self.module_load_environment.MANPATH = [os.path.join(self.subdir, 'man')]
 
         # make sure $CPATH, $LD_LIBRARY_PATH and $LIBRARY_PATH are not updated in generated module file,
         # because that leads to problem when the libraries included with VTune/Advisor/Inspector are being picked up
-        for key in ['CPATH', 'LD_LIBRARY_PATH', 'LIBRARY_PATH']:
-            if key in guesses:
-                self.log.debug("Purposely not updating $%s in %s module file", key, self.name)
-                del guesses[key]
-
-        return guesses
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
+        mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
+        for disallowed_var in mod_env_headers + mod_env_libs:
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def get_custom_paths_tools(self, binaries):
         """Custom sanity check paths for certain Intel tools."""

@@ -56,6 +56,12 @@ class EB_FLUENT(PackedBinary):
 
         self.fluent_verdir = 'v%s' % subdir_version
 
+        self.module_load_environment.PATH = [
+            os.path.join(self.fluent_verdir, 'fluent', 'bin'),
+            os.path.join(self.fluent_verdir, 'Framework', 'bin', 'Linux64'),
+        ]
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join(self.fluent_verdir, 'fluent', 'lib')]
+
     def install_step(self):
         """Custom install procedure for FLUENT."""
         extra_args = ''
@@ -76,17 +82,3 @@ class EB_FLUENT(PackedBinary):
             'dirs': [os.path.join(self.fluent_verdir, x) for x in ['aisol', 'CFD-Post']]
         }
         super(EB_FLUENT, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Custom extra module file entries for FLUENT."""
-        guesses = super(EB_FLUENT, self).make_module_req_guess()
-
-        guesses.update({
-            'PATH': [
-                os.path.join(self.fluent_verdir, 'fluent', 'bin'),
-                os.path.join(self.fluent_verdir, 'Framework', 'bin', 'Linux64'),
-            ],
-            'LD_LIBRARY_PATH': [os.path.join(self.fluent_verdir, 'fluent', 'lib')],
-        })
-
-        return guesses

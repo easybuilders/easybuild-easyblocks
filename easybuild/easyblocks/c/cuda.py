@@ -92,6 +92,28 @@ class EB_CUDA(Binary):
         self.cfg.template_values['cudaarch'] = cudaarch
         self.cfg.generate_template_values()
 
+        # Specify CUDA custom values for module load environment
+        # The dirs should be in the order ['open64/bin', 'bin']
+        bin_path = []
+        if LooseVersion(self.version) < LooseVersion('7'):
+            bin_path.append(os.path.join('open64', 'bin'))
+        bin_path.append('bin')
+
+        lib_path = ['lib64']
+        inc_path = ['include']
+        if LooseVersion(self.version) >= LooseVersion('7'):
+            lib_path.append(os.path.join('extras', 'CUPTI', 'lib64'))
+            inc_path.append(os.path.join('extras', 'CUPTI', 'include'))
+            bin_path.append(os.path.join('nvvm', 'bin'))
+            lib_path.append(os.path.join('nvvm', 'lib64'))
+            inc_path.append(os.path.join('nvvm', 'include'))
+
+        self.module_load_environment.CPATH = inc_path
+        self.module_load_environment.LD_LIBRARY_PATH = lib_path
+        self.module_load_environment.LIBRARY_PATH = lib_path + [os.path.join('stubs', 'lib64')]
+        self.module_load_environment.PATH = bin_path
+        self.module_load_environment.PKG_CONFIG_PATH = ['pkgconfig']
+
     def fetch_step(self, *args, **kwargs):
         """Check for EULA acceptance prior to getting sources."""
         # EULA for CUDA must be accepted via --accept-eula-for EasyBuild configuration option,
@@ -334,33 +356,3 @@ class EB_CUDA(Binary):
         txt += self.module_generator.set_environment('CUDA_PATH', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
-
-    def make_module_req_guess(self):
-        """Specify CUDA custom values for PATH etc."""
-
-        guesses = super(EB_CUDA, self).make_module_req_guess()
-
-        # The dirs should be in the order ['open64/bin', 'bin']
-        bin_path = []
-        if LooseVersion(self.version) < LooseVersion('7'):
-            bin_path.append(os.path.join('open64', 'bin'))
-        bin_path.append('bin')
-
-        lib_path = ['lib64']
-        inc_path = ['include']
-        if LooseVersion(self.version) >= LooseVersion('7'):
-            lib_path.append(os.path.join('extras', 'CUPTI', 'lib64'))
-            inc_path.append(os.path.join('extras', 'CUPTI', 'include'))
-            bin_path.append(os.path.join('nvvm', 'bin'))
-            lib_path.append(os.path.join('nvvm', 'lib64'))
-            inc_path.append(os.path.join('nvvm', 'include'))
-
-        guesses.update({
-            'CPATH': inc_path,
-            'LD_LIBRARY_PATH': lib_path,
-            'LIBRARY_PATH': lib_path + [os.path.join('stubs', 'lib64')],
-            'PATH': bin_path,
-            'PKG_CONFIG_PATH': ['pkgconfig'],
-        })
-
-        return guesses
