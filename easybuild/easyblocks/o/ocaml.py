@@ -83,6 +83,11 @@ class EB_OCaml(ConfigureMake):
         super(EB_OCaml, self).__init__(*args, **kwargs)
         self.with_opam = False
 
+        # custom extra paths/variables to define in generated module for OCaml
+        self.module_load_environment.CAML_LD_LIBRARY_PATH = ['lib']
+        self.module_load_environment.OPAMROOT = [OPAM_SUBDIR]
+        self.module_load_environment.PATH = ['bin', os.path.join(OPAM_SUBDIR, 'default', 'bin')]
+
     def configure_step(self):
         """Custom configuration procedure for OCaml."""
         self.cfg['prefix_opt'] = '-prefix '
@@ -162,15 +167,3 @@ class EB_OCaml(ConfigureMake):
         }
 
         super(EB_OCaml, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Custom extra paths/variables to define in generated module for OCaml."""
-        guesses = super(EB_OCaml, self).make_module_req_guess()
-
-        guesses.update({
-            'CAML_LD_LIBRARY_PATH': ['lib'],
-            'OPAMROOT': [OPAM_SUBDIR],
-            'PATH': ['bin', os.path.join(OPAM_SUBDIR, 'default', 'bin')],
-        })
-
-        return guesses
