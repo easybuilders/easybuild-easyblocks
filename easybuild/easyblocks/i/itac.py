@@ -37,6 +37,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -61,6 +62,14 @@ class EB_itac(IntelBase):
             raise EasyBuildError(
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2019.0."
             )
+
+        # add cutom paths to the module load environment
+        self.module_load_environment.PATH = ['bin', 'bin/intel64', 'bin64']
+        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib/intel64', 'lib64', 'slib']
+        # avoid software building against itac
+        self.module_load_environment.remove('LIBRARY_PATH')
+        for disallowed_var in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
+            self.module_load_environment.remove(disallowed_var)
 
     def prepare_step(self, *args, **kwargs):
         """
@@ -119,16 +128,6 @@ class EB_itac(IntelBase):
         }
 
         super(EB_itac, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for
-        """
-        guesses = {
-            'PATH': ['bin', 'bin/intel64', 'bin64'],
-            'LD_LIBRARY_PATH': ['lib', 'lib/intel64', 'lib64', 'slib'],
-        }
-        return guesses
 
     def make_module_extra(self):
         """Overwritten from IntelBase to add extra txt"""
