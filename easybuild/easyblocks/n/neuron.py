@@ -106,9 +106,9 @@ class EB_NEURON(CMakeMake):
         if build_option('mpi_tests'):
             nproc = self.cfg['parallel']
             try:
-                test_dir = os.path.join(self.cfg['start_dir'], 'src', 'parallel')
-                cmd = self.toolchain.mpi_cmd_for("nrniv -mpi test0.hoc", nproc)
-                res = run_shell_cmd(cmd, work_dir=test_dir)
+                hoc_file = os.path.join(self.cfg['start_dir'], 'src', 'parallel', 'test0.hoc')
+                cmd = self.toolchain.mpi_cmd_for(f"bin/nrniv -mpi {hoc_file}", nproc)
+                res = run_shell_cmd(cmd)
             except OSError as err:
                 raise EasyBuildError("Failed to run parallel hello world: %s", err)
 
