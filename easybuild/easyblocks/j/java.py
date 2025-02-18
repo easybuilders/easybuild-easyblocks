@@ -130,7 +130,8 @@ class EB_Java(PackedBinary):
                     raise EasyBuildError("Failed to isolate ELF interpreter!")
 
                 # Expand paths in PATH and make sure these are unique real paths
-                bindirs = nub([self.expand_module_search_path(bindir) for bindir in self.module_load_environment.PATH])
+                bindirs = nub([x for bindir in self.module_load_environment.PATH
+                                 for x in self.expand_module_search_path(bindir)])
                 bindirs = [os.path.realpath(os.path.join(self.installdir, bindir)) for bindir in bindirs]
                 for bindir in bindirs:
                     for path in os.listdir(bindir):
@@ -164,7 +165,8 @@ class EB_Java(PackedBinary):
                             self.log.debug("RPATH for %s (after shrinking): %s" % (path, res.output))
 
                 # Expand paths in LIBRARY_PATH and make sure these are unique real paths
-                libdirs = nub([self.expand_module_search_path(ld) for ld in self.module_load_environment.LIBRARY_PATH])
+                libdirs = nub([x for ld in self.module_load_environment.LIBRARY_PATH
+                                 for x in self.expand_module_search_path(ld)])
                 libdirs = [os.path.realpath(os.path.join(self.installdir, ld)) for ld in libdirs]
                 shlib_ext = '.' + get_shared_lib_ext()
                 for libdir in libdirs:
