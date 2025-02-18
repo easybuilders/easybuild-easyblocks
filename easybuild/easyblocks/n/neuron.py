@@ -30,6 +30,7 @@ EasyBuild support for building and installing NEURON, implemented as an easybloc
 """
 import os
 import re
+import tempfile
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
@@ -37,6 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -91,6 +93,29 @@ class EB_NEURON(CMakeMake):
         # complete configuration with configure_method of parent
         CMakeMake.configure_step(self)
 
+    def test_step(self):
+        """Custom tests for NEURON."""
+        if build_option('mpi_tests'):
+            nproc = self.cfg['parallel']
+            try:
+                test_dir = os.path.join(self.cfg['start_dir'], 'src', 'parallel')
+                cmd = self.toolchain.mpi_cmd_for("nrniv -mpi test0.hoc", nproc)
+                res = run_shell_cmd(cmd, work_dir=test_dir)
+            except OSError as err:
+                raise EasyBuildError("Failed to run parallel hello world: %s", err)
+
+            valid = True
+            for i in range(0, nproc):
+                validate_regexp = re.compile(f"I am {i:d} of {nproc:d}")
+                if not validate_regexp.search(res.output):
+                    valid = False
+                    break
+            if res.exit_code or not valid:
+                raise EasyBuildError("Validation of parallel hello world run failed.")
+            self.log.info("Parallel hello world OK!")
+        else:
+            self.log.info("Skipping MPI testing of NEURON since MPI testing is disabled")
+
     def sanity_check_step(self):
         """Custom sanity check for NEURON."""
         shlib_ext = get_shared_lib_ext()
@@ -115,15 +140,11 @@ class EB_NEURON(CMakeMake):
             'files': sanity_check_files,
             'dirs': sanity_check_dirs,
         }
-        super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths)
 
-        try:
-            fake_mod_data = self.load_fake_module()
-        except EasyBuildError as err:
-            self.log.debug("Loading fake module failed: %s" % err)
-
-        # test NEURON demo
-        inp = '\n'.join([
+        # run NEURON demo
+        demo_dir = tempfile.mkdtemp()
+        demo_inp_file = os.path.join(demo_dir, 'neurondemo.inp')
+        demo_inp_cmds = '\n'.join([
             "demo(3) // load the pyramidal cell model.",
             "init()  // initialise the model",
             "t       // should be zero",
@@ -133,44 +154,21 @@ class EB_NEURON(CMakeMake):
             "soma.v  // will print a value other than -65, indicating that the simulation was executed",
             "quit()",
         ])
-        res = run_shell_cmd("neurondemo", stdin=inp, fail_on_error=False)
+        write_file(demo_inp_file, demo_inp_cmds)
 
-        validate_regexp = re.compile(r"^\s+-65\s*\n\s+5\s*\n\s+-68.134337", re.M)
-        if res.exit_code or not validate_regexp.search(res.output):
-            raise EasyBuildError("Validation of NEURON demo run failed.")
-        self.log.info("Validation of NEURON demo OK!")
+        demo_sanity_cmd = f"neurondemo < {demo_inp_file} 2>&1"
+        demo_regexp_version = f'NEURON -- VERSION {self.version}'
+        demo_regexp_soma = '68.134337'
 
-        if build_option('mpi_tests'):
-            nproc = self.cfg['parallel']
-            try:
-                cwd = os.getcwd()
-                os.chdir(os.path.join(self.cfg['start_dir'], 'src', 'parallel'))
-
-                cmd = self.toolchain.mpi_cmd_for("nrniv -mpi test0.hoc", nproc)
-                res = run_shell_cmd(cmd, fail_on_error=False)
-
-                os.chdir(cwd)
-            except OSError as err:
-                raise EasyBuildError("Failed to run parallel hello world: %s", err)
-
-            valid = True
-            for i in range(0, nproc):
-                validate_regexp = re.compile(f"I am {i:d} of {nproc:d}")
-                if not validate_regexp.search(res.output):
-                    valid = False
-                    break
-            if res.exit_code or not valid:
-                raise EasyBuildError("Validation of parallel hello world run failed.")
-            self.log.info("Parallel hello world OK!")
-        else:
-            self.log.info("Skipping MPI testing of NEURON since MPI testing is disabled")
+        custom_commands = [
+            f"{demo_sanity_cmd} | grep -c '{demo_regexp_version}'",
+            f"{demo_sanity_cmd} | grep -c '{demo_regexp_soma}'",
+        ]
 
         if self.with_python:
-            cmd = "python -c 'import neuron; neuron.test()'"
-            run_shell_cmd(cmd)
+            custom_commands.append("python -c 'import neuron; neuron.test()'")
 
-        # cleanup
-        self.clean_up_fake_module(fake_mod_data)
+        super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_step(self, *args, **kwargs):
         """
