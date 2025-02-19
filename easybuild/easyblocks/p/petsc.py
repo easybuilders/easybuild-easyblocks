@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import symlink, apply_regex_substitutions
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
