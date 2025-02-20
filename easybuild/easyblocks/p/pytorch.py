@@ -230,13 +230,13 @@ def parse_test_log(tests_out):
     # Gather all failed tests suites in case we missed any,
     # e.g. when it exited due to syntax errors or with a signal such as SIGSEGV
     failed_suites_and_signal = set(
-        re.findall(r"^(?P<test_name>.*) failed!( Received signal: (\w+))?\s*$", tests_out, re.M)
+        re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: (\w+))?\s*$", tests_out, re.M)
     )
 
     return TestResult(test_cnt=test_cnt, error_cnt=error_cnt, failure_cnt=failure_cnt,
                       failed_suites=failed_suites,
                       terminated_suites=[TerminatedTestSuite(name, signal)
-                                         for name, _, signal in failed_suites_and_signal if signal],
+                                         for name, signal in failed_suites_and_signal if signal],
                       all_failed_suites={i[0] for i in failed_suites_and_signal})
 
 
