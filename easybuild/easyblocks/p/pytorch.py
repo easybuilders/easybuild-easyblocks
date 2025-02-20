@@ -44,20 +44,35 @@ from easybuild.tools.systemtools import POWER, get_cpu_architecture
 
 
 if sys.version_info >= (3, 9):
-    from typing import NamedTuple
-    # Lists of tests that were marked as ERROR and FAIL respectively
-    FailedTestNames = NamedTuple('FailedTestNames', [('error', list[str]), ('fail', list[str])])
-    # Name of test suite and summary of the tests run/failed/...
-    TestSuiteResult = NamedTuple('TestSuiteResult', [('name', str), ('summary', str)])
-    # Test suite that was terminated with a signal
-    TerminatedTestSuite = NamedTuple('TerminatedTestSuite', [('name', str), ('signal', str)])
-    TestResult = NamedTuple('TestResult', [('test_cnt', int),
-                                           ('error_cnt', int),
-                                           ('failure_cnt', int),
-                                           ('failed_suites', list[TestSuiteResult]),
-                                           ('terminated_suites', list[TerminatedTestSuite]),
-                                           ('all_failed_suites', set[str]),
-                                           ])
+    from dataclasses import dataclass
+
+    @dataclass
+    class FailedTestNames:
+        """Hold list of tests names that failed with error or failure"""
+        error: list[str]
+        fail: list[str]
+
+    @dataclass
+    class TestSuiteResult:
+        """Hold the name of a test suite and a summary of the failures"""
+        name: str
+        summary: str
+
+    @dataclass
+    class TerminatedTestSuite:
+        """Test suite name and the signal it terminated with"""
+        name: str
+        signal: str
+
+    @dataclass
+    class TestResult:
+        """Status report and results of a test run"""
+        test_cnt: int
+        error_cnt: int
+        failure_cnt: int
+        failed_suites: list[TestSuiteResult]
+        terminated_suites: list[TerminatedTestSuite]
+        all_failed_suites: set[str]  # Names of all failed suites
 else:
     from collections import namedtuple
     FailedTestNames = namedtuple('FailedTestNames', ('error', 'fail'))
