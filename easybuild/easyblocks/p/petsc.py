@@ -380,8 +380,7 @@ class EB_PETSc(ConfigureMake):
 
     def install_step(self):
         """
-        Install using make install (for non-source installations),
-        or by symlinking files (old versions, < 3).
+        Install using make install (for non-source installations)
         """
         if not self.cfg['sourceinstall']:
             super(EB_PETSc, self).install_step()
