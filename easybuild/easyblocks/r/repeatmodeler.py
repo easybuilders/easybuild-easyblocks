@@ -193,3 +193,5 @@ class EB_RepeatModeler(Tarball):
         """Additional path-like environment variables that depend on installation files"""
         perl_lib_var = f"PERL{get_major_perl_version()}LIB"
         setattr(self.module_load_environment, perl_lib_var, [get_site_suffix('sitelib')])
+
+        return super().make_module_step(*args, **kwargs)
