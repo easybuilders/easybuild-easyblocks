@@ -501,15 +501,15 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': ' '.join(excluded_tests)
         })
 
-        test_result = super(EB_PyTorch, self).test_step(return_output_ec=True)
-        if test_result is None:
+        parsed_test_result = super(EB_PyTorch, self).test_step(return_output_ec=True)
+        if parsed_test_result is None:
             if self.cfg['runtest'] is False:
                 msg = "Do not set 'runtest' to False, use --skip-test-step instead."
             else:
                 msg = "Tests did not run. Make sure 'runtest' is set to a command."
             raise EasyBuildError(msg)
 
-        tests_out, tests_ec = test_result
+        tests_out, tests_ec = parsed_test_result
 
         # Show failed subtests to aid in debugging failures
         failed_test_names = find_failed_test_names(tests_out)
@@ -524,11 +524,11 @@ class EB_PyTorch(PythonPackage):
             self.log.warning("\n".join(msg))
 
         # Create clear summary report
-        test_result = parse_test_log(tests_out)
+        parsed_test_result = parse_test_log(tests_out)
         # Use a list of messages we can later join together
-        failure_msgs = ['%s (%s)' % (suite.name, suite.summary) for suite in test_result.failed_suites]
-        failed_test_suites = set(suite.name for suite in test_result.failed_suites)
-        all_failed_test_suites = test_result.all_failed_suites
+        failure_msgs = ['%s (%s)' % (suite.name, suite.summary) for suite in parsed_test_result.failed_suites]
+        failed_test_suites = set(suite.name for suite in parsed_test_result.failed_suites)
+        all_failed_test_suites = parsed_test_result.all_failed_suites
         # If we missed any test suites prepend a list of all failed test suites
         if failed_test_suites != all_failed_test_suites:
             failure_msgs = ['Failed tests (suites/files):'] + failure_msgs
@@ -547,23 +547,23 @@ class EB_PyTorch(PythonPackage):
         # Assemble final report
         failure_report = '\n'.join(failure_msgs)
         # Calculate total number of unsuccesful and total tests
-        failed_test_cnt = test_result.failure_cnt + test_result.error_cnt
-        # Only add count if we detected any failed tests
+        failed_test_cnt = parsed_test_result.failure_cnt + parsed_test_result.error_cnt
+        # Only add count message if we detected any failed tests
         if failed_test_cnt > 0:
-            failure_or_failures = 'failure' if test_result.failure_cnt == 1 else 'failures'
-            error_or_errors = 'error' if test_result.error_cnt == 1 else 'errors'
+            failure_or_failures = 'failure' if parsed_test_result.failure_cnt == 1 else 'failures'
+            error_or_errors = 'error' if parsed_test_result.error_cnt == 1 else 'errors'
             failure_report = "%d test %s, %d test %s (out of %d):\n" % (
-                test_result.failure_cnt, failure_or_failures,
-                test_result.error_cnt, error_or_errors,
-                test_result.test_cnt
+                parsed_test_result.failure_cnt, failure_or_failures,
+                parsed_test_result.error_cnt, error_or_errors,
+                parsed_test_result.test_cnt
             ) + failure_report
 
         if failed_test_suites != all_failed_test_suites:
             # Fail because we can't be sure how many tests failed
             # so comparing to max_failed_tests cannot reasonably be done
-            terminated_suite_names = set(name for name, _ in test_result.terminated_suites)
+            terminated_suite_names = set(name for name, _ in parsed_test_result.terminated_suites)
             if failed_test_suites | terminated_suite_names == all_failed_test_suites:
-                suites = ", ".join("%s(%s)" % name_signal for name_signal in test_result.terminated_suites)
+                suites = ", ".join("%s(%s)" % name_signal for name_signal in parsed_test_result.terminated_suites)
                 msg = ('Failing because these test suites were terminated which makes it impossible'
                        'to accurately count the failed tests: ' + suites + '!')
             else:
