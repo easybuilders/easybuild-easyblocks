@@ -52,8 +52,8 @@ class EB_TINKER(EasyBlock):
         self.build_subdir = None
         self.build_in_installdir = True
 
-        self.module_load_environment.LD_LIBRARY_PATH = os.path.join('tinker', 'source')
-        self.module_load_environment.PATH = os.path.join('tinker', 'bin')
+        self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join('tinker', 'source'))
+        self.module_load_environment.PATH.append(os.path.join('tinker', 'bin'))
 
     def configure_step(self):
         """Custom configuration procedure for TINKER."""
