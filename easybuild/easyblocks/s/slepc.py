@@ -61,6 +61,9 @@ class EB_SLEPc(ConfigureMake):
         if self.cfg['petsc_arch'] is None:
             self.petsc_arch = 'arch-installed-petsc'
 
+        # define $PETSC_ARCH in build environment
+        env.setvar('PETSC_ARCH', self.petsc_arch)
+
         self.slepc_subdir = ''
 
         if self.cfg['sourceinstall']:
@@ -109,9 +112,6 @@ class EB_SLEPc(ConfigureMake):
         error_regexp = re.compile("ERROR")
         if error_regexp.search(out):
             raise EasyBuildError("Error(s) detected in configure output!")
-
-        # define $PETSC_ARCH
-        env.setvar('PETSC_ARCH', self.petsc_arch)
 
         # SLEPc > 3.5, make does not accept -j
         if LooseVersion(self.version) >= LooseVersion("3.5"):
