@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,6 +28,7 @@ EasyBuild support for Quantum ESPRESSO, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Ake Sandgren (HPC2N, Umea University)
 @author: Davide Grassano (CECAM, EPFL)
+@author: Jan Reuter (Juelich Supercomputing Centre)
 """
 
 import fileinput
@@ -42,6 +43,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM, EasyConfig
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, copy_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
@@ -83,6 +85,8 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         # Required to avoid CMakeMake default extra_opts to override the ConfigMake ones
         new_ec = EasyConfig(ec.path, extra_options=eb.extra_options())
+        # Disable log file for nested EasyBlock
+        kwargs['logfile'] = self.logfile
         self.ebclass = eb(new_ec, *args, **kwargs)
 
     class EB_QuantumESPRESSOcmake(CMakeMake):
@@ -347,6 +351,9 @@ class EB_QuantumESPRESSO(EasyBlock):
             Test the compilation using Quantum ESPRESSO's test suite.
             ctest -j NCONCURRENT (NCONCURRENT = max (1, PARALLEL / NPROCS))
             """
+            if not build_option('mpi_tests'):
+                self.log.info("Skipping testing of QuantumESPRESSO since MPI testing is disabled")
+                return
 
             thr = self.cfg.get('test_suite_threshold', 0.97)
             concurrent = max(1, self.cfg.get('parallel', 1) // self._test_nprocs)
@@ -1027,6 +1034,9 @@ class EB_QuantumESPRESSO(EasyBlock):
             Test the compilation using Quantum ESPRESSO's test suite.
             cd test-suite && make run-tests NPROCS=XXX (XXX <= 4)
             """
+            if not build_option('mpi_tests'):
+                self.log.info("Skipping testing of QuantumESPRESSO since MPI testing is disabled")
+                return
 
             thr = self.cfg.get('test_suite_threshold', 0.9)
             stot = 0

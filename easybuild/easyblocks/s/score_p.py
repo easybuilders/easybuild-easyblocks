@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,11 +32,14 @@ implemented as an easyblock.
 @author: Alexander Grund (TU Dresden)
 @author: Christian Feld (Juelich Supercomputing Centre)
 """
+import os
+
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import unset_env_vars
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_libdir
 
 
@@ -48,6 +51,22 @@ class EB_Score_minus_P(ConfigureMake):
 
     def configure_step(self, *args, **kwargs):
         """Configure the build, set configure options for compiler, MPI and dependencies."""
+
+        if LooseVersion(self.version) >= LooseVersion('8.0') and LooseVersion(self.version) < LooseVersion('8.5'):
+            # Fix an issue where the configure script would fail if certain dependencies are installed in a path
+            # that includes "yes" or "no", see https://gitlab.com/score-p/scorep/-/issues/1008.
+            yes_no_regex = [
+                (r'\*yes\*\|\*no\*', 'yes,*|no,*|*,yes|*,no'),
+                (r'_lib}\${with_', '_lib},${with_'),
+            ]
+            configure_scripts = [
+                os.path.join(self.start_dir, 'build-backend', 'configure'),
+                os.path.join(self.start_dir, 'build-mpi', 'configure'),
+                os.path.join(self.start_dir, 'build-shmem', 'configure'),
+            ]
+            for configure_script in configure_scripts:
+                apply_regex_substitutions(configure_script, yes_no_regex)
+
         # Remove some settings from the environment, as they interfere with
         # Score-P's configure magic...
         unset_env_vars(['CPPFLAGS', 'LDFLAGS', 'LIBS'])

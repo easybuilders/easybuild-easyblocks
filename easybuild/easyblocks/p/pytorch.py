@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2024 Ghent University
+# Copyright 2020-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -610,6 +610,8 @@ class EB_PyTorch(PythonPackage):
         guesses['CMAKE_PREFIX_PATH'] = [os.path.join(self.pylibdir, 'torch')]
         # Required to dynamically load libcaffe2_nvrtc.so
         guesses['LD_LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
+        # important when RPATH linking is enabled
+        guesses['LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
         return guesses
 
 

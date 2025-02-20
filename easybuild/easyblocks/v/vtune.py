@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,7 +46,9 @@ class EB_VTune(IntelBase):
         # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
         loosever = LooseVersion(self.version)
-        if loosever >= LooseVersion('2021'):
+        if loosever >= LooseVersion('2024'):
+            self.subdir = os.path.join('vtune', '.'.join([str(loosever.version[0]), str(loosever.version[1])]))
+        elif loosever >= LooseVersion('2021'):
             self.subdir = os.path.join('vtune', self.version)
         elif loosever >= LooseVersion('2020'):
             self.subdir = 'vtune_profiler'

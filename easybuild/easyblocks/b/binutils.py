@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -147,6 +147,15 @@ class EB_binutils(ConfigureMake):
                 # for older versions, injecting the path to the static libz library into $LIBS works
                 else:
                     libs.append(libz_path)
+
+        msgpackroot = get_software_root('msgpack-c')
+        if LooseVersion(self.version) >= LooseVersion('2.39'):
+            if msgpackroot:
+                self.cfg.update('configopts', '--with-msgpack')
+            else:
+                self.cfg.update('configopts', '--without-msgpack')
+        elif msgpackroot:
+            raise EasyBuildError('msgpack is only supported since binutils 2.39. Remove the dependency!')
 
         env.setvar('LIBS', ' '.join(libs))
 

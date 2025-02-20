@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -83,7 +83,7 @@ def det_python_version(python_cmd):
     return out.strip()
 
 
-def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
+def pick_python_cmd(req_maj_ver=None, req_min_ver=None, max_py_majver=None, max_py_minver=None):
     """
     Pick 'python' command to use, based on specified version requirements.
     If the major version is specified, it must be an exact match (==).
@@ -128,6 +128,20 @@ def pick_python_cmd(req_maj_ver=None, req_min_ver=None):
             # check for minimal minor version
             if LooseVersion(pyver) < LooseVersion(req_majmin_ver):
                 log.debug("Minimal requirement for minor Python version not satisfied: %s vs %s", pyver, req_majmin_ver)
+                return False
+
+        if max_py_majver is not None:
+            if max_py_minver is None:
+                max_majmin_ver = '%s.0' % max_py_majver
+            else:
+                max_majmin_ver = '%s.%s' % (max_py_majver, max_py_minver)
+
+            pyver = det_python_version(python_cmd)
+
+            if LooseVersion(pyver) > LooseVersion(max_majmin_ver):
+                log.debug("Python version (%s) on the system is newer than the maximum supported "
+                          "Python version specified in the easyconfig (%s)",
+                          pyver, max_majmin_ver)
                 return False
 
         # all check passed
@@ -193,6 +207,15 @@ def det_pylibdir(plat_specific=False, python_cmd=None):
                              cmd, prefix, out, ec)
 
     pylibdir = txt[len(prefix):]
+
+    # Ubuntu 24.04: the pylibdir has a leading local/, which causes issues later
+    # e.g. when symlinking <installdir>/local/* to <installdir>/*
+    # we can safely strip this to get a working installation
+    local = 'local/'
+    if pylibdir.startswith(local):
+        log.info("Removing leading /local from determined pylibdir: %s" % pylibdir)
+        pylibdir = pylibdir[len(local):]
+
     log.debug("Determined pylibdir using '%s': %s", cmd, pylibdir)
     return pylibdir
 
@@ -348,6 +371,8 @@ class PythonPackage(ExtensionEasyBlock):
                                   "Enabled by default if the EB option --debug is used.", CUSTOM],
             'req_py_majver': [None, "Required major Python version (only relevant when using system Python)", CUSTOM],
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
+            'max_py_majver': [None, "Maximum major Python version (only relevant when using system Python)", CUSTOM],
+            'max_py_minver': [None, "Maximum minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [False, "Run 'python -m pip check' to ensure all required Python packages are "
                                         "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
@@ -429,6 +454,8 @@ class PythonPackage(ExtensionEasyBlock):
         # Users or sites may require using a virtualenv for user installations
         # We need to disable this to be able to install into the modules
         env.setvar('PIP_REQUIRE_VIRTUALENV', 'false')
+        # Don't let pip connect to PYPI to check for a new version
+        env.setvar('PIP_DISABLE_PIP_VERSION_CHECK', 'true')
 
     def determine_install_command(self):
         """
@@ -506,16 +533,33 @@ class PythonPackage(ExtensionEasyBlock):
             if req_py_minver is None:
                 req_py_minver = sys.version_info[1]
 
-            # if using system Python, go hunting for a 'python' command that satisfies the requirements
-            python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver)
+            # Get the max_py_majver and max_py_minver from the config
+            max_py_majver = self.cfg['max_py_majver']
+            max_py_minver = self.cfg['max_py_minver']
 
-        if python:
+            # if using system Python, go hunting for a 'python' command that satisfies the requirements
+            python = pick_python_cmd(req_maj_ver=req_py_majver, req_min_ver=req_py_minver,
+                                     max_py_majver=max_py_majver, max_py_minver=max_py_minver)
+
+            # Check if we have Python by now. If not, and if self.require_python, raise a sensible error
+            if python:
+                self.python_cmd = python
+                self.log.info("Python command being used: %s", self.python_cmd)
+            elif self.require_python:
+                if (req_py_majver is not None or req_py_minver is not None
+                        or max_py_majver is not None or max_py_minver is not None):
+                    raise EasyBuildError(
+                        "Failed to pick Python command that satisfies requirements in the easyconfig "
+                        "(req_py_majver = %s, req_py_minver = %s, max_py_majver = %s, max_py_minver = %s)",
+                        req_py_majver, req_py_minver, max_py_majver, max_py_minver
+                    )
+                else:
+                    raise EasyBuildError("Failed to pick Python command to use")
+            else:
+                self.log.warning("No Python command found!")
+        else:
             self.python_cmd = python
             self.log.info("Python command being used: %s", self.python_cmd)
-        elif self.require_python:
-            raise EasyBuildError("Failed to pick Python command to use")
-        else:
-            self.log.warning("No Python command found!")
 
         if self.python_cmd:
             # set Python lib directories
@@ -816,6 +860,9 @@ class PythonPackage(ExtensionEasyBlock):
                         actual_installdir = os.path.join(test_installdir, 'local')
                     else:
                         actual_installdir = test_installdir
+                    # Export the temporary installdir as an environment variable
+                    # Some tests (e.g. for astropy) require to be run in the installdir
+                    env.setvar('EB_PYTHONPACKAGE_TEST_INSTALLDIR', actual_installdir)
 
                     self.log.debug("Pre-creating subdirectories in %s: %s", actual_installdir, self.all_pylibdirs)
                     for pylibdir in self.all_pylibdirs:
@@ -969,7 +1016,7 @@ class PythonPackage(ExtensionEasyBlock):
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
         if self.cfg.get('download_dep_fail', False):
-            self.log.info("Detection of downloaded depenencies enabled, checking output of installation command...")
+            self.log.info("Detection of downloaded dependencies enabled, checking output of installation command...")
             patterns = [
                 'Downloading .*/packages/.*',  # setuptools
                 r'Collecting .*',  # pip

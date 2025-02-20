@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -85,6 +85,52 @@ def setup_cmake_env(tc):
     library_paths = os.pathsep.join(nub(tc_lpaths + lpaths))
     setvar("CMAKE_INCLUDE_PATH", include_paths)
     setvar("CMAKE_LIBRARY_PATH", library_paths)
+
+
+def setup_cmake_env_python_hints(cmake_version=None):
+    """Set environment variables as hints for CMake to prefer the Python module, if loaded.
+    Useful when there is no way to specify arguments for CMake directly,
+    e.g. when CMake is called from within another build system.
+    Otherwise get_cmake_python_config_[str/dict] should be used instead.
+    """
+    if cmake_version is None:
+        cmake_version = det_cmake_version()
+    if LooseVersion(cmake_version) < '3.12':
+        raise EasyBuildError("Setting Python hints for CMake requires CMake version 3.12 or newer")
+    python_root = get_software_root('Python')
+    if python_root:
+        python_version = LooseVersion(get_software_version('Python'))
+        setvar('Python_ROOT_DIR', python_root)
+        if python_version >= "3":
+            setvar('Python3_ROOT_DIR', python_root)
+        else:
+            setvar('Python2_ROOT_DIR', python_root)
+
+
+def get_cmake_python_config_dict():
+    """Get a dictionary with CMake configuration options for finding Python if loaded as a module."""
+    options = {}
+    python_root = get_software_root('Python')
+    if python_root:
+        python_version = LooseVersion(get_software_version('Python'))
+        python_exe = os.path.join(python_root, 'bin', 'python')
+        # This is required for (deprecated) `find_package(PythonInterp ...)`
+        options['PYTHON_EXECUTABLE'] = python_exe
+        # Ensure that both `find_package(Python) and find_package(Python2/3)` work as intended
+        options['Python_EXECUTABLE'] = python_exe
+        if python_version >= "3":
+            options['Python3_EXECUTABLE'] = python_exe
+        else:
+            options['Python2_EXECUTABLE'] = python_exe
+    return options
+
+
+def get_cmake_python_config_str():
+    """Get CMake configuration arguments for finding Python if loaded as a module.
+    This string is intended to be passed to the invocation of `cmake`.
+    """
+    options = get_cmake_python_config_dict()
+    return ' '.join('-D%s=%s' % (key, value) for key, value in options.items())
 
 
 class CMakeMake(ConfigureMake):
@@ -273,16 +319,27 @@ class CMakeMake(ConfigureMake):
             # see https://github.com/Kitware/CMake/commit/3ec9226779776811240bde88a3f173c29aa935b5
             options['CMAKE_SKIP_RPATH'] = 'ON'
 
-        # make sure that newer CMAKE picks python based on location, not just the newest python
-        # Avoids issues like e.g. https://github.com/EESSI/software-layer/pull/370#issuecomment-1785594932
-        if LooseVersion(self.cmake_version) >= '3.15':
-            options['CMAKE_POLICY_DEFAULT_CMP0094'] = 'NEW'
-
         # show what CMake is doing by default
         options['CMAKE_VERBOSE_MAKEFILE'] = 'ON'
 
         # disable CMake user package repository
         options['CMAKE_FIND_USE_PACKAGE_REGISTRY'] = 'OFF'
+
+        # ensure CMake uses EB python, not system or virtualenv python
+        options.update(get_cmake_python_config_dict())
+
+        # pass the preferred host compiler, CUDA compiler, and CUDA architectures to the CUDA compiler
+        cuda_root = get_software_root('CUDA')
+        if cuda_root:
+            options['CMAKE_CUDA_HOST_COMPILER'] = which(os.getenv('CXX', 'g++'))
+            options['CMAKE_CUDA_COMPILER'] = which('nvcc')
+            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
+            if cuda_cc:
+                options['CMAKE_CUDA_ARCHITECTURES'] = '"%s"' % ';'.join([cc.replace('.', '') for cc in cuda_cc])
+            else:
+                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
+                                     'cuda_compute_capabilities easyconfig parameter or via '
+                                     '--cuda-compute-capabilities')
 
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
@@ -301,6 +358,8 @@ class CMakeMake(ConfigureMake):
                 # - instruct CMake to not search for Boost headers/libraries in other places
                 options['BOOST_ROOT'] = boost_root
                 options['Boost_NO_SYSTEM_PATHS'] = 'ON'
+
+        self.cmake_options = options
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
             self.prepend_config_opts(options)

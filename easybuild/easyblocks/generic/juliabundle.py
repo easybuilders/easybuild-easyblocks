@@ -1,5 +1,5 @@
 ##
-# Copyright 2022-2024 Vrije Universiteit Brussel
+# Copyright 2022-2025 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -94,6 +94,6 @@ class JuliaBundle(Bundle, JuliaPackage):
         super(JuliaBundle, self).sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self, *args, **kwargs):
-        """Custom module environement from JuliaPackage"""
+        """Custom module environment from JuliaPackage"""
         mod = super(JuliaBundle, self).make_module_extra(*args, **kwargs)
         return mod

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,6 +34,7 @@ import os
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import find_glob_pattern
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -103,6 +104,10 @@ class EB_ROOT(CMakeMake):
 
             if get_software_root('X11'):
                 self.cfg.update('configopts', '-Dx11=ON')
+
+            sysroot = build_option('sysroot')
+            if sysroot:
+                self.cfg.update('configopts', '-DDEFAULT_SYSROOT=%s' % sysroot)
 
             CMakeMake.configure_step(self)
         else:

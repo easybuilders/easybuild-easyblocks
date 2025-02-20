@@ -1,5 +1,5 @@
 # #
-# Copyright 2021-2024 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -106,7 +106,9 @@ class EB_intel_minus_compilers(IntelBase):
         ]
         bindir = os.path.join(self.compilers_subdir, 'bin')
         oneapi_compiler_paths = [os.path.join(bindir, x) for x in oneapi_compiler_cmds]
-        if LooseVersion(self.version) >= LooseVersion('2024'):
+        if LooseVersion(self.version) >= LooseVersion('2025'):
+            classic_compiler_cmds = []
+        elif LooseVersion(self.version) >= LooseVersion('2024'):
             classic_compiler_cmds = ['ifort']
             classic_bindir = bindir
         else:

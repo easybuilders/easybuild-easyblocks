@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,6 +48,7 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -57,6 +58,15 @@ from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture
 
 class EB_OpenFOAM(EasyBlock):
     """Support for building and installing OpenFOAM."""
+
+    @staticmethod
+    def extra_options():
+        """Custom easyconfig parameter specific to OpenFOAM."""
+        extra_vars = EasyBlock.extra_options()
+        extra_vars.update({
+            'sanity_check_motorbike': [True, "Should the motorbike sanity check run?", CUSTOM],
+        })
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Specify that OpenFOAM should be built in install dir."""
@@ -340,7 +350,7 @@ class EB_OpenFOAM(EasyBlock):
             cleancmd = "wcleanAll"
 
         # make directly in install directory
-        cmd_tmpl = "%(precmd)s && %(cleancmd)s && %(prebuildopts)s %(makecmd)s" % {
+        cmd_tmpl = "%(precmd)s && %(cleancmd)s && %(prebuildopts)s bash %(makecmd)s" % {
             'precmd': precmd,
             'cleancmd': cleancmd,
             'prebuildopts': self.cfg['prebuildopts'],
@@ -368,6 +378,12 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion > LooseVersion('1606'):
                 # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
                 cmd += ' -log'
+
+                if self.looseversion >= LooseVersion('2406'):
+                    # Also build the plugins
+                    cmd += ' && %s bash %s -log' % (self.cfg['prebuildopts'],
+                                                    os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
+
             run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
 
     def det_psubdir(self):
@@ -476,6 +492,12 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion < LooseVersion("11"):
                 tools.append("buoyantFoam")
                 tools.append("reactingFoam")
+        # modifyMesh is no longer there in OpenFOAM >= 12
+        if self.is_dot_org and self.looseversion >= LooseVersion("12"):
+            tools.remove("modifyMesh")
+        if self.looseversion >= LooseVersion('2406'):
+            # built from the plugins
+            tools.append("cartesianMesh")
 
         bins = [os.path.join(self.openfoamdir, "bin", x) for x in ["paraFoam"]] + \
                [os.path.join(toolsdir, x) for x in tools]
@@ -528,7 +550,8 @@ class EB_OpenFOAM(EasyBlock):
 
         # run motorBike tutorial case to ensure the installation is functional (if it's available);
         # only for recent (>= v6.0) versions of openfoam.org variant
-        if self.is_dot_org and self.looseversion >= LooseVersion('6'):
+        # could be turned off by set 'sanity_check_motorbike' to False (default True)
+        if self.is_dot_org and self.looseversion >= LooseVersion('6') and self.cfg['sanity_check_motorbike']:
             openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
             if self.looseversion <= LooseVersion('10'):
                 motorbike_path = os.path.join(

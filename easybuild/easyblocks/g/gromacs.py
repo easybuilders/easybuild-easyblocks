@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -63,6 +63,8 @@ class EB_GROMACS(CMakeMake):
         extra_vars.update({
             'double_precision': [None, "Build with double precision enabled (-DGMX_DOUBLE=ON), " +
                                  "default is to build double precision unless CUDA is enabled", CUSTOM],
+            'single_precision': [True, "Build with single precision enabled (-DGMX_DOUBLE=OFF), " +
+                                 "default is to build single precision", CUSTOM],
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
@@ -167,7 +169,9 @@ class EB_GROMACS(CMakeMake):
     def configure_step(self):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
 
-        if LooseVersion(self.version) >= LooseVersion('4.6'):
+        gromacs_version = LooseVersion(self.version)
+
+        if gromacs_version >= '4.6':
             cuda = get_software_root('CUDA')
             if cuda:
                 # CUDA with double precision is currently not supported in GROMACS yet
@@ -188,10 +192,11 @@ class EB_GROMACS(CMakeMake):
                     self.log.info("skipping configure step")
                     return
 
-                if LooseVersion(self.version) >= LooseVersion('2021'):
-                    self.cfg.update('configopts', "-DGMX_GPU=CUDA -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+                if gromacs_version >= '2021':
+                    self.cfg.update('configopts', "-DGMX_GPU=CUDA")
                 else:
-                    self.cfg.update('configopts', "-DGMX_GPU=ON -DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+                    self.cfg.update('configopts', "-DGMX_GPU=ON")
+                self.cfg.update('configopts', "-DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
 
                 # Set CUDA capabilities based on template value.
                 if '-DGMX_CUDA_TARGET_SM' not in self.cfg['configopts']:
@@ -236,14 +241,14 @@ class EB_GROMACS(CMakeMake):
         # Ensure that the GROMACS log files report how the code was patched
         # during the build, so that any problems are easier to diagnose.
         # The GMX_VERSION_STRING_OF_FORK feature is available since 2020.
-        if (LooseVersion(self.version) >= LooseVersion('2020') and
+        if (gromacs_version >= '2020' and
                 '-DGMX_VERSION_STRING_OF_FORK=' not in self.cfg['configopts']):
             gromacs_version_string_suffix = 'EasyBuild-%s' % EASYBUILD_VERSION
             if plumed_root:
                 gromacs_version_string_suffix += '-PLUMED-%s' % get_software_version('PLUMED')
             self.cfg.update('configopts', '-DGMX_VERSION_STRING_OF_FORK=%s' % gromacs_version_string_suffix)
 
-        if LooseVersion(self.version) < LooseVersion('4.6'):
+        if gromacs_version < '4.6':
             self.log.info("Using configure script for configuring GROMACS build.")
 
             if self.cfg['build_shared_libs']:
@@ -259,7 +264,7 @@ class EB_GROMACS(CMakeMake):
             self.cfg.update('configopts', "--without-x")
 
             # OpenMP is not supported for versions older than 4.5.
-            if LooseVersion(self.version) >= LooseVersion('4.5'):
+            if gromacs_version >= '4.5':
                 # enable OpenMP support if desired
                 if self.toolchain.options.get('openmp', None):
                     self.cfg.update('configopts', "--enable-threads")
@@ -310,22 +315,26 @@ class EB_GROMACS(CMakeMake):
                               mpiexec_path, self.cfg.get('mpiexec_numproc_flag'),
                               mpi_numprocs)
 
-            if LooseVersion(self.version) >= LooseVersion('2019'):
+            if gromacs_version >= '2019':
                 # Building the gmxapi interface requires shared libraries,
                 # this is handled in the class initialisation so --module-only works
                 self.cfg.update('configopts', "-DGMXAPI=ON")
 
-                if LooseVersion(self.version) >= LooseVersion('2020'):
+                if gromacs_version >= '2020':
                     # build Python bindings if Python is loaded as a dependency
                     python_root = get_software_root('Python')
                     if python_root:
-                        bin_python = os.path.join(python_root, 'bin', 'python')
-                        self.cfg.update('configopts', "-DPYTHON_EXECUTABLE=%s" % bin_python)
                         self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=ON")
+                        bin_python = os.path.join(python_root, 'bin', 'python')
+                        # For find_package(PythonInterp)
+                        self.cfg.update('configopts', "-DPYTHON_EXECUTABLE=%s" % bin_python)
+                        if gromacs_version >= '2021':
+                            # For find_package(Python3) - Ignore virtual envs
+                            self.cfg.update('configopts', "-DPython3_FIND_VIRTUALENV=STANDARD")
 
             # Now patch GROMACS for PLUMED before cmake
             if plumed_root:
-                if LooseVersion(self.version) >= LooseVersion('5.1'):
+                if gromacs_version >= '5.1':
                     # Use shared or static patch depending on
                     # setting of self.cfg['build_shared_libs']
                     # and adapt cmake flags accordingly as per instructions
@@ -347,15 +356,16 @@ class EB_GROMACS(CMakeMake):
             # always specify to use external BLAS/LAPACK
             self.cfg.update('configopts', "-DGMX_EXTERNAL_BLAS=ON -DGMX_EXTERNAL_LAPACK=ON")
 
-            # disable GUI tools
-            self.cfg.update('configopts', "-DGMX_X11=OFF")
+            if gromacs_version < '2023':
+                # disable GUI tools, removed in v2023
+                self.cfg.update('configopts', "-DGMX_X11=OFF")
 
             # convince to build for an older architecture than present on the build node by setting GMX_SIMD CMake flag
             # it does not make sense for Cray, because OPTARCH is defined by the Cray Toolchain
             if self.toolchain.toolchain_family() != toolchain.CRAYPE:
                 gmx_simd = self.get_gromacs_arch()
                 if gmx_simd:
-                    if LooseVersion(self.version) < LooseVersion('5.0'):
+                    if gromacs_version < '5.0':
                         self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
                     else:
                         self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
@@ -404,7 +414,7 @@ class EB_GROMACS(CMakeMake):
                             env.setvar('LDFLAGS', "%s -lgfortran -lm" % os.environ.get('LDFLAGS', ''))
 
             # no more GSL support in GROMACS 5.x, see http://redmine.gromacs.org/issues/1472
-            if LooseVersion(self.version) < LooseVersion('5.0'):
+            if gromacs_version < '5.0':
                 # enable GSL when it's provided
                 if get_software_root('GSL'):
                     self.cfg.update('configopts', "-DGMX_GSL=ON")
@@ -424,7 +434,7 @@ class EB_GROMACS(CMakeMake):
             out = super(EB_GROMACS, self).configure_step()
 
             # for recent GROMACS versions, make very sure that a decent BLAS, LAPACK and FFT is found and used
-            if LooseVersion(self.version) >= LooseVersion('4.6.5'):
+            if gromacs_version >= '4.6.5':
                 patterns = [
                     r"Using external FFT library - \S*",
                     r"Looking for dgemm_ - found",
@@ -736,9 +746,14 @@ class EB_GROMACS(CMakeMake):
                 'mpi': 'install'
             }
 
-        precisions = ['single']
+        precisions = []
+        if self.cfg.get('single_precision'):
+            precisions.append('single')
         if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
             precisions.append('double')
+
+        if precisions == []:
+            raise EasyBuildError("No precision selected. At least one of single/double_precision must be unset or True")
 
         mpitypes = ['nompi']
         if self.toolchain.options.get('usempi', None):

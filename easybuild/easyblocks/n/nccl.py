@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2024 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,10 +26,14 @@
 EasyBuild support for building NCCL, implemented as an easyblock
 
 @author: Simon Branford (University of Birmingham)
+@author: Lara Peeters (Gent University)
 """
+import os
+
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.config import build_option
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.filetools import copy_file
 
 
 class EB_NCCL(ConfigureMake):
@@ -66,6 +70,8 @@ class EB_NCCL(ConfigureMake):
     def install_step(self):
         """Install NCCL"""
         self.cfg.update('installopts', "PREFIX=%s" % self.installdir)
+
+        copy_file(os.path.join(self.cfg['start_dir'], 'LICENSE.txt'), os.path.join(self.installdir, 'LICENSE.txt'))
 
         super(EB_NCCL, self).install_step()
 

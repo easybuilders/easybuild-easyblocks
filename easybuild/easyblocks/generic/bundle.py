@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,7 @@ EasyBuild support for installing a bundle of modules, implemented as a generic e
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Jasper Grimm (University of York)
+@author: Jan Andre Reuter (Juelich Supercomputing Centre)
 """
 import copy
 import os
@@ -71,8 +72,8 @@ class Bundle(EasyBlock):
         self.altroot = None
         self.altversion = None
 
-        # list of EasyConfig instances for components
-        self.comp_cfgs = []
+        # list of EasyConfig instances and their EasyBlocks for components
+        self.comp_instances = []
 
         # list of EasyConfig instances of components for which to run sanity checks
         self.comp_cfgs_sanity_check = []
@@ -84,6 +85,10 @@ class Bundle(EasyBlock):
                 raise EasyBuildError("List of sources for bundle itself must be empty, found %s", self.cfg['sources'])
             if self.cfg['patches']:
                 raise EasyBuildError("List of patches for bundle itself must be empty, found %s", self.cfg['patches'])
+
+        # copy EasyConfig instance before we make changes to it
+        # (like adding component sources to top-level sources easyconfig parameter)
+        self.cfg = self.cfg.copy()
 
         # disable templating to avoid premature resolving of template values
         self.cfg.enable_templating = False
@@ -194,7 +199,7 @@ class Bundle(EasyBlock):
             if comp_cfg['patches']:
                 self.cfg.update('patches', comp_cfg['patches'])
 
-            self.comp_cfgs.append(comp_cfg)
+            self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
 
         self.cfg.update('checksums', checksums_patches)
 
@@ -213,7 +218,7 @@ class Bundle(EasyBlock):
         """
         checksum_issues = super(Bundle, self).check_checksums()
 
-        for comp in self.comp_cfgs:
+        for comp, _ in self.comp_instances:
             checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
 
         return checksum_issues
@@ -243,13 +248,11 @@ class Bundle(EasyBlock):
     def install_step(self):
         """Install components, if specified."""
         comp_cnt = len(self.cfg['components'])
-        for idx, cfg in enumerate(self.comp_cfgs):
+        for idx, (cfg, comp) in enumerate(self.comp_instances):
 
             print_msg("installing bundle component %s v%s (%d/%d)..." %
                       (cfg['name'], cfg['version'], idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
-
-            comp = cfg.easyblock(cfg)
 
             # correct build/install dirs
             comp.builddir = self.builddir
@@ -317,8 +320,40 @@ class Bundle(EasyBlock):
                             new_val = path
                         env.setvar(envvar, new_val)
 
-            # close log for this component
-            comp.close_log()
+    def make_module_req_guess(self):
+        """
+        Set module requirements from all components, e.g. $PATH, etc.
+        During the install step, we only set these requirements temporarily.
+        Later on when building the module, those paths are not considered.
+        Therefore, iterate through all the components again and gather
+        the requirements.
+
+        Do not remove duplicates or check for existence of folders,
+        as this is done in the generic EasyBlock while creating
+        the module file already.
+        """
+        # Start with the paths from the generic EasyBlock.
+        # If not added here, they might be missing entirely and fail sanity checks.
+        final_reqs = super(Bundle, self).make_module_req_guess()
+
+        for cfg, comp in self.comp_instances:
+            self.log.info("Gathering module paths for component %s v%s", cfg['name'], cfg['version'])
+            reqs = comp.make_module_req_guess()
+
+            # Try-except block to fail with an easily understandable error message.
+            # This should only trigger when an EasyBlock returns non-dict module requirements
+            # for make_module_req_guess() which should then be fixed in the components EasyBlock.
+            try:
+                for key, value in sorted(reqs.items()):
+                    if isinstance(value, string_type):
+                        value = [value]
+                    final_reqs.setdefault(key, [])
+                    final_reqs[key].extend(value)
+            except AttributeError:
+                raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
+                                     cfg['name'], cfg['version'])
+
+        return final_reqs
 
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""

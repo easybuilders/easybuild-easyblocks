@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,13 +39,15 @@ from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from easybuild.base import fancylogger
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
@@ -124,6 +126,7 @@ KOKKOS_CPU_MAPPING = {
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
     'icelake': 'SKX',
+    'sapphirerapids': 'SKX',
     'knights-landing': 'KNL',
     'zen': 'ZEN',
     'zen2': 'ZEN2',
@@ -152,6 +155,8 @@ KOKKOS_GPU_ARCH_TABLE = {
 
 # lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
 ref_version = '29Sep2021'
+
+_log = fancylogger.getLogger('easyblocks.lammps')
 
 
 def translate_lammps_version(version):
@@ -221,6 +226,7 @@ class EB_LAMMPS(CMakeMake):
             'kokkos': [True, "Enable kokkos build.", CUSTOM],
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
+            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -233,6 +239,11 @@ class EB_LAMMPS(CMakeMake):
 
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
             self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
+            self.kokkos_cpu_mapping['icelake'] = 'ICX'
+            self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -469,7 +480,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-stable_%s' % (self.name.lower(), self.version))
+            self.lammpsdir = os.path.join(self.builddir, '%s-*' % self.name.lower())
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
@@ -492,11 +503,14 @@ class EB_LAMMPS(CMakeMake):
         # Output files need to go somewhere (and has to work for --module-only as well)
         execution_dir = tempfile.mkdtemp()
 
-        check_files = [
-            'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
-            'hugoniostat', 'indent', 'melt', 'min', 'msst',
-            'nemd', 'obstacle', 'pour', 'voronoi',
-        ]
+        if self.cfg['sanity_check_test_inputs']:
+            sanity_check_test_inputs = self.cfg['sanity_check_test_inputs']
+        else:
+            sanity_check_test_inputs = [
+                'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
+                'hugoniostat', 'indent', 'melt', 'min', 'msst',
+                'nemd', 'obstacle', 'pour', 'voronoi',
+            ]
 
         custom_commands = [
             # LAMMPS test - you need to call specific test file on path
@@ -504,7 +518,7 @@ class EB_LAMMPS(CMakeMake):
             # Examples are part of the install with paths like (installdir)/examples/filename/in.filename
             os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
             # And this should be done for every file specified above
-            for check_file in check_files
+            for check_file in sanity_check_test_inputs
         ]
 
         # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
@@ -574,7 +588,22 @@ def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
 
     processor_arch = None
 
-    if kokkos_arch:
+    if build_option('optarch') == OPTARCH_GENERIC:
+        # For generic Arm builds we use an existing target;
+        # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
+        # For other architectures we set a custom/non-existent type, which will disable all optimizations,
+        # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
+        if get_cpu_architecture() == AARCH64:
+            processor_arch = 'ARMV80'
+        else:
+            processor_arch = 'EASYBUILD_GENERIC'
+
+        _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
+        if kokkos_arch:
+            msg = "The specified kokkos_arch (%s) will be ignored " % kokkos_arch
+            msg += "because a generic build was requested (via --optarch=GENERIC)"
+            print_warning(msg)
+    elif kokkos_arch:
         if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
             warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
             warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
