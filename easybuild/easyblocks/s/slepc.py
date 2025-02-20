@@ -117,6 +117,13 @@ class EB_SLEPc(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion("3.5"):
             self.cfg['parallel'] = None
 
+    def install_step(self):
+        """
+        Install using make install (for non-source installations)
+        """
+        if not self.cfg['sourceinstall']:
+            super(EB_SLEPc, self).install_step()
+
     def make_module_extra(self):
         """Set SLEPc specific environment variables (SLEPC_DIR)."""
         txt = super(EB_SLEPc, self).make_module_extra()
