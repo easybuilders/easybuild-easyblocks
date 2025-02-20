@@ -58,19 +58,8 @@ class EB_SLEPc(ConfigureMake):
         """Initialize SLEPc custom variables."""
         super(EB_SLEPc, self).__init__(*args, **kwargs)
 
-        self.slepc_subdir = ''
-
         if self.cfg['sourceinstall']:
             self.build_in_installdir = True
-            # use a glob pattern as we cannot know the actual path at this stage
-            self.slepc_subdir = os.path.join(f'{self.name.lower()}-{self.version}', '*arch*')
-
-        # specify correct LD_LIBRARY_PATH and CPATH for SLEPc installation
-        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join(self.slepc_subdir, "lib")]
-        self.module_load_environment.set_alias_vars(
-            MODULE_LOAD_ENV_HEADERS,
-            [os.path.join(self.slepc_subdir, "include")],
-        )
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
@@ -78,21 +67,28 @@ class EB_SLEPc(ConfigureMake):
 
         # PETSc installed in 'sourceinstall' mode defines $PETSC_ARCH
         self.petsc_arch = os.environ.get('PETSC_ARCH', '')
-        if self.cfg['sourceinstall']:
-            if self.cfg['petsc_arch'] is not None:
-                if self.petsc_arch:
-                    # $PETSC_ARCH defined by PETSc has precedence, changing it will break the installation
-                    print_warning(
-                        f"Ignoring easyconfig parameter 'petsc_arch={self.cfg['petsc_arch']}' of {self.name} "
-                        f"as it differs to '$PETSC_ARCH={self.petsc_arch}' defined by its PETSc dependency"
-                    )
-                else:
-                    # SLEPc installs with 'sourceinstall' on top of regular
-                    # installs of PETSc (without $PETSC_ARCH) can define PETSC_ARCH
-                    self.petsc_arch = self.cfg['petsc_arch']
+        if self.cfg['sourceinstall'] and self.cfg['petsc_arch'] is not None:
+            if self.petsc_arch:
+                # $PETSC_ARCH defined by PETSc has precedence, changing it will break the installation
+                print_warning(
+                    f"Ignoring easyconfig parameter 'petsc_arch={self.cfg['petsc_arch']}' of {self.name} "
+                    f"as it differs to '$PETSC_ARCH={self.petsc_arch}' defined by its PETSc dependency"
+                )
+            else:
+                # SLEPc installs with 'sourceinstall' on top of regular installs
+                # of PETSc (without $PETSC_ARCH) can define custom PETSC_ARCH
+                self.petsc_arch = self.cfg['petsc_arch']
 
-            # update glob pattern with actual path
+        self.slepc_subdir = ''
+        if self.cfg['sourceinstall']:
             self.slepc_subdir = os.path.join(f'{self.name.lower()}-{self.version}', self.petsc_arch)
+
+        # specify correct LD_LIBRARY_PATH and CPATH for SLEPc installation
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join(self.slepc_subdir, "lib")]
+        self.module_load_environment.set_alias_vars(
+            MODULE_LOAD_ENV_HEADERS,
+            [os.path.join(self.slepc_subdir, "include")],
+        )
 
     def configure_step(self):
         """Configure SLEPc by setting configure options and running configure script."""
