@@ -109,22 +109,30 @@ class EB_PETSc(ConfigureMake):
 
     @property
     def bin_dir(self):
-        """Return relative path to directory with executables of PETSc"""
+        """Relative path to directory with executables of PETSc"""
+        # default: "lib/petsc/bin"
+        # sourceinstall: "petsc-{version}/lib/petsc/bin"
         return os.path.join(self.petsc_subdir, 'lib', 'petsc', 'bin')
 
     @property
     def cnf_dir(self):
-        """Return relative path to directory with configuration executables of PETSc"""
+        """Relative path to directory with configuration executables of PETSc"""
+        # default: "lib/petsc/conf"
+        # sourceinstall: "petsc-{version}/{arch}/lib/petsc/conf"
         return os.path.join(self.petsc_subdir, self.arch_subdir, 'lib', 'petsc', 'conf')
 
     @property
     def lib_dir(self):
-        """Return relative path to directory with libraries of PETSc"""
+        """Relative path to directory with libraries of PETSc"""
+        # default: "lib"
+        # sourceinstall: "petsc-{version}/{arch}/lib"
         return os.path.join(self.petsc_subdir, self.arch_subdir, 'lib')
 
     @property
     def inc_dirs(self):
-        """Return relative path to directory with headers of PETSc"""
+        """Relative path to directory with headers of PETSc"""
+        # default: "include"
+        # sourceinstall: "petsc-{version}/include" and "petsc-{version}/{arch}/include"
         if self.cfg['sourceinstall']:
             return [
                 os.path.join(self.petsc_subdir, 'include'),
