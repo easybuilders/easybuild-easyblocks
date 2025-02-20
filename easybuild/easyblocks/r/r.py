@@ -54,11 +54,9 @@ class EB_R(ConfigureMake):
         """Constructor for R easyblock."""
         super(EB_R, self).__init__(*args, **kwargs)
 
-        lib_subdirs = ['', os.path.join('R', 'lib')]
-        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join(d, x) for d in SEARCH_PATH_LIB_DIRS
-                                                        for x in lib_subdirs]
-        self.module_load_environment.LIBRARY_PATH = [os.path.join(d, x) for d in SEARCH_PATH_LIB_DIRS
-                                                     for x in lib_subdirs]
+        r_lib_subdirs = [os.path.join(libdir, 'R', 'lib') for libdir in SEARCH_PATH_LIB_DIRS]
+        self.module_load_environment.LD_LIBRARY_PATH.extend(r_lib_subdirs)
+        self.module_load_environment.LIBRARY_PATH.extend(r_lib_subdirs)
 
     def prepare_for_extensions(self):
         """
