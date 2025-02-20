@@ -266,16 +266,17 @@ class EB_NVHPC(PackedBinary):
                      os.path.join(prefix, 'compilers', 'include'), os.path.join(prefix, 'compilers', 'man')]
         }
 
-        custom_commands = ["%s -v" % compiler for compiler in compiler_names]
-
-        if LooseVersion(self.version) >= LooseVersion('21'):
-            # compile minimal example using -std=c++20 to catch issue where it picks up the wrong GCC
-            # (as long as system gcc is < 9.0)
-            # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
-            tmpdir = tempfile.mkdtemp()
-            write_file(os.path.join(tmpdir, 'minimal.cpp'), NVHPC_MINIMAL_EXAMPLE)
-            minimal_compiler_cmd = "cd %s && nvc++ -std=c++20 minimal.cpp -o minimal" % tmpdir
-            custom_commands.append(minimal_compiler_cmd)
+        custom_commands = []
+        if not self.cfg['module_byo_compilers']:
+            custom_commands = [f"{compiler} -v" for compiler in compiler_names]
+            if LooseVersion(self.version) >= LooseVersion('21'):
+                # compile minimal example using -std=c++20 to catch issue where it picks up the wrong GCC
+                # (as long as system gcc is < 9.0)
+                # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
+                tmpdir = tempfile.mkdtemp()
+                write_file(os.path.join(tmpdir, 'minimal.cpp'), NVHPC_MINIMAL_EXAMPLE)
+                minimal_compiler_cmd = f"cd {tmpdir} && nvc++ -std=c++20 minimal.cpp -o minimal"
+                custom_commands.append(minimal_compiler_cmd)
 
         super(EB_NVHPC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
