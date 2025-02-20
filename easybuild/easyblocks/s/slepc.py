@@ -36,7 +36,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -57,10 +57,22 @@ class EB_SLEPc(ConfigureMake):
         """Initialize SLEPc custom variables."""
         super(EB_SLEPc, self).__init__(*args, **kwargs)
 
+        self.petsc_arch = self.cfg['petsc_arch']
+        if self.cfg['petsc_arch'] is None:
+            self.petsc_arch = 'arch-installed-petsc'
+
         self.slepc_subdir = ''
 
         if self.cfg['sourceinstall']:
             self.build_in_installdir = True
+            self.slepc_subdir = os.path.join(f'{self.name.lower()}-{self.version}', self.petsc_arch)
+
+        # specify correct LD_LIBRARY_PATH and CPATH for SLEPc installation
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join(self.slepc_subdir, "lib")]
+        self.module_load_environment.set_alias_vars(
+            MODULE_LOAD_ENV_HEADERS,
+            [os.path.join(self.slepc_subdir, "include")],
+        )
 
     def configure_step(self):
         """Configure SLEPc by setting configure options and running configure script."""
@@ -89,10 +101,8 @@ class EB_SLEPc(ConfigureMake):
             out = res.output
         else:
             # regular './configure --prefix=X' for non-source install
-
             # make sure old install dir is removed first
             self.make_installdir(dontcreate=True)
-
             out = super(EB_SLEPc, self).configure_step()
 
         # check for errors in configure
@@ -101,29 +111,11 @@ class EB_SLEPc(ConfigureMake):
             raise EasyBuildError("Error(s) detected in configure output!")
 
         # define $PETSC_ARCH
-        petsc_arch = self.cfg['petsc_arch']
-        if self.cfg['petsc_arch'] is None:
-            petsc_arch = 'arch-installed-petsc'
-
-        env.setvar('PETSC_ARCH', petsc_arch)
-
-        if self.cfg['sourceinstall']:
-            self.slepc_subdir = os.path.join('%s-%s' % (self.name.lower(), self.version), petsc_arch)
+        env.setvar('PETSC_ARCH', self.petsc_arch)
 
         # SLEPc > 3.5, make does not accept -j
         if LooseVersion(self.version) >= LooseVersion("3.5"):
             self.cfg['parallel'] = None
-
-    def make_module_req_guess(self):
-        """Specify correct LD_LIBRARY_PATH and CPATH for SLEPc installation."""
-        guesses = super(EB_SLEPc, self).make_module_req_guess()
-
-        guesses.update({
-            'CPATH': [os.path.join(self.slepc_subdir, "include")],
-            'LD_LIBRARY_PATH': [os.path.join(self.slepc_subdir, "lib")],
-        })
-
-        return guesses
 
     def make_module_extra(self):
         """Set SLEPc specific environment variables (SLEPC_DIR)."""
