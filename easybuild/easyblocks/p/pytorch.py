@@ -539,7 +539,7 @@ class EB_PyTorch(PythonPackage):
                         reason = f'Terminated with {signal}'
                     except KeyError:
                         # Not ended with signal, might have failed due to e.g. syntax errors
-                        reason = 'Did not run properly'
+                        reason = 'Undetected or did not run properly'
                     failure_msgs.append(f'\t{suite_name} ({reason})')
             # Test suites not included in the catch-all regexp but counted. Should be empty.
             unexpected_test_suites = failed_test_suites - all_failed_test_suites
@@ -574,7 +574,7 @@ class EB_PyTorch(PythonPackage):
                                  for name_signal in sorted(parsed_test_result.terminated_suites.items()))
             elif len(failed_test_suites) < len(all_failed_test_suites):
                 msg = ('Failing because not all failed tests could be determined. '
-                       'The test accounting in the PyTorch EasyBlock needs updating!\n'
+                       'Tests failed to start or the test accounting in the PyTorch EasyBlock needs updating!\n'
                        'Missing: ' + ', '.join(sorted(all_failed_test_suites - failed_test_suites)))
             else:
                 msg = ('Failing because there were unexpected failures detected: ' +
