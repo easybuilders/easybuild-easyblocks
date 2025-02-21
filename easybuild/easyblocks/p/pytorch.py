@@ -245,6 +245,8 @@ def parse_test_log(tests_out):
 class EB_PyTorch(PythonPackage):
     """Support for building/installing PyTorch."""
 
+    GENERATE_TEST_REPORT_VAR_NAME = 'EASYBUILD_WRITE_PYTORCH_TEST_REPORTS'
+
     @staticmethod
     def extra_options():
         extra_vars = PythonPackage.extra_options()
@@ -360,10 +362,12 @@ class EB_PyTorch(PythonPackage):
                 else:
                     self.log.warning(msg)
             else:
-                # Unconditionally enable XML test reports
+                # Always enable XML test reports when the EB variable is set.
+                # The variable is used because the file gets installed which we shouldn't modify.
                 apply_regex_substitutions('torch/testing/_internal/common_utils.py',
                                           [('TEST_SAVE_XML = args.save_xml',
-                                            'TEST_SAVE_XML = _get_test_report_path()')],
+                                            'TEST_SAVE_XML = _get_test_report_path() if '
+                                            f'os.getenv("{self.GENERATE_TEST_REPORT_VAR_NAME}") else args.save_xml')],
                                           backup=False, on_missing_match=ERROR)
                 if pytorch_version >= '2.1.0':
                     run_test_subs = [(r'if IS_CI:\n\s+# Add the option to generate XML test report.*',
@@ -377,7 +381,6 @@ class EB_PyTorch(PythonPackage):
                     ]
                 apply_regex_substitutions('test/run_test.py', run_test_subs, backup=False, on_missing_match=ERROR,
                                           single_line=False)
-
                 self.has_xml_test_reports = True
 
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
@@ -570,6 +573,8 @@ class EB_PyTorch(PythonPackage):
         env.setvar('SANDCASTLE', '1')
         # Skip this test(s) which is very flaky
         env.setvar('SKIP_TEST_BOTTLENECK', '1')
+        if self.has_xml_test_reports:
+            env.setvar(self.GENERATE_TEST_REPORT_VAR_NAME, '1')
         # Parse excluded_tests and flatten into space separated string
         excluded_tests = []
         for arch, tests in self.cfg['excluded_tests'].items():
