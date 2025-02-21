@@ -877,7 +877,14 @@ class EB_TensorFlow(PythonPackage):
         # this is required to make sure that Python packages included as extensions are found at build time;
         # see also https://github.com/tensorflow/tensorflow/issues/22395
         pythonpath = os.getenv('PYTHONPATH', '')
-        env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
+        action_pythonpath = [os.path.join(self.installdir, self.pylibdir), pythonpath]
+        if LooseVersion(self.version) >= LooseVersion('2.14') and 'EBPYTHONPREFIXES' in os.environ:
+            # Since TF 2.14 the build uses hermetic python, which ignores sitecustomize.py from EB python;
+            # explicity include our site-packages here to respect EBPYTHONPREFIXERS, if that's prefered.
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            eb_pythonpath = os.path.join(os.getenv('EBROOTPYTHON'), 'lib', 'python' + pyshortver, 'site-packages')
+            action_pythonpath.append(eb_pythonpath)
+        env.setvar('PYTHONPATH', os.pathsep.join(action_pythonpath))
 
         # Make TF find our modules. LD_LIBRARY_PATH gets automatically added by configure.py
         cpaths, libpaths = self.system_libs_info[1:]
