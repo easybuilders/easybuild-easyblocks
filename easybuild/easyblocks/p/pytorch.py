@@ -505,7 +505,7 @@ class EB_PyTorch(PythonPackage):
 
         tests_out, tests_ec = parsed_test_result
 
-        # Show failed subtests to aid in debugging failures
+        # Show failed subtests, if any, to aid in debugging failures
         failed_test_names = find_failed_test_names(tests_out)
         if failed_test_names.error or failed_test_names.fail:
             msg = []
@@ -520,17 +520,27 @@ class EB_PyTorch(PythonPackage):
         # Create clear summary report
         parsed_test_result = parse_test_log(tests_out)
         # Use a list of messages we can later join together
-        failure_msgs = ['%s (%s)' % (suite.name, suite.summary) for suite in parsed_test_result.failed_suites]
+        failure_msgs = ['\t%s (%s)' % (suite.name, suite.summary) for suite in parsed_test_result.failed_suites]
+        # These were accounted for
         failed_test_suites = set(suite.name for suite in parsed_test_result.failed_suites)
+        # Those are all that failed according to the summary output
         all_failed_test_suites = parsed_test_result.all_failed_suites
-        # If we missed any test suites prepend a list of all failed test suites
+        # We should have determined all failed test suites and only those.
+        # Otherwise show the mismatch and terminate later
         if failed_test_suites != all_failed_test_suites:
-            failure_msgs = ['Failed tests (suites/files):'] + failure_msgs
+            failure_msgs.insert(0, 'Failed tests (suites/files):')
             # Test suites where we didn't match a specific regexp and hence likely didn't count the failures
             uncounted_test_suites = all_failed_test_suites - failed_test_suites
             if uncounted_test_suites:
                 failure_msgs.append('Could not count failed tests for the following test suites/files:')
-                failure_msgs.extend(sorted(uncounted_test_suites))
+                for suite_name in sorted(uncounted_test_suites):
+                    try:
+                        signal = parsed_test_result.terminated_suites[suite_name]
+                        reason = f'Terminated with {signal}'
+                    except KeyError:
+                        # Not ended with signal, might have failed due to e.g. syntax errors
+                        reason = 'Did not run properly'
+                    failure_msgs.append(f'\t{suite_name} ({reason})')
             # Test suites not included in the catch-all regexp but counted. Should be empty.
             unexpected_test_suites = failed_test_suites - all_failed_test_suites
             if unexpected_test_suites:
