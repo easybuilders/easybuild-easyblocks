@@ -31,7 +31,7 @@ EasyBuild support for building and installing RepeatModeler, implemented as an e
 import os
 
 from easybuild.easyblocks.generic.tarball import Tarball
-from easybuild.easyblocks.perl import get_site_suffix
+from easybuild.easyblocks.perl import get_major_perl_version, get_site_suffix
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, patch_perl_script_autoflush
 from easybuild.tools.modules import get_software_root
@@ -58,6 +58,13 @@ def get_dep_path(dep_name, rel_path, log, optional):
 
 class EB_RepeatModeler(Tarball):
     """Support for building/installing RepeatModeler."""
+
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+        super(EB_RepeatModeler, self).__init__(*args, **kwargs)
+
+        # custom path-like environment variables for RepeatModelerConfig
+        self.module_load_environment.PATH = ['']
 
     def install_step(self):
         """Custom install procedure for RepeatModeler."""
@@ -182,13 +189,9 @@ class EB_RepeatModeler(Tarball):
 
         super(EB_RepeatModeler, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
-    def make_module_req_guess(self):
-        """Custom guesses for path-like environment variables for RepeatModelerConfig."""
-        guesses = super(EB_RepeatModeler, self).make_module_req_guess()
+    def make_module_step(self, *args, **kwargs):
+        """Additional path-like environment variables that depend on installation files"""
+        perl_lib_var = f"PERL{get_major_perl_version()}LIB"
+        setattr(self.module_load_environment, perl_lib_var, [get_site_suffix('sitelib')])
 
-        guesses.update({
-            'PATH': [''],
-            'PERL5LIB': [get_site_suffix('sitelib')],
-        })
-
-        return guesses
+        return super().make_module_step(*args, **kwargs)
