@@ -59,19 +59,13 @@ if sys.version_info >= (3, 9):
         summary: str
 
     @dataclass
-    class TerminatedTestSuite:
-        """Test suite name and the signal it terminated with"""
-        name: str
-        signal: str
-
-    @dataclass
     class TestResult:
         """Status report and results of a test run"""
         test_cnt: int
         error_cnt: int
         failure_cnt: int
         failed_suites: list[TestSuiteResult]
-        terminated_suites: list[TerminatedTestSuite]
+        terminated_suites: dict[str, str]  # Name and signal of terminated suites
         all_failed_suites: set[str]  # Names of all failed suites
 else:
     from collections import namedtuple
@@ -235,8 +229,8 @@ def parse_test_log(tests_out):
 
     return TestResult(test_cnt=test_cnt, error_cnt=error_cnt, failure_cnt=failure_cnt,
                       failed_suites=failed_suites,
-                      terminated_suites=[TerminatedTestSuite(name, signal)
-                                         for name, signal in failed_suites_and_signal if signal],
+                      # Assumes that the suite name is unique
+                      terminated_suites={name: signal for name, signal in failed_suites_and_signal if signal},
                       all_failed_suites={i[0] for i in failed_suites_and_signal})
 
 
@@ -561,9 +555,10 @@ class EB_PyTorch(PythonPackage):
         if failed_test_suites != all_failed_test_suites:
             # Fail because we can't be sure how many tests failed
             # so comparing to max_failed_tests cannot reasonably be done
-            terminated_suite_names = set(name for name, _ in parsed_test_result.terminated_suites)
+            terminated_suite_names = set(parsed_test_result.terminated_suites)
             if failed_test_suites | terminated_suite_names == all_failed_test_suites:
-                suites = ", ".join("%s(%s)" % name_signal for name_signal in parsed_test_result.terminated_suites)
+                suites = ", ".join("%s(%s)" % name_signal
+                                   for name_signal in parsed_test_result.terminated_suites.items())
                 msg = ('Failing because these test suites were terminated which makes it impossible'
                        'to accurately count the failed tests: ' + suites + '!')
             else:
