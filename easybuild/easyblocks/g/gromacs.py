@@ -569,9 +569,10 @@ class EB_GROMACS(CMakeMake):
             libname = f'libgromacs*.{self.libext}'
 
         lib_subdirs = []
-        for lib_path in glob.glob(os.path.join(self.installdir, '**', libname)):
-            # generate relative path from installdir to subdir of libname
-            lib_relpath = lib_path[len(self.installdir) + 1:]
+        real_installdir = os.path.realpath(self.installdir)
+        for lib_path in glob.glob(os.path.join(real_installdir, '**', libname)):
+            lib_relpath = os.path.realpath(lib_path)  # avoid symlinks
+            lib_relpath = lib_relpath[len(real_installdir) + 1:]  # relative path from installdir
             subdir = lib_relpath.split(os.sep)[0:-1]
             lib_subdirs.append(os.path.join(*subdir))
 
