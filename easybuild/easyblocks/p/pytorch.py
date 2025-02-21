@@ -538,19 +538,20 @@ class EB_PyTorch(PythonPackage):
                                     'contained in the summary output of PyTorch:')
                 failure_msgs.extend(sorted(unexpected_test_suites))
 
-        # Assemble final report
-        failure_report = '\n'.join(failure_msgs)
         # Calculate total number of unsuccesful and total tests
         failed_test_cnt = parsed_test_result.failure_cnt + parsed_test_result.error_cnt
         # Only add count message if we detected any failed tests
         if failed_test_cnt > 0:
             failure_or_failures = 'failure' if parsed_test_result.failure_cnt == 1 else 'failures'
             error_or_errors = 'error' if parsed_test_result.error_cnt == 1 else 'errors'
-            failure_report = "%d test %s, %d test %s (out of %d):\n" % (
+            failure_msgs.insert(0, "%d test %s, %d test %s (out of %d):" % (
                 parsed_test_result.failure_cnt, failure_or_failures,
                 parsed_test_result.error_cnt, error_or_errors,
                 parsed_test_result.test_cnt
-            ) + failure_report
+            ))
+
+        # Assemble final report
+        failure_report = '\n'.join(failure_msgs)
 
         if failed_test_suites != all_failed_test_suites:
             # Fail because we can't be sure how many tests failed
