@@ -32,14 +32,22 @@ import os
 import re
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
+from collections import Counter
+from enum import Enum
+from itertools import chain, groupby
+from operator import attrgetter
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional
 import easybuild.tools.environment as env
 from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option
+from easybuild.tools.config import build_option, ERROR
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
 
 
@@ -261,6 +269,7 @@ class EB_PyTorch(PythonPackage):
         """Constructor for PyTorch easyblock."""
         super(EB_PyTorch, self).__init__(*args, **kwargs)
         self.options['modulename'] = 'torch'
+        self.has_xml_test_reports = False
 
         self.tmpdir = tempfile.mkdtemp(suffix='-pytorch-build')
 
@@ -338,6 +347,38 @@ class EB_PyTorch(PythonPackage):
         super(EB_PyTorch, self).configure_step()
 
         pytorch_version = LooseVersion(self.version)
+
+        self.has_xml_test_reports = False
+        if pytorch_version >= '1.10.0':
+            out, ec = run_cmd(self.python_cmd + " -c 'import xmlrunner'", log_ok=False)
+            if ec != 0:
+                msg = ("Python package xmlrunner (unittest-xml-reporting) not found in dependencies of the "
+                       "PyTorch EasyConfig, can't enable advanced test result checks. Output: " + out)
+                # We introduced this in the 2.3 EasyConfig
+                if pytorch_version >= '2.3':
+                    print_warning(msg)
+                else:
+                    self.log.warning(msg)
+            else:
+                # Unconditionally enable XML test reports
+                apply_regex_substitutions('torch/testing/_internal/common_utils.py',
+                                          [('TEST_SAVE_XML = args.save_xml',
+                                            'TEST_SAVE_XML = _get_test_report_path()')],
+                                          backup=False, on_missing_match=ERROR)
+                if pytorch_version >= '2.1.0':
+                    run_test_subs = [(r'if IS_CI:\n\s+# Add the option to generate XML test report.*',
+                                      'if TEST_SAVE_XML:\n')]
+                else:
+                    run_test_subs = [
+                         (r'from torch.testing._internal.common_utils import\s+\(\n\s+',
+                          r'\g<0>get_report_path, '),
+                         (r'# If using pytest.*\n\s+if options.pytest:\n\s+unittest_args = \[',
+                          r'\g<0>"--junit-xml-reruns", get_report_path(pytest=True)] + ['),
+                    ]
+                apply_regex_substitutions('test/run_test.py', run_test_subs, backup=False, on_missing_match=ERROR,
+                                          single_line=False)
+
+                self.has_xml_test_reports = True
 
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']
@@ -475,6 +516,53 @@ class EB_PyTorch(PythonPackage):
         mkdir(cache_dir, parents=True)
         env.setvar('XDG_CACHE_HOME', cache_dir)
 
+    def _compare_test_results(self, old_result, xml_result, old_failed_test_names, xml_failed_test_names):
+        """Compare test results parsed from stdout and XML files"""
+        diffs = []
+
+        old_suite_names = {suite.name for suite in old_result.failed_suites}
+        new_suite_names = {suite.name for suite in xml_result.failed_suites}
+        new_suites = new_suite_names - old_suite_names
+        missing_suites = old_suite_names - new_suite_names
+
+        diffs = []
+        if new_suites:
+            diffs.append(f'Found {len(new_suites)} new suites in XML files: {", ".join(sorted(new_suites))}')
+        if missing_suites:
+            diffs.append(f'Did not found {len(missing_suites)} suites in XML files: ' +
+                         ", ".join(sorted(missing_suites)))
+        if xml_result.test_cnt != old_result.test_cnt:
+            diffs.append(f'Different number of tests in XML files: {xml_result.test_cnt} != {old_result.test_cnt}')
+        if xml_result.error_cnt != old_result.error_cnt:
+            diffs.append(f'Different number of test errors in XML files: '
+                         f'{xml_result.error_cnt} != {old_result.error_cnt}')
+        if xml_result.failure_cnt != old_result.failure_cnt:
+            diffs.append(f'Different number of test failures in XML files: '
+                         f'{xml_result.failure_cnt} != {old_result.failure_cnt}')
+
+        def get_test_name_diff(lst_should, lst_is):
+            # Handle the case where one includes the class name and the other doesn't
+            return [name for name in lst_is
+                    if not any(name == name2 or
+                               name.endswith(f'.{name2}') or
+                               name2.endswith(f'.{name}') for name2 in lst_should)]
+        new_tests = get_test_name_diff(old_failed_test_names.error, xml_failed_test_names.error)
+        missing_tests = get_test_name_diff(xml_failed_test_names.error, old_failed_test_names.error)
+        if new_tests:
+            diffs.append(f'Found {len(new_tests)} new tests with errors in XML files: {", ".join(sorted(new_tests))}')
+        if missing_tests:
+            diffs.append(f'Did not found {len(missing_tests)} tests with errors in XML files: ' +
+                         ", ".join(sorted(missing_tests)))
+        new_tests = get_test_name_diff(old_failed_test_names.fail, xml_failed_test_names.fail)
+        missing_tests = get_test_name_diff(xml_failed_test_names.fail, old_failed_test_names.fail)
+        if new_tests:
+            diffs.append(f'Found {len(new_tests)} new failed tests in XML files: {", ".join(sorted(new_tests))}')
+        if missing_tests:
+            diffs.append(f'Did not found {len(missing_tests)} failed tests in XML files: ' +
+                         ", ".join(sorted(missing_tests)))
+        if diffs:
+            self.log.warning("Found differences when parsing stdout and XML files:\n\t" + "\n\tq".join(diffs))
+
     def test_step(self):
         """Run unit tests"""
         self._set_cache_dir()
@@ -505,8 +593,46 @@ class EB_PyTorch(PythonPackage):
 
         tests_out, tests_ec = parsed_test_result
 
-        # Show failed subtests, if any, to aid in debugging failures
         failed_test_names = find_failed_test_names(tests_out)
+        parsed_test_result = parse_test_log(tests_out)
+
+        if self.has_xml_test_reports:
+            test_reports_path = Path(self.start_dir) / 'test' / 'test-reports'
+            try:
+                xml_results = get_test_results(test_reports_path)
+            except ValueError as e:
+                raise EasyBuildError(f"Failed to parse test results at {test_reports_path}: {e}")
+            if not xml_results:
+                files = [file for file in test_reports_path.rglob('*.*') if file.is_file()]
+                if files:
+                    msg = f'Did not find any test result at {test_reports_path}. Files: {", ".join(files)}'
+                else:
+                    msg = f'Failed to find any test report files at {test_reports_path}'
+                raise EasyBuildError(msg)
+            missing_suites = [suite.name for suite in parsed_test_result.failed_suites
+                              if suite.name not in xml_results]
+            if missing_suites:
+                raise EasyBuildError('Parsing the test result files missed the following failed suites: %s',
+                                     ', '.join(sorted(missing_suites)))
+            # Replace results as the files should be more reliable than the parsed ones
+            new_result = TestResult(test_cnt=sum(suite.num_tests for suite in xml_results.values()),
+                                    error_cnt=sum(suite.errors for suite in xml_results.values()),
+                                    failure_cnt=sum(suite.failures for suite in xml_results.values()),
+                                    failed_suites=[suite for suite in xml_results.values()
+                                                   if suite.failures + suite.errors > 0],
+                                    terminated_suites=parsed_test_result.terminated_suites,
+                                    all_failed_suites=parsed_test_result.all_failed_suites)
+            new_failed_names = FailedTestNames(
+                error=list(chain.from_iterable(suite.get_errored_tests() for suite in xml_results.values())),
+                fail=list(chain.from_iterable(suite.get_failed_tests() for suite in xml_results.values()))
+            )
+            if LooseVersion(self.version) < '2.3':
+                # Show differences to results parsed from logfile. In 2.3+ the parsed values are no longer reliable
+                self._compare_test_results(parsed_test_result, new_result, failed_test_names, new_failed_names)
+            parsed_test_result = new_result
+            failed_test_names = new_failed_names
+
+        # Show failed subtests, if any, to aid in debugging failures
         if failed_test_names.error or failed_test_names.fail:
             msg = []
             if failed_test_names.error:
@@ -518,7 +644,6 @@ class EB_PyTorch(PythonPackage):
             self.log.warning("\n".join(msg))
 
         # Create clear summary report
-        parsed_test_result = parse_test_log(tests_out)
         # Use a list of messages we can later join together
         failure_msgs = ['\t%s (%s)' % (suite.name, suite.summary) for suite in parsed_test_result.failed_suites]
         # These were accounted for
@@ -641,23 +766,313 @@ class EB_PyTorch(PythonPackage):
         return guesses
 
 
-def parse_logfile(file):
-    """Parse the EB logfile and print the failed tests"""
-    if not os.path.isfile(file):
-        raise RuntimeError('Expected a test result file to parse, got: ' + file)
-    with open(file, 'r') as f:
-        content = f.read()
-    m = re.search(r'cmd .*python[^ ]* run_test\.py .* exited with exit code.*output', content)
-    if m:
-        content = content[m.end():]
-        # Heuristic for next possible text added by EasyBuild
-        m = re.search(r'^== \d+-\d+-\d+ .* (pytorch\.py|EasyBuild)', content)
-        if m:
-            content = content[:m.start()]
+# ###################################### Code for parsing PyTorch Test XML files ######################################
+class TestState(Enum):
+    """Result of a test case run"""
+    SUCCESS, FAILURE, ERROR, SKIPPED = "success", "failure", "error", "skipped"
 
-    print("Failed test names: ", find_failed_test_names(content))
-    print("Test result: ", parse_test_log(content))
+
+if sys.version_info >= (3, 9):
+    from typing import NamedTuple
+    TestCase = NamedTuple('TestCase', [('name', str), ('file', str), ('state', TestState), ('num_reruns', int)])
+else:
+    from collections import namedtuple
+    TestCase = namedtuple('TestCase', ('name', 'file', 'state', 'num_reruns'))
+
+
+class TestSuite:
+    """Collection of tests in the same test file"""
+
+    def __init__(self, name: str, errors: int, failures: int, skipped: int, test_cases: Dict[str, TestCase]):
+        num_per_state = Counter(test_case.state for test_case in test_cases.values())
+        if skipped != num_per_state[TestState.SKIPPED]:
+            raise ValueError(f'Expected {skipped} skipped tests but found {num_per_state[TestState.SKIPPED]}')
+        if failures != num_per_state[TestState.FAILURE]:
+            raise ValueError(f'Expected {failures} failed tests but found {num_per_state[TestState.FAILURE]}')
+        if errors != num_per_state[TestState.ERROR]:
+            raise ValueError(f'Expected {errors} errored tests but found {num_per_state[TestState.ERROR]}')
+
+        self.name = name
+        self.errors = errors
+        self.failures = failures
+        self.skipped = skipped
+        self.test_cases = test_cases
+
+    def __getitem__(self, name: str) -> TestCase:
+        """Return testcase by name"""
+        return self.test_cases[name]
+
+    def _adjust_count(self, state: TestState, val: int):
+        """Adjust the relevant state count"""
+        if state == TestState.FAILURE:
+            self.failures += val
+        elif state == TestState.SKIPPED:
+            self.skipped += val
+        elif state == TestState.ERROR:
+            self.errors += val
+        elif state != TestState.SUCCESS:
+            raise ValueError(f'Invalid state {state}')
+
+    @property
+    def num_tests(self) -> int:
+        """Return the total number of tests"""
+        return len(self.test_cases)
+
+    @property
+    def summary(self) -> str:
+        """Return a textual sumary"""
+        num_passed = len(self.test_cases) - self.errors - self.failures - self.skipped
+        return f'{self.failures} failed, {num_passed} passed, {self.skipped} skipped, {self.errors} errors'
+
+    def get_tests(self) -> Iterable[TestCase]:
+        """Return all test instances"""
+        return self.test_cases.values()
+
+    def add_test(self, test: TestCase):
+        """Add a test instance"""
+        if test.name in self.test_cases:
+            raise ValueError(f"Duplicate test case '{test}' in test suite {self.name}")
+        self.test_cases[test.name] = test
+        self._adjust_count(test.state, 1)
+
+    def replace_test(self, test: TestCase):
+        """Replace an existing test instance"""
+        existing_test = self.test_cases.pop(test.name)
+        self._adjust_count(existing_test.state, -1)
+        self.add_test(test)
+
+    def get_errored_tests(self) -> List[str]:
+        """Return a list of test names that exited with an error"""
+        return [test.name for test in self.test_cases.values() if test.state == TestState.ERROR]
+
+    def get_failed_tests(self) -> List[str]:
+        """Return a list of failed test names"""
+        return [test.name for test in self.test_cases.values() if test.state == TestState.FAILURE]
+
+
+def parse_test_cases(test_suite_el: ET.Element, suite_file_path: Optional[str]) -> List[TestCase]:
+    """Extract all test cases from the testsuite XML element"""
+    test_cases: List[TestCase] = []
+    for testcase in test_suite_el.iterfind("testcase"):
+        file = testcase.attrib.get("file")
+        if not file:
+            if not suite_file_path:
+                raise ValueError("Testcase is missing 'file' attribute.")
+            file = suite_file_path
+            # Strip of the suite name which is likely a common prefix to all classes
+            non_classname_prefix = os.path.dirname(file).replace(os.path.sep, '.') + '.'
+        else:
+            non_classname_prefix = None
+
+        classname = testcase.attrib["classname"]
+        # Remove filename from classname attribute
+        if non_classname_prefix and classname.startswith(non_classname_prefix):
+            classname = classname[len(non_classname_prefix):]
+        test_name = f'{classname}.{testcase.attrib["name"]}'
+        failed, errored, skipped = [testcase.find(tag) is not None for tag in ("failure", "error", "skipped")]
+        num_reruns = len(testcase.findall("rerun"))
+
+        if skipped:
+            if num_reruns > 0 or failed or errored:
+                raise ValueError(f"Invalid state for testcase '{test_name}'")
+            state = TestState.SKIPPED
+        else:
+            state = TestState.FAILURE if failed else TestState.ERROR if errored else TestState.SUCCESS
+
+        test_cases.append(TestCase(test_name, file=file, state=state, num_reruns=num_reruns))
+    return test_cases
+
+
+def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
+    """
+    Parses the given XML file into TestSuite and TestCase objects.
+
+    :param file_path: Path to an XML file storing test results.
+    :return: A list of TestSuite objects representing the parsed structure.
+    """
+    root = ET.parse(xml_file).getroot()
+
+    def get_test_suite_iter() -> Iterable[ET.Element]:
+        if root.tag == "testsuites":
+            return root.iterfind("testsuite")
+        elif root.tag == "testsuite":
+            return (root, )  # Single test suite entry in file
+        else:
+            raise ValueError("Root element must be <testsuites> or <testsuite>.")
+
+    # Determine main test suite name from path to match against run_test.py output
+    suite_name = xml_file.parent.name.replace('.', os.path.sep)
+    suite_file_path_fallback = None
+    if xml_file.name.startswith('TEST-'):
+        # Python unittest reports have 1 file per test class:
+        # test-reports/python-unittest/test_package/TEST-test_repackage.TestRepackage-20250217120914.xml
+        # -> test_repackage.py ran TestRepackage
+        # test-reports/dist-gloo/distributed.algorithms.test_quantization/TEST-DistQuantizationTests-20250123170925.xml
+        # -> distributed/algorithms/test_quantization ran DistQuantizationTests in dist-gloo variant
+        name_parts = xml_file.name[len('TEST-'):].rsplit('-', 1)[0].rsplit('.', 2)
+        # If there is only one part it is the class -> filename is in the suite name
+        if len(name_parts) == 1:
+            test_file_name = os.path.basename(suite_name)
+        else:
+            # Note that multiple parts are possible for sub-test files: TEST-jit.test_builtins.TestBuiltins
+            test_file_name = name_parts[-2]
+
+        test_file_name += '.py'
+        test_file_name2 = test_file_name
+        name_parts = xml_file.name[len('TEST-'):].rsplit('-', 1)[0].rsplit('.', 1)
+        # Last part is the class. If there is only a class name the folder is the file
+        if len(name_parts) > 1:
+            test_file_name = name_parts[0].rsplit('.', 1)[-1] + '.py'
+        else:
+            test_file_name = xml_file.parent.name.rsplit('.', 1)[-1] + '.py'
+        if test_file_name != test_file_name2:
+            print(1)
+    elif suite_name == 'run_test':
+        # Generic report, so try to infer from the class names which look like
+        # test.distributed.pipeline.sync.test_stream.TestGetDevice or
+        # test.distributed.pipeline.sync.test_pipe
+        # distributed.elastic.events.lib_test.RdzvEventLibTest
+        def extract_path(classname: str) -> str:
+            parts = classname.split('.')
+            if parts[0] == 'test':
+                if not parts[-1].startswith('test_') and parts[-2].startswith('test_'):
+                    # last part is a real class name
+                    parts.pop()
+                return os.path.join(*parts[1:])
+            return None
+        possible_paths = {extract_path(testcase.attrib["classname"])
+                          for suite in get_test_suite_iter() for testcase in suite.iterfind("testcase")}
+        possible_paths.discard(None)
+        if not possible_paths:
+            raise ValueError("Could not infer test suite name from class names.")
+        # We can remove possible class names by only using the common part
+        suite_name = os.path.commonpath(possible_paths)
+        # The tests usually don't have the file attribute
+        suite_file_path_fallback = f'{suite_name}.py'
+        test_file_name = os.path.basename(suite_file_path_fallback)
+    else:
+        # Pytest reports, e.g.:
+        # distributed.pipeline.sync.skip.test_stash_pop/distributed.pipeline.sync.skip.test_stash_pop-052ae03efad18.xml
+        # -> distributed/pipeline/sync/skip/test_stash_pop
+        test_file_path = xml_file.name.rsplit('-', 1)[0].replace('.', os.path.sep)
+        if test_file_path != suite_name:
+            raise ValueError(f"Path from folder and filename should be equal. "
+                             f"Got: '{test_file_path}' != '{suite_name}'")
+        test_file_name = os.path.basename(test_file_path) + '.py'
+    # Variant might be dist-gloo, dist-mpi or similar which is the same test code ran in different configurations!
+    variant = xml_file.parent.parent.name
+    if variant not in ('python-unittest', 'python-pytest'):
+        suite_name = os.path.join(variant, suite_name)
+
+    test_suites: List[TestSuite] = []
+
+    for test_suite in get_test_suite_iter():
+        errors = int(test_suite.attrib["errors"])
+        failures = int(test_suite.attrib["failures"])
+        skipped = int(test_suite.attrib["skipped"])
+        num_tests = int(test_suite.attrib["tests"])
+        if num_tests < failures + skipped + errors:
+            raise ValueError(f"Invalid test count: "
+                             f"{num_tests} tests, {failures} failures, {skipped} skipped, {errors} errors")
+
+        parsed_test_cases = parse_test_cases(test_suite, suite_file_path_fallback)
+        if not parsed_test_cases:
+            # No data about the test cases or even the name of the suite, so ignore it
+            if num_tests > 0:
+                raise ValueError("Testsuite contains no test cases, but reports tests.")
+            continue
+        file_names = {test_case.file for test_case in parsed_test_cases}
+        if len(file_names) > 1:
+            raise ValueError(f"Found tests from multiple files in '{xml_file}: {file_names}.")
+        cur_file_path = file_names.pop()
+        if os.path.basename(cur_file_path) != test_file_name:
+            raise ValueError(f"Unexpected file name in '{xml_file}': '{cur_file_path}' != '{test_file_name}'")
+
+        test_cases: Dict[str, TestCase] = {}
+        for test_case in parsed_test_cases:
+            if test_case.name in test_cases:
+                raise ValueError(f"Duplicate test case '{test_case}' in test suite {suite_name}")
+            test_cases[test_case.name] = test_case
+
+        if len(test_cases) != num_tests:
+            raise ValueError(f"Number of test cases does not match the total number of tests: "
+                             f"{len(test_cases)} vs. {num_tests}")
+        test_suites.append(
+            TestSuite(name=suite_name, test_cases=test_cases,
+                      errors=errors, failures=failures, skipped=skipped,
+                      )
+        )
+    return test_suites
+
+
+def merge_test_suites(test_suites: Iterable[TestSuite]) -> TestSuite:
+    """
+    Combine results for all given test suites into a single instance.
+    If there is only a single instance in the input, it is returned as is.
+    """
+    test_suites = iter(test_suites)
+    result_suite: TestSuite = next(test_suites)
+    for current_suite in test_suites:
+        for current_test in current_suite.get_tests():
+            try:
+                existing_test = result_suite[current_test.name]
+            except KeyError:
+                result_suite.add_test(current_test)
+            else:
+                if (existing_test.state == TestState.SKIPPED) != (current_test.state == TestState.SKIPPED):
+                    raise ValueError(f"Mismatch in whether test was skipped or not in suite {result_suite.name}: "
+                                     f"{existing_test} vs. {current_test}")
+                # If test was rerun and succeeded use that
+                if current_test.state == TestState.SUCCESS and existing_test.state != TestState.SUCCESS:
+                    result_suite.replace_test(current_test)
+    return result_suite
+
+
+def get_test_results(folder: Path) -> Dict[str, TestSuite]:
+    """Return a dictionary of test results contained in the folder"""
+    if folder.name.startswith('test-reports'):
+        folders = [folder]
+    else:
+        # Gather all folders containing test-reports which might be named "test-reports_1"
+        # Fallback to only the folder
+        folders = [cur_dir for cur_dir in folder.glob('test-reports*') if cur_dir.is_dir()] or [folder]
+
+    files = (file for folder in folders for file in folder.rglob('*.xml'))
+    test_suites = chain.from_iterable(parse_test_result_file(file) for file in files)
+    get_name = attrgetter('name')
+    test_suites = sorted(test_suites, key=get_name)
+    return {name: merge_test_suites(suites) for name, suites in groupby(test_suites, get_name)}
+
+
+def main(arg: Path):
+    if arg.is_file():
+        content = arg.read_text()
+        m = re.search(r'cmd .*python[^ ]* run_test\.py .* exited with exit code.*output', content)
+        if m:
+            content = content[m.end():]
+            # Heuristic for next possible text added by EasyBuild
+            m = re.search(r'^== \d+-\d+-\d+ .* (pytorch\.py|EasyBuild)', content)
+            if m:
+                content = content[:m.start()]
+
+        print("Failed test names: ", find_failed_test_names(content))
+        print("Test result: ", parse_test_log(content))
+    elif not arg.is_dir():
+        raise RuntimeError('Expected a test result file or folder with XMLs to parse, got: ' + arg)
+    else:
+        results = get_test_results(Path(arg))
+        print(f"Found {len(results)} test suites:")
+        print("Total tests:", sum(suite.num_tests for suite in results.values()))
+        print("Total failures:", sum(suite.failures for suite in results.values()))
+        print("Total skipped:", sum(suite.skipped for suite in results.values()))
+        print("Total errors:", sum(suite.errors for suite in results.values()))
+        failed_suites = [suite.name for suite in results.values() if suite.failures + suite.errors > 0]
+        print("Failed suites:\n\t" + '\n\t'.join(sorted(failed_suites)))
+        failed_tests = sum((suite.get_failed_tests() for suite in results.values()), [])
+        print("Failed tests:\n\t" + '\n\t'.join(sorted(failed_tests)))
+        errored_tests = sum((suite.get_errored_tests() for suite in results.values()), [])
+        print("Errored tests:\n\t" + '\n\t'.join(sorted(errored_tests)))
 
 
 if __name__ == '__main__':
-    parse_logfile(sys.argv[1])
+    main(Path(sys.argv[1]))
