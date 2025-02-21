@@ -556,14 +556,19 @@ class EB_PyTorch(PythonPackage):
         if failed_test_suites != all_failed_test_suites:
             # Fail because we can't be sure how many tests failed
             # so comparing to max_failed_tests cannot reasonably be done
-            terminated_suite_names = set(parsed_test_result.terminated_suites)
-            if failed_test_suites | terminated_suite_names == all_failed_test_suites:
-                suites = ", ".join("%s(%s)" % name_signal
-                                   for name_signal in parsed_test_result.terminated_suites.items())
+            if failed_test_suites | set(parsed_test_result.terminated_suites) == all_failed_test_suites:
+                # All failed test suites are either counted or terminated with a signal
                 msg = ('Failing because these test suites were terminated which makes it impossible'
-                       'to accurately count the failed tests: ' + suites + '!')
+                       'to accurately count the failed tests: ')
+                msg += ", ".join("%s(%s)" % name_signal
+                                 for name_signal in sorted(parsed_test_result.terminated_suites.items()))
+            elif len(failed_test_suites) < len(all_failed_test_suites):
+                msg = ('Failing because not all failed tests could be determined. '
+                       'The test accounting in the PyTorch EasyBlock needs updating!\n'
+                       'Missing: ' + ', '.join(sorted(all_failed_test_suites - failed_test_suites)))
             else:
-                msg = 'Failing because the test accounting in the PyTorch EasyBlock needs updating!'
+                msg = ('Failing because there were unexpected failures detected: ' +
+                       ', '.join(sorted(failed_test_suites - all_failed_test_suites)))
             raise EasyBuildError(msg + '\n' +
                                  'You can check the test failures (in the log) manually and if they are harmless, '
                                  'use --ignore-test-failures to make the test step pass.\n' + failure_report)
