@@ -26,6 +26,7 @@
 EasyBuild support for SLEPc, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 
 import os
