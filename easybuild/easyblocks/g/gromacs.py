@@ -32,6 +32,7 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 @author: Guilherme Peretti-Pezzi (CSCS)
 @author: Oliver Stueker (Compute Canada/ACENET)
 @author: Davide Vanzo (Vanderbilt University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import glob
 import os
