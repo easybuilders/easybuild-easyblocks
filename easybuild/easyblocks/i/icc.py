@@ -177,7 +177,7 @@ class EB_icc(IntelBase):
         }
 
         # make very sure that expected 'compilers_and_libraries_<VERSION>/linux' subdir is there for recent versions,
-        # since we rely on it being there in make_module_req_guess
+        # since we rely on it being there in module_load_environment
         if self.comp_libs_subdir:
             custom_paths['dirs'].append(self.comp_libs_subdir)
 
