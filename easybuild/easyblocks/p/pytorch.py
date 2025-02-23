@@ -240,6 +240,7 @@ class EB_PyTorch(PythonPackage):
         if self.cfg['use_pip'] is None and pytorch_version >= '2.0':
             self.log.info("Auto-enabling use of pip to install PyTorch >= 2.0, since 'use_pip' is not set")
             self.cfg['use_pip'] = True
+            self.determine_install_command()
 
         # Set extra environment variables for PyTorch
         # use glob pattern as self.pylibdir is unknown at this stage
