@@ -32,7 +32,6 @@ from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture
 
-
 class EB_VSCode(Tarball):
     """
     Support for installing VSCode and code-cli.
@@ -53,20 +52,25 @@ class EB_VSCode(Tarball):
         self.cfg.template_values['mapped_arch'] = self.mapped_arch
         self.cfg.generate_template_values()
 
+        # installation type: supports VSCode (default) and code-cli
+        self.install_type = 'vscode'
+        if self.name == 'code-cli':
+            self.install_type = 'code-cli'
+
         # location of VSCode executables:
         bin_path = {
-            'VSCode': 'bin',  # {installdir}/bin
+            'vscode': 'bin',  # {installdir}/bin
             'code-cli': '',  # {installdir}
         }
         try:
-            self.module_load_environment.PATH = bin_path[self.name]
+            self.module_load_environment.PATH = bin_path[self.install_type]
         except KeyError as err:
             raise EasyBuildError(f"Unknown binary location for {self.name} in VSCode easyblock") from err
 
     def sanity_check_step(self):
         """Custom sanity check for VSCode and code-cli."""
         vscode_paths = {
-            'VSCode': {
+            'vscode': {
                 'files': ['bin/code', 'bin/code-tunnel', 'code'],
                 'dirs': ['locales', 'resources'],
             },
@@ -76,7 +80,7 @@ class EB_VSCode(Tarball):
             },
         }
         try:
-            custom_paths = vscode_paths[self.name]
+            custom_paths = vscode_paths[self.install_type]
         except KeyError as err:
             raise EasyBuildError(f"Unknown sanity checks for {self.name} in VSCode easyblock") from err
 
