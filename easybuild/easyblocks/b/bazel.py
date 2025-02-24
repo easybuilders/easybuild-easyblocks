@@ -158,7 +158,7 @@ class EB_Bazel(EasyBlock):
         ])
 
         # enable building in parallel
-        bazel_args = '--jobs=%d' % self.cfg['parallel']
+        bazel_args = f'--jobs={self.cfg.parallel}'
 
         # Bazel provides a JDK by itself for some architectures
         # We want to enforce it using the JDK we provided via modules
@@ -206,7 +206,7 @@ class EB_Bazel(EasyBlock):
                 # Avoid bazel using $HOME
                 '--output_user_root=%s' % self.output_user_root,
                 runtest,
-                '--jobs=%d' % self.cfg['parallel'],
+                f'--jobs={self.cfg.parallel}',
                 '--host_javabase=@local_jdk//:jdk',
                 # Be more verbose
                 '--subcommands', '--verbose_failures',

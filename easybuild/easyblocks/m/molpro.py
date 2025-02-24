@@ -157,8 +157,8 @@ class EB_Molpro(ConfigureMake, Binary):
 
             # determine MPI launcher command that can be used during build/test
             # obtain command with specific number of cores (required by mpi_cmd_for), then replace that number with '%n'
-            launcher = self.toolchain.mpi_cmd_for('%x', self.cfg['parallel'])
-            launcher = launcher.replace(' %s' % self.cfg['parallel'], ' %n')
+            launcher = self.toolchain.mpi_cmd_for('%x', self.cfg.parallel)
+            launcher = launcher.replace(f' {self.cfg.parallel}', ' %n')
 
             # patch CONFIG file to change LAUNCHER definition, in order to avoid having to start mpd
             apply_regex_substitutions(cfgfile, [(r"^(LAUNCHER\s*=\s*).*$", r"\1 %s" % launcher)])
@@ -186,7 +186,7 @@ class EB_Molpro(ConfigureMake, Binary):
 
             if build_option('mpi_tests'):
                 # extensive test
-                run_shell_cmd("make MOLPRO_OPTIONS='-n%s' test" % self.cfg['parallel'])
+                run_shell_cmd(f"make MOLPRO_OPTIONS='-n{self.cfg.parallel}' test")
             else:
                 self.log.info("Skipping extensive testing of Molpro since MPI testing is disabled")
 

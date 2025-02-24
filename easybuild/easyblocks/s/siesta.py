@@ -76,7 +76,7 @@ class EB_Siesta(ConfigureMake):
 
         par = ''
         if loose_ver >= LooseVersion('4.1'):
-            par = '-j %s' % self.cfg['parallel']
+            par = f"-j {self.cfg.parallel}"
 
         # enable OpenMP support if desired
         env_var_suff = ''

@@ -124,7 +124,6 @@ class EB_Clang(CMakeMake):
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
         self.llvm_obj_dir_stage3 = None
-        self.make_parallel_opts = ""
         self.runtime_lib_path = "lib"
 
         # Bypass the .mod file check for GCCcore installs
@@ -404,9 +403,6 @@ class EB_Clang(CMakeMake):
 
         self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
 
-        if self.cfg['parallel']:
-            self.make_parallel_opts = "-j %s" % self.cfg['parallel']
-
         # If hwloc is included as a dep, use it in OpenMP runtime for affinity
         hwloc_root = get_software_root('hwloc')
         if hwloc_root:
@@ -554,7 +550,7 @@ class EB_Clang(CMakeMake):
             run_shell_cmd("cmake %s %s" % (' '.join(options), self.llvm_src_dir))
 
         self.log.info("Building")
-        run_shell_cmd("make %s VERBOSE=1" % self.make_parallel_opts)
+        run_shell_cmd(f"make {self.parallel_flag} VERBOSE=1")
 
         # restore $PATH
         setvar('PATH', orig_path)
@@ -581,7 +577,7 @@ class EB_Clang(CMakeMake):
                 change_dir(self.llvm_obj_dir_stage3)
             else:
                 change_dir(self.llvm_obj_dir_stage1)
-            run_shell_cmd("make %s check-all" % self.make_parallel_opts)
+            run_shell_cmd(f"make {self.parallel_flag} check-all")
 
     def install_step(self):
         """Install stage 3 binaries."""

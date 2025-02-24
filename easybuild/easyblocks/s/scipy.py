@@ -189,7 +189,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
                 'python': self.python_cmd,
                 'srcdir': self.cfg['start_dir'],
                 'installdir': tmp_installdir,
-                'parallel': self.cfg['parallel'],
+                'parallel': self.cfg.parallel,
             }
 
             MesonNinja.test_step(self)
@@ -199,7 +199,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
                 'python': '%(python)s',
                 'srcdir': self.cfg['start_dir'],
                 'installdir': '',
-                'parallel': self.cfg['parallel'],
+                'parallel': self.cfg.parallel,
             }
             FortranPythonPackage.test_step(self)
 

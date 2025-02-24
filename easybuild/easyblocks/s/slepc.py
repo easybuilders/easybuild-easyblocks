@@ -129,7 +129,7 @@ class EB_SLEPc(ConfigureMake):
 
         # SLEPc > 3.5, make does not accept -j
         if LooseVersion(self.version) >= LooseVersion("3.5"):
-            self.cfg['parallel'] = None
+            self.cfg.parallel = 1
 
     def install_step(self):
         """

@@ -64,8 +64,8 @@ class EB_Hadoop(Tarball):
                     raise EasyBuildError("%s not found. Failing install" % native_lib)
                 cmd += ' -Drequire.%s=true -D%s.prefix=%s' % (native_lib, native_lib, lib_root)
 
-            if self.cfg['parallel'] > 1:
-                cmd += " -T%d" % self.cfg['parallel']
+            if self.cfg.parallel > 1:
+                cmd += f" -T{self.cfg.parallel}"
             run_shell_cmd(cmd)
 
     def install_step(self):

@@ -271,7 +271,7 @@ class EB_OpenFOAM(EasyBlock):
         env.setvar("WM_COMPILE_OPTION", self.build_type)
 
         # parallel build spec
-        env.setvar("WM_NCOMPPROCS", str(self.cfg['parallel']))
+        env.setvar("WM_NCOMPPROCS", str(self.cfg.parallel))
 
         # OpenFOAM >= 3.0.0 can use 64 bit integers
         if not self.is_extend and self.looseversion >= LooseVersion('3.0'):

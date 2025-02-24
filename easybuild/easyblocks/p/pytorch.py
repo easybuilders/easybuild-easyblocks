@@ -338,7 +338,7 @@ class EB_PyTorch(PythonPackage):
         add_enable_option('VERBOSE', build_option('debug'))
 
         # Restrict parallelism
-        options.append('MAX_JOBS=%s' % self.cfg['parallel'])
+        options.append(f'MAX_JOBS={self.cfg.parallel}')
 
         # BLAS Interface
         if get_software_root('imkl'):
