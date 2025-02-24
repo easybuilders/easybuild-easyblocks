@@ -52,6 +52,9 @@ class EB_TINKER(EasyBlock):
         self.build_subdir = None
         self.build_in_installdir = True
 
+        self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join('tinker', 'source'))
+        self.module_load_environment.PATH.append(os.path.join('tinker', 'bin'))
+
     def configure_step(self):
         """Custom configuration procedure for TINKER."""
         # make sure FFTW is available
@@ -148,10 +151,3 @@ class EB_TINKER(EasyBlock):
             'dirs': ['tinker/bin'],
         }
         super(EB_TINKER, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Custom guesses for module file prepend-path statements."""
-        guesses = super(EB_TINKER, self).make_module_req_guess()
-        guesses['PATH'].append(os.path.join('tinker', 'bin'))
-        guesses['LIBRARY_PATH'].append(os.path.join('tinker', 'source'))
-        return guesses

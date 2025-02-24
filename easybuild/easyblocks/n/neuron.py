@@ -27,6 +27,7 @@ EasyBuild support for building and installing NEURON, implemented as an easybloc
 
 @author: Kenneth Hoste (Ghent University)
 @author: Maxime Boissonneault (Universite Laval, Compute Canada)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 import re

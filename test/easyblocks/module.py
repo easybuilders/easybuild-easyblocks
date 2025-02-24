@@ -479,6 +479,9 @@ def suite():
         elif eb_fn == 'paraver.py':
             # custom easyblock for Paraver requires version >= 4.7
             innertest = make_inner_test(easyblock, name='Paraver', version='4.8')
+        elif eb_fn == 'petsc.py':
+            # custom easyblock for PETSc has a minimum required version
+            innertest = make_inner_test(easyblock, name='PETSc', version='99.9')
         elif eb_fn in ['python.py', 'tkinter.py']:
             # custom easyblock for Python (ensurepip) requires version >= 3.4.0
             innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], version='3.4.0')

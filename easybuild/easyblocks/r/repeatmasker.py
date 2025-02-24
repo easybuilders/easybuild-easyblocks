@@ -38,6 +38,13 @@ from easybuild.tools.run import run_shell_cmd
 class EB_RepeatMasker(Tarball):
     """Support for building/installing RepeatMasker."""
 
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+        super(EB_RepeatMasker, self).__init__(*args, **kwargs)
+
+        # custom path-like environment variables for RepeatMaskerConfig
+        self.module_load_environment.PATH = ['']
+
     def install_step(self):
         """Custom install procedure for RepeatMasker."""
         super(EB_RepeatMasker, self).install_step()
@@ -124,11 +131,3 @@ class EB_RepeatMasker(Tarball):
         custom_commands = ['RepeatMasker']
 
         super(EB_RepeatMasker, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Custom guesses for path-like environment variables for RepeatMaskerConfig."""
-        guesses = super(EB_RepeatMasker, self).make_module_req_guess()
-
-        guesses['PATH'] = ['']
-
-        return guesses
