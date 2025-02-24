@@ -32,6 +32,7 @@ from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture
 
+
 class EB_VSCode(Tarball):
     """
     Support for installing VSCode and code-cli.
