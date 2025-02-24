@@ -126,6 +126,7 @@ KOKKOS_CPU_MAPPING = {
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
     'icelake': 'SKX',
+    'sapphirerapids': 'SKX',
     'knights-landing': 'KNL',
     'zen': 'ZEN',
     'zen2': 'ZEN2',
@@ -242,6 +243,7 @@ class EB_LAMMPS(CMakeMake):
 
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
             self.kokkos_cpu_mapping['icelake'] = 'ICX'
+            self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -478,7 +480,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
+            self.lammpsdir = os.path.join(self.builddir, '%s-*' % self.name.lower())
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
