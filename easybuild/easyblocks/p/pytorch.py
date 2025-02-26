@@ -38,7 +38,7 @@ from enum import Enum
 from itertools import chain, groupby
 from operator import attrgetter
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List
 import easybuild.tools.environment as env
 from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
@@ -362,12 +362,11 @@ class EB_PyTorch(PythonPackage):
                 else:
                     self.log.warning(msg)
             else:
-                # Always enable XML test reports when the EB variable is set.
-                # The variable is used because the file gets installed which we shouldn't modify.
+                # Replace the condition to enable the XML test reports to use our variable instead of $IS_CI/$IS_IN_CI
+                # The variable is used because the file gets installed and we shouldn't change the default behavior.
                 apply_regex_substitutions('torch/testing/_internal/common_utils.py',
-                                          [('TEST_SAVE_XML = args.save_xml',
-                                            'TEST_SAVE_XML = _get_test_report_path() if '
-                                            f'os.getenv("{self.GENERATE_TEST_REPORT_VAR_NAME}") else args.save_xml')],
+                                          [(r'(default=_get_test_report_path\(\) if) IS(_IN)?_CI else None',
+                                            fr'\1 os.getenv("{self.GENERATE_TEST_REPORT_VAR_NAME}") else None')],
                                           backup=False, on_missing_match=ERROR)
                 if pytorch_version >= '2.1.0':
                     run_test_subs = [(r'if IS_CI:\n\s+# Add the option to generate XML test report.*',
@@ -778,11 +777,17 @@ class TestState(Enum):
 
 
 if sys.version_info >= (3, 9):
-    from typing import NamedTuple
-    TestCase = NamedTuple('TestCase', [('name', str), ('file', str), ('state', TestState), ('num_reruns', int)])
+    from dataclasses import dataclass
+
+    @dataclass
+    class TestCase:
+        """Instance of a test method run"""
+        name: str
+        state: TestState
+        num_reruns: int
 else:
     from collections import namedtuple
-    TestCase = namedtuple('TestCase', ('name', 'file', 'state', 'num_reruns'))
+    TestCase = namedtuple('TestCase', ('name', 'state', 'num_reruns'))
 
 
 class TestSuite:
@@ -855,24 +860,11 @@ class TestSuite:
         return [test.name for test in self.test_cases.values() if test.state == TestState.FAILURE]
 
 
-def parse_test_cases(test_suite_el: ET.Element, suite_file_path: Optional[str]) -> List[TestCase]:
+def parse_test_cases(test_suite_el: ET.Element) -> List[TestCase]:
     """Extract all test cases from the testsuite XML element"""
     test_cases: List[TestCase] = []
     for testcase in test_suite_el.iterfind("testcase"):
-        file = testcase.attrib.get("file")
-        if not file:
-            if not suite_file_path:
-                raise ValueError("Testcase is missing 'file' attribute.")
-            file = suite_file_path
-            # Strip of the suite name which is likely a common prefix to all classes
-            non_classname_prefix = os.path.dirname(file).replace(os.path.sep, '.') + '.'
-        else:
-            non_classname_prefix = None
-
         classname = testcase.attrib["classname"]
-        # Remove filename from classname attribute
-        if non_classname_prefix and classname.startswith(non_classname_prefix):
-            classname = classname[len(non_classname_prefix):]
         test_name = f'{classname}.{testcase.attrib["name"]}'
         failed, errored, skipped = [testcase.find(tag) is not None for tag in ("failure", "error", "skipped")]
         num_reruns = len(testcase.findall("rerun"))
@@ -884,8 +876,77 @@ def parse_test_cases(test_suite_el: ET.Element, suite_file_path: Optional[str]) 
         else:
             state = TestState.FAILURE if failed else TestState.ERROR if errored else TestState.SUCCESS
 
-        test_cases.append(TestCase(test_name, file=file, state=state, num_reruns=num_reruns))
+        test_cases.append(TestCase(test_name, state=state, num_reruns=num_reruns))
     return test_cases
+
+
+def determine_suite_name(xml_file: Path, test_suite_xml: List[ET.Element]) -> str:
+    """Determine main test suite name from path(s) to match against run_test.py output"""
+    # Gather all file attributes from the test cases if set
+    test_cases = [testcase for suite in test_suite_xml for testcase in suite.iterfind("testcase")]
+    file_attribute = {testcase.attrib.get("file") for testcase in test_cases}
+    file_attribute.discard(None)
+    suite_name = xml_file.parent.name.replace('.', os.path.sep)  # Usually the suite name is the folder name
+    if xml_file.name.startswith('TEST-'):
+        # Python unittest reports have 1 file per test class:
+        # test-reports/python-unittest/test_package/TEST-test_repackage.TestRepackage-20250217120914.xml
+        # -> test_repackage.py ran TestRepackage
+        # test-reports/dist-gloo/distributed.algorithms.test_quantization/TEST-DistQuantizationTests-20250123170925.xml
+        # -> distributed/algorithms/test_quantization ran DistQuantizationTests in dist-gloo variant
+        # Just do a sanity check
+        if len(file_attribute) > 1:
+            raise ValueError(f"Found multiple reported files in unittest report of '{xml_file}': {file_attribute}")
+        reported_file = os.path.basename(file_attribute.pop())
+
+        name_parts = xml_file.name[len('TEST-'):].rsplit('-', 1)[0].rsplit('.', 2)
+        # If there is only one part it is the class -> filename is in the suite name
+        if len(name_parts) == 1:
+            test_file_name = os.path.basename(suite_name) + '.py'
+        else:
+            # Note that multiple parts are possible for sub-test files:
+            # TEST-jit.test_builtins.TestBuiltins (jit/test_builtins.py)
+            test_file_name = name_parts[-2] + '.py'
+        if test_file_name != reported_file:
+            raise ValueError(f"Unexpected file attributes in test cases of '{xml_file}'. "
+                             f"Expected {test_file_name}, got {file_attribute}")
+    elif suite_name == 'run_test':
+        # Generic report, so try to infer from the class names which look like
+        # test.distributed.pipeline.sync.test_stream.TestGetDevice or
+        # test.distributed.pipeline.sync.test_pipe
+        # distributed.elastic.events.lib_test.RdzvEventLibTest
+        def extract_path(classname: str) -> str:
+            parts = classname.split('.')
+            if parts[0] == 'test':
+                if not parts[-1].startswith('test_') and 'Test' in parts[-1]:
+                    # last part is a real class name
+                    parts.pop()
+                return os.path.join(*parts[1:])
+            return None
+        possible_paths = {extract_path(testcase.attrib["classname"]) for testcase in test_cases}
+        possible_paths.discard(None)
+        if not possible_paths:
+            raise ValueError("Could not infer test suite name from class names for {xml_file}.")
+        # We can remove possible class names by only using the common part
+        suite_name = os.path.commonpath(possible_paths)
+        # Strip of common prefix to all classes, but keep the last part for uniqueness
+        non_classname_prefix = os.path.dirname(suite_name).replace(os.path.sep, '.') + '.'
+        for testcase in test_cases:
+            classname = testcase.attrib["classname"]
+            if classname.startswith(non_classname_prefix):
+                testcase.attrib["classname"] = classname[len(non_classname_prefix):]
+    else:
+        # Pytest reports, have the name in folder and file e.g.:
+        # distributed.pipeline.sync.skip.test_stash_pop/distributed.pipeline.sync.skip.test_stash_pop-052ae03efad18.xml
+        # -> distributed/pipeline/sync/skip/test_stash_pop
+        test_file_path = xml_file.name.rsplit('-', 1)[0].replace('.', os.path.sep)
+        if test_file_path != suite_name:
+            raise ValueError(f"Path from folder and filename should be equal. "
+                             f"Got: '{test_file_path}' != '{suite_name}'")
+    # Variant might be dist-gloo, dist-mpi or similar which is the same test code ran in different configurations!
+    variant = xml_file.parent.parent.name
+    if variant not in ('python-unittest', 'python-pytest'):
+        suite_name = os.path.join(variant, suite_name)
+    return suite_name
 
 
 def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
@@ -897,81 +958,20 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
     """
     root = ET.parse(xml_file).getroot()
 
-    def get_test_suite_iter() -> Iterable[ET.Element]:
-        if root.tag == "testsuites":
-            return root.iterfind("testsuite")
-        elif root.tag == "testsuite":
-            return (root, )  # Single test suite entry in file
-        else:
-            raise ValueError("Root element must be <testsuites> or <testsuite>.")
-
-    # Determine main test suite name from path to match against run_test.py output
-    suite_name = xml_file.parent.name.replace('.', os.path.sep)
-    suite_file_path_fallback = None
-    if xml_file.name.startswith('TEST-'):
-        # Python unittest reports have 1 file per test class:
-        # test-reports/python-unittest/test_package/TEST-test_repackage.TestRepackage-20250217120914.xml
-        # -> test_repackage.py ran TestRepackage
-        # test-reports/dist-gloo/distributed.algorithms.test_quantization/TEST-DistQuantizationTests-20250123170925.xml
-        # -> distributed/algorithms/test_quantization ran DistQuantizationTests in dist-gloo variant
-        name_parts = xml_file.name[len('TEST-'):].rsplit('-', 1)[0].rsplit('.', 2)
-        # If there is only one part it is the class -> filename is in the suite name
-        if len(name_parts) == 1:
-            test_file_name = os.path.basename(suite_name)
-        else:
-            # Note that multiple parts are possible for sub-test files: TEST-jit.test_builtins.TestBuiltins
-            test_file_name = name_parts[-2]
-
-        test_file_name += '.py'
-        test_file_name2 = test_file_name
-        name_parts = xml_file.name[len('TEST-'):].rsplit('-', 1)[0].rsplit('.', 1)
-        # Last part is the class. If there is only a class name the folder is the file
-        if len(name_parts) > 1:
-            test_file_name = name_parts[0].rsplit('.', 1)[-1] + '.py'
-        else:
-            test_file_name = xml_file.parent.name.rsplit('.', 1)[-1] + '.py'
-        if test_file_name != test_file_name2:
-            print(1)
-    elif suite_name == 'run_test':
-        # Generic report, so try to infer from the class names which look like
-        # test.distributed.pipeline.sync.test_stream.TestGetDevice or
-        # test.distributed.pipeline.sync.test_pipe
-        # distributed.elastic.events.lib_test.RdzvEventLibTest
-        def extract_path(classname: str) -> str:
-            parts = classname.split('.')
-            if parts[0] == 'test':
-                if not parts[-1].startswith('test_') and parts[-2].startswith('test_'):
-                    # last part is a real class name
-                    parts.pop()
-                return os.path.join(*parts[1:])
-            return None
-        possible_paths = {extract_path(testcase.attrib["classname"])
-                          for suite in get_test_suite_iter() for testcase in suite.iterfind("testcase")}
-        possible_paths.discard(None)
-        if not possible_paths:
-            raise ValueError("Could not infer test suite name from class names.")
-        # We can remove possible class names by only using the common part
-        suite_name = os.path.commonpath(possible_paths)
-        # The tests usually don't have the file attribute
-        suite_file_path_fallback = f'{suite_name}.py'
-        test_file_name = os.path.basename(suite_file_path_fallback)
+    # Normalize root to be a list of test suite elements
+    if root.tag == "testsuites":
+        test_suite_xml: List[ET.Element] = root.findall("testsuite")
+    elif root.tag == "testsuite":
+        test_suite_xml = [root]
     else:
-        # Pytest reports, e.g.:
-        # distributed.pipeline.sync.skip.test_stash_pop/distributed.pipeline.sync.skip.test_stash_pop-052ae03efad18.xml
-        # -> distributed/pipeline/sync/skip/test_stash_pop
-        test_file_path = xml_file.name.rsplit('-', 1)[0].replace('.', os.path.sep)
-        if test_file_path != suite_name:
-            raise ValueError(f"Path from folder and filename should be equal. "
-                             f"Got: '{test_file_path}' != '{suite_name}'")
-        test_file_name = os.path.basename(test_file_path) + '.py'
-    # Variant might be dist-gloo, dist-mpi or similar which is the same test code ran in different configurations!
-    variant = xml_file.parent.parent.name
-    if variant not in ('python-unittest', 'python-pytest'):
-        suite_name = os.path.join(variant, suite_name)
+        raise ValueError("Root element must be <testsuites> or <testsuite>.")
+
+    # Suite name to correctly deduplicate tests and match against run_test.py output
+    suite_name = determine_suite_name(xml_file, test_suite_xml)
 
     test_suites: List[TestSuite] = []
 
-    for test_suite in get_test_suite_iter():
+    for test_suite in test_suite_xml:
         errors = int(test_suite.attrib["errors"])
         failures = int(test_suite.attrib["failures"])
         skipped = int(test_suite.attrib["skipped"])
@@ -980,18 +980,12 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
             raise ValueError(f"Invalid test count: "
                              f"{num_tests} tests, {failures} failures, {skipped} skipped, {errors} errors")
 
-        parsed_test_cases = parse_test_cases(test_suite, suite_file_path_fallback)
+        parsed_test_cases = parse_test_cases(test_suite)
         if not parsed_test_cases:
             # No data about the test cases or even the name of the suite, so ignore it
             if num_tests > 0:
                 raise ValueError("Testsuite contains no test cases, but reports tests.")
             continue
-        file_names = {test_case.file for test_case in parsed_test_cases}
-        if len(file_names) > 1:
-            raise ValueError(f"Found tests from multiple files in '{xml_file}: {file_names}.")
-        cur_file_path = file_names.pop()
-        if os.path.basename(cur_file_path) != test_file_name:
-            raise ValueError(f"Unexpected file name in '{xml_file}': '{cur_file_path}' != '{test_file_name}'")
 
         test_cases: Dict[str, TestCase] = {}
         for test_case in parsed_test_cases:
@@ -1063,20 +1057,25 @@ def main(arg: Path):
         print("Failed test names: ", find_failed_test_names(content))
         print("Test result: ", parse_test_log(content))
     elif not arg.is_dir():
-        raise RuntimeError('Expected a test result file or folder with XMLs to parse, got: ' + arg)
+        msg = f'Expected a test result file or folder with XMLs to parse, got: {arg}'
+        if not arg.exists():
+            msg += ' which does not exist'
+        raise RuntimeError(msg)
     else:
         results = get_test_results(Path(arg))
         print(f"Found {len(results)} test suites:")
+        for suite in results.values():
+            print(f"Suite {suite.name} {suite.num_tests}:\t{suite.summary}")
         print("Total tests:", sum(suite.num_tests for suite in results.values()))
         print("Total failures:", sum(suite.failures for suite in results.values()))
         print("Total skipped:", sum(suite.skipped for suite in results.values()))
         print("Total errors:", sum(suite.errors for suite in results.values()))
         failed_suites = [suite.name for suite in results.values() if suite.failures + suite.errors > 0]
-        print("Failed suites:\n\t" + '\n\t'.join(sorted(failed_suites)))
+        print(f"Failed suites ({len(failed_suites)}):\n\t" + '\n\t'.join(sorted(failed_suites)))
         failed_tests = sum((suite.get_failed_tests() for suite in results.values()), [])
-        print("Failed tests:\n\t" + '\n\t'.join(sorted(failed_tests)))
+        print(f"Failed tests ({len(failed_tests)}):\n\t" + '\n\t'.join(sorted(failed_tests)))
         errored_tests = sum((suite.get_errored_tests() for suite in results.values()), [])
-        print("Errored tests:\n\t" + '\n\t'.join(sorted(errored_tests)))
+        print(f"Errored tests ({len(errored_tests)}):\n\t" + '\n\t'.join(sorted(errored_tests)))
 
 
 if __name__ == '__main__':
