@@ -231,8 +231,11 @@ def parse_test_log(tests_out):
 
     # Gather all failed tests suites in case we missed any,
     # e.g. when it exited due to syntax errors or with a signal such as SIGSEGV
+    # Examples: "test_jit_profiling failed! Received signal: SIGSEGV", "test_weak failed!", "test_decomp 1/1 failed!"
+    #           "test_pytree 1/1 failed! [Errno 2] No such file or directory: '/dev/shm/build/...'"
     failed_suites_and_signal = set(
-        re.findall(r"^(?P<test_name>.*) failed!(?: Received signal: (\w+))?\s*$", tests_out, re.M)
+        re.findall(r"^(?P<test_name>.*?) (?:\d+/\d+ )?failed!(?: Received signal: (\w+)| \[Errno \d+\] .*)?\s*$",
+                   tests_out, re.M)
     )
 
     return TestResult(test_cnt=test_cnt, error_cnt=error_cnt, failure_cnt=failure_cnt,
