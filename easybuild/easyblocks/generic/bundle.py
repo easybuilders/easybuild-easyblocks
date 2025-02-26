@@ -91,89 +91,88 @@ class Bundle(EasyBlock):
         self.cfg = self.cfg.copy()
 
         # disable templating to avoid premature resolving of template values
-        self.cfg.enable_templating = False
+        # Note that self.cfg.update also resolves templates!
+        with self.cfg.disable_templating():
+            # list of checksums for patches (must be included after checksums for sources)
+            checksums_patches = []
 
-        # list of checksums for patches (must be included after checksums for sources)
-        checksums_patches = []
+            if self.cfg['sanity_check_components'] and self.cfg['sanity_check_all_components']:
+                raise EasyBuildError("sanity_check_components and sanity_check_all_components"
+                                     "cannot be enabled together")
 
-        if self.cfg['sanity_check_components'] and self.cfg['sanity_check_all_components']:
-            raise EasyBuildError("sanity_check_components and sanity_check_all_components cannot be enabled together")
+            # backup and reset general sanity checks from main body of ec,
+            # if component-specific sanity checks are enabled necessary to avoid:
+            # - duplicating the general sanity check across all components running sanity checks
+            # - general sanity checks taking precedence over those defined in a component's easyblock
+            self.backup_sanity_paths = self.cfg['sanity_check_paths']
+            self.backup_sanity_cmds = self.cfg['sanity_check_commands']
+            if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
+                # reset general sanity checks, to be restored later
+                self.cfg['sanity_check_paths'] = {}
+                self.cfg['sanity_check_commands'] = {}
+            components = self.cfg['components']
 
-        # backup and reset general sanity checks from main body of ec, if component-specific sanity checks are enabled
-        # necessary to avoid:
-        # - duplicating the general sanity check across all components running sanity checks
-        # - general sanity checks taking precedence over those defined in a component's easyblock
-        self.backup_sanity_paths = self.cfg['sanity_check_paths']
-        self.backup_sanity_cmds = self.cfg['sanity_check_commands']
-        if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
-            # reset general sanity checks, to be restored later
-            self.cfg['sanity_check_paths'] = {}
-            self.cfg['sanity_check_commands'] = {}
+            for comp in components:
+                comp_name, comp_version, comp_specs = comp[0], comp[1], {}
+                if len(comp) == 3:
+                    comp_specs = comp[2]
 
-        for comp in self.cfg['components']:
-            comp_name, comp_version, comp_specs = comp[0], comp[1], {}
-            if len(comp) == 3:
-                comp_specs = comp[2]
+                comp_cfg = self.cfg.copy()
 
-            comp_cfg = self.cfg.copy()
+                comp_cfg['name'] = comp_name
+                comp_cfg['version'] = comp_version
 
-            comp_cfg['name'] = comp_name
-            comp_cfg['version'] = comp_version
-
-            # determine easyblock to use for this component
-            # - if an easyblock is specified explicitely, that will be used
-            # - if not, a software-specific easyblock will be considered by get_easyblock_class
-            # - if no easyblock was found, default_easyblock is considered
-            comp_easyblock = comp_specs.get('easyblock')
-            easyblock_class = get_easyblock_class(comp_easyblock, name=comp_name, error_on_missing_easyblock=False)
-            if easyblock_class is None:
-                if self.cfg['default_easyblock']:
-                    easyblock = self.cfg['default_easyblock']
-                    easyblock_class = get_easyblock_class(easyblock)
-
+                # determine easyblock to use for this component
+                # - if an easyblock is specified explicitely, that will be used
+                # - if not, a software-specific easyblock will be considered by get_easyblock_class
+                # - if no easyblock was found, default_easyblock is considered
+                comp_easyblock = comp_specs.get('easyblock')
+                easyblock_class = get_easyblock_class(comp_easyblock, name=comp_name, error_on_missing_easyblock=False)
                 if easyblock_class is None:
-                    raise EasyBuildError("No easyblock found for component %s v%s", comp_name, comp_version)
-                else:
+                    if self.cfg['default_easyblock']:
+                        easyblock = self.cfg['default_easyblock']
+                        easyblock_class = get_easyblock_class(easyblock)
+
+                    if easyblock_class is None:
+                        raise EasyBuildError("No easyblock found for component %s v%s", comp_name, comp_version)
                     self.log.info("Using default easyblock %s for component %s", easyblock, comp_name)
-            else:
-                easyblock = easyblock_class.__name__
-                self.log.info("Using easyblock %s for component %s", easyblock, comp_name)
+                else:
+                    easyblock = easyblock_class.__name__
+                    self.log.info("Using easyblock %s for component %s", easyblock, comp_name)
 
-            if easyblock == 'Bundle':
-                raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
+                if easyblock == 'Bundle':
+                    raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
 
-            comp_cfg.easyblock = easyblock_class
+                comp_cfg.easyblock = easyblock_class
 
-            # make sure that extra easyconfig parameters are known, so they can be set
-            extra_opts = comp_cfg.easyblock.extra_options()
-            comp_cfg.extend_params(copy.deepcopy(extra_opts))
+                # make sure that extra easyconfig parameters are known, so they can be set
+                extra_opts = comp_cfg.easyblock.extra_options()
+                comp_cfg.extend_params(copy.deepcopy(extra_opts))
 
-            comp_cfg.generate_template_values()
+                comp_cfg.generate_template_values()
 
-            # do not inherit easyblock to use from parent (since that would result in an infinite loop in install_step)
-            comp_cfg['easyblock'] = None
+                # do not inherit easyblock to use from parent
+                # (since that would result in an infinite loop in install_step)
+                comp_cfg['easyblock'] = None
 
-            # reset list of sources/source_urls/checksums
-            comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = comp_cfg['patches'] = []
+                # reset list of sources/source_urls/checksums
+                comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = comp_cfg['patches'] = []
 
-            for key in self.cfg['default_component_specs']:
-                comp_cfg[key] = self.cfg['default_component_specs'][key]
+                for key in self.cfg['default_component_specs']:
+                    comp_cfg[key] = self.cfg['default_component_specs'][key]
 
-            for key in comp_specs:
-                comp_cfg[key] = comp_specs[key]
+                for key in comp_specs:
+                    comp_cfg[key] = comp_specs[key]
 
-            # enable resolving of templates for component-specific EasyConfig instance,
-            # but don't require that all template values can be resolved at this point;
-            # this is important to ensure that template values like %(name)s and %(version)s
-            # are correctly resolved with the component name/version before values are copied over to self.cfg
-            comp_cfg.enable_templating = True
-            comp_cfg.expect_resolved_template_values = False
-
-            # 'sources' is strictly required
-            comp_sources = comp_cfg['sources']
-            if comp_sources:
+                # Don't require that all template values can be resolved at this point but still resolve them.
+                # This is important to ensure that template values like %(name)s and %(version)s
+                # are correctly resolved with the component name/version before values are copied over to self.cfg
+                with comp_cfg.allow_unresolved_templates():
+                    comp_sources = comp_cfg['sources']
+                    comp_source_urls = comp_cfg['source_urls']
+                if not comp_sources:
+                    raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
                 # If per-component source URLs are provided, attach them directly to the relevant sources
-                comp_source_urls = comp_cfg['source_urls']
                 if comp_source_urls:
                     for source in comp_sources:
                         if isinstance(source, str):
@@ -190,35 +189,30 @@ class Bundle(EasyBlock):
                 else:
                     # add component sources to list of sources
                     self.cfg.update('sources', comp_sources)
-            else:
-                raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
 
-            comp_checksums = comp_cfg['checksums']
-            if comp_checksums:
-                src_cnt = len(comp_sources)
+                comp_checksums = comp_cfg['checksums']
+                if comp_checksums:
+                    src_cnt = len(comp_sources)
 
-                # add per-component checksums for sources to list of checksums
-                self.cfg.update('checksums', comp_checksums[:src_cnt])
+                    # add per-component checksums for sources to list of checksums
+                    self.cfg.update('checksums', comp_checksums[:src_cnt])
 
-                # add per-component checksums for patches to list of checksums for patches
-                checksums_patches.extend(comp_checksums[src_cnt:])
+                    # add per-component checksums for patches to list of checksums for patches
+                    checksums_patches.extend(comp_checksums[src_cnt:])
 
-            comp_patches = comp_cfg['patches']
-            if comp_patches:
-                self.cfg.update('patches', comp_patches)
+                with comp_cfg.allow_unresolved_templates():
+                    comp_patches = comp_cfg['patches']
+                if comp_patches:
+                    self.cfg.update('patches', comp_patches)
 
-            comp_cfg.expect_resolved_template_values = True
+                self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
 
-            self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
-
-        self.cfg.update('checksums', checksums_patches)
+            self.cfg.update('checksums', checksums_patches)
 
         # restore general sanity checks if using component-specific sanity checks
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
             self.cfg['sanity_check_paths'] = self.backup_sanity_paths
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
-
-        self.cfg.enable_templating = True
 
     def check_checksums(self):
         """
@@ -279,9 +273,10 @@ class Bundle(EasyBlock):
 
             comp.src = []
 
-            # find match entries in self.src for this component
-            comp.cfg.expect_resolved_template_values = False
-            for source in comp.cfg['sources']:
+            # find matching entries in self.src for this component
+            with comp.cfg.allow_unresolved_templates():
+                comp_sources = comp.cfg['sources']
+            for source in comp_sources:
                 if isinstance(source, str):
                     comp_src_fn = source
                 elif isinstance(source, dict):
@@ -304,7 +299,6 @@ class Bundle(EasyBlock):
 
                 # location of first unpacked source is used to determine where to apply patch(es)
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
-            comp.cfg.expect_resolved_template_values = True
 
             # check if sanity checks are enabled for the component
             if self.cfg['sanity_check_all_components'] or comp.cfg['name'] in self.cfg['sanity_check_components']:
