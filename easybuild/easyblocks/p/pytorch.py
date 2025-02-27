@@ -134,6 +134,13 @@ def parse_test_log(tests_out):
     # Remove empty lines to make RegExs below simpler
     tests_out = re.sub(r'^[ \t]*\n', '', tests_out, flags=re.MULTILINE)
 
+    # Examples: "test_jit_profiling failed! Received signal: SIGSEGV"
+    #           "test_weak failed!"
+    #           "test_decomp 1/1 failed!"
+    #           "test_pytree 1/1 failed! [Errno 2] No such file or directory: '/dev/shm/build/...'"
+    suite_failed_pattern = (r"^(?P<failed_test_suite_name>.*?) (?:\d+/\d+ )?failed!"
+                            r"(?: Received signal: (\w+)| \[Errno \d+\] .*)?\s*$")
+
     # Grep for patterns like:
     # Ran 219 tests in 67.325s
     #
@@ -142,7 +149,7 @@ def parse_test_log(tests_out):
     regex = (r"^Ran (?P<test_cnt>[0-9]+) tests.*$\n"
              r"FAILED \((?P<failure_summary>.*)\)$\n"
              r"(?:^(?:(?!failed!).)*$\n){0,5}"
-             r"(?P<failed_test_suite_name>.*) failed!(?: Received signal: \w+)?\s*$")
+             + suite_failed_pattern)
 
     for m in re.finditer(regex, tests_out, re.M):
         # E.g. 'failures=3, errors=10, skipped=190, expected failures=6'
@@ -175,7 +182,7 @@ def parse_test_log(tests_out):
         r"^=+ (?P<failure_summary>.*) in [0-9]+\.*[0-9]*[a-zA-Z]* (\([0-9]+:[0-9]+:[0-9]+\) )?=+$\n"
         r"(?:.*skip info is located in the xml test reports.*\n)?"
         r"(?:.*FINISHED PRINTING LOG FILE.*\n)?"
-        r"(?P<failed_test_suite_name>.*) failed!$"
+        + suite_failed_pattern
     )
 
     for m in re.finditer(regex, tests_out, re.M):
@@ -199,7 +206,7 @@ def parse_test_log(tests_out):
         r"^AssertionError: (?P<failure_summary>[0-9]+ unit test\(s\) failed):\n"
         r"(\s+.*\n)+"
         r"(((?!failed!).)*\n){0,5}"
-        r"(?P<failed_test_suite_name>.*) failed!$"
+        + suite_failed_pattern
     )
 
     for m in re.finditer(regex, tests_out, re.M):
@@ -231,12 +238,7 @@ def parse_test_log(tests_out):
 
     # Gather all failed tests suites in case we missed any,
     # e.g. when it exited due to syntax errors or with a signal such as SIGSEGV
-    # Examples: "test_jit_profiling failed! Received signal: SIGSEGV", "test_weak failed!", "test_decomp 1/1 failed!"
-    #           "test_pytree 1/1 failed! [Errno 2] No such file or directory: '/dev/shm/build/...'"
-    failed_suites_and_signal = set(
-        re.findall(r"^(?P<test_name>.*?) (?:\d+/\d+ )?failed!(?: Received signal: (\w+)| \[Errno \d+\] .*)?\s*$",
-                   tests_out, re.M)
-    )
+    failed_suites_and_signal = set(re.findall(suite_failed_pattern, tests_out, re.M))
 
     return TestResult(test_cnt=test_cnt, error_cnt=error_cnt, failure_cnt=failure_cnt,
                       failed_suites=failed_suites,
