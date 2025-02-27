@@ -105,8 +105,8 @@ def find_failed_test_names(tests_out):
     # FAILED [0.0623s] dynamo/test_dynamic_shapes.py::DynamicShapesExportTests::test_predispatch -  [snip]
     regex = r"^(FAILED) (?:\[.*?\] )?(?:\w|/)+\.py.*::(test_.*?) - "
     failed_test_cases.extend(re.findall(regex, tests_out, re.M))
-    return FailedTestNames(error=sorted(m[1] for m in failed_test_cases if m[0] == 'ERROR'),
-                           fail=sorted(m[1] for m in failed_test_cases if m[0] != 'ERROR'))
+    return FailedTestNames(error=sorted(set(m[1] for m in failed_test_cases if m[0] == 'ERROR')),
+                           fail=sorted(set(m[1] for m in failed_test_cases if m[0] != 'ERROR')))
 
 
 def parse_test_log(tests_out):
