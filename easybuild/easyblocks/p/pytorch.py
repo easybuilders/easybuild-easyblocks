@@ -723,12 +723,12 @@ class EB_PyTorch(PythonPackage):
             # If no tests are supposed to fail don't print the explanation, just fail
             if max_failed_tests == 0:
                 raise EasyBuildError(failure_report)
-            msg = failure_report + '\n\n' + ' '.join([
-                "The PyTorch test suite is known to include some flaky tests,",
-                "which may fail depending on the specifics of the system or the context in which they are run.",
-                "For this PyTorch installation, EasyBuild allows up to %d tests to fail." % max_failed_tests,
+            msg = failure_report + '\n\n' + ''.join([
+                "The PyTorch test suite is known to include some flaky tests, ",
+                "which may fail depending on the specifics of the system or the context in which they are run.\n",
+                f"For this PyTorch installation, EasyBuild allows up to {max_failed_tests} tests to fail.\n",
                 "We recommend to double check that the failing tests listed above ",
-                "are known to be flaky, or do not affect your intended usage of PyTorch.",
+                "are known to be flaky, or do not affect your intended usage of PyTorch.\n",
                 "In case of doubt, reach out to the EasyBuild community (via GitHub, Slack, or mailing list).",
             ])
             # Print to console in addition to file,
