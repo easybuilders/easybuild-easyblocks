@@ -568,7 +568,7 @@ class EB_PyTorch(PythonPackage):
             diffs.append(f'Did not found {len(missing_tests)} failed tests in XML files: ' +
                          ", ".join(sorted(missing_tests)))
         if diffs:
-            self.log.warning("Found differences when parsing stdout and XML files:\n\t" + "\n\tq".join(diffs))
+            self.log.warning("Found differences when parsing stdout and XML files:\n\t" + "\n\t".join(diffs))
 
     def test_step(self):
         """Run unit tests"""
