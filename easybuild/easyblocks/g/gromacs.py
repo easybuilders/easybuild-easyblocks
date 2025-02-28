@@ -82,7 +82,8 @@ class EB_GROMACS(CMakeMake):
         """Initialize GROMACS-specific variables."""
         super(EB_GROMACS, self).__init__(*args, **kwargs)
 
-        self.lib_subdirs = ''
+        self._lib_subdirs = []  # list of directories with libraries
+
         self.pre_env = ''
         self.cfg['build_shared_libs'] = self.cfg.get('build_shared_libs', False)
 
@@ -554,6 +555,21 @@ class EB_GROMACS(CMakeMake):
             super(EB_GROMACS, self).extensions_step(fetch)
             self.cfg['runtest'] = orig_runtest
 
+    @property
+    def lib_subdirs(self):
+        """Return list of relative paths to subdirs holding library files"""
+        if len(self._lib_subdirs) == 0:
+            try:
+                self._lib_subdirs = self.get_lib_subdirs()
+            except EasyBuildError as error:
+                if build_option('force') and build_option('module_only'):
+                    self.log.info(f"No sub-directory with GROMACS libraries found in installation: {error}")
+                    self.log.info("You are forcing module creation for a non-existent installation!")
+                else:
+                    raise error
+
+        return self._lib_subdirs
+
     def get_lib_subdirs(self):
         """
         Return list of relative paths to sub-directories that contain GROMACS libraries
@@ -588,16 +604,6 @@ class EB_GROMACS(CMakeMake):
 
     def make_module_step(self, *args, **kwargs):
         """Custom library subdirectories for GROMACS."""
-        if not self.lib_subdirs:
-            try:
-                self.lib_subdirs = self.get_lib_subdirs()
-            except EasyBuildError as error:
-                if build_option('force') and build_option('module_only'):
-                    self.log.info(f"No sub-directory with GROMACS libraries found in installation: {error}")
-                    self.log.info("You are forcing module creation for a non-existent installation!")
-                else:
-                    raise error
-
         self.module_load_environment.LD_LIBRARY_PATH = self.lib_subdirs
         self.module_load_environment.LIBRARY_PATH = self.lib_subdirs
         self.module_load_environment.PKG_CONFIG_PATH = [os.path.join(ld, 'pkgconfig') for ld in self.lib_subdirs]
@@ -675,9 +681,6 @@ class EB_GROMACS(CMakeMake):
 
         lib_files.extend([f'lib{x}{suff}.{self.libext}' for x in libnames + mpi_libnames for suff in suffixes])
         bin_files.extend([b + suff for b in bins + mpi_bins for suff in suffixes])
-
-        if not self.lib_subdirs:
-            self.lib_subdirs = self.get_lib_subdirs()
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
