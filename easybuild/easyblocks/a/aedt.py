@@ -69,8 +69,8 @@ class EB_AEDT(PackedBinary):
         licservopt = ["-DLICENSE_SERVER%d=%s" % (i, serv) for i, serv in enumerate(licservs, 1)]
         redundant = len(licservs) > 1
 
+        tempdir = tempfile.TemporaryDirectory()
         if ver > LooseVersion("2024R1"):
-            tempdir = tempfile.TemporaryDirectory()
             installer = "./INSTALL"
             cmd = " ".join([
                 installer,
@@ -86,7 +86,7 @@ class EB_AEDT(PackedBinary):
                 installer,
                 "-i silent",
                 "-DUSER_INSTALL_DIR=%s" % self.installdir,
-                "-DTMP_DIR=%s" % tempfile.TemporaryDirectory().name,
+                "-DTMP_DIR=%s" % tempdir.name,
                 "-DLIBRARY_COMMON_INSTALL=1",
                 "-DSPECIFY_LIC_CFG=1",
                 "-DREDUNDANT_SERVERS=%d" % redundant,
