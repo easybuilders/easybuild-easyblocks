@@ -29,9 +29,11 @@ EasyBuild support for installing Ansys Electronics Desktop
 """
 import os
 import glob
+import shutil
 import tempfile
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_shell_cmd
 
@@ -45,7 +47,13 @@ class EB_AEDT(PackedBinary):
         self.subdir = None
 
     def _set_subdir(self):
-        idirs = glob.glob(os.path.join(self.installdir, 'v*/Linux*/'))
+
+        ver = LooseVersion(self.version)
+        if ver > LooseVersion("2024R1"):
+            idirs = glob.glob(os.path.join(self.installdir, 'v*/AnsysEM/'))
+        else:
+            idirs = glob.glob(os.path.join(self.installdir, 'v*/Linux*/'))
+
         if len(idirs) == 1:
             self.subdir = os.path.relpath(idirs[0], self.installdir)
         else:
@@ -53,23 +61,40 @@ class EB_AEDT(PackedBinary):
 
     def install_step(self):
         """Install Ansys Electronics Desktop using its setup tool."""
+
+        ver = LooseVersion(self.version)
         licserv = os.getenv('EB_AEDT_LICENSE_SERVER')
         licport = os.getenv('EB_AEDT_LICENSE_SERVER_PORT')
         licservs = licserv.split(',')
         licservopt = ["-DLICENSE_SERVER%d=%s" % (i, serv) for i, serv in enumerate(licservs, 1)]
         redundant = len(licservs) > 1
-        options = " ".join([
-            "-i silent",
-            "-DUSER_INSTALL_DIR=%s" % self.installdir,
-            "-DTMP_DIR=%s" % tempfile.TemporaryDirectory().name,
-            "-DLIBRARY_COMMON_INSTALL=1",
-            "-DSPECIFY_LIC_CFG=1",
-            "-DREDUNDANT_SERVERS=%d" % redundant,
-            *licservopt,
-            "-DSPECIFY_PORT=1",
-            "-DLICENSE_PORT=%s" % licport,
-        ])
-        run_shell_cmd("./Linux/AnsysEM/Disk1/InstData/setup.exe %s" % options)
+
+        tempdir = tempfile.TemporaryDirectory()
+        if ver > LooseVersion("2024R1"):
+            installer = "./INSTALL"
+            cmd = " ".join([
+                installer,
+                "-silent",
+                "-install_dir %s" % self.installdir,
+                "-licserverinfo :%s:%s" % (licport, licserv),
+                "-usetempdir %s" % tempdir.name,
+            ])
+        else:
+            installer = "./Linux/AnsysEM/Disk1/InstData/setup.exe"
+
+            cmd = " ".join([
+                installer,
+                "-i silent",
+                "-DUSER_INSTALL_DIR=%s" % self.installdir,
+                "-DTMP_DIR=%s" % tempdir.name,
+                "-DLIBRARY_COMMON_INSTALL=1",
+                "-DSPECIFY_LIC_CFG=1",
+                "-DREDUNDANT_SERVERS=%d" % redundant,
+                *licservopt,
+                "-DSPECIFY_PORT=1",
+                "-DLICENSE_PORT=%s" % licport,
+            ])
+        run_shell_cmd(cmd)
 
     def post_processing_step(self):
         """Disable OS check and set LC_ALL/LANG for runtime"""
@@ -93,20 +118,19 @@ class EB_AEDT(PackedBinary):
 
     def make_module_extra(self):
         """Extra module entries for Ansys Electronics Desktop."""
+        if not self.subdir:
+            self._set_subdir()
 
         txt = super(EB_AEDT, self).make_module_extra()
         version = self.version[2:].replace('R', '')
 
-        idirs = glob.glob(os.path.join(self.installdir, 'v*/Linux*/'))
-        if len(idirs) == 1:
-            subdir = os.path.relpath(idirs[0], self.installdir)
-            # PyAEDT and other tools use the variable to find available AEDT versions
-            txt += self.module_generator.set_environment('ANSYSEM_ROOT%s' % version,
+        # PyAEDT and other tools use the variable to find available AEDT versions
+        txt += self.module_generator.set_environment('ANSYSEM_ROOT%s' % version,
                                                          os.path.join(self.installdir, self.subdir))
 
-            txt += self.module_generator.prepend_paths('PATH', subdir)
-            txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', subdir)
-            txt += self.module_generator.prepend_paths('LIBRARY_PATH', subdir)
+        txt += self.module_generator.prepend_paths('PATH', self.subdir)
+        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', self.subdir)
+        txt += self.module_generator.prepend_paths('LIBRARY_PATH', self.subdir)
 
         return txt
 
@@ -120,7 +144,12 @@ class EB_AEDT(PackedBinary):
             'dirs': [self.subdir],
         }
 
-        inpfile = os.path.join(self.subdir, 'Examples', 'RMxprt', 'lssm', 'sm-1.aedt')
-        custom_commands = ['ansysedt -ng -BatchSolve -Distributed %s' % inpfile]
+        # Since 2025R1, test examples cannot be directly found in builddir
+        # Copy a test example from installdir to a tempdir to prevent writing additional file into installdir
+        inpfilesrc = os.path.join(self.installdir, self.subdir, 'Examples', 'RMxprt', 'lssm', 'sm-1.aedt')
+        with tempfile.TemporaryDirectory() as tempdir:
+            shutil.copy(inpfilesrc, tempdir)
+            inpfile = os.path.join(tempdir, 'sm-1.aedt')
+            custom_commands = ['ansysedt -ng -batchsolve -Distributed -monitor %s' % inpfile]
 
-        super(EB_AEDT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+            super(EB_AEDT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
