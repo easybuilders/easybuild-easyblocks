@@ -76,10 +76,8 @@ class EB_AEDT(PackedBinary):
                 installer,
                 "-silent",
                 "-install_dir %s" % self.installdir,
-                "-licserverinfo :%s:%s" % (licport, licserv), 
-                # "-usetempdir %s" % tempfile.TemporaryDirectory(dir=tempdir.name).name,
+                "-licserverinfo :%s:%s" % (licport, licserv),
                 "-usetempdir %s" % tempdir.name,
-                # "-nochecks",
             ])
         else:
             installer = "./Linux/AnsysEM/Disk1/InstData/setup.exe"
