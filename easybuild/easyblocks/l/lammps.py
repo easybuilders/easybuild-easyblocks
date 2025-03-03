@@ -522,7 +522,7 @@ class EB_LAMMPS(CMakeMake):
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
 
-         # Set cur_version when running --sanity-check-only
+        # Set cur_version when running --sanity-check-only
         try:
             self.cur_version
         except:
