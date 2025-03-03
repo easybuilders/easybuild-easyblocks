@@ -525,7 +525,7 @@ class EB_LAMMPS(CMakeMake):
         # Set cur_version when running --sanity-check-only
         try:
             self.cur_version
-        except:
+        except Exception:
             self.cur_version = translate_lammps_version(self.version, path=self.installdir)
 
         # Output files need to go somewhere (and has to work for --module-only as well)
