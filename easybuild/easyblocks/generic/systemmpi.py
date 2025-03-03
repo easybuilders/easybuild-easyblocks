@@ -261,7 +261,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 )
                 module_vars = [str(env_var) for env_var in self.module_load_environment]
                 for env_var in module_vars:
-                    delattr(self.module_load_environment, env_var)
+                    self.module_load_environment.remove(env_var)
             else:
                 # determine system MPI easyblock module to generate standalone module
                 if self.cfg['name'] in ['OpenMPI', 'SpectrumMPI']:

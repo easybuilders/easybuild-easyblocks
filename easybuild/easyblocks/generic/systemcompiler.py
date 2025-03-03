@@ -229,7 +229,7 @@ class SystemCompiler(Bundle):
                 )
                 module_vars = [str(env_var) for env_var in self.module_load_environment]
                 for env_var in module_vars:
-                    delattr(self.module_load_environment, env_var)
+                    self.module_load_environment.remove(env_var)
             else:
                 # rely on compiler class module step to generate standalone module
                 module_generator_class = self.compiler_class
