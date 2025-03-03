@@ -702,7 +702,7 @@ class EB_PyTorch(PythonPackage):
             # so comparing to max_failed_tests cannot reasonably be done
             if failed_test_suites | set(parsed_test_result.terminated_suites) == all_failed_test_suites:
                 # All failed test suites are either counted or terminated with a signal
-                msg = ('Failing because these test suites were terminated which makes it impossible'
+                msg = ('Failing because these test suites were terminated which makes it impossible '
                        'to accurately count the failed tests: ')
                 msg += ", ".join("%s(%s)" % name_signal
                                  for name_signal in sorted(parsed_test_result.terminated_suites.items()))
