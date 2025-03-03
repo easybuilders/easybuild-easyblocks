@@ -75,7 +75,7 @@ class EB_ANSYS(PackedBinary):
         # Sources (e.g. iso files) may drop the execute permissions
         adjust_permissions('INSTALL', stat.S_IXUSR)
 
-        cmd = "./INSTALL -silent -install_dir %s" % self.installdir
+        cmd = f"./INSTALL -silent -install_dir {self.installdir} -usetempdir {self.builddir}/tmp"
         # E.g. license.example.com or license1.example.com,license2.example.com
         licserv = self.cfg.get('license_server', os.getenv('EB_ANSYS_LICENSE_SERVER'))
         # E.g. '2325:1055' or just ':' to use those defaults
