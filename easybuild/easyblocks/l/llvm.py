@@ -42,7 +42,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion, run
 from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
-from easybuild.tools.config import build_option
+from easybuild.tools.config import ERROR, build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import (apply_regex_substitutions, change_dir,
                                        copy_dir, mkdir, symlink, which, copy_file, remove_file)
@@ -613,7 +613,7 @@ class EB_LLVM(CMakeMake):
         else:
             self._configure_final_build()
 
-        if self.cfg['skip_sanitizer_tests'] and build_option('strict') != run.ERROR:
+        if self.cfg['skip_sanitizer_tests'] and build_option('strict') != ERROR:
             self.log.info("Disabling the sanitizer tests")
             self.disable_sanitizer_tests()
 
