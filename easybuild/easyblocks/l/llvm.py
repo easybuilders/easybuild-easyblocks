@@ -40,23 +40,25 @@ import re
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
-from easybuild.tools import LooseVersion, run
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
-from easybuild.tools.config import ERROR, build_option
+from easybuild.tools.config import ERROR, SEARCH_PATH_LIB_DIRS, build_option
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import (apply_regex_substitutions, change_dir,
-                                       copy_dir, mkdir, symlink, which, copy_file, remove_file)
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file
+from easybuild.tools.filetools import mkdir, remove_file, symlink, which, write_file
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import (AARCH32, AARCH64, POWER, RISCV64,
-                                         X86_64, get_cpu_architecture,
-                                         get_shared_lib_ext)
+from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64
+from easybuild.tools.systemtools import get_cpu_architecture, get_shared_lib_ext
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake, get_cmake_python_config_dict
 
+BUILD_TARGET_AMDGPU = 'AMDGPU'
+BUILD_TARGET_NVPTX = 'NVPTX'
+
 LLVM_TARGETS = [
-    'AArch64', 'AMDGPU', 'ARM', 'AVR', 'BPF', 'Hexagon', 'Lanai', 'LoongArch', 'Mips', 'MSP430', 'NVPTX', 'PowerPC',
-    'RISCV', 'Sparc', 'SystemZ', 'VE', 'WebAssembly', 'X86', 'XCore',
+    'AArch64', BUILD_TARGET_AMDGPU, 'ARM', 'AVR', 'BPF', 'Hexagon', 'Lanai', 'LoongArch', 'Mips', 'MSP430',
+    BUILD_TARGET_NVPTX, 'PowerPC', 'RISCV', 'Sparc', 'SystemZ', 'VE', 'WebAssembly', 'X86', 'XCore',
     'all'
 ]
 LLVM_EXPERIMENTAL_TARGETS = [
@@ -79,63 +81,63 @@ AMDGPU_GFX_SUPPORT = [
 ]
 
 remove_gcc_dependency_opts = {
-    'LIBCXX_USE_COMPILER_RT': 'On',
-    'LIBCXX_CXX_ABI': 'libcxxabi',
-    'LIBCXX_DEFAULT_ABI_LIBRARY': 'libcxxabi',
-    # Needed as libatomic could not be present on the system (compilation and tests will succeed because of the
-    # GCCcore builddep, but usage/sanity check will fail due to missing libatomic)
-    'LIBCXX_HAS_ATOMIC_LIB': 'NO',
-
-    'LIBCXXABI_USE_LLVM_UNWINDER': 'On',
-    'LIBCXXABI_USE_COMPILER_RT': 'On',
-
-    'LIBUNWIND_USE_COMPILER_RT': 'On',
-
-    'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'On',
-    'COMPILER_RT_USE_LIBCXX': 'On',
-    'COMPILER_RT_USE_LLVM_UNWINDER': 'On',
-    'COMPILER_RT_USE_BUILTINS_LIBRARY': 'On',
-    'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'On',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
-    'COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER': 'On',
-    'COMPILER_RT_BUILD_GWP_ASAN': 'Off',
-
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
     # Moved to general_opts for ease of building with openmp offload (or other multi-stage builds)
     # 'CLANG_DEFAULT_LINKER': 'lld',
     'CLANG_DEFAULT_UNWINDLIB': 'libunwind',
 
+    'COMPILER_RT_BUILD_GWP_ASAN': 'Off',
+    'COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER': 'On',
+    'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'On',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
+    'COMPILER_RT_USE_BUILTINS_LIBRARY': 'On',
+    'COMPILER_RT_USE_LIBCXX': 'On',
+    'COMPILER_RT_USE_LLVM_UNWINDER': 'On',
+
+    'LIBCXX_CXX_ABI': 'libcxxabi',
+    'LIBCXX_DEFAULT_ABI_LIBRARY': 'libcxxabi',
+    # Needed as libatomic could not be present on the system (compilation and tests will succeed because of the
+    # GCCcore builddep, but usage/sanity check will fail due to missing libatomic)
+    'LIBCXX_HAS_ATOMIC_LIB': 'NO',
     'LIBCXX_HAS_GCC_S_LIB': 'Off',
+    'LIBCXX_USE_COMPILER_RT': 'On',
+
     'LIBCXXABI_HAS_GCC_S_LIB': 'Off',
+    'LIBCXXABI_USE_LLVM_UNWINDER': 'On',
+    'LIBCXXABI_USE_COMPILER_RT': 'On',
+
     'LIBUNWIND_HAS_GCC_S_LIB': 'Off',
+    'LIBUNWIND_USE_COMPILER_RT': 'On',
 
     # Libxml2 from system gets automatically detected and linked in bringing dependencies from stdc++, gcc_s, icuuc, etc
     'LLVM_ENABLE_LIBXML2': 'Off',
+
+    'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'On',
 }
 
 disable_werror = {
-    'LLVM_ENABLE_WERROR': 'Off',
     'BENCHMARK_ENABLE_WERROR': 'Off',
     'COMPILER_RT_ENABLE_WERROR': 'Off',
+    'FLANG_ENABLE_WERROR': 'Off',
     'LIBC_WNO_ERROR': 'On',
     'LIBCXX_ENABLE_WERROR': 'Off',
     'LIBUNWIND_ENABLE_WERROR': 'Off',
+    'LLVM_ENABLE_WERROR': 'Off',
     'OPENMP_ENABLE_WERROR': 'Off',
-    'FLANG_ENABLE_WERROR': 'Off',
 }
 
 general_opts = {
+    'CMAKE_VERBOSE_MAKEFILE': 'ON',
+    'LLVM_INCLUDE_BENCHMARKS': 'OFF',
+    'LLVM_INSTALL_UTILS': 'ON',
     # If EB is launched from a venv, avoid giving priority to the venv's python
     'Python3_FIND_VIRTUALENV': 'STANDARD',
-    'LLVM_INSTALL_UTILS': 'ON',
-    'LLVM_INCLUDE_BENCHMARKS': 'OFF',
-    'CMAKE_VERBOSE_MAKEFILE': 'ON',
 }
 
 
 @contextlib.contextmanager
 def _wrap_env(path="", ld_path=""):
-    """Wrap the environment with the path and ld_path."""
+    """Wrap the environment with $PATH and $LD_LIBRARY_PATH."""
     orig_path = os.getenv('PATH', '')
     orig_ld_library_path = os.getenv('LD_LIBRARY_PATH', '')
 
@@ -152,70 +154,22 @@ def _wrap_env(path="", ld_path=""):
         setvar('LD_LIBRARY_PATH', orig_ld_library_path)
 
 
-def get_gcc_prefix():
-    """Get the GCC prefix for the build."""
-    arch = get_cpu_architecture()
-    gcc_root = get_software_root('GCCcore')
-    gcc_version = get_software_version('GCCcore')
-    # If that doesn't work, try with GCC
-    if gcc_root is None:
-        gcc_root = get_software_root('GCC')
-        gcc_version = get_software_version('GCC')
-    # If that doesn't work either, print error and exit
-    if gcc_root is None:
-        raise EasyBuildError("Can't find GCC or GCCcore to use")
-
-    pattern = os.path.join(gcc_root, 'lib', 'gcc', '%s-*' % arch, '%s' % gcc_version)
-    matches = glob.glob(pattern)
-    if not matches:
-        raise EasyBuildError("Can't find GCC version %s for architecture %s in %s", gcc_version, arch, pattern)
-    gcc_prefix = os.path.abspath(matches[0])
-
-    return gcc_root, gcc_prefix
-
-
-def create_compiler_config_file(compilers, gcc_prefix, installdir):
-    """Create a config file for the compiler to point to the correct GCC installation."""
-    bin_dir = os.path.join(installdir, 'bin')
-    prefix_str = '--gcc-install-dir=%s' % gcc_prefix
-    for comp in compilers:
-        with open(os.path.join(bin_dir, '%s.cfg' % comp), 'w') as f:
-            f.write(prefix_str)
-
-
-def sanity_check_gcc_prefix(compilers, gcc_prefix, installdir):
-    """Check if the GCC prefix of the compiler is correct"""
-    rgx = re.compile('Selected GCC installation: (.*)')
-    for comp in compilers:
-        cmd = "%s -v" % os.path.join(installdir, 'bin', comp)
-        res = run_shell_cmd(cmd, fail_on_error=False)
-        out = res.output
-        mch = rgx.search(out)
-        if mch is None:
-            raise EasyBuildError("Failed to extract GCC installation path from output of `%s`: %s", cmd, out)
-        check_prefix = mch.group(1)
-        if check_prefix != gcc_prefix:
-            raise EasyBuildError(
-                "GCC installation path `%s` does not match expected path `%s`", check_prefix, gcc_prefix
-                )
-
-
 class EB_LLVM(CMakeMake):
     """
     Support for building and installing LLVM
     """
 
     minimal_conflicts = [
+        'build_bolt',
+        'build_clang_extras',
+        'build_lld',
+        'build_lldb',
+        'build_openmp',
+        'build_openmp_tools',
+        'build_runtimes',
         'bootstrap',
         'full_llvm',
         'python_bindings',
-        'build_clang_extras',
-        'build_bolt',
-        'build_lld',
-        'build_lldb',
-        'build_runtimes',
-        'build_openmp',
-        'build_openmp_tools',
         'usepolly',
     ]
 
@@ -226,43 +180,43 @@ class EB_LLVM(CMakeMake):
         ('x86_64-unknown-linux-gnu', 'x86_64-pc-linux-gnu'),
     ]
 
-    # From LLVM19, GCC_INSTALL_PREFIX is not supported anymore to hardcode the GCC installation path into the binaries
+    # From LLVM 19, GCC_INSTALL_PREFIX is not supported anymore to hardcode the GCC installation path into the binaries;
     # Now every compilers needs a .cfg file with the --gcc-install-dir option
     # This list tells which compilers need to have a .cfg file created
-    # NOTE: flang.cfg is the expected name also for the `flang-new` compiler
+    # NOTE: flang is the expected name also for the 'flang-new' compiler
     cfg_compilers = ['clang', 'clang++', 'flang']
 
     @staticmethod
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'use_pic': [True, "Build with Position Independent Code (PIC)", CUSTOM],
             'amd_gfx_list': [None, "List of AMDGPU targets to build for. Possible values: " +
                              ', '.join(AMDGPU_GFX_SUPPORT), CUSTOM],
             'assertions': [False, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
-            'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
-                                    ', '.join(ALL_TARGETS), CUSTOM],
             'bootstrap': [True, "Build LLVM-Clang using itself", CUSTOM],
-            'full_llvm': [False, "Build LLVM without any dependency", CUSTOM],
-            'minimal': [False, "Build LLVM only", CUSTOM],
-            'enable_rtti': [True, "Enable RTTI", CUSTOM],
-            'skip_all_tests': [False, "Skip running of tests", CUSTOM],
-            'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
-            'python_bindings': [False, "Install python bindings", CUSTOM],
-            'build_clang_extras': [False, "Build the LLVM Clang extra tools", CUSTOM],
             'build_bolt': [False, "Build the LLVM bolt binary optimizer", CUSTOM],
+            'build_clang_extras': [False, "Build the LLVM Clang extra tools", CUSTOM],
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
             'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
-            'build_runtimes': [False, "Build the LLVM runtimes (compiler-rt, libunwind, libcxx, libcxxabi)", CUSTOM],
             'build_openmp': [True, "Build the LLVM OpenMP runtime", CUSTOM],
             'build_openmp_offload': [True, "Build the LLVM OpenMP offload runtime", CUSTOM],
             'build_openmp_tools': [True, "Build the LLVM OpenMP tools interface", CUSTOM],
-            'usepolly': [False, "Build Clang with polly", CUSTOM],
-            'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
-            'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
-            'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
-            'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
+            'build_runtimes': [False, "Build the LLVM runtimes (compiler-rt, libunwind, libcxx, libcxxabi)", CUSTOM],
+            'build_targets': [None, "Build targets for LLVM (host architecture if None). Possible values: " +
+                                    ', '.join(ALL_TARGETS), CUSTOM],
             'debug_tests': [True, "Enable verbose output for tests", CUSTOM],
+            'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
+            'enable_rtti': [True, "Enable RTTI", CUSTOM],
+            'full_llvm': [False, "Build LLVM without any dependency", CUSTOM],
+            'minimal': [False, "Build LLVM only", CUSTOM],
+            'python_bindings': [False, "Install python bindings", CUSTOM],
+            'skip_all_tests': [False, "Skip running of tests", CUSTOM],
+            'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
+            'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
+            'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
+            'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
+            'use_pic': [True, "Build with Position Independent Code (PIC)", CUSTOM],
+            'usepolly': [False, "Build Clang with polly", CUSTOM],
         })
 
         return extra_vars
@@ -285,8 +239,8 @@ class EB_LLVM(CMakeMake):
         self.gcc_prefix = None
         self.runtimes_cmake_args = {
             'CMAKE_C_COMPILER': [],
-            'CMAKE_CXX_COMPILER': [],
             'CMAKE_C_FLAGS': [],
+            'CMAKE_CXX_COMPILER': [],
             'CMAKE_CXX_FLAGS': [],
             'CMAKE_EXE_LINKER_FLAGS': [],
             }
@@ -294,39 +248,39 @@ class EB_LLVM(CMakeMake):
         # self._added_librt = None
 
         # Shared
+        off_opts, on_opts = [], []
         self.build_shared = self.cfg.get('build_shared_libs', False)
         if self.build_shared:
             self.cfg['build_shared_libs'] = None
-            general_opts['LLVM_BUILD_LLVM_DYLIB'] = 'ON'
-            general_opts['LLVM_LINK_LLVM_DYLIB'] = 'ON'
-            general_opts['LIBCXX_ENABLE_SHARED'] = 'ON'
-            general_opts['LIBCXXABI_ENABLE_SHARED'] = 'ON'
-            general_opts['LIBUNWIND_ENABLE_SHARED'] = 'ON'
+            on_opts.extend(['LLVM_BUILD_LLVM_DYLIB', 'LLVM_LINK_LLVM_DYLIB', 'LIBCXX_ENABLE_SHARED',
+                            'LIBCXXABI_ENABLE_SHARED', 'LIBUNWIND_ENABLE_SHARED'])
         else:
-            general_opts['LLVM_BUILD_LLVM_DYLIB'] = 'OFF'
-            general_opts['LLVM_LINK_LLVM_DYLIB'] = 'OFF'
-            general_opts['LIBCXX_ENABLE_SHARED'] = 'OFF'
-            general_opts['LIBCXXABI_ENABLE_SHARED'] = 'OFF'
-            general_opts['LIBUNWIND_ENABLE_SHARED'] = 'OFF'
-            general_opts['LIBCXX_ENABLE_STATIC'] = 'ON'
-            general_opts['LIBCXX_ENABLE_STATIC_ABI_LIBRARY'] = 'ON'
-            general_opts['LIBCXX_ENABLE_ABI_LINKER_SCRIPT'] = 'OFF'
-            general_opts['LIBCXXABI_ENABLE_STATIC'] = 'ON'
-            general_opts['LIBUNWIND_ENABLE_STATIC'] = 'ON'
+            off_opts.extend(['LIBCXX_ENABLE_ABI_LINKER_SCRIPT', 'LIBCXX_ENABLE_SHARED', 'LIBCXXABI_ENABLE_SHARED',
+                             'LIBUNWIND_ENABLE_SHARED', 'LLVM_BUILD_LLVM_DYLIB', 'LLVM_LINK_LLVM_DYLIB'])
+            on_opts.extend(['LIBCXX_ENABLE_STATIC', 'LIBCXX_ENABLE_STATIC_ABI_LIBRARY', 'LIBCXXABI_ENABLE_STATIC',
+                            'LIBUNWIND_ENABLE_STATIC'])
 
         # RTTI
-        if self.cfg["enable_rtti"]:
-            general_opts['LLVM_REQUIRES_RTTI'] = 'ON'
-            general_opts['LLVM_ENABLE_RTTI'] = 'ON'
-            # Does not work with Flang
-            # general_opts['LLVM_ENABLE_EH'] = 'ON'
+        if self.cfg['enable_rtti']:
+            on_opts.extend(['LLVM_ENABLE_RTTI', 'LLVM_REQUIRES_RTTI'])
+            # Does not work yet with Flang
+            # on_opts.append('LLVM_ENABLE_EH')
+
+        if self.cfg['use_pic']:
+            on_opts.append('CMAKE_POSITION_INDEPENDENT_CODE')
+
+        for opt in on_opts:
+            general_opts[opt] = 'ON'
+
+        for opt in off_opts:
+            general_opts[opt] = 'OFF'
 
         self.full_llvm = self.cfg['full_llvm']
 
         if self.cfg['minimal']:
             conflicts = [_ for _ in self.minimal_conflicts if self.cfg[_]]
             if conflicts:
-                raise EasyBuildError("Minimal build conflicts with `%s`", ', '.join(conflicts))
+                raise EasyBuildError("Minimal build conflicts with '%s'", ', '.join(conflicts))
 
         # Other custom options
         if self.full_llvm:
@@ -340,10 +294,13 @@ class EB_LLVM(CMakeMake):
 
         if self.cfg['disable_werror']:
             general_opts.update(disable_werror)
+
         if self.cfg['build_runtimes']:
             self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
+
         if self.cfg['build_openmp']:
             self.final_projects.append('openmp')
+
         if self.cfg['build_openmp_offload']:
             if not self.cfg['build_openmp']:
                 raise EasyBuildError("Building OpenMP offload requires building OpenMP runtime")
@@ -354,25 +311,31 @@ class EB_LLVM(CMakeMake):
                 self.final_runtimes.append('offload')
             else:
                 self.log.warning("OpenMP offloading is included with the OpenMP runtime for LLVM < 19")
+
         if self.cfg['build_openmp_tools']:
             if not self.cfg['build_openmp']:
                 raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
+
         if self.cfg['usepolly']:
             self.final_projects.append('polly')
+
         if self.cfg['build_clang_extras']:
             self.final_projects.append('clang-tools-extra')
+
         if self.cfg['build_lld']:
             self.intermediate_projects.append('lld')
             self.final_projects.append('lld')
             # This should be the default to make offload multi-stage compilations easier
             general_opts['CLANG_DEFAULT_LINKER'] = 'lld'
             general_opts['FLANG_DEFAULT_LINKER'] = 'lld'
+
         if self.cfg['build_lldb']:
             self.final_projects.append('lldb')
             if self.full_llvm:
                 remove_gcc_dependency_opts['LLDB_ENABLE_LIBXML2'] = 'Off'
                 remove_gcc_dependency_opts['LLDB_ENABLE_LZMA'] = 'Off'
                 remove_gcc_dependency_opts['LLDB_ENABLE_PYTHON'] = 'Off'
+
         if self.cfg['build_bolt']:
             self.final_projects.append('bolt')
 
@@ -402,17 +365,19 @@ class EB_LLVM(CMakeMake):
             # There are (old) toolchains with CUDA as part of the toolchain
             cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
             if 'cuda' in deps or cuda_toolchain or cuda_cc_list:
-                build_targets += ['NVPTX']
+                build_targets.append(BUILD_TARGET_NVPTX)
                 self.offload_targets += ['cuda']  # Used for LLVM >= 19
-                self.log.debug("NVPTX enabled by CUDA dependency/cuda_compute_capabilities")
+                self.log.debug(f"{BUILD_TARGET_NVPTX} enabled by CUDA dependency/cuda_compute_capabilities")
+
             # For AMDGPU support we need ROCR-Runtime and
             # ROCT-Thunk-Interface, however, since ROCT is a dependency of
             # ROCR we only check for the ROCR-Runtime here
             # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
             if 'rocr-runtime' in deps or amd_gfx_list:
-                build_targets += ['AMDGPU']
+                build_targets.append(BUILD_TARGET_AMDGPU)
                 self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
-                self.log.debug("AMDGPU enabled by rocr-runtime dependency/amd_gfx_list")
+                self.log.debug(f"{BUILD_TARGET_AMDGPU} enabled by rocr-runtime dependency/amd_gfx_list")
+
             self.cfg['build_targets'] = build_targets
             self.log.debug("Using %s as default build targets for CPU architecture %s.", build_targets, arch)
 
@@ -428,21 +393,19 @@ class EB_LLVM(CMakeMake):
         self.build_targets = build_targets or []
 
         self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc_list]
-        if 'NVPTX' in self.build_targets and not self.cuda_cc:
+        if BUILD_TARGET_NVPTX in self.build_targets and not self.cuda_cc:
             raise EasyBuildError("Can't build Clang with CUDA support without specifying 'cuda-compute-capabilities'")
-        if self.cuda_cc and 'NVPTX' not in self.build_targets:
+        if self.cuda_cc and BUILD_TARGET_NVPTX not in self.build_targets:
             print_warning("CUDA compute capabilities specified, but NVPTX not in manually specified build targets.")
 
         self.amd_gfx = amd_gfx_list
-        if 'AMDGPU' in self.build_targets and not self.amd_gfx:
+        if BUILD_TARGET_AMDGPU in self.build_targets and not self.amd_gfx:
             raise EasyBuildError("Can't build Clang with AMDGPU support without specifying 'amd_gfx_list'")
-        if self.amd_gfx and 'AMDGPU' not in self.build_targets:
-            print_warning("`amd_gfx` specified, but AMDGPU not in manually specified build targets.")
+        if self.amd_gfx and BUILD_TARGET_AMDGPU not in self.build_targets:
+            print_warning("'amd_gfx' specified, but AMDGPU not in manually specified build targets.")
+
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
-        # if self.toolchain.options['pic']:
-        if self.cfg['use_pic']:
-            general_opts['CMAKE_POSITION_INDEPENDENT_CODE'] = 'ON'
 
         general_opts['LLVM_TARGETS_TO_BUILD'] = '"%s"' % ';'.join(build_targets)
 
@@ -451,15 +414,15 @@ class EB_LLVM(CMakeMake):
         self.llvm_src_dir = os.path.join(self.builddir, 'llvm-project-%s.src' % self.version)
 
     def _add_cmake_runtime_args(self):
-        """Generate the value for `RUNTIMES_CMAKE_ARGS` and add it to the cmake options."""
+        """Generate the value for 'RUNTIMES_CMAKE_ARGS' and add it to the cmake options."""
         if self.runtimes_cmake_args:
-            tmp_list = []
+            args = []
             for key, val in self.runtimes_cmake_args.items():
                 if isinstance(val, list):
                     val = ' '.join(val)
                 if val:
-                    tmp_list += ['-D%s=%s' % (key, val)]
-            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(tmp_list)
+                    args.append('-D%s=%s' % (key, val))
+            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(args)
 
     def _configure_general_build(self):
         """General configuration step for LLVM."""
@@ -490,11 +453,11 @@ class EB_LLVM(CMakeMake):
             if not self.cfg['build_openmp_tools']:
                 self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
 
-        # Make sure tests are not running with more than `--parallel` tasks
-        parallel = self.cfg['parallel']
+        # Make sure tests are not running with more than 'parallel' tasks
+        parallel = self.cfg.parallel
         if not build_option('mpi_tests'):
             parallel = 1
-        lit_args = ['-j %s' % parallel]
+        lit_args = [f'-j {parallel}']
         if self.cfg['debug_tests']:
             lit_args += ['-v']
         timeout_single = self.cfg['test_suite_timeout_single']
@@ -511,10 +474,32 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['LLVM_INCLUDE_TESTS'] = 'ON'
             self._cmakeopts['LLVM_BUILD_TESTS'] = 'ON'
 
+    @staticmethod
+    def _get_gcc_prefix():
+        """Get the GCC prefix for the build."""
+        arch = get_cpu_architecture()
+        gcc_root = get_software_root('GCCcore')
+        gcc_version = get_software_version('GCCcore')
+        # If that doesn't work, try with GCC
+        if gcc_root is None:
+            gcc_root = get_software_root('GCC')
+            gcc_version = get_software_version('GCC')
+        # If that doesn't work either, print error and exit
+        if gcc_root is None:
+            raise EasyBuildError("Can't find GCC or GCCcore to use")
+
+        pattern = os.path.join(gcc_root, 'lib', 'gcc', f'{arch}-*', gcc_version)
+        matches = glob.glob(pattern)
+        if not matches:
+            raise EasyBuildError("Can't find GCC version %s for architecture %s in %s", gcc_version, arch, pattern)
+        gcc_prefix = os.path.abspath(matches[0])
+
+        return gcc_root, gcc_prefix
+
     def _set_gcc_prefix(self):
         """Set the GCC prefix for the build."""
         if self.gcc_prefix is None:
-            gcc_root, gcc_prefix = get_gcc_prefix()
+            gcc_root, gcc_prefix = self._get_gcc_prefix()
 
             # --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
             # https://github.com/llvm/llvm-project/pull/87360
@@ -523,7 +508,7 @@ class EB_LLVM(CMakeMake):
                 general_opts['GCC_INSTALL_PREFIX'] = gcc_root
             else:
                 # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
-                self.log.debug("Using `--gcc-install-dir` in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
+                self.log.debug("Using '--gcc-install-dir' in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
                 self.runtimes_cmake_args['CMAKE_C_FLAGS'] += ['--gcc-install-dir=%s' % gcc_prefix]
                 self.runtimes_cmake_args['CMAKE_CXX_FLAGS'] += ['--gcc-install-dir=%s' % gcc_prefix]
 
@@ -547,18 +532,18 @@ class EB_LLVM(CMakeMake):
         lit_root = get_software_root('lit')
         if not lit_root:
             if not self.cfg['skip_all_tests']:
-                raise EasyBuildError("Can't find `lit`, needed for running tests-suite")
+                raise EasyBuildError("Can't find 'lit', needed for running tests-suite")
 
         timeouts = self.cfg['test_suite_timeout_single'] or self.cfg['test_suite_timeout_total']
         if not self.cfg['skip_all_tests'] and timeouts:
             psutil_root = get_software_root('psutil')
             if not psutil_root:
-                raise EasyBuildError("Can't find `psutil`, needed for running tests-suite with timeout")
+                raise EasyBuildError("Can't find 'psutil', needed for running tests-suite with timeout")
 
         # Parallel build
         self.make_parallel_opts = ""
-        if self.cfg['parallel']:
-            self.make_parallel_opts = "-j %s" % self.cfg['parallel']
+        if self.cfg.parallel:
+            self.make_parallel_opts = f"-j {self.cfg.parallel}"
 
         # Bootstrap
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
@@ -580,13 +565,12 @@ class EB_LLVM(CMakeMake):
         xml2_root = get_software_root('libxml2')
         if xml2_root:
             if self.full_llvm:
-                self.log.warning("LLVM is being built in `full_llvm` mode, libxml2 will not be used")
+                self.log.warning("LLVM is being built in 'full_llvm' mode, libxml2 will not be used")
             else:
                 general_opts['LLVM_ENABLE_LIBXML2'] = 'ON'
-                # general_opts['LIBXML2_ROOT'] = xml2_root
 
-        # If `ON`, risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
-        # to errors during compilation of `offload.tools.kernelreplay` due to the inclusion of LLVMSupport (19.x)
+        # If 'ON', risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
+        # to errors during compilation of 'offload.tools.kernelreplay' due to the inclusion of LLVMSupport (19.x)
         general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if get_software_root('zlib') else 'OFF'
         general_opts['LLVM_ENABLE_ZSTD'] = 'ON' if get_software_root('zstd') else 'OFF'
         # Should not use system SWIG if present
@@ -604,12 +588,8 @@ class EB_LLVM(CMakeMake):
         general_opts.update(python_opts)
         self.runtimes_cmake_args.update(python_opts)
 
-        self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
         if self.cfg['bootstrap']:
             self._configure_intermediate_build()
-            # if self.full_llvm:
-            #     self.intermediate_projects.append('libc')
-            #     self.final_projects.append('libc')
         else:
             self._configure_final_build()
 
@@ -641,17 +621,13 @@ class EB_LLVM(CMakeMake):
         self._configure_general_build()
         self.add_cmake_opts()
 
-        super(EB_LLVM, self).configure_step(
-            builddir=self.llvm_obj_dir_stage1,
-            srcdir=os.path.join(self.llvm_src_dir, "llvm")
-            )
+        src_dir = os.path.join(self.llvm_src_dir, 'llvm')
+        super(EB_LLVM, self).configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
         cmakelists_tests = os.path.join(self.llvm_src_dir, 'compiler-rt', 'test', 'CMakeLists.txt')
-        regex_subs = []
-        regex_subs.append((r'compiler_rt_test_runtime.*san.*', ''))
-
+        regex_subs = [(r'compiler_rt_test_runtime.*san.*', '')]
         apply_regex_substitutions(cmakelists_tests, regex_subs)
 
     def add_cmake_opts(self):
@@ -677,6 +653,14 @@ class EB_LLVM(CMakeMake):
         if self.full_llvm:
             self._cmakeopts.update(remove_gcc_dependency_opts)
 
+    @staticmethod
+    def _create_compiler_config_file(compilers, gcc_prefix, installdir):
+        """Create a config file for the compiler to point to the correct GCC installation."""
+        bin_dir = os.path.join(installdir, 'bin')
+        prefix_str = '--gcc-install-dir=%s' % gcc_prefix
+        for comp in compilers:
+            write_file(os.path.join(bin_dir, f'{comp}.cfg'), prefix_str)
+
     def build_with_prev_stage(self, prev_dir, stage_dir):
         """Build LLVM using the previous stage."""
         curdir = os.getcwd()
@@ -697,7 +681,7 @@ class EB_LLVM(CMakeMake):
         # rpath-wrapped. This causes the executable to be produced without rpath (if required) and with
         # runpath set to $ORIGIN. This causes 2 problems:
         #  - Binaries produced for the runtimes will fail the sanity check
-        #  - Runtimes libraries that link to libLLVM.so like `libomptarget.so` need LD_LIBRARY_PATH to work.
+        #  - Runtimes libraries that link to libLLVM.so like 'libomptarget.so' need LD_LIBRARY_PATH to work.
         #    This is because even if an executable compiled with the new llvm has rpath pointing to $EBROOTLLVM/lib,
         #    it will not be resolved with the executable's rpath, but the library's runpath
         #    (rpath is ignored if runpath is set).
@@ -718,21 +702,15 @@ class EB_LLVM(CMakeMake):
                 copy_file(prev_clangxx, nxt_clangxx)
 
                 tmp_toolchain = Clang(name='Clang', version='1')
-                tmp_toolchain.prepare_rpath_wrappers(
-                    rpath_include_dirs=[
-                        # Don't need stage dir here as LD_LIBRARY_PATH is set during build, this is only needed for
-                        # installed binaries with rpath
-                        os.path.join(self.installdir, 'lib'),
-                        os.path.join(self.installdir, 'lib64'),
-                        os.path.join(self.installdir, lib_dir_runtime),
-                        ]
-                    )
+                # Don't need stage dir here as LD_LIBRARY_PATH is set during build, this is only needed for
+                # installed binaries with rpath
+                lib_dirs = [os.path.join(self.installdir, x) for x in SEARCH_PATH_LIB_DIRS + [lib_dir_runtime]]
+                tmp_toolchain.prepare_rpath_wrappers(rpath_include_dirs=lib_dirs)
                 remove_file(nxt_clang)
                 remove_file(nxt_clangxx)
-                self.log.info(
-                    "Prepared MOCK rpath wrappers needed to rpath-wrap also the new compilers produced "
-                    "by the project build and than used for the runtimes build"
-                    )
+                msg = "Prepared MOCK rpath wrappers needed to rpath-wrap also the new compilers produced "
+                msg += "by the project build and than used for the runtimes build"
+                self.log.info(msg)
                 clang_mock = which('clang')
                 clangxx_mock = which('clang++')
 
@@ -799,22 +777,22 @@ class EB_LLVM(CMakeMake):
             # Also runs of the intermediate step compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
-                create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, prev_dir)
+                self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, prev_dir)
 
             self.add_cmake_opts()
 
             change_dir(stage_dir)
             self.log.debug("Configuring %s", stage_dir)
-            cmd = "cmake %s %s" % (self.cfg['configopts'], os.path.join(self.llvm_src_dir, 'llvm'))
+            cmd = ' '.join(['cmake', self.cfg['configopts'], os.path.join(self.llvm_src_dir, 'llvm')])
             run_shell_cmd(cmd)
 
             self.log.debug("Building %s", stage_dir)
-            cmd = "make %s VERBOSE=1" % self.make_parallel_opts
+            cmd = f"make {self.make_parallel_opts} VERBOSE=1"
             run_shell_cmd(cmd)
 
         change_dir(curdir)
 
-    def build_step(self, verbose=False, path=None):
+    def build_step(self, *args, **kwargs):
         """Build LLVM, and optionally build it using itself."""
         if self.cfg['bootstrap']:
             self.log.info("Building stage 1")
@@ -822,8 +800,10 @@ class EB_LLVM(CMakeMake):
         else:
             self.log.info("Building LLVM")
             print_msg("Building stage 1/1")
+
         change_dir(self.llvm_obj_dir_stage1)
-        super(EB_LLVM, self).build_step(verbose, path)
+        super(EB_LLVM, self).build_step(*args, **kwargs)
+
         if self.cfg['bootstrap']:
             self.log.info("Building stage 2")
             print_msg("Building stage 2/3")
@@ -845,7 +825,7 @@ class EB_LLVM(CMakeMake):
             lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
             lib_path = os.path.join(basedir, lib_dir_runtime)
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
-            cmd = "make -j %s check-all" % parallel
+            cmd = f"make -j {parallel} check-all"
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
             self.log.debug(out)
@@ -880,21 +860,18 @@ class EB_LLVM(CMakeMake):
             # Also runs of test suite compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
-                create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
+                self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
             max_failed = self.cfg['test_suite_max_failed']
-            # self.log.info("Running test-suite with parallel jobs")
-            # num_failed = self._para_test_step(parallel=self.cfg['parallel'])
-            # if num_failed is None:
-            #     self.log.warning("Tests with parallel jobs failed, retrying with single job")
-            #     num_failed = self._para_test_step(parallel=1)
             num_failed = self._para_test_step(parallel=1)
             if num_failed is None:
                 raise EasyBuildError("Failed to extract test results from output")
 
             if num_failed > max_failed:
-                raise EasyBuildError("Too many failed tests: %s (%s allowed)", num_failed, max_failed)
-
-            self.log.info("Test-suite completed with %s failed tests (%s allowed)", num_failed, max_failed)
+                raise EasyBuildError(f"Too many failed tests: {num_failed} ({max_failed} allowed)")
+            elif num_failed:
+                self.log.info(f"Test suite completed with {num_failed} failed tests ({max_failed} allowed)")
+            else:
+                self.log.info(f"Test suite completed, no failed tests ({max_failed} allowed)")
 
     def install_step(self):
         """Install stage 1 or 3 (if bootstrap) binaries."""
@@ -910,10 +887,7 @@ class EB_LLVM(CMakeMake):
                 orig_ld_library_path
             ])
 
-            # _preinstallopts = self.cfg.get('preinstallopts', '')
-            self.cfg.update('preinstallopts', ' '.join([
-                'LD_LIBRARY_PATH=%s' % lib_path
-            ]))
+            self.cfg.update('preinstallopts', f'LD_LIBRARY_PATH={lib_path}')
 
         super(EB_LLVM, self).install_step()
 
@@ -923,18 +897,18 @@ class EB_LLVM(CMakeMake):
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
-            python_bindings_source_dir = os.path.join(self.llvm_src_dir, "clang", "bindings", "python")
+            python_bindings_source_dir = os.path.join(self.llvm_src_dir, 'clang', 'bindings', 'python')
             python_bindins_target_dir = os.path.join(self.installdir, 'lib', 'python')
             copy_dir(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
 
-            python_bindings_source_dir = os.path.join(self.llvm_src_dir, "mlir", "python")
+            python_bindings_source_dir = os.path.join(self.llvm_src_dir, 'mlir', 'python')
             copy_dir(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
 
         if LooseVersion(self.version) >= LooseVersion('19'):
             # For GCC aware installation create config files in order to point to the correct GCC installation
             # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
             self._set_gcc_prefix()
-            create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.installdir)
+            self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.installdir)
 
         # This is needed as some older build system will select a different naming scheme for the library leading to
         # The correct target <__config_site> and libclang_rt.builtins.a not being found
@@ -947,9 +921,8 @@ class EB_LLVM(CMakeMake):
                 src = os.path.join(self.installdir, dirname, orig)
                 dst = os.path.join(self.installdir, dirname, other)
                 if os.path.exists(src) and not os.path.exists(dst):
-                    self.log.info(
-                        "Creating symlink for %s to %s for better compatibility with expected --target", src, dst
-                        )
+                    msg = f"Creating symlink for {src} to {dst} for better compatibility with expected --target"
+                    self.log.info(msg)
                     symlink(src, dst)
 
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
@@ -964,7 +937,7 @@ class EB_LLVM(CMakeMake):
             if not fail_ok:
                 raise EasyBuildError("Could not find runtime library directory")
             print_warning("Could not find runtime library directory")
-            res = "lib"
+            res = 'lib'
 
         return res
 
@@ -979,6 +952,22 @@ class EB_LLVM(CMakeMake):
             self.log.info("Checking that no shared libraries are linked against in static build")
             res += ['libc++', 'libc++abi', 'libunwind']
         return res
+
+    @staticmethod
+    def _sanity_check_gcc_prefix(compilers, gcc_prefix, installdir):
+        """Check if the GCC prefix of the compiler is correct"""
+        rgx = re.compile('Selected GCC installation: (.*)')
+        for comp in compilers:
+            cmd = "%s -v" % os.path.join(installdir, 'bin', comp)
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            out = res.output
+            mch = rgx.search(out)
+            if mch is None:
+                raise EasyBuildError("Failed to extract GCC installation path from output of '%s': %s", cmd, out)
+            check_prefix = mch.group(1)
+            if check_prefix != gcc_prefix:
+                error_msg = "GCC installation path '{check_prefix}' does not match expected path '{gcc_prefix}'"
+                raise EasyBuildError(error_msg)
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
@@ -1006,7 +995,10 @@ class EB_LLVM(CMakeMake):
         check_inc_files = []
         check_dirs = ['include/llvm', 'include/llvm-c', 'lib/cmake/llvm']
         custom_commands = [
-            'llvm-ar --help', 'llvm-ranlib --help', 'llvm-nm --help', 'llvm-objdump --help',
+            "llvm-ar --help",
+            "llvm-ranlib --help",
+            "llvm-nm --help",
+            "llvm-objdump --help",
         ]
         gcc_prefix_compilers = []
         if self.build_shared:
@@ -1071,14 +1063,6 @@ class EB_LLVM(CMakeMake):
                 'libmlir_float16_utils.so'
             ]
             check_dirs += ['lib/cmake/mlir', 'include/mlir', 'include/mlir-c']
-        # if 'compiler-rt' in self.final_runtimes:
-        #     pth = os.path.join('lib', 'clang', resdir_version, lib_dir_runtime)
-        #     check_files += [os.path.join(pth, _) for _ in [
-        #         # This should probably be more finetuned depending on what features of compiler-rt are used
-        #         'libclang_rt.xray.a', 'libclang_rt.fuzzer.a', 'libclang_rt.gwp_asan.a', 'libclang_rt.profile.a',
-        #         'libclang_rt.lsan.a', 'libclang_rt.asan.a', 'libclang_rt.hwasan.a'
-        #     ]]
-        #     check_dirs += ['include/sanitizer', 'include/fuzzer', 'include/orc', 'include/xray']
         if 'libunwind' in self.final_runtimes:
             check_librt_files += ['libunwind.a']
             if self.build_shared:
@@ -1128,7 +1112,7 @@ class EB_LLVM(CMakeMake):
                     omp_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
 
                 if LooseVersion(self.version) < LooseVersion('19'):
-                    # Before LLVM 19, omp related libraries are installed under `ROOT/lib``
+                    # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
                     check_lib_files += omp_lib_files
                 else:
                     # Starting from LLVM 19, omp related libraries are installed the runtime library directory
@@ -1148,10 +1132,10 @@ class EB_LLVM(CMakeMake):
                 check_lib_files.append(libext)
             check_lib_files.remove(libso)
 
-        check_files += [os.path.join('bin', _) for _ in check_bin_files]
-        check_files += [os.path.join('lib', _) for _ in check_lib_files]
-        check_files += [os.path.join(lib_dir_runtime, _) for _ in check_librt_files]
-        check_files += [os.path.join('include', _) for _ in check_inc_files]
+        check_files += [os.path.join('bin', x) for x in check_bin_files]
+        check_files += [os.path.join('lib', x) for x in check_lib_files]
+        check_files += [os.path.join(lib_dir_runtime, x) for x in check_librt_files]
+        check_files += [os.path.join('include', x) for x in check_inc_files]
 
         custom_paths = {
             'files': check_files,
@@ -1160,13 +1144,33 @@ class EB_LLVM(CMakeMake):
 
         self._set_gcc_prefix()
         if lib_dir_runtime:
-            # Required for `clang -v` to work if linked to LLVM runtimes
+            # Required for 'clang -v' to work if linked to LLVM runtimes
             with _wrap_env(ld_path=os.path.join(self.installdir, lib_dir_runtime)):
-                sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
+                self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
         else:
-            sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
+            self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
 
         return super(EB_LLVM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_step(self, *args, **kwargs):
+        """
+        Clang can find its own headers and libraries but the shared libraries need to be in $LD_LIBRARY_PATH
+        """
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
+        for disallowed_var in mod_env_headers:
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
+
+        lib_dirs = SEARCH_PATH_LIB_DIRS[:]
+        if self.cfg['build_runtimes']:
+            runtime_lib_path = self.get_runtime_lib_path(self.installdir, fail_ok=False)
+            lib_dirs.append(runtime_lib_path)
+
+        self.log.debug(f"List of subdirectories for libraries to add to $LD_LIBRARY_PATH + $LIBRARY_PATH: {lib_dirs}")
+        self.module_load_environment.LD_LIBRARY_PATH = lib_dirs
+        self.module_load_environment.LIBRARY_PATH = lib_dirs
+
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Custom variables for Clang module."""
@@ -1175,21 +1179,5 @@ class EB_LLVM(CMakeMake):
         asan_symbolizer_path = os.path.join(self.installdir, 'bin', 'llvm-symbolizer')
         txt += self.module_generator.set_environment('ASAN_SYMBOLIZER_PATH', asan_symbolizer_path)
         if self.cfg['python_bindings']:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join("lib", "python"))
+            txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join('lib', 'python'))
         return txt
-
-    def make_module_req_guess(self):
-        """
-        Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        """
-        libs = ['lib', 'lib64']
-        if self.cfg['build_runtimes']:
-            runtime_lib_path = self.get_runtime_lib_path(self.installdir, fail_ok=False)
-            libs.append(runtime_lib_path)
-        guesses = super(EB_LLVM, self).make_module_req_guess()
-        guesses.update({
-            'CPATH': [],
-            'LIBRARY_PATH': libs,
-            'LD_LIBRARY_PATH': libs,
-        })
-        return guesses
