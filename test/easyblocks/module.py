@@ -233,7 +233,7 @@ class ModuleOnlyTest(TestCase):
         self.assertTrue(pick_python_cmd(3) is not None)
         self.assertTrue(pick_python_cmd(3, 6) is not None)
         self.assertTrue(pick_python_cmd(123, 456) is None)
-        self.assertTrue(pick_python_cmd(2, 6, 123, 456) is not None)
+        self.assertTrue(pick_python_cmd(3, 6, 123, 456) is not None)
         self.assertTrue(pick_python_cmd(2, 6, 1, 1) is None)
 
 
