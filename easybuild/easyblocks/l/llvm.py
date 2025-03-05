@@ -366,7 +366,7 @@ class EB_LLVM(CMakeMake):
             cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
             if 'cuda' in deps or cuda_toolchain or cuda_cc_list:
                 if LooseVersion(self.version) < LooseVersion('18'):
-                    self.log.warning("CUDA support is only available in LLVM >= 18")
+                    self.log.info(f"Not auto-enabling {BUILD_TARGET_NVPTX} offload target, only done for LLVM >= 18")
                 else:
                     build_targets.append(BUILD_TARGET_NVPTX)
                     self.offload_targets += ['cuda']  # Used for LLVM >= 19
@@ -378,7 +378,7 @@ class EB_LLVM(CMakeMake):
             # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
             if 'rocr-runtime' in deps or amd_gfx_list:
                 if LooseVersion(self.version) < LooseVersion('18'):
-                    self.log.warning("AMDGPU support is only available in LLVM >= 18")
+                    self.log.info(f"Not auto-enabling {BUILD_TARGET_AMDGPU} offload target, only done for LLVM >= 18")
                 else:
                     build_targets.append(BUILD_TARGET_AMDGPU)
                     self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
