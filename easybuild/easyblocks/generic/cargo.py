@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 ##
 # Copyright 2009-2025 Ghent University
 #
@@ -32,6 +33,8 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 
 import os
 import re
+from collections import defaultdict
+from urllib.parse import parse_qs, urlsplit
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
@@ -55,12 +58,18 @@ replace-with = "vendored-sources"
 
 """
 
+CONFIG_TOML_PATCH_GIT = """
+[patch."{repo}"]
+{crates}
+"""
+CONFIG_TOML_PATCH_GIT_CRATES = """{crate} = {{ path = "{path}" }}
+"""
+
 CONFIG_TOML_SOURCE_GIT = """
 [source."{url}?rev={rev}"]
 git = "{url}"
 rev = "{rev}"
 replace-with = "vendored-sources"
-
 """
 
 CONFIG_TOML_SOURCE_GIT_WORKSPACE = """
@@ -140,6 +149,8 @@ def get_checksum(src, log):
 class Cargo(ExtensionEasyBlock):
     """Support for installing Cargo packages (Rust)"""
 
+    BRANCH_MISSING = object()  # Used when branch information was not specified
+
     @staticmethod
     def extra_options(extra_vars=None):
         """Define extra easyconfig parameters specific to Cargo"""
@@ -154,7 +165,7 @@ class Cargo(ExtensionEasyBlock):
         return extra_vars
 
     @staticmethod
-    def crate_src_filename(pkg_name, pkg_version, _=None, rev=None):
+    def crate_src_filename(pkg_name, pkg_version, _=None, rev=None, _branch=None):
         """Crate tarball filename based on package name, version and optionally git revision"""
         parts = [pkg_name, pkg_version]
         if rev is not None:
@@ -211,7 +222,10 @@ class Cargo(ExtensionEasyBlock):
                     'alt_location': 'crates.io',
                 })
             else:
-                crate, version, repo, rev = crate_info
+                try:
+                    crate, version, repo, rev, _ = crate_info  # Ignore branch info
+                except ValueError:
+                    crate, version, repo, rev = crate_info
                 url, repo_name = repo.rsplit('/', maxsplit=1)
                 if repo_name.endswith('.git'):
                     repo_name = repo_name[:-4]
@@ -254,14 +268,14 @@ class Cargo(ExtensionEasyBlock):
         """
         Unpack the source files and populate them with required .cargo-checksum.json if offline
         """
-        vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
-        mkdir(vendor_dir)
+        self.vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
+        mkdir(self.vendor_dir)
         # Sources from git repositories might contain multiple crates/folders in a so-called "workspace".
         # If we put such a workspace into the vendor folder, cargo fails with
         # "found a virtual manifest at [...]Cargo.toml instead of a package manifest".
         # Hence we put those in a separate folder and only move "regular" crates into the vendor folder.
-        git_vendor_dir = os.path.join(self.builddir, 'easybuild_vendor_git')
-        mkdir(git_vendor_dir)
+        self.git_vendor_dir = os.path.join(self.builddir, 'easybuild_vendor_git')
+        mkdir(self.git_vendor_dir)
 
         vendor_crates = {self.crate_src_filename(*crate): crate for crate in self.crates}
         # Track git sources for building the cargo config and avoiding duplicated folders
@@ -270,11 +284,16 @@ class Cargo(ExtensionEasyBlock):
         for src in self.src:
             # Check for git crates, `git_key` will be set to a true-ish value for those
             try:
-                crate_name, _, git_repo, rev = vendor_crates[src['name']]
+                crate = vendor_crates[src['name']]
+                if len(crate) == 5:
+                    crate_name, _, git_repo, rev, branch = crate
+                else:
+                    crate_name, _, git_repo, rev = crate
+                    branch = self.BRANCH_MISSING
             except (ValueError, KeyError):
                 git_key = None
             else:
-                git_key = (git_repo, rev)
+                git_key = (git_repo, rev, branch)
                 self.log.debug("Sources of %s(%s) belong to git repo: %s rev %s",
                                crate_name, src['name'], git_repo, rev)
                 # Do a sanity check that sources for the same repo and revision are the same
@@ -295,10 +314,18 @@ class Cargo(ExtensionEasyBlock):
                     src['finalpath'] = previous_source['finalpath']
                     continue
 
-            is_vendor_crate = src['name'] in vendor_crates
+            # Check if the source is a vendored crate and store the crate name
+            try:
+                crate_name = vendor_crates[src['name']][0]
+            except KeyError:
+                is_vendor_crate = False
+            else:
+                is_vendor_crate = True
+                src['crate_name'] = crate_name
+
             # Extract dependency crates into vendor subdirectory, separate from sources of main package
             if is_vendor_crate:
-                extraction_dir = git_vendor_dir if git_key else vendor_dir
+                extraction_dir = self.git_vendor_dir if git_key else self.vendor_dir
             else:
                 extraction_dir = self.builddir
 
@@ -339,38 +366,68 @@ class Cargo(ExtensionEasyBlock):
                         write_file(chkfile, CARGO_CHECKSUM_JSON.format(checksum=checksum))
                     # Move non-workspace git crates to the vendor folder
                     if git_key and member_dirs is None:
-                        src_dir = os.path.join(vendor_dir, os.path.basename(crate_dirs[0]))
+                        src_dir = os.path.join(self.vendor_dir, os.path.basename(crate_dirs[0]))
+                        self.log.debug('Moving crate %s without workspaces to vendor folder', crate_name)
                         move_file(crate_dirs[0], src_dir)
 
             src['finalpath'] = src_dir
 
         if self.cfg['offline']:
-            self.log.info("Setting vendored crates dir for offline operation")
-            config_toml = os.path.join(self.cargo_home, 'config.toml')
-            # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
-            self.log.debug("Writting config.toml entry for vendored crates from crate.io")
-            write_file(config_toml, CONFIG_TOML_SOURCE_VENDOR.format(vendor_dir=vendor_dir), append=True)
+            self._setup_offline_config(git_sources)
 
-            # Tell cargo about the vendored git sources to avoid it failing with:
-            # Unable to update https://github.com/[...]
-            # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
-            for (git_repo, rev), src in git_sources.items():
-                self.log.debug("Writting config.toml entry for git repo: %s rev %s", git_repo, rev)
-                src_dir = src['finalpath']
-                if os.path.dirname(src_dir) == vendor_dir:
-                    # Non-workspace sources are in vendor_dir
+    def _setup_offline_config(self, git_sources):
+        """Setup the configuration required for offline builds
+
+        :param git_sources: dict mapping (git_repo, rev) to extracted source
+                            rev is a tuple of (revision, branch) or just the revision for older easyconfigs
+        """
+        self.log.info("Setting up vendored crates for offline operation")
+        self.log.debug("Writting config.toml entry for vendored crates from crate.io")
+        config_toml = os.path.join(self.cargo_home, 'config.toml')
+        # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
+        write_file(config_toml, CONFIG_TOML_SOURCE_VENDOR.format(vendor_dir=self.vendor_dir))
+
+        # Tell cargo about the vendored git sources to avoid it failing with:
+        # Unable to update https://github.com/[...]
+        # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
+
+        # "[patch.<repo>]" entries for git sources in the vendor folder
+        config_toml_git_patches = defaultdict(str)
+        # Unique revisions per repo
+        repo_revs = defaultdict(set)
+        for src, rev, _ in git_sources:
+            repo_revs[src].add(rev)
+        for (git_repo, rev, branch), src in git_sources.items():
+            src_dir = src['finalpath']
+            if os.path.dirname(src_dir) == self.vendor_dir:
+                # Non-workspace sources are in vendor_dir
+                # We want to specify the repo using the revision and optional branch used which is most reliable.
+                if branch is not self.BRANCH_MISSING or len(repo_revs[git_repo]) > 1:
+                    self.log.debug("Writing config.toml entry for git repo: %s branch %s, rev %s",
+                                   git_repo, branch, rev)
+                    branch_info = 'branch = "%s"\n' % branch if branch else '\n'
                     write_file(config_toml,
-                               CONFIG_TOML_SOURCE_GIT.format(url=git_repo, rev=rev),
+                               CONFIG_TOML_SOURCE_GIT.format(url=git_repo, rev=rev) + branch_info,
                                append=True)
                 else:
-                    # Workspace sources stay in their own separate folder.
-                    # We cannot have a `directory = "<dir>"` entry where a folder containing a workspace is inside
-                    write_file(config_toml,
-                               CONFIG_TOML_SOURCE_GIT_WORKSPACE.format(url=git_repo, rev=rev, workspace_dir=src_dir),
-                               append=True)
+                    self.log.debug("Preparing config.toml entry for git repo: %s", git_repo)
+                    # Fallback for (older) easyconfigs that don't specify the branch:
+                    # Patch the whole repo, which is only possible if there is a single revision used.
+                    config_toml_git_patches[git_repo] += CONFIG_TOML_PATCH_GIT_CRATES.format(
+                        crate=src['crate_name'], path=src_dir)
+            else:
+                self.log.debug("Writing config.toml entry for git repo: %s rev %s", git_repo, rev)
+                # Workspace sources stay in their own separate folder.
+                # We cannot have a `directory = "<dir>"` entry where a folder containing a workspace is inside
+                write_file(config_toml,
+                           CONFIG_TOML_SOURCE_GIT_WORKSPACE.format(url=git_repo, rev=rev, workspace_dir=src_dir),
+                           append=True)
+        for git_repo, config_crates in config_toml_git_patches.items():
+            self.log.debug("Writting config.toml patch entry for git repo: %s", git_repo)
+            write_file(config_toml, CONFIG_TOML_PATCH_GIT.format(repo=git_repo, crates=config_crates), append=True)
 
-            # Use environment variable since it would also be passed along to builds triggered via python packages
-            env.setvar('CARGO_NET_OFFLINE', 'true')
+        # Use environment variable since it would also be passed along to builds triggered via python packages
+        env.setvar('CARGO_NET_OFFLINE', 'true')
 
     def configure_step(self):
         """Empty configuration step."""
@@ -432,7 +489,7 @@ class Cargo(ExtensionEasyBlock):
 
 def generate_crate_list(sourcedir):
     """Helper for generating crate list"""
-    import toml
+    import toml  # pylint: disable=import-outside-toplevel
 
     cargo_toml = toml.load(os.path.join(sourcedir, 'Cargo.toml'))
 
@@ -447,43 +504,55 @@ def generate_crate_list(sourcedir):
     except KeyError:
         app_name = os.path.basename(os.path.abspath(sourcedir))
         print_warning('Did not find a [package] name= entry. Assuming it is the folder name: ' + app_name)
-    deps = cargo_lock['package']
 
     app_in_cratesio = False
     crates = []
     other_crates = []
-    for dep in deps:
+    for dep in cargo_lock['package']:
         name = dep['name']
         version = dep['version']
-        if 'source' in dep:
-            if name == app_name:
-                app_in_cratesio = True  # exclude app itself, needs to be first in crates list or taken from pypi
-            else:
-                if dep['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
-                    crates.append((name, version))
-                else:
-                    # Lock file has #revision in the url
-                    url, rev = dep['source'].rsplit('#', maxsplit=1)
-                    for prefix in ('registry+', 'git+'):
-                        if url.startswith(prefix):
-                            url = url[len(prefix):]
-                    # Remove branch name and revision URL parameters if present
-                    url = re.sub(r'\?branch=\w+$', '', url)
-                    url = re.sub(r'\?rev=%s+$' % rev, '', url)
-                    crates.append((name, version, url, rev))
-        else:
+        try:
+            source_url = dep['source']
+        except KeyError:
             other_crates.append((name, version))
+            continue
+        if name == app_name:
+            app_in_cratesio = True  # exclude app itself, needs to be first in crates list or taken from pypi
+        else:
+            if source_url == 'registry+https://github.com/rust-lang/crates.io-index':
+                crates.append((name, version))
+            else:
+                # Lock file has revision and branch in the url
+                url = re.sub(r'^(registry|git)\+', '', source_url)  # Strip prefix if present
+                parsed_url = urlsplit(url)
+                url = re.split('[#?]', url, maxsplit=1)[0]  # Remove query and fragment
+                rev = parsed_url.fragment
+                if not rev:
+                    raise ValueError("Revision not found in URL %s" % url)
+                qs = parse_qs(parsed_url.query)
+                rev_qs, branch = qs.get('rev'), qs.get('branch', [None])[0]
+                if rev_qs is not None and rev_qs != rev:
+                    raise ValueError("Found different revision in query of URL "
+                                     "%s: %s, expected: %s" % (url, rev_qs, rev))
+                crates.append((name, version, url, rev, branch))
     return app_in_cratesio, crates, other_crates
 
 
-if __name__ == '__main__':
-    import sys
+def main():
+    import sys  # pylint: disable=import-outside-toplevel
+    if len(sys.argv) != 2:
+        print('Expected path to folder containing Cargo.[toml,lock]')
+        sys.exit(1)
     app_in_cratesio, crates, other = generate_crate_list(sys.argv[1])
-    print(other)
+    print('Other crates (no source in Cargo.lock):', other)
     if app_in_cratesio or crates:
         print('crates = [')
         if app_in_cratesio:
             print('    (name, version),')
-        for crate_info in crates:
+        for crate_info in sorted(crates):
             print("    %s," % str(crate_info))
         print(']')
+
+
+if __name__ == '__main__':
+    main()
