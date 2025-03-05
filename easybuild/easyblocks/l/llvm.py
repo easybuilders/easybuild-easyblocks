@@ -365,18 +365,24 @@ class EB_LLVM(CMakeMake):
             # There are (old) toolchains with CUDA as part of the toolchain
             cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
             if 'cuda' in deps or cuda_toolchain or cuda_cc_list:
-                build_targets.append(BUILD_TARGET_NVPTX)
-                self.offload_targets += ['cuda']  # Used for LLVM >= 19
-                self.log.debug(f"{BUILD_TARGET_NVPTX} enabled by CUDA dependency/cuda_compute_capabilities")
+                if LooseVersion(self.version) < LooseVersion('18'):
+                    self.log.warning("CUDA support is only available in LLVM >= 18")
+                else:
+                    build_targets.append(BUILD_TARGET_NVPTX)
+                    self.offload_targets += ['cuda']  # Used for LLVM >= 19
+                    self.log.debug(f"{BUILD_TARGET_NVPTX} enabled by CUDA dependency/cuda_compute_capabilities")
 
             # For AMDGPU support we need ROCR-Runtime and
             # ROCT-Thunk-Interface, however, since ROCT is a dependency of
             # ROCR we only check for the ROCR-Runtime here
             # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
             if 'rocr-runtime' in deps or amd_gfx_list:
-                build_targets.append(BUILD_TARGET_AMDGPU)
-                self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
-                self.log.debug(f"{BUILD_TARGET_AMDGPU} enabled by rocr-runtime dependency/amd_gfx_list")
+                if LooseVersion(self.version) < LooseVersion('18'):
+                    self.log.warning("AMDGPU support is only available in LLVM >= 18")
+                else:
+                    build_targets.append(BUILD_TARGET_AMDGPU)
+                    self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
+                    self.log.debug(f"{BUILD_TARGET_AMDGPU} enabled by rocr-runtime dependency/amd_gfx_list")
 
             self.cfg['build_targets'] = build_targets
             self.log.debug("Using %s as default build targets for CPU architecture %s.", build_targets, arch)
