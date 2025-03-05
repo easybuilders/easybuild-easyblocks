@@ -27,7 +27,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import POWER, X86_64, get_cpu_architecture
+from easybuild.tools.systemtools import POWER, X86_64, AARCH64, get_cpu_architecture
 
 
 class EB_NAMD(MakeCp):
@@ -71,6 +71,10 @@ class EB_NAMD(MakeCp):
                 basearch = 'Linux-x86_64'
             elif arch == POWER:
                 basearch = 'Linux-POWER'
+            elif arch == AARCH64:
+                basearch = 'Linux-ARM64'
+            else:
+                raise EasyBuildError("The NAMD easyblock does not currently support architecture %s", arch)
 
             self.cfg['namd_basearch'] = basearch
             self.log.info("Derived value for 'namd_basearch': %s", self.cfg['namd_basearch'])
