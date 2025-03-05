@@ -830,11 +830,18 @@ class EB_LLVM(CMakeMake):
         if self.cfg['build_runtimes']:
             lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
             lib_path = os.path.join(basedir, lib_dir_runtime)
+        old_cflags = os.getenv('CFLAGS', '')
+        old_cxxflags = os.getenv('CXXFLAGS', '')
+        if build_option('rpath'):
+            setvar('CFLAGS', "%s %s" % (old_cflags, '-Wno-unused-command-line-argument'))
+            setvar('CXXFLAGS', "%s %s" % (old_cxxflags, '-Wno-unused-command-line-argument'))
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
             cmd = f"make -j {parallel} check-all"
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
             self.log.debug(out)
+        setvar('CFLAGS', old_cflags)
+        setvar('CXXFLAGS', old_cxxflags)
 
         rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
         mch = rgx_failed.search(out)
