@@ -945,9 +945,9 @@ class EB_LLVM(CMakeMake):
 
         super(EB_LLVM, self).install_step()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Install python bindings."""
-        super(EB_LLVM, self).post_install_step()
+        super(EB_LLVM, self).post_processing_step()
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
