@@ -843,26 +843,11 @@ class EB_LLVM(CMakeMake):
             lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
             lib_path = os.path.join(basedir, lib_dir_runtime)
 
-        # When rpath is enabled, the easybuild rpath wrapper will be used for compiling the tests
-        # A combination of -Werror and the wrapper translating LD_LIBRARY_PATH to -Wl,... flags will results in failing
-        # tests due to -Wunused-command-line-argument
-        # This has shown to be a problem in builds for 18.1.8, but seems it was not necessary for LLVM >= 19
-        # needs more digging into the CMake logic
-        old_cflags = os.getenv('CFLAGS', '')
-        old_cxxflags = os.getenv('CXXFLAGS', '')
-        # TODO: Find a better way to either force the test to use the non wrapped compiler or to pass the flags
-        if build_option('rpath'):
-            setvar('CFLAGS', "%s %s" % (old_cflags, '-Wno-unused-command-line-argument'))
-            setvar('CXXFLAGS', "%s %s" % (old_cxxflags, '-Wno-unused-command-line-argument'))
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
             cmd = f"make -j {parallel} check-all"
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
             self.log.debug(out)
-
-        # Reset the CFLAGS and CXXFLAGS
-        setvar('CFLAGS', old_cflags)
-        setvar('CXXFLAGS', old_cxxflags)
 
         ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
         ignored_pattern_matches = 0
@@ -916,6 +901,21 @@ class EB_LLVM(CMakeMake):
                 self._set_gcc_prefix()
                 self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
             max_failed = self.cfg['test_suite_max_failed']
+
+            # When rpath is enabled, the easybuild rpath wrapper will be used for compiling the tests
+            # A combination of -Werror and the wrapper translating LD_LIBRARY_PATH to -Wl,... flags will results in failing
+            # tests due to -Wunused-command-line-argument
+            # This has shown to be a problem in builds for 18.1.8, but seems it was not necessary for LLVM >= 19
+            # needs more digging into the CMake logic
+            if build_option('rpath') and LooseVersion(self.version) < LooseVersion('19') and self.cfg['build_runtimes']:
+                self.log.warning("Removing rpath wrapping of compiler from test suite as it will result in errors")
+                bin_dir = os.path.join(self.final_dir, 'bin')
+                subst = [('/tmp/.*/rpath_wrappers/clangxx_wrapper', bin_dir)]
+                for root, dirs, files in os.walk(self.final_dir):
+                    if 'cmake-bridge.cfg' in files:
+                        fpath = os.path.join(root, 'cmake-bridge.cfg')
+                        apply_regex_substitutions(fpath, subst)
+
             num_failed = self._para_test_step(parallel=1)
             if num_failed is None:
                 raise EasyBuildError("Failed to extract test results from output")
