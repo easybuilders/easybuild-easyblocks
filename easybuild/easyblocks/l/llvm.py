@@ -212,6 +212,7 @@ class EB_LLVM(CMakeMake):
             'python_bindings': [False, "Install python bindings", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
+            'test_suite_ignore_patterns': [None, "List of test to ignore (if the string matches)", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
             'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
@@ -825,6 +826,17 @@ class EB_LLVM(CMakeMake):
         """Run test suite with the specified number of parallel jobs for make."""
         basedir = self.final_dir
 
+        # From grep -E "^[A-Z]+: " LOG_FILE | cut -d: -f1 | sort | uniq
+        OUTCOMES_LOG = [
+            'FAIL',
+            'TIMEOUT',
+        ]
+        # OUTCOMES_OK = [
+        #     'PASS',
+        #     'UNSUPPORTED',
+        #     'XFAIL',
+        # ]
+
         change_dir(basedir)
         lib_path = ''
         if self.cfg['build_runtimes']:
@@ -852,6 +864,16 @@ class EB_LLVM(CMakeMake):
         setvar('CFLAGS', old_cflags)
         setvar('CXXFLAGS', old_cxxflags)
 
+        ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
+        ignored_pattern = 0
+        failed_pattern = 0
+        for line in out.splitlines():
+            if any(line.startswith(f'{x}: ') for x in OUTCOMES_LOG):
+                if any(patt in line for patt in ignore_patterns):
+                    self.log.info("Ignoring test failure: %s", line)
+                    ignored_pattern += 1
+                failed_pattern += 1
+
         rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
         mch = rgx_failed.search(out)
         if mch is None:
@@ -873,6 +895,15 @@ class EB_LLVM(CMakeMake):
                 num_timed_out = int(mch.group(1))
                 self.log.info("Tests timed out: %s", num_timed_out)
             num_failed += num_timed_out
+
+        if num_failed != failed_pattern:
+            msg = f"Number of failed tests {num_failed} does not match "
+            msg += f"number identified from line by line patterns {failed_pattern}"
+            self.log.warning(msg)
+
+        if ignored_pattern:
+            self.log.info("Ignored %s failed tests due to ignore patterns", ignored_pattern)
+            num_failed -= ignored_pattern
 
         return num_failed
 
