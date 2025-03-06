@@ -1134,7 +1134,10 @@ class EB_LLVM(CMakeMake):
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
-            check_librt_files += ['libarcher.so']
+            if LooseVersion(self.version) < LooseVersion('19'):
+                check_lib_files += ['libomp.so']
+            elif LooseVersion(self.version) >= LooseVersion('19'):
+                check_librt_files += ['libomp.so']
         if self.cfg['python_bindings']:
             custom_commands += ["python -c 'import clang'"]
             custom_commands += ["python -c 'import mlir'"]
