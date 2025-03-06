@@ -830,8 +830,15 @@ class EB_LLVM(CMakeMake):
         if self.cfg['build_runtimes']:
             lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
             lib_path = os.path.join(basedir, lib_dir_runtime)
+
+        # When rpath is enabled, the easybuild rpath wrapper will be used for compiling the tests
+        # A combination of -Werror and the wrapper translating LD_LIBRARY_PATH to -Wl,... flags will results in failing
+        # tests due to -Wunused-command-line-argument
+        # This has shown to be a problem in builds for 18.1.8, but seems it was not necessary for LLVM >= 19
+        # needs more digging into the CMake logic
         old_cflags = os.getenv('CFLAGS', '')
         old_cxxflags = os.getenv('CXXFLAGS', '')
+        # TODO: Find a better way to either force the test to use the non wrapped compiler or to pass the flags
         if build_option('rpath'):
             setvar('CFLAGS', "%s %s" % (old_cflags, '-Wno-unused-command-line-argument'))
             setvar('CXXFLAGS', "%s %s" % (old_cxxflags, '-Wno-unused-command-line-argument'))
@@ -840,6 +847,8 @@ class EB_LLVM(CMakeMake):
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
             self.log.debug(out)
+
+        # Reset the CFLAGS and CXXFLAGS
         setvar('CFLAGS', old_cflags)
         setvar('CXXFLAGS', old_cxxflags)
 
