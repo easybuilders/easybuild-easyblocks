@@ -164,12 +164,17 @@ class Cargo(ExtensionEasyBlock):
         return extra_vars
 
     @staticmethod
-    def crate_src_filename(pkg_name, pkg_version, _=None, rev=None, _branch=None):
+    def crate_src_filename(pkg_name, pkg_version, _url=None, rev=None, _branch=None):
         """Crate tarball filename based on package name, version and optionally git revision"""
-        parts = [pkg_name, pkg_version]
+        filename = [pkg_name, pkg_version]
+        filename_ext = '.tar.gz'
+
         if rev is not None:
-            parts.append(rev)
-        return '-'.join(parts) + ".tar.gz"
+            # sources from a git repo
+            filename.append(rev[:8])  # append short commit hash
+            filename_ext = '.tar.xz'  # use a reproducible archive format
+
+        return f"{'-'.join(filename)}{filename_ext}"
 
     @staticmethod
     def crate_download_filename(pkg_name, pkg_version):
