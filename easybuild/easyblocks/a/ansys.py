@@ -35,7 +35,7 @@ from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions
+from easybuild.tools.filetools import adjust_permissions, mkdir
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -75,6 +75,7 @@ class EB_ANSYS(PackedBinary):
         # Sources (e.g. iso files) may drop the execute permissions
         adjust_permissions('INSTALL', stat.S_IXUSR)
 
+        mkdir(f'{self.builddir}/tmp')
         cmd = f"./INSTALL -silent -install_dir {self.installdir} -usetempdir {self.builddir}/tmp"
         # E.g. license.example.com or license1.example.com,license2.example.com
         licserv = self.cfg.get('license_server', os.getenv('EB_ANSYS_LICENSE_SERVER'))
