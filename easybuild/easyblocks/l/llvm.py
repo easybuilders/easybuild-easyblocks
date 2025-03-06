@@ -865,14 +865,15 @@ class EB_LLVM(CMakeMake):
         setvar('CXXFLAGS', old_cxxflags)
 
         ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
-        ignored_pattern = 0
-        failed_pattern = 0
-        for line in out.splitlines():
-            if any(line.startswith(f'{x}: ') for x in OUTCOMES_LOG):
-                if any(patt in line for patt in ignore_patterns):
-                    self.log.info("Ignoring test failure: %s", line)
-                    ignored_pattern += 1
-                failed_pattern += 1
+        ignored_pattern_matches = 0
+        failed_pattern_matches = 0
+        if ignore_patterns:
+            for line in out.splitlines():
+                if any(line.startswith(f'{x}: ') for x in OUTCOMES_LOG):
+                    if any(patt in line for patt in ignore_patterns):
+                        self.log.info("Ignoring test failure: %s", line)
+                        ignored_pattern_matches += 1
+                    failed_pattern_matches += 1
 
         rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
         mch = rgx_failed.search(out)
@@ -896,14 +897,14 @@ class EB_LLVM(CMakeMake):
                 self.log.info("Tests timed out: %s", num_timed_out)
             num_failed += num_timed_out
 
-        if num_failed != failed_pattern:
-            msg = f"Number of failed tests {num_failed} does not match "
-            msg += f"number identified from line by line patterns {failed_pattern}"
+        if num_failed != failed_pattern_matches:
+            msg = f"Number of failed tests ({num_failed}) does not match "
+            msg += f"number identified va line-by-line pattern matching: {failed_pattern_matches}"
             self.log.warning(msg)
 
-        if ignored_pattern:
-            self.log.info("Ignored %s failed tests due to ignore patterns", ignored_pattern)
-            num_failed -= ignored_pattern
+        if ignored_pattern_matches:
+            self.log.info("Ignored %s failed tests due to ignore patterns", ignored_pattern_matches)
+            num_failed -= ignored_pattern_matches
 
         return num_failed
 
