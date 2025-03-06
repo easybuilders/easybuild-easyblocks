@@ -95,12 +95,15 @@ class EB_SLEPc(ConfigureMake):
         """Configure SLEPc by setting configure options and running configure script."""
 
         # check PETSc dependency
-        if not get_software_root("PETSc"):
+        petsc_dir = get_software_root("PETSc")
+        if not petsc_dir:
             raise EasyBuildError("PETSc module not loaded?")
 
-        # set SLEPC_DIR environment variable
-        env.setvar('SLEPC_DIR', self.cfg['start_dir'].rstrip(os.path.sep))
-        self.log.debug('SLEPC_DIR: %s' % os.getenv('SLEPC_DIR'))
+        # set SLEPC_DIR for configure (env) and build_step
+        slepc_dir = self.cfg['start_dir'].rstrip(os.path.sep)
+        env.setvar('SLEPC_DIR', slepc_dir)
+        self.cfg.update('buildopts', "SLEPC_DIR='%s'" % slepc_dir)
+        self.cfg.update('buildopts', "PETSC_DIR='%s'" % petsc_dir)  # Env variable is set by module
 
         # optional dependencies
         dep_filter = [d['name'] for d in self.cfg.builddependencies()] + ['PETSc', 'Python']
