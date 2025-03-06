@@ -34,7 +34,6 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 import os
 import re
 from collections import defaultdict
-from urllib.parse import parse_qs, urlsplit
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
@@ -159,7 +158,7 @@ class Cargo(ExtensionEasyBlock):
             'enable_tests': [True, "Enable building of tests", CUSTOM],
             'offline': [True, "Build offline", CUSTOM],
             'lto': [None, "Override default LTO flag ('fat', 'thin', 'off')", CUSTOM],
-            'crates': [[], "List of (crate, version, [repo, rev]) tuples to use", CUSTOM],
+            'crates': [[], "List of (crate, version, [repo, rev, branch]) tuples to use. branch can be None", CUSTOM],
         })
 
         return extra_vars
@@ -490,6 +489,7 @@ class Cargo(ExtensionEasyBlock):
 def generate_crate_list(sourcedir):
     """Helper for generating crate list"""
     import toml  # pylint: disable=import-outside-toplevel
+    from urllib.parse import parse_qs, urlsplit  # pylint: disable=import-outside-toplevel
 
     cargo_toml = toml.load(os.path.join(sourcedir, 'Cargo.toml'))
 
