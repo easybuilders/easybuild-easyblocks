@@ -78,12 +78,9 @@ class EB_ANSYS(PackedBinary):
         mkdir(f'{self.builddir}/tmp')
         cmd = f"./INSTALL -silent -install_dir {self.installdir} -usetempdir {self.builddir}/tmp"
         # E.g. license.example.com or license1.example.com,license2.example.com
-        licserv = self.cfg.get('license_server', os.getenv('EB_ANSYS_LICENSE_SERVER'))
+        licserv = self.cfg.get('license_server') or os.getenv('EB_ANSYS_LICENSE_SERVER')
         # E.g. '2325:1055' or just ':' to use those defaults
-        licport = self.cfg.get('license_server_port', os.getenv('EB_ANSYS_LICENSE_SERVER_PORT'))
-        if licserv is not None and licport is not None:
-            cmd += ' -licserverinfo %s:%s' % (licport, licserv)
-
+        licport = self.cfg.get('license_server_port') or os.getenv('EB_ANSYS_LICENSE_SERVER_PORT')
         run_shell_cmd(cmd)
 
         adjust_permissions(self.installdir, stat.S_IWOTH, add=False)
