@@ -221,10 +221,7 @@ class Cargo(ExtensionEasyBlock):
                     'alt_location': 'crates.io',
                 })
             else:
-                try:
-                    crate, version, repo, rev, _ = crate_info  # Ignore branch info
-                except ValueError:
-                    crate, version, repo, rev = crate_info
+                crate, version, repo, rev = crate_info[0:4]  # Ignore branch info
                 url, repo_name = repo.rsplit('/', maxsplit=1)
                 if repo_name.endswith('.git'):
                     repo_name = repo_name[:-4]
