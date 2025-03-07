@@ -909,12 +909,15 @@ class EB_LLVM(CMakeMake):
             # needs more digging into the CMake logic
             if build_option('rpath') and LooseVersion(self.version) < LooseVersion('19') and self.cfg['build_runtimes']:
                 self.log.warning("Removing rpath wrapping of compiler from test suite as it will result in errors")
+                to_patch = set(['cmake-bridge.cfg.in'])
                 bin_dir = os.path.join(self.final_dir, 'bin')
-                subst = [('/tmp/.*/rpath_wrappers/clangxx_wrapper', bin_dir)]
-                for root, dirs, files in os.walk(self.final_dir):
-                    if 'cmake-bridge.cfg' in files:
-                        fpath = os.path.join(root, 'cmake-bridge.cfg')
-                        apply_regex_substitutions(fpath, subst)
+                clangxx = os.path.join(bin_dir, 'clang++')
+                subst = [('@CMAKE_CXX_COMPILER@', clangxx)]
+                for root, dirs, files in os.walk(self.llvm_src_dir):
+                    for file in files:
+                        if file in to_patch:
+                            fpath = os.path.join(root, file)
+                            apply_regex_substitutions(fpath, subst)
 
             num_failed = self._para_test_step(parallel=1)
             if num_failed is None:
