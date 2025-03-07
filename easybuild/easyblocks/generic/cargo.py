@@ -174,7 +174,7 @@ class Cargo(ExtensionEasyBlock):
             filename.append(rev[:8])  # append short commit hash
             filename_ext = '.tar.xz'  # use a reproducible archive format
 
-        return f"{'-'.join(filename)}{filename_ext}"
+        return '-'.join(filename) + filename_ext
 
     @staticmethod
     def crate_download_filename(pkg_name, pkg_version):
