@@ -110,7 +110,8 @@ remove_gcc_dependency_opts = {
     'LIBUNWIND_USE_COMPILER_RT': 'On',
 
     # Libxml2 from system gets automatically detected and linked in bringing dependencies from stdc++, gcc_s, icuuc, etc
-    'LLVM_ENABLE_LIBXML2': 'Off',
+    # Moved to a check at the configure step. See https://github.com/easybuilders/easybuild-easyconfigs/issues/22491
+    # 'LLVM_ENABLE_LIBXML2': 'Off',
 
     'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'On',
 }
@@ -570,11 +571,15 @@ class EB_LLVM(CMakeMake):
         # Dependencies based persistent options (should be reused across stages)
         # Libxml2
         xml2_root = get_software_root('libxml2')
+        # Explicitly disable libxml2 if not found to avoid linking against system libxml2
         if xml2_root:
             if self.full_llvm:
                 self.log.warning("LLVM is being built in 'full_llvm' mode, libxml2 will not be used")
+                general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
             else:
                 general_opts['LLVM_ENABLE_LIBXML2'] = 'ON'
+        else:
+            general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
 
         # If 'ON', risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
         # to errors during compilation of 'offload.tools.kernelreplay' due to the inclusion of LLVMSupport (19.x)
