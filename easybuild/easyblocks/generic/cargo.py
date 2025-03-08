@@ -57,13 +57,6 @@ replace-with = "vendored-sources"
 
 """
 
-CONFIG_TOML_PATCH_GIT = """
-[patch."{repo}"]
-{crates}
-"""
-CONFIG_TOML_PATCH_GIT_CRATES = """{crate} = {{ path = "{path}" }}
-"""
-
 CONFIG_TOML_SOURCE_GIT = """
 [source."{url}?rev={rev}"]
 git = "{url}"
@@ -392,8 +385,6 @@ class Cargo(ExtensionEasyBlock):
         # Unable to update https://github.com/[...]
         # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
 
-        # "[patch.<repo>]" entries for git sources in the vendor folder
-        config_toml_git_patches = defaultdict(str)
         # Unique revisions per repo
         repo_revs = defaultdict(set)
         for src, rev, _ in git_sources:
@@ -410,12 +401,6 @@ class Cargo(ExtensionEasyBlock):
                     write_file(config_toml,
                                CONFIG_TOML_SOURCE_GIT.format(url=git_repo, rev=rev) + branch_info,
                                append=True)
-                else:
-                    self.log.debug("Preparing config.toml entry for git repo: %s", git_repo)
-                    # Fallback for (older) easyconfigs that don't specify the branch:
-                    # Patch the whole repo, which is only possible if there is a single revision used.
-                    config_toml_git_patches[git_repo] += CONFIG_TOML_PATCH_GIT_CRATES.format(
-                        crate=src['crate_name'], path=src_dir)
             else:
                 self.log.debug("Writing config.toml entry for git repo: %s rev %s", git_repo, rev)
                 # Workspace sources stay in their own separate folder.
@@ -423,9 +408,6 @@ class Cargo(ExtensionEasyBlock):
                 write_file(config_toml,
                            CONFIG_TOML_SOURCE_GIT_WORKSPACE.format(url=git_repo, rev=rev, workspace_dir=src_dir),
                            append=True)
-        for git_repo, config_crates in config_toml_git_patches.items():
-            self.log.debug("Writting config.toml patch entry for git repo: %s", git_repo)
-            write_file(config_toml, CONFIG_TOML_PATCH_GIT.format(repo=git_repo, crates=config_crates), append=True)
 
         # Use environment variable since it would also be passed along to builds triggered via python packages
         env.setvar('CARGO_NET_OFFLINE', 'true')
