@@ -31,19 +31,20 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 @author: Alexander Grund (TU Dresden)
 """
 
+import glob
 import os
 import re
 from collections import defaultdict
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
-from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.filetools import extract_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import compute_checksum, mkdir, move_file, read_file, write_file, CHECKSUM_TYPE_SHA256
+from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, extract_file, mkdir, move_file
+from easybuild.tools.filetools import read_file, write_file
+from easybuild.tools.run import run_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
@@ -61,6 +62,14 @@ CONFIG_TOML_SOURCE_GIT = """
 [source."{url}?rev={rev}"]
 git = "{url}"
 rev = "{rev}"
+replace-with = "vendored-sources"
+"""
+
+CONFIG_TOML_SOURCE_GIT_BRANCH = """
+[source."{url}?rev={rev}"]
+git = "{url}"
+rev = "{rev}"
+branch = "{branch}"
 replace-with = "vendored-sources"
 """
 
@@ -141,8 +150,6 @@ def get_checksum(src, log):
 class Cargo(ExtensionEasyBlock):
     """Support for installing Cargo packages (Rust)"""
 
-    BRANCH_MISSING = object()  # Used when branch information was not specified
-
     @staticmethod
     def extra_options(extra_vars=None):
         """Define extra easyconfig parameters specific to Cargo"""
@@ -151,13 +158,13 @@ class Cargo(ExtensionEasyBlock):
             'enable_tests': [True, "Enable building of tests", CUSTOM],
             'offline': [True, "Build offline", CUSTOM],
             'lto': [None, "Override default LTO flag ('fat', 'thin', 'off')", CUSTOM],
-            'crates': [[], "List of (crate, version, [repo, rev, branch]) tuples to use. branch can be None", CUSTOM],
+            'crates': [[], "List of (crate, version, [repo, rev]) tuples to use", CUSTOM],
         })
 
         return extra_vars
 
     @staticmethod
-    def crate_src_filename(pkg_name, pkg_version, _url=None, rev=None, _branch=None):
+    def crate_src_filename(pkg_name, pkg_version, _url=None, rev=None):
         """Crate tarball filename based on package name, version and optionally git revision"""
         filename = [pkg_name, pkg_version]
         filename_ext = '.tar.gz'
@@ -219,7 +226,7 @@ class Cargo(ExtensionEasyBlock):
                     'alt_location': 'crates.io',
                 })
             else:
-                crate, version, repo, rev = crate_info[0:4]  # Ignore branch info
+                crate, version, repo, rev = crate_info
                 url, repo_name = repo.rsplit('/', maxsplit=1)
                 if repo_name.endswith('.git'):
                     repo_name = repo_name[:-4]
@@ -279,15 +286,11 @@ class Cargo(ExtensionEasyBlock):
             # Check for git crates, `git_key` will be set to a true-ish value for those
             try:
                 crate = vendor_crates[src['name']]
-                if len(crate) == 5:
-                    crate_name, _, git_repo, rev, branch = crate
-                else:
-                    crate_name, _, git_repo, rev = crate
-                    branch = self.BRANCH_MISSING
+                crate_name, _, git_repo, rev = crate
             except (ValueError, KeyError):
                 git_key = None
             else:
-                git_key = (git_repo, rev, branch)
+                git_key = (git_repo, rev)
                 self.log.debug("Sources of %s(%s) belong to git repo: %s rev %s",
                                crate_name, src['name'], git_repo, rev)
                 # Do a sanity check that sources for the same repo and revision are the same
@@ -370,10 +373,10 @@ class Cargo(ExtensionEasyBlock):
             self._setup_offline_config(git_sources)
 
     def _setup_offline_config(self, git_sources):
-        """Setup the configuration required for offline builds
+        """
+        Setup the configuration required for offline builds
 
         :param git_sources: dict mapping (git_repo, rev) to extracted source
-                            rev is a tuple of (revision, branch) or just the revision for older easyconfigs
         """
         self.log.info("Setting up vendored crates for offline operation")
         self.log.debug("Writting config.toml entry for vendored crates from crate.io")
@@ -387,20 +390,28 @@ class Cargo(ExtensionEasyBlock):
 
         # Unique revisions per repo
         repo_revs = defaultdict(set)
-        for src, rev, _ in git_sources:
+        for src, rev in git_sources:
             repo_revs[src].add(rev)
-        for (git_repo, rev, branch), src in git_sources.items():
+        for (git_repo, rev), src in git_sources.items():
             src_dir = src['finalpath']
             if os.path.dirname(src_dir) == self.vendor_dir:
                 # Non-workspace sources are in vendor_dir
                 # We want to specify the repo using the revision and optional branch used which is most reliable.
-                if branch is not self.BRANCH_MISSING or len(repo_revs[git_repo]) > 1:
-                    self.log.debug("Writing config.toml entry for git repo: %s branch %s, rev %s",
-                                   git_repo, branch, rev)
-                    branch_info = 'branch = "%s"\n' % branch if branch else '\n'
-                    write_file(config_toml,
-                               CONFIG_TOML_SOURCE_GIT.format(url=git_repo, rev=rev) + branch_info,
-                               append=True)
+                git_branch = self._get_crate_git_repo_branch(src['crate_name'])
+                if git_branch:
+                    self.log.debug(f"Writing config.toml entry for git repo: {git_repo} branch {git_branch}, rev {rev}")
+                    write_file(
+                        config_toml,
+                        CONFIG_TOML_SOURCE_GIT_BRANCH.format(url=git_repo, rev=rev, branch=git_branch),
+                        append=True
+                    )
+                else:
+                    self.log.debug(f"Writing config.toml entry for git repo: {git_repo} , rev {rev}")
+                    write_file(
+                        config_toml,
+                        CONFIG_TOML_SOURCE_GIT.format(url=git_repo, rev=rev),
+                        append=True
+                    )
             else:
                 self.log.debug("Writing config.toml entry for git repo: %s rev %s", git_repo, rev)
                 # Workspace sources stay in their own separate folder.
@@ -411,6 +422,37 @@ class Cargo(ExtensionEasyBlock):
 
         # Use environment variable since it would also be passed along to builds triggered via python packages
         env.setvar('CARGO_NET_OFFLINE', 'true')
+
+    def _get_crate_git_repo_branch(self, crate_name):
+        """
+        Seek the dependency definition for given crate in all Cargo.toml files of sources
+        Return branch target for given crate_name if any
+        """
+        cargo_toml_glob = os.path.join(self.builddir, f'{self.name}-{self.version}', '**', 'Cargo.toml')
+        cargo_toml_files = glob.glob(cargo_toml_glob, recursive=True)
+        self.log.debug(
+            f"Searching definition of crate '{crate_name}' in the following files: {', '.join(cargo_toml_files)}"
+        )
+
+        if not cargo_toml_files:
+            raise EasyBuildError("Cargo.toml file not found in sources")
+
+        git_repo_spec_pattern = f"{crate_name} = ({{.*}})"
+        git_repo_spec = re.compile(git_repo_spec_pattern, re.M)
+        git_branch_spec_pattern = r'branch\s*=\s*"(.*)"'
+        git_branch_spec = re.compile(git_branch_spec_pattern, re.M)
+
+        for cargo_toml in cargo_toml_files:
+            git_repo_crate = git_repo_spec.search(read_file(cargo_toml))
+            if git_repo_crate:
+                self.log.debug(f"Found specification in Cargo.toml for crate '{crate_name}': {git_repo_crate.group()}")
+                git_repo_crate_contents = git_repo_crate.group(1)
+                git_branch_crate = git_branch_spec.search(git_repo_crate_contents)
+                if git_branch_crate:
+                    self.log.debug(f"Found git branch requirement for crate '{crate_name}': {git_branch_crate.group()}")
+                    return git_branch_crate.group(1)
+
+        return None
 
     def configure_step(self):
         """Empty configuration step."""
