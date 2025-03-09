@@ -50,14 +50,15 @@ class EB_AEDT(PackedBinary):
 
         ver = LooseVersion(self.version)
         if ver > LooseVersion("2024R1"):
-            idirs = glob.glob(os.path.join(self.installdir, 'v*/AnsysEM/'))
+            pattern = 'v*/AnsysEM/'
         else:
-            idirs = glob.glob(os.path.join(self.installdir, 'v*/Linux*/'))
+            pattern = 'v*/Linux*/'
+        idirs = glob.glob(os.path.join(self.installdir, pattern))
 
         if len(idirs) == 1:
             self.subdir = os.path.relpath(idirs[0], self.installdir)
         else:
-            raise EasyBuildError("Failed to locate single install subdirectory v*/Linux*/")
+            raise EasyBuildError(f"Failed to locate single install subdirectory {pattern}")
 
     def install_step(self):
         """Install Ansys Electronics Desktop using its setup tool."""
@@ -118,19 +119,26 @@ class EB_AEDT(PackedBinary):
 
     def make_module_extra(self):
         """Extra module entries for Ansys Electronics Desktop."""
-        if not self.subdir:
-            self._set_subdir()
 
         txt = super(EB_AEDT, self).make_module_extra()
-        version = self.version[2:].replace('R', '')
+        ver = LooseVersion(self.version)
+        short_ver = self.version[2:].replace('R', '')
 
-        # PyAEDT and other tools use the variable to find available AEDT versions
-        txt += self.module_generator.set_environment('ANSYSEM_ROOT%s' % version,
-                                                         os.path.join(self.installdir, self.subdir))
+        if ver > LooseVersion("2024R1"):
+            pattern = 'v*/AnsysEM/'
+        else:
+            pattern = 'v*/Linux*/'
+        idirs = glob.glob(os.path.join(self.installdir, pattern))
 
-        txt += self.module_generator.prepend_paths('PATH', self.subdir)
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', self.subdir)
-        txt += self.module_generator.prepend_paths('LIBRARY_PATH', self.subdir)
+        if len(idirs) == 1:
+            subdir = os.path.relpath(idirs[0], self.installdir)
+            # PyAEDT and other tools use the variable to find available AEDT versions
+            txt += self.module_generator.set_environment('ANSYSEM_ROOT%s' % short_ver,
+                                                         os.path.join(self.installdir, subdir))
+
+            txt += self.module_generator.prepend_paths('PATH', subdir)
+            txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', subdir)
+            txt += self.module_generator.prepend_paths('LIBRARY_PATH', subdir)
 
         return txt
 
