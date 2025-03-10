@@ -905,8 +905,8 @@ class EB_LLVM(CMakeMake):
             self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
 
             # When rpath is enabled, the easybuild rpath wrapper will be used for compiling the tests
-            # A combination of -Werror and the wrapper translating LD_LIBRARY_PATH to -Wl,... flags will results in failing
-            # tests due to -Wunused-command-line-argument
+            # A combination of -Werror and the wrapper translating LD_LIBRARY_PATH to -Wl,...
+            # flags will results in failing tests due to -Wunused-command-line-argument
             # This has shown to be a problem in builds for 18.1.8, but seems it was not necessary for LLVM >= 19
             # needs more digging into the CMake logic
             if build_option('rpath') and LooseVersion(self.version) < LooseVersion('19') and self.cfg['build_runtimes']:
@@ -923,7 +923,7 @@ class EB_LLVM(CMakeMake):
                 bin_dir = os.path.join(self.final_dir, 'bin')
                 clangxx = os.path.join(bin_dir, 'clang++')
                 subst = [('@CMAKE_CXX_COMPILER@', clangxx)]
-                for root, dirs, files in os.walk(self.llvm_src_dir):
+                for root, _dirs, files in os.walk(self.llvm_src_dir):
                     for file in files:
                         if file in to_patch:
                             fpath = os.path.join(root, file)
