@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 ##
 # Copyright 2020-2025 Ghent University
 #
@@ -536,7 +537,7 @@ class EB_PyTorch(PythonPackage):
         if new_suites:
             diffs.append(f'Found {len(new_suites)} new suites in XML files: {", ".join(sorted(new_suites))}')
         if missing_suites:
-            diffs.append(f'Did not found {len(missing_suites)} suites in XML files: ' +
+            diffs.append(f'Did not find {len(missing_suites)} suites in XML files: ' +
                          ", ".join(sorted(missing_suites)))
         if xml_result.test_cnt != old_result.test_cnt:
             diffs.append(f'Different number of tests in XML files: {xml_result.test_cnt} != {old_result.test_cnt}')
@@ -558,14 +559,14 @@ class EB_PyTorch(PythonPackage):
         if new_tests:
             diffs.append(f'Found {len(new_tests)} new tests with errors in XML files: {", ".join(sorted(new_tests))}')
         if missing_tests:
-            diffs.append(f'Did not found {len(missing_tests)} tests with errors in XML files: ' +
+            diffs.append(f'Did not find {len(missing_tests)} tests with errors in XML files: ' +
                          ", ".join(sorted(missing_tests)))
         new_tests = get_test_name_diff(old_failed_test_names.fail, xml_failed_test_names.fail)
         missing_tests = get_test_name_diff(xml_failed_test_names.fail, old_failed_test_names.fail)
         if new_tests:
             diffs.append(f'Found {len(new_tests)} new failed tests in XML files: {", ".join(sorted(new_tests))}')
         if missing_tests:
-            diffs.append(f'Did not found {len(missing_tests)} failed tests in XML files: ' +
+            diffs.append(f'Did not find {len(missing_tests)} failed tests in XML files: ' +
                          ", ".join(sorted(missing_tests)))
         if diffs:
             self.log.warning("Found differences when parsing stdout and XML files:\n\t" + "\n\t".join(diffs))
@@ -707,8 +708,8 @@ class EB_PyTorch(PythonPackage):
                 msg += ", ".join("%s(%s)" % name_signal
                                  for name_signal in sorted(parsed_test_result.terminated_suites.items()))
             elif len(failed_test_suites) < len(all_failed_test_suites):
-                msg = ('Failing because not all failed tests could be determined. '
-                       'Tests failed to start or the test accounting in the PyTorch EasyBlock needs updating!\n'
+                msg = ('Failing because not all failed tests could be determined. Tests failed to start, crashed '
+                       'or the test accounting in the PyTorch EasyBlock needs updating!\n'
                        'Missing: ' + ', '.join(sorted(all_failed_test_suites - failed_test_suites)))
             else:
                 msg = ('Failing because there were unexpected failures detected: ' +
