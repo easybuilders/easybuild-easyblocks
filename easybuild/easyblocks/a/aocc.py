@@ -226,7 +226,7 @@ class EB_AOCC(PackedBinary):
             compilers_to_wrap += [
                 f'clang-{LooseVersion(self.clangversion).version[0]}',
             ]
-            if self.cfg['keepsymlinks'] is False:
+            if not self.cfg['keepsymlinks']:
                 compilers_to_wrap += [
                     'clang',
                     'clang++',
