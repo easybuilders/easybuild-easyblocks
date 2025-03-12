@@ -387,7 +387,7 @@ class Cargo(ExtensionEasyBlock):
         # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
 
         for (git_repo, rev), src in git_sources.items():
-            crate_name = src['crate_name']
+            crate_name = src['crate'][0]
             src_dir = src['finalpath']
             if os.path.dirname(src_dir) == self.vendor_dir:
                 # Non-workspace sources are in vendor_dir
