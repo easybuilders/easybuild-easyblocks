@@ -31,10 +31,9 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 @author: Alexander Grund (TU Dresden)
 """
 
-import glob
 import os
 import re
-from collections import defaultdict
+from glob import glob
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
@@ -283,14 +282,23 @@ class Cargo(ExtensionEasyBlock):
         git_sources = {}
 
         for src in self.src:
-            # Check for git crates, `git_key` will be set to a true-ish value for those
+            # Check if the source is a vendored crate
             try:
                 crate = vendor_crates[src['name']]
-                crate_name, _, git_repo, rev = crate
-            except (ValueError, KeyError):
+            except KeyError:
+                is_vendor_crate = False
+            else:
+                is_vendor_crate = True
+                crate_name = crate[0]
+                # Store crate for later
+                src['crate'] = crate
+
+            # Check for git crates, `git_key` will be set to a true-ish value for those
+            if not is_vendor_crate or len(crate) == 2:
                 git_key = None
             else:
-                git_key = (git_repo, rev)
+                git_key = crate[2:]
+                git_repo, rev = git_key
                 self.log.debug("Sources of %s(%s) belong to git repo: %s rev %s",
                                crate_name, src['name'], git_repo, rev)
                 # Do a sanity check that sources for the same repo and revision are the same
@@ -310,15 +318,6 @@ class Cargo(ExtensionEasyBlock):
                                   src['name'], previous_source['finalpath'], previous_source['name'])
                     src['finalpath'] = previous_source['finalpath']
                     continue
-
-            # Check if the source is a vendored crate and store the crate name
-            try:
-                crate_name = vendor_crates[src['name']][0]
-            except KeyError:
-                is_vendor_crate = False
-            else:
-                is_vendor_crate = True
-                src['crate_name'] = crate_name
 
             # Extract dependency crates into vendor subdirectory, separate from sources of main package
             if is_vendor_crate:
@@ -369,15 +368,12 @@ class Cargo(ExtensionEasyBlock):
 
             src['finalpath'] = src_dir
 
-        if self.cfg['offline']:
-            self._setup_offline_config(git_sources)
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step: Setup offline config if required."""
+        super().prepare_step(*args, **kwargs)
 
-    def _setup_offline_config(self, git_sources):
-        """
-        Setup the configuration required for offline builds
-
-        :param git_sources: dict mapping (git_repo, rev) to extracted source
-        """
+        if not self.cfg['offline']:
+            return
         self.log.info("Setting up vendored crates for offline operation")
         self.log.debug("Writting config.toml entry for vendored crates from crate.io")
         config_toml = os.path.join(self.cargo_home, 'config.toml')
@@ -388,30 +384,23 @@ class Cargo(ExtensionEasyBlock):
         # Unable to update https://github.com/[...]
         # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
 
-        # Unique revisions per repo
-        repo_revs = defaultdict(set)
-        for src, rev in git_sources:
-            repo_revs[src].add(rev)
-        for (git_repo, rev), src in git_sources.items():
+        for src in self.src:
+            # Check for git crates.
+            try:
+                crate_name, _, git_repo, rev = src['crate']
+            except (ValueError, KeyError):
+                continue  # Not a crate or not using git repo and revision
             src_dir = src['finalpath']
             if os.path.dirname(src_dir) == self.vendor_dir:
                 # Non-workspace sources are in vendor_dir
-                # We want to specify the repo using the revision and optional branch used which is most reliable.
-                git_branch = self._get_crate_git_repo_branch(src['crate_name'])
-                if git_branch:
-                    self.log.debug(f"Writing config.toml entry for git repo: {git_repo} branch {git_branch}, rev {rev}")
-                    write_file(
-                        config_toml,
-                        CONFIG_TOML_SOURCE_GIT_BRANCH.format(url=git_repo, rev=rev, branch=git_branch),
-                        append=True
-                    )
-                else:
-                    self.log.debug(f"Writing config.toml entry for git repo: {git_repo} , rev {rev}")
-                    write_file(
-                        config_toml,
-                        CONFIG_TOML_SOURCE_GIT.format(url=git_repo, rev=rev),
-                        append=True
-                    )
+                git_branch = self._get_crate_git_repo_branch(crate_name)
+                template = CONFIG_TOML_SOURCE_GIT_BRANCH if git_branch else CONFIG_TOML_SOURCE_GIT
+                self.log.debug(f"Writing config.toml entry for git repo: {git_repo} branch {git_branch}, rev {rev}")
+                write_file(
+                    config_toml,
+                    template.format(url=git_repo, rev=rev, branch=git_branch),
+                    append=True
+                )
             else:
                 self.log.debug("Writing config.toml entry for git repo: %s rev %s", git_repo, rev)
                 # Workspace sources stay in their own separate folder.
@@ -425,31 +414,30 @@ class Cargo(ExtensionEasyBlock):
 
     def _get_crate_git_repo_branch(self, crate_name):
         """
-        Seek the dependency definition for given crate in all Cargo.toml files of sources
+        Find the dependency definition for given crate in all Cargo.toml files of sources
         Return branch target for given crate_name if any
         """
-        cargo_toml_glob = os.path.join(self.builddir, f'{self.name}-{self.version}', '**', 'Cargo.toml')
-        cargo_toml_files = glob.glob(cargo_toml_glob, recursive=True)
+        cargo_toml_files = glob(os.path.join(self.builddir, self.start_dir, '**', 'Cargo.toml'), recursive=True)
+        if not cargo_toml_files:
+            raise EasyBuildError("Cargo.toml file not found in sources")
+
         self.log.debug(
             f"Searching definition of crate '{crate_name}' in the following files: {', '.join(cargo_toml_files)}"
         )
 
-        if not cargo_toml_files:
-            raise EasyBuildError("Cargo.toml file not found in sources")
-
-        git_repo_spec_pattern = f"{crate_name} = ({{.*}})"
-        git_repo_spec = re.compile(git_repo_spec_pattern, re.M)
-        git_branch_spec_pattern = r'branch\s*=\s*"(.*)"'
-        git_branch_spec = re.compile(git_branch_spec_pattern, re.M)
+        git_repo_spec = re.compile(re.escape(crate_name) + r"\s*=\s*{([^}]*)}", re.M)
+        git_branch_spec = re.compile(r'branch\s*=\s*"([^"]*)"', re.M)
 
         for cargo_toml in cargo_toml_files:
             git_repo_crate = git_repo_spec.search(read_file(cargo_toml))
             if git_repo_crate:
-                self.log.debug(f"Found specification in Cargo.toml for crate '{crate_name}': {git_repo_crate.group()}")
+                self.log.debug(f"Found specification in {cargo_toml} for crate '{crate_name}': " +
+                               git_repo_crate.group())
                 git_repo_crate_contents = git_repo_crate.group(1)
                 git_branch_crate = git_branch_spec.search(git_repo_crate_contents)
                 if git_branch_crate:
-                    self.log.debug(f"Found git branch requirement for crate '{crate_name}': {git_branch_crate.group()}")
+                    self.log.debug(f"Found git branch requirement for crate '{crate_name}': " +
+                                   git_branch_crate.group())
                     return git_branch_crate.group(1)
 
         return None
