@@ -367,11 +367,13 @@ class Cargo(ExtensionEasyBlock):
                         move_file(crate_dirs[0], src_dir)
 
             src['finalpath'] = src_dir
+        self._setup_offline_config(git_sources)
 
-    def prepare_step(self, *args, **kwargs):
-        """Custom prepare step: Setup offline config if required."""
-        super().prepare_step(*args, **kwargs)
-
+    def _setup_offline_config(self, git_sources):
+        """
+        Setup the configuration required for offline builds
+        :param git_sources: dict mapping (git_repo, rev) to extracted source
+        """
         if not self.cfg['offline']:
             return
         self.log.info("Setting up vendored crates for offline operation")
@@ -384,12 +386,8 @@ class Cargo(ExtensionEasyBlock):
         # Unable to update https://github.com/[...]
         # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
 
-        for src in self.src:
-            # Check for git crates.
-            try:
-                crate_name, _, git_repo, rev = src['crate']
-            except (ValueError, KeyError):
-                continue  # Not a crate or not using git repo and revision
+        for (git_repo, rev), src in git_sources.items():
+            crate_name = src['crate_name']
             src_dir = src['finalpath']
             if os.path.dirname(src_dir) == self.vendor_dir:
                 # Non-workspace sources are in vendor_dir
@@ -419,7 +417,7 @@ class Cargo(ExtensionEasyBlock):
         """
         # Search all Cargo.toml files in main source and vendored crates
         cargo_toml_files = sum((glob(os.path.join(path, '**', 'Cargo.toml'), recursive=True)
-                                for path in (self.start_dir, self.vendor_dir, self.git_vendor_dir)),
+                                for path in (self.src[0]['finalpath'], self.vendor_dir, self.git_vendor_dir)),
                                start=[])
         if not cargo_toml_files:
             raise EasyBuildError("Cargo.toml file not found in sources")
