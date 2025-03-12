@@ -51,7 +51,7 @@ from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture
 WRAPPER_TEMPLATE = """#!/bin/sh
 
 # Patch argv[0] to the actual compiler so that the correct driver is used internally
-(exec -a "%(actual_compiler_name)s" %(compiler_name)s --gcc-toolchain=$EBROOTGCCCORE "$@")
+(exec -a "$0" {compiler_name} --gcc-toolchain=$EBROOTGCCCORE "$@")
 """
 
 AOCC_MINIMAL_CPP_EXAMPLE = """
@@ -120,14 +120,14 @@ class EB_AOCC(PackedBinary):
         if not compilers_to_wrap:
             return
 
-        orig_compiler_tmpl = '%s/%s.orig'
+        orig_compiler_tmpl = f"{os.path.join(self.installdir, 'bin')}/{{}}.orig"
 
         def create_wrapper(wrapper_comp):
             """Create for a particular compiler, with a particular name"""
             wrapper_f = os.path.join(self.installdir, 'bin', wrapper_comp)
-            write_file(wrapper_f, WRAPPER_TEMPLATE % {'compiler_name': orig_compiler_tmpl %
-                                                      (os.path.join(self.installdir, 'bin'), wrapper_comp),
-                                                      'actual_compiler_name': wrapper_comp})
+            compiler_name = orig_compiler_tmpl.format(wrapper_comp)
+            write_file(wrapper_f, WRAPPER_TEMPLATE.format(compiler_name=compiler_name))
+
             perms = stat.S_IXUSR | stat.S_IRUSR | stat.S_IXGRP | stat.S_IRGRP | stat.S_IXOTH | stat.S_IROTH
             adjust_permissions(wrapper_f, perms)
 
@@ -135,17 +135,15 @@ class EB_AOCC(PackedBinary):
         for comp in compilers_to_wrap:
             actual_compiler = os.path.join(self.installdir, 'bin', comp)
             if os.path.isfile(actual_compiler):
-                move_file(actual_compiler, orig_compiler_tmpl % (os.path.join(self.installdir, 'bin'), comp))
+                move_file(actual_compiler, orig_compiler_tmpl.format(comp))
             else:
-                err_str = "Tried to move '%s' to '%s', but it does not exist!"
-                raise EasyBuildError(err_str, actual_compiler, '%s.orig' % actual_compiler)
+                raise EasyBuildError(f"Cannot make wrapper for '{actual_compiler}', file does not exist")
 
             if not os.path.exists(actual_compiler):
                 create_wrapper(comp)
-                self.log.info("Wrapper for %s successfully created", comp)
+                self.log.info(f"Wrapper for {comp} successfully created")
             else:
-                err_str = "Creating wrapper for '%s' not possible, since original compiler was not renamed!"
-                raise EasyBuildError(err_str, actual_compiler)
+                raise EasyBuildError(f"Cannot make wrapper for '{actual_compiler}', original compiler was not renamed!")
 
     def _create_compiler_config_files(self, compilers_to_add_config_file):
         if not compilers_to_add_config_file:
@@ -227,12 +225,15 @@ class EB_AOCC(PackedBinary):
 
         if LooseVersion(self.version) < LooseVersion("5.0.0"):
             compilers_to_wrap += [
-                'clang',
-                'clang++',
-                'clang-%s' % LooseVersion(self.clangversion).version[0],
-                'clang-cpp',
-                'flang',
+                f'clang-{LooseVersion(self.clangversion).version[0]}',
             ]
+            if self.cfg['keepsymlinks'] is False:
+                compilers_to_wrap += [
+                    'clang',
+                    'clang++',
+                    'clang-cpp',
+                    'flang',
+                ]
         else:
             compilers_to_add_config_files += [
                 'clang',
