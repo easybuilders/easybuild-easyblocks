@@ -417,7 +417,10 @@ class Cargo(ExtensionEasyBlock):
         Find the dependency definition for given crate in all Cargo.toml files of sources
         Return branch target for given crate_name if any
         """
-        cargo_toml_files = glob(os.path.join(self.builddir, self.start_dir, '**', 'Cargo.toml'), recursive=True)
+        # Search all Cargo.toml files in main source and vendored crates
+        cargo_toml_files = sum((glob(os.path.join(path, '**', 'Cargo.toml'), recursive=True)
+                                for path in (self.start_dir, self.vendor_dir, self.git_vendor_dir)),
+                               start=[])
         if not cargo_toml_files:
             raise EasyBuildError("Cargo.toml file not found in sources")
 
