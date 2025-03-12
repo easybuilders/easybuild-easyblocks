@@ -88,7 +88,7 @@ class EB_AOCC(PackedBinary):
         if self.clangversion is None:
             self.clangversion = self._aocc_guess_clang_version()
 
-        self.gcc_prefix = None
+        self._gcc_prefix = None
 
         # Bypass the .mod file check for GCCcore installs
         self.cfg['skip_mod_files_sanity_check'] = True
@@ -146,12 +146,10 @@ class EB_AOCC(PackedBinary):
                 raise EasyBuildError(f"Cannot make wrapper for '{actual_compiler}', original compiler was not renamed!")
 
     def _create_compiler_config_files(self, compilers_to_add_config_file):
+        """For each of the compiler suites, add a .cfg file which points to the correct GCCcore as the GCC toolchain."""
         if not compilers_to_add_config_file:
             return
 
-        # For each of the compiler suites, add a .cfg file which points to the correct GCCcore as the GCC toolchain.
-        # We need the GCC prefix for this.
-        self._set_gcc_prefix()
         bin_dir = os.path.join(self.installdir, 'bin')
         prefix_str = '--gcc-install-dir=%s' % self.gcc_prefix
         for comp in compilers_to_add_config_file:
@@ -168,8 +166,6 @@ class EB_AOCC(PackedBinary):
             'flang',
         ]
 
-        # Set prefix if not done during installation.
-        self._set_gcc_prefix()
         rgx = re.compile('Selected GCC installation: (.*)')
         for comp in compilers_to_check:
             cmd = "%s -v" % os.path.join(self.installdir, 'bin', comp)
@@ -184,9 +180,10 @@ class EB_AOCC(PackedBinary):
                     "GCC installation path `%s` does not match expected path `%s`", gcc_prefix, self.gcc_prefix
                     )
 
-    def _set_gcc_prefix(self):
+    @property
+    def gcc_prefix(self):
         """Set the GCC prefix for the build."""
-        if not self.gcc_prefix:
+        if not self._gcc_prefix:
             arch = get_cpu_architecture()
             gcc_root = get_software_root('GCCcore')
             gcc_version = get_software_version('GCCcore')
@@ -202,8 +199,10 @@ class EB_AOCC(PackedBinary):
             matches = glob.glob(pattern)
             if not matches:
                 raise EasyBuildError("Can't find GCC version %s for architecture %s in %s", gcc_version, arch, pattern)
-            self.gcc_prefix = os.path.abspath(matches[0])
-            self.log.debug("Using %s as the gcc install location", self.gcc_prefix)
+            self._gcc_prefix = os.path.abspath(matches[0])
+            self.log.debug("Using %s as the gcc install location", self._gcc_prefix)
+
+        return self._gcc_prefix
 
     def install_step(self):
         # EULA for AOCC must be accepted via --accept-eula-for EasyBuild configuration option,
