@@ -544,11 +544,11 @@ def generate_crate_list(sourcedir):
                 if not rev:
                     raise ValueError("Revision not found in URL %s" % url)
                 qs = parse_qs(parsed_url.query)
-                rev_qs, branch = qs.get('rev'), qs.get('branch', [None])[0]
+                rev_qs = qs.get('rev', [None])[0]
                 if rev_qs is not None and rev_qs != rev:
                     raise ValueError("Found different revision in query of URL "
                                      "%s: %s, expected: %s" % (url, rev_qs, rev))
-                crates.append((name, version, url, rev, branch))
+                crates.append((name, version, url, rev))
     return app_in_cratesio, crates, other_crates
 
 
