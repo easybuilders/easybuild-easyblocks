@@ -73,7 +73,6 @@ class BuildEnv(Bundle):
         else:
             super(BuildEnv, self).prepare_step(*args, **kwargs)
 
-
     def make_module_extra(self):
         """Add all the build environment variables."""
         txt = super(BuildEnv, self).make_module_extra()
@@ -85,7 +84,6 @@ class BuildEnv(Bundle):
 
         self.log.debug("make_module_extra added this: %s" % txt)
         return txt
-
 
     def make_module_step(self, fake=False):
         """Specify correct bin directories for buildenv installation."""
