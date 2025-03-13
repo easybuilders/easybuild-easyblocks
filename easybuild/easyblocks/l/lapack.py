@@ -44,7 +44,7 @@ from easybuild.toolchains.linalg.openblas import OpenBLAS
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_LAPACK(ConfigureMake):
@@ -215,7 +215,7 @@ class EB_LAPACK(ConfigureMake):
             for lib in ["blas", "lapack"]:
                 self.log.info("Running %s tests..." % lib.upper())
                 cmd = "make BLASLIB='%s' %s_testing" % (blaslib, lib)
-                run_cmd(cmd, log_all=True, simple=True)
+                run_shell_cmd(cmd)
         else:
             super(EB_LAPACK, self).test_step()
 

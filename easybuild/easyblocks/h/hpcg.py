@@ -36,7 +36,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import mkdir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools import LooseVersion
 
 
@@ -53,14 +53,14 @@ class EB_HPCG(ConfigureMake):
             arg = "MPI_GCC_OMP"
         else:
             arg = "../setup/Make.MPI_GCC_OMP"
-        run_cmd("../configure %s" % arg, log_all=True, simple=True, log_ok=True, path='obj')
+        run_shell_cmd("../configure %s" % arg, work_dir='obj')
 
     def build_step(self):
         """Run build in build subdirectory."""
         cxx = os.environ['CXX']
         cxxflags = os.environ['CXXFLAGS']
         cmd = "make CXX='%s' CXXFLAGS='$(HPCG_DEFS) %s -DMPICH_IGNORE_CXX_SEEK'" % (cxx, cxxflags)
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True, path='obj')
+        run_shell_cmd(cmd, work_dir='obj')
 
     def test_step(self):
         """Custom built-in test procedure for HPCG."""
@@ -75,7 +75,7 @@ class EB_HPCG(ConfigureMake):
             hpcg_mpi_cmd = self.toolchain.mpi_cmd_for("xhpcg", 2)
             # 2 threads per MPI process (4 threads in total)
             cmd = "PATH=%s:$PATH OMP_NUM_THREADS=2 %s" % (objbindir, hpcg_mpi_cmd)
-            run_cmd(cmd, simple=True, log_all=True, log_ok=True)
+            run_shell_cmd(cmd)
 
             # find log file, check for success
             success_regex = re.compile(r"Scaled Residual \[[0-9.e-]+\]")

@@ -40,15 +40,6 @@ import easybuild.tools.environment as env
 class EB_torchvision(PythonPackage):
     """Support for building/installing TorchVison."""
 
-    @staticmethod
-    def extra_options():
-        """Change some defaults for easyconfig parameters."""
-        extra_vars = PythonPackage.extra_options()
-        extra_vars['use_pip'][0] = True
-        extra_vars['download_dep_fail'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
-        return extra_vars
-
     def __init__(self, *args, **kwargs):
         """Initialize torchvision easyblock."""
         super(EB_torchvision, self).__init__(*args, **kwargs)

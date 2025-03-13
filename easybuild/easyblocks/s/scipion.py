@@ -28,6 +28,7 @@ EasyBuild support for building and installing Scipion, implemented as an easyblo
 @author: Kenneth Hoste (Ghent University)
 @author: Ake Sandgren (HPC2N, Umea University)
 """
+import configparser
 import os
 
 from easybuild.tools import LooseVersion
@@ -35,8 +36,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.py2vs3 import configparser
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Scipion(ExtensionEasyBlock):
@@ -66,7 +66,7 @@ class EB_Scipion(ExtensionEasyBlock):
             'config',
             self.cfg['configopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # Things that go into the BUILD section of scipion.conf
         build_params = {
@@ -181,11 +181,11 @@ class EB_Scipion(ExtensionEasyBlock):
         linktarget = os.path.join(self.installdir, 'bin', 'scipion')
         symlink(os.path.join('..', 'scipion'), linktarget, use_abspath_source=False)
 
-    def run(self, *args, **kwargs):
+    def install_extension(self, *args, **kwargs):
         """Perform the actual Scipion package configure/installation procedure"""
 
         # The ExtensionEasyBlock run does unpack and patch
-        super(EB_Scipion, self).run(unpack_src=True)
+        super(EB_Scipion, self).install_extension(unpack_src=True)
         self.builddir = self.ext_dir
 
         # configure, build, install

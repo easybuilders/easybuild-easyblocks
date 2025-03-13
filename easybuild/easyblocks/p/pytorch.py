@@ -32,16 +32,16 @@ import os
 import re
 import sys
 import tempfile
+
 import easybuild.tools.environment as env
-from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
-
 
 if sys.version_info >= (3, 9):
     from dataclasses import dataclass
@@ -248,8 +248,11 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
             'max_failed_tests': [0, "Maximum number of failing tests", CUSTOM],
         })
-        extra_vars['download_dep_fail'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
+
+        # disable use of pip to install PyTorch by default, overwriting the default set in PythonPackage;
+        # see also https://github.com/easybuilders/easybuild-easyblocks/pull/3022
+        extra_vars['use_pip'][0] = None
+
         # Make pip show output of build process as that may often contain errors or important warnings
         extra_vars['pip_verbose'][0] = True
         # Test as-if pytorch was installed
@@ -263,6 +266,24 @@ class EB_PyTorch(PythonPackage):
         self.options['modulename'] = 'torch'
 
         self.tmpdir = tempfile.mkdtemp(suffix='-pytorch-build')
+
+        # opt-in to using pip to install PyTorch for sufficiently recent version (>= 2.0),
+        # unless it's otherwise specified
+        pytorch_version = LooseVersion(self.version)
+        if self.cfg['use_pip'] is None and pytorch_version >= '2.0':
+            self.log.info("Auto-enabling use of pip to install PyTorch >= 2.0, since 'use_pip' is not set")
+            self.cfg['use_pip'] = True
+            self.determine_install_command()
+
+        # Set extra environment variables for PyTorch
+        # use glob pattern as self.pylibdir is unknown at this stage
+        # it will be expanded before injection into the module file
+        py_site_glob = os.path.join('lib', 'python*', 'site-packages')
+        self.module_load_environment.CMAKE_PREFIX_PATH = [os.path.join(py_site_glob, 'torch')]
+        # required to dynamically load libcaffe2_nvrtc.so
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join(py_site_glob, 'torch', 'lib')]
+        # important when RPATH linking is enabled
+        self.module_load_environment.LIBRARY_PATH = [os.path.join(py_site_glob, 'torch', 'lib')]
 
     def fetch_step(self, skip_checksums=False):
         """Fetch sources for installing PyTorch, including those for tests."""
@@ -350,7 +371,7 @@ class EB_PyTorch(PythonPackage):
         add_enable_option('VERBOSE', build_option('debug'))
 
         # Restrict parallelism
-        options.append('MAX_JOBS=%s' % self.cfg['parallel'])
+        options.append(f'MAX_JOBS={self.cfg.parallel}')
 
         # BLAS Interface
         if get_software_root('imkl'):
@@ -628,17 +649,6 @@ class EB_PyTorch(PythonPackage):
                 self.sanity_check_fail_msgs.append(fail_msg)
 
         super(EB_PyTorch, self).sanity_check_step(*args, **kwargs)
-
-    def make_module_req_guess(self):
-        """Set extra environment variables for PyTorch."""
-
-        guesses = super(EB_PyTorch, self).make_module_req_guess()
-        guesses['CMAKE_PREFIX_PATH'] = [os.path.join(self.pylibdir, 'torch')]
-        # Required to dynamically load libcaffe2_nvrtc.so
-        guesses['LD_LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
-        # important when RPATH linking is enabled
-        guesses['LIBRARY_PATH'] = [os.path.join(self.pylibdir, 'torch', 'lib')]
-        return guesses
 
 
 def parse_logfile(file):

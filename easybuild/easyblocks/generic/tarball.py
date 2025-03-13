@@ -41,7 +41,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir, extract_file, remove_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class Tarball(ExtensionEasyBlock):
@@ -72,7 +72,7 @@ class Tarball(ExtensionEasyBlock):
         """
         pass
 
-    def run(self, *args, **kwargs):
+    def install_extension(self, *args, **kwargs):
         """Install as extension: unpack sources and copy (via install step)."""
         if self.cfg['install_type'] is None:
             self.log.info("Auto-enabled install_type=merge because Tarball is being used to install an extension")
@@ -94,7 +94,7 @@ class Tarball(ExtensionEasyBlock):
             preinstall_cmd = '&& '.join([cmd for cmd in [preinstall_cmd, self.cfg['preinstall_cmd']] if cmd])
         if preinstall_cmd:
             self.log.info("Preparing installation of %s using command '%s'..." % (self.name, preinstall_cmd))
-            run_cmd(preinstall_cmd, log_all=True, simple=True)
+            run_shell_cmd(preinstall_cmd)
 
         # Copy source directory
         source_path = src or self.cfg['start_dir']

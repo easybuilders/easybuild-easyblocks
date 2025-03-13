@@ -28,13 +28,10 @@ EasyBuild support for installing software using 'conda', implemented as an easyb
 @author: Jillian Rowe (New York University Abu Dhabi)
 @author: Kenneth Hoste (HPC-UGent)
 """
-
-import os
-
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.run import run_cmd
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.build_log import EasyBuildError
 
 
@@ -52,6 +49,21 @@ class Conda(Binary):
             'requirements': [None, "Requirements specification to pass to 'conda install'", CUSTOM],
         })
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        # Do not add installation to search paths for headers or libraries to avoid
+        # that the conda environment is used by other software at building or linking time.
+        # LD_LIBRARY_PATH issue discusses here:
+        # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
+        mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
+        mod_env_cmake = ['CMAKE_LIBRARY_PATH', 'CMAKE_PREFIX_PATH']
+        for disallowed_var in mod_env_headers + mod_env_libs + mod_env_cmake:
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def extract_step(self):
         """Copy sources via extract_step of parent, if any are specified."""
@@ -74,8 +86,8 @@ class Conda(Binary):
 
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
-        cmd = "%s config --add create_default_packages setuptools" % conda_cmd
-        run_cmd(cmd, log_all=True, simple=True)
+        cmd = f"{conda_cmd} config --add create_default_packages setuptools"
+        run_shell_cmd(cmd)
 
         if self.cfg['environment_file'] or self.cfg['remote_environment']:
 
@@ -85,27 +97,27 @@ class Conda(Binary):
                 env_spec = self.cfg['remote_environment']
 
             # use --force to ignore existing installation directory
-            cmd = "%s %s env create --force %s -p %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                         env_spec, self.installdir)
-            run_cmd(cmd, log_all=True, simple=True)
+            cmd = f"{self.cfg['preinstallopts']} {conda_cmd} env create "
+            cmd += f"--force {env_spec} -p {self.installdir}"
+            run_shell_cmd(cmd)
 
         else:
 
             if self.cfg['requirements']:
 
-                install_args = "-y %s " % self.cfg['requirements']
+                install_args = f"-y {self.cfg['requirements']} "
                 if self.cfg['channels']:
                     install_args += ' '.join('-c ' + chan for chan in self.cfg['channels'])
 
                 self.log.info("Installed conda requirements")
 
-            cmd = "%s %s create --force -y -p %s %s" % (self.cfg['preinstallopts'], conda_cmd,
-                                                        self.installdir, install_args)
-            run_cmd(cmd, log_all=True, simple=True)
+            cmd = f"{self.cfg['preinstallopts']} {conda_cmd} create "
+            cmd += f"--force -y -p {self.installdir} {install_args}"
+            run_shell_cmd(cmd)
 
         # clean up
-        cmd = "%s clean -ya" % conda_cmd
-        run_cmd(cmd, log_all=True, simple=True)
+        cmd = f"{conda_cmd} clean -ya"
+        run_shell_cmd(cmd)
 
     def make_module_extra(self):
         """Add the install directory to the PATH."""
@@ -115,15 +127,3 @@ class Conda(Binary):
         txt += self.module_generator.set_environment('CONDA_DEFAULT_ENV', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for.
-        """
-        # LD_LIBRARY_PATH issue discusses here
-        # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
-        return {
-            'PATH': ['bin', 'sbin'],
-            'MANPATH': ['man', os.path.join('share', 'man')],
-            'PKG_CONFIG_PATH': [os.path.join(x, 'pkgconfig') for x in ['lib', 'lib32', 'lib64', 'share']],
-        }

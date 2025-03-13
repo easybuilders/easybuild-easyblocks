@@ -11,8 +11,8 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import ERROR, build_option
-from easybuild.tools.run import run_cmd, check_log_for_errors
+from easybuild.tools.config import build_option
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 import easybuild.tools.environment as env
@@ -105,12 +105,10 @@ class EB_OpenBLAS(ConfigureMake):
             del os.environ[cflags]
             self.log.info("Environment variable %s unset and passed through command line" % cflags)
 
-        makecmd = 'make'
-        if self.cfg['parallel']:
-            makecmd += ' -j %s' % self.cfg['parallel']
+        makecmd = f'make {self.parallel_flag}'
 
         cmd = ' '.join([self.cfg['prebuildopts'], makecmd, ' '.join(build_parts), self.cfg['buildopts']])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def check_lapack_test_results(self, test_output):
         """Check output of OpenBLAS' LAPACK test suite ('make lapack-test')."""
@@ -158,14 +156,17 @@ class EB_OpenBLAS(ConfigureMake):
 
         for runtest in run_tests:
             cmd = "%s make %s %s" % (self.cfg['pretestopts'], runtest, self.cfg['testopts'])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False, regexp=False)
+            res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed
-            check_log_for_errors(out, [('FATAL ERROR', ERROR)])
+            regex = re.compile("FATAL ERROR", re.M)
+            errors = regex.findall(res.output)
+            if errors:
+                raise EasyBuildError("Found %d fatal errors in test output!", len(errors))
 
             # check number of failing LAPACK tests more closely
             if runtest == LAPACK_TEST_TARGET:
-                self.check_lapack_test_results(out)
+                self.check_lapack_test_results(res.output)
 
     def sanity_check_step(self):
         """ Custom sanity check for OpenBLAS """

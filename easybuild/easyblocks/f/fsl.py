@@ -36,7 +36,7 @@ from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.filetools import read_file, copy_dir
 from easybuild.tools.utilities import nub
 
@@ -53,6 +53,9 @@ class EB_FSL(EasyBlock):
 
         self.fsldir = None
 
+        self.module_load_environment.PATH = [os.path.join('fsl', 'bin')]
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join('fsl', 'lib')]
+
     def configure_step(self):
         """Configure FSL build: set FSLDIR env var."""
 
@@ -61,8 +64,8 @@ class EB_FSL(EasyBlock):
 
         # determine FSL machine type
         cmd = ". %s/etc/fslconf/fslmachtype.sh" % self.fsldir
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        fslmachtype = out.strip()
+        res = run_shell_cmd(cmd)
+        fslmachtype = res.output.strip()
         self.log.debug("FSL machine type: %s" % fslmachtype)
 
         best_cfg = None
@@ -117,7 +120,7 @@ class EB_FSL(EasyBlock):
         """Build FSL using supplied script."""
 
         cmd = ". %s/etc/fslconf/fsl.sh && ./build" % self.fsldir
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # check build.log file for success
         buildlog = os.path.join(self.installdir, "fsl", "build.log")
@@ -132,18 +135,6 @@ class EB_FSL(EasyBlock):
     def install_step(self):
         """Building was performed in install dir, no explicit install step required."""
         pass
-
-    def make_module_req_guess(self):
-        """Set correct PATH and LD_LIBRARY_PATH variables."""
-
-        guesses = super(EB_FSL, self).make_module_req_guess()
-
-        guesses.update({
-            'PATH': ["fsl/bin"],
-            'LD_LIBRARY_PATH': ["fsl/lib"],
-        })
-
-        return guesses
 
     def make_module_extra(self):
         """Add setting of FSLDIR in module."""

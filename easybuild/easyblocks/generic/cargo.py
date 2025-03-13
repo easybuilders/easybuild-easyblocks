@@ -39,7 +39,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.filetools import extract_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import compute_checksum, mkdir, move_file, read_file, write_file, CHECKSUM_TYPE_SHA256
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -383,8 +383,8 @@ class Cargo(ExtensionEasyBlock):
     def build_step(self):
         """Build with cargo"""
         parallel = ''
-        if self.cfg['parallel']:
-            parallel = "-j %s" % self.cfg['parallel']
+        if self.cfg.parallel > 1:
+            parallel = f"-j {self.cfg.parallel}"
 
         tests = ''
         if self.cfg['enable_tests']:
@@ -394,7 +394,7 @@ class Cargo(ExtensionEasyBlock):
         if self.cfg['lto'] is not None:
             lto = '--config profile.%s.lto=\\"%s\\"' % (self.profile, self.cfg['lto'])
 
-        run_cmd('rustc --print cfg', log_all=True, simple=True)  # for tracking in log file
+        run_shell_cmd('rustc --print cfg')  # for tracking in log file
         cmd = ' '.join([
             self.cfg['prebuildopts'],
             'cargo build',
@@ -404,7 +404,7 @@ class Cargo(ExtensionEasyBlock):
             parallel,
             self.cfg['buildopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def test_step(self):
         """Test with cargo"""
@@ -415,7 +415,7 @@ class Cargo(ExtensionEasyBlock):
                 '--profile=' + self.profile,
                 self.cfg['testopts'],
             ])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
     def install_step(self):
         """Install with cargo"""
@@ -427,7 +427,7 @@ class Cargo(ExtensionEasyBlock):
             '--path=.',
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
 
 def generate_crate_list(sourcedir):

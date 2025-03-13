@@ -40,7 +40,7 @@ from distutils.core import setup
 sys.path.append('easybuild')
 from easyblocks import VERSION  # noqa
 
-FRAMEWORK_MAJVER = str(VERSION).split('.')[0]
+FRAMEWORK_MAJVER = VERSION.split('.')[0]
 
 # log levels: 0=WARN (default), 1=INFO, 2=DEBUG
 log.set_verbosity(1)
@@ -55,7 +55,7 @@ log.info("Installing version %s (required versions: API >= %s)" % (VERSION, FRAM
 
 setup(
     name="easybuild-easyblocks",
-    version=str(VERSION),
+    version=VERSION,
     author="EasyBuild community",
     author_email="easybuild@lists.ugent.be",
     description="""Python modules which implement support for installing particular \
