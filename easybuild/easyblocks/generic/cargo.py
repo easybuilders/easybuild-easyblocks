@@ -178,17 +178,16 @@ class Cargo(ExtensionEasyBlock):
     @staticmethod
     def crate_download_filename(pkg_name, pkg_version):
         """Crate download filename based on package name and version"""
-        return "{0}/{1}/download".format(pkg_name, pkg_version)
+        return f"{pkg_name}/{pkg_version}/download"
 
     def rustc_optarch(self):
         """Determines what architecture to target.
         Translates GENERIC optarch, and respects rustc specific optarch.
         General optarchs are ignored as there is no direct translation.
         """
-        if systemtools.X86_64 == systemtools.get_cpu_architecture():
+        generic = '-C target-cpu=generic'
+        if systemtools.get_cpu_architecture() == systemtools.X86_64:
             generic = '-C target-cpu=x86-64'
-        else:
-            generic = '-C target-cpu=generic'
 
         optimal = '-C target-cpu=native'
 
@@ -201,11 +200,12 @@ class Cargo(ExtensionEasyBlock):
                         return generic
                     else:
                         return '-' + rust_optarch
-                self.log.info("no rustc information in the optarch dict, so using %s" % optimal)
+                self.log.info(f"Given 'optarch' has no specific information on rustc, so using {optimal}")
             elif optarch == OPTARCH_GENERIC:
                 return generic
             else:
-                self.log.warning("optarch is ignored as there is no translation for rustc, so using %s" % optimal)
+                self.log.warning(f"Ignoring 'optarch' because there is no translation for rustc, so using {optimal}")
+
         return optimal
 
     def __init__(self, *args, **kwargs):
@@ -260,7 +260,6 @@ class Cargo(ExtensionEasyBlock):
         Required here to ensure the variables are defined for stand-alone installations and extensions,
         because the environment is reset to the initial environment right before loading the module.
         """
-
         super(Cargo, self).load_module(*args, **kwargs)
         self.set_cargo_vars()
 
@@ -283,21 +282,17 @@ class Cargo(ExtensionEasyBlock):
 
         for src in self.src:
             # Check if the source is a vendored crate
-            try:
-                crate = vendor_crates[src['name']]
-            except KeyError:
-                is_vendor_crate = False
-            else:
-                is_vendor_crate = True
-                crate_name = crate[0]
+            is_vendor_crate = src['name'] in vendor_crates
+            if is_vendor_crate:
                 # Store crate for later
-                src['crate'] = crate
+                src['crate'] = vendor_crates[src['name']]
+                crate_name = src['crate'][0]
 
             # Check for git crates, `git_key` will be set to a true-ish value for those
-            if not is_vendor_crate or len(crate) == 2:
+            if not is_vendor_crate or len(src['crate']) == 2:
                 git_key = None
             else:
-                git_key = crate[2:]
+                git_key = src['crate'][2:]
                 git_repo, rev = git_key
                 self.log.debug("Sources of %s(%s) belong to git repo: %s rev %s",
                                crate_name, src['name'], git_repo, rev)
@@ -320,10 +315,9 @@ class Cargo(ExtensionEasyBlock):
                     continue
 
             # Extract dependency crates into vendor subdirectory, separate from sources of main package
+            extraction_dir = self.builddir
             if is_vendor_crate:
                 extraction_dir = self.git_vendor_dir if git_key else self.vendor_dir
-            else:
-                extraction_dir = self.builddir
 
             self.log.info("Unpacking source of %s", src['name'])
             existing_dirs = set(os.listdir(extraction_dir))
@@ -367,6 +361,7 @@ class Cargo(ExtensionEasyBlock):
                         move_file(crate_dirs[0], src_dir)
 
             src['finalpath'] = src_dir
+
         self._setup_offline_config(git_sources)
 
     def _setup_offline_config(self, git_sources):
@@ -403,9 +398,11 @@ class Cargo(ExtensionEasyBlock):
                 self.log.debug("Writing config.toml entry for git repo: %s rev %s", git_repo, rev)
                 # Workspace sources stay in their own separate folder.
                 # We cannot have a `directory = "<dir>"` entry where a folder containing a workspace is inside
-                write_file(config_toml,
-                           CONFIG_TOML_SOURCE_GIT_WORKSPACE.format(url=git_repo, rev=rev, workspace_dir=src_dir),
-                           append=True)
+                write_file(
+                    config_toml,
+                    CONFIG_TOML_SOURCE_GIT_WORKSPACE.format(url=git_repo, rev=rev, workspace_dir=src_dir),
+                    append=True
+                )
 
         # Use environment variable since it would also be passed along to builds triggered via python packages
         env.setvar('CARGO_NET_OFFLINE', 'true')
@@ -416,9 +413,10 @@ class Cargo(ExtensionEasyBlock):
         Return branch target for given crate_name if any
         """
         # Search all Cargo.toml files in main source and vendored crates
-        cargo_toml_files = sum((glob(os.path.join(path, '**', 'Cargo.toml'), recursive=True)
-                                for path in (self.src[0]['finalpath'], self.vendor_dir, self.git_vendor_dir)),
-                               start=[])
+        cargo_toml_files = []
+        for cargo_source_dir in (self.src[0]['finalpath'], self.vendor_dir, self.git_vendor_dir):
+            cargo_toml_files.extend(glob(os.path.join(cargo_source_dir, '**', 'Cargo.toml'), recursive=True))
+
         if not cargo_toml_files:
             raise EasyBuildError("Cargo.toml file not found in sources")
 
@@ -463,7 +461,7 @@ class Cargo(ExtensionEasyBlock):
 
         lto = ''
         if self.cfg['lto'] is not None:
-            lto = '--config profile.%s.lto=\\"%s\\"' % (self.profile, self.cfg['lto'])
+            lto = f'--config profile.{self.profile}.lto="{self.cfg["lto"]}"'
 
         run_shell_cmd('rustc --print cfg')  # for tracking in log file
         cmd = ' '.join([
@@ -503,8 +501,9 @@ class Cargo(ExtensionEasyBlock):
 
 def generate_crate_list(sourcedir):
     """Helper for generating crate list"""
-    import toml  # pylint: disable=import-outside-toplevel
     from urllib.parse import parse_qs, urlsplit  # pylint: disable=import-outside-toplevel
+
+    import toml  # pylint: disable=import-outside-toplevel
 
     cargo_toml = toml.load(os.path.join(sourcedir, 'Cargo.toml'))
 
@@ -543,12 +542,11 @@ def generate_crate_list(sourcedir):
                 url = re.split('[#?]', url, maxsplit=1)[0]  # Remove query and fragment
                 rev = parsed_url.fragment
                 if not rev:
-                    raise ValueError("Revision not found in URL %s" % url)
+                    raise ValueError(f"Revision not found in URL {url}")
                 qs = parse_qs(parsed_url.query)
                 rev_qs = qs.get('rev', [None])[0]
                 if rev_qs is not None and rev_qs != rev:
-                    raise ValueError("Found different revision in query of URL "
-                                     "%s: %s, expected: %s" % (url, rev_qs, rev))
+                    raise ValueError(f"Found different revision in query of URL {url}: {rev_qs} (expected: {rev})")
                 crates.append((name, version, url, rev))
     return app_in_cratesio, crates, other_crates
 
