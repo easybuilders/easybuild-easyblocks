@@ -49,7 +49,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import ERROR, build_option
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
 
 if sys.version_info >= (3, 9):
@@ -379,7 +379,7 @@ class EB_PyTorch(PythonPackage):
 
         self.has_xml_test_reports = False
         if pytorch_version >= '1.10.0':
-            out, ec = run_cmd(self.python_cmd + " -c 'import xmlrunner'", log_ok=False)
+            out, ec = run_shell_cmd(self.python_cmd + " -c 'import xmlrunner'")
             if ec != 0:
                 msg = ("Python package xmlrunner (unittest-xml-reporting) not found in dependencies of the "
                        "PyTorch EasyConfig, can't enable advanced test result checks. Output: " + out)
