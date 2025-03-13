@@ -65,7 +65,7 @@ class EB_Rust(ConfigureMake):
         # for Rust > 1.79.0, we also need to replace RUNPATH with RPATH in binaries like cargo and rustc
         if LooseVersion(self.version) > LooseVersion('1.79.0'):
             binaries = glob.glob(os.path.join(self.installdir, 'bin', '*'))
-            runpath_files = [file for file in binaries if is_binary(read_file(file, mode='rb'))]
+            runpath_files.extend([x for x in binaries if is_binary(read_file(x, mode='rb'))])
 
         for runpath_file in runpath_files:
             res = run_shell_cmd(f"readelf -d {runpath_file}", hidden=True)
