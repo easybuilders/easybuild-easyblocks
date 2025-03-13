@@ -32,16 +32,19 @@ General EasyBuild support for software with a binary installer
 @author: Jens Timmerman (Ghent University)
 """
 
+import glob
 import shutil
 import os
+import re
 import stat
 
-from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyblock import EasyBlock, DEFAULT_BIN_LIB_SUBDIRS
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, remove_dir
+from easybuild.tools.config import build_option
+from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, remove_dir, which
 from easybuild.tools.run import run_cmd
-
+from easybuild.tools.utilities import nub
 
 PREPEND_TO_PATH_DEFAULT = ['']
 
@@ -65,6 +68,22 @@ class Binary(EasyBlock):
             'prepend_to_path': [PREPEND_TO_PATH_DEFAULT, "Prepend the given directories (relative to install-dir) to "
                                                          "the environment variable PATH in the module file. Default "
                                                          "is the install-dir itself.", CUSTOM],
+            # We should start moving away from skipping the RPATH sanity check and towards patching RPATHS
+            # using patchelf, see e.g. https://github.com/easybuilders/easybuild-easyblocks/pull/3571
+            # The option run_rpath_sanity_check supports a gradual transition where binary installs that properly
+            # patch the RPATH can start running the sanity check
+            'run_rpath_sanity_check': [False, "Whether or not to run the RPATH sanity check", CUSTOM],
+            # Default for patch_rpath should always remain False, because not all licenses allow modification
+            # of binaries - even the headers
+            'patch_rpaths': [False, "Whether or not to use patchelf to add relevant dirs (from LIBRARY_PATH or, "
+                                    "if sysroot is enabled, from default libdirs in the sysroot) to RPATH", CUSTOM],
+            'extra_rpaths': [None, "List of directories to add to the RPATH, aside from the default ones added by "
+                                   "patch_rpaths. Any $EBROOT* environment variables will be replaced by their "
+                                   "respective values before setting the RPATH.", CUSTOM],
+            # Default for patch_interpreter should always remain False, because not all licenses allow modification
+            # of binaries - even the headers
+            'patch_interpreter': [False, "Whether or not to use patchelf to patch the interpreter in executables when "
+                                         "sysroot is used", CUSTOM],
         })
         return extra_vars
 
@@ -131,8 +150,105 @@ class Binary(EasyBlock):
                 raise EasyBuildError("Incorrect value type for install_cmds, should be list or tuple: ",
                                      install_cmds)
 
-    def post_install_step(self):
-        """Copy installation to actual installation directory in case of a staged installation."""
+    def _get_elf_interpreter_from_sysroot(self):
+        """
+        Find a path to the ELF interpreter based on the sysroot.
+        This function produces an error if either mulitple or no ELF interpreters are found.
+        Otherwise, it will return the realpath to the ELF interpreter in the sysroot.
+        """
+        elf_interp = None
+        sysroot = build_option('sysroot')
+        # find path to ELF interpreter
+        for ld_glob_pattern in (r'ld-linux-*.so.*', r'ld*.so.*'):
+            res = glob.glob(os.path.join(sysroot, 'lib*', ld_glob_pattern))
+            self.log.debug("Paths for ELF interpreter via '%s' pattern: %s", ld_glob_pattern, res)
+
+            if res:
+                # if there are multiple hits, make sure they resolve to the same paths,
+                # but keep using the symbolic link, not the resolved path!
+                real_paths = nub([os.path.realpath(x) for x in res])
+                if len(real_paths) == 1:
+                    elf_interp = res[0]
+                    self.log.info("ELF interpreter found at %s", elf_interp)
+                    break
+                else:
+                    raise EasyBuildError("Multiple different unique ELF interpreters found: %s", real_paths)
+
+        if elf_interp is None:
+            raise EasyBuildError("Failed to isolate ELF interpreter!")
+        else:
+            return elf_interp
+
+    def _determine_extra_rpaths(self, add_library_path_to_rpath, add_sysroot_libdirs_to_rpath):
+        """
+        Determine the additional paths to be added to the RPATH and return these as a list
+        """
+        # TODO: make sure this function ignores anything in filter_rpath_sanity_libs
+        extra_rpaths = []
+        extra_rpaths_from_option = self.cfg.get('extra_rpaths', None)
+        if not isinstance(extra_rpaths_from_option, list):
+            raise EasyBuildError("extra_rpaths option should be a list (got '%s')", extra_rpaths_from_option)
+        if extra_rpaths_from_option:
+            self.log.debug("Extra paths to be added to RPATH, specified through extra_rpaths: %s",
+                           extra_rpaths_from_option)
+            # Replace any $EBROOT* variables by their value
+            pattern = r"(\$EBROOT[^/]+)(.*)"
+
+            # Modify the list in place
+            self.log.debug("Resolving any environment variables in extra_rpaths")
+            for i, path in enumerate(extra_rpaths_from_option):
+                self.log.debug("Matching '%s' with pattern '%s'", path, pattern)
+                match = re.match(pattern, path)
+                if match:
+                    env_var = match.group(1)
+                    self.log.debug("Found environment variable in extra_rpaths: %s", env_var)
+                    rest_of_path = match.group(2)
+                    env_value = os.environ.get(env_var.lstrip('$'), None)  # Strip leading $ from env var name
+                    if env_value is None:
+                        raise EasyBuildError("An environment variable '%s' was used in the 'extra_rpaths' option, "
+                                             "but could not be resolved because it was not found in the environment ",
+                                             env_var)
+                    self.log.debug("Resolved environment variable %s in extra_rpaths path to %s", env_var, env_value)
+                    # Only replace the $EBROOT* part, keep the rest
+                    new_path = env_value + rest_of_path
+                    self.log.debug("Replacing %s with %s", extra_rpaths_from_option[i], new_path)
+                    extra_rpaths_from_option[i] = new_path
+
+            self.log.info("Extra paths to be added to RPATH, specified through extra_rpaths "
+                          "(after replacing environment variables): %s", extra_rpaths_from_option)
+
+            extra_rpaths += extra_rpaths_from_option
+
+        # Then, add paths from LIBRARY_PATH to the extra RPATH
+        if add_library_path_to_rpath:
+            # Get LIBRARY_PATH as a list and add it to the extra paths to be added to RPATH
+            library_path = os.environ.get('LIBRARY_PATH', '').split(':')
+            if library_path:
+                self.log.info("List of library paths from LIBRARY_PATH to be added to RPATH section: %s", library_path)
+                extra_rpaths += library_path
+
+        # Then, add paths from sysroot to the extra RPATH
+        if add_sysroot_libdirs_to_rpath:
+            sysroot = build_option('sysroot')
+            sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
+            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
+            sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
+            if sysroot_lib_paths:
+                self.log.info("List of library paths in sysroot %s to add to RPATH section: %s", sysroot,
+                              sysroot_lib_paths)
+                extra_rpaths += sysroot_lib_paths
+
+        self.log.info("Full list of paths to be added to RPATH: %s", extra_rpaths)
+        return extra_rpaths
+
+    def post_install_step(self, rpath_dirs=None):
+        """
+        - Copy installation to actual installation directory in case of a staged installation
+        - If using sysroot: ensure correct interpreter is used and (if also using RPATH) ensure
+        - If using RPATH support: ensure relevant paths from LIBRARY_PATH are added to RPATH
+        that the libdirs from the system are added to the RPATH
+        """
+        # Copy to installdir for staged install
         if self.cfg.get('staged_install', False):
             staged_installdir = self.installdir
             self.installdir = self.actual_installdir
@@ -145,12 +261,99 @@ class Binary(EasyBlock):
                 raise EasyBuildError("Failed to move staged install from %s to %s: %s",
                                      staged_installdir, self.installdir, err)
 
+        # Check for patchelf if we plan to patch either rpath or interpreter
+        sysroot = build_option('sysroot')
+        add_library_path_to_rpath = self.toolchain.use_rpath and self.cfg.get('patch_rpaths', False)
+        if add_library_path_to_rpath:
+            self.log.debug("Adding the content of LIBRARY_PATH to RPATH: enabled")
+        add_sysroot_libdirs_to_rpath = sysroot and self.cfg.get('patch_rpaths', False)
+        if add_sysroot_libdirs_to_rpath:
+            self.log.debug("Adding the the sysroot libdirs to RPATH: enabled")
+        patch_interpreter = sysroot and self.cfg.get('patch_interpreter', False)
+        if patch_interpreter:
+            self.log.debug("Patching the interpreter for a custom sysroot: enabled")
+        if add_library_path_to_rpath or add_sysroot_libdirs_to_rpath or patch_interpreter:
+            self.log.info("Patching interpreter and/or additional RPATHs in ELF headers of binaries/libraries")
+            # Fail early if patchelf isn't found - we need it
+            if not which('patchelf'):
+                error_msg = "patchelf not found via $PATH, required to patch RPATH section in binaries/libraries"
+                raise EasyBuildError(error_msg)
+
+        # Get ELF interpreter
+        if patch_interpreter:
+            elf_interp = self._get_elf_interpreter_from_sysroot()
+
+        # Determine the paths needed to be added to RPATH
+        extra_rpaths = []
+        if add_library_path_to_rpath or add_sysroot_libdirs_to_rpath:
+            extra_rpaths = self._determine_extra_rpaths(add_library_path_to_rpath, add_sysroot_libdirs_to_rpath)
+
+        # Get directories to loop over for patching files
+        if rpath_dirs is None:
+            rpath_dirs = self.cfg['bin_lib_subdirs'] or self.bin_lib_subdirs()
+
+        if not rpath_dirs:
+            rpath_dirs = DEFAULT_BIN_LIB_SUBDIRS
+            self.log.info("Using default subdirectories for binaries/libraries to patch RPATHs and interpreter: %s",
+                          rpath_dirs)
+        else:
+            self.log.info("Using specified subdirectories for binaries/libraries to patch RPATHs and interpreter: %s",
+                          rpath_dirs)
+
+        # Loop over all dirs in bin_lib_subdirs to patch all dynamically linked files
+        try:
+            for dirpath in [os.path.join(self.installdir, d) for d in rpath_dirs]:
+                if os.path.exists(dirpath):
+                    self.log.debug("Patching ELF headers for files in %s", dirpath)
+
+                    for path in [os.path.join(dirpath, x) for x in os.listdir(dirpath)]:
+                        out, _ = run_cmd("file %s" % path, trace=False)
+                        if "dynamically linked" in out:
+                            # Set ELF interpreter if needed
+                            if patch_interpreter and "executable" in out:
+                                out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
+                                self.log.debug("ELF interpreter for %s: %s" % (path, out))
+
+                                run_cmd("patchelf --set-interpreter %s %s" % (elf_interp, path), trace=False)
+
+                                out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
+                                self.log.debug("ELF interpreter for %s: %s" % (path, out))
+
+                            # Add to RPATH if needed
+                            if extra_rpaths:
+                                out, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
+                                curr_rpath = out.strip()
+                                self.log.debug("RPATH for %s: %s" % (path, curr_rpath))
+
+                                new_rpath = ':'.join([curr_rpath] + extra_rpaths)
+                                # note: it's important to wrap the new RPATH value in single quotes,
+                                # to avoid magic values like $ORIGIN being resolved by the shell
+                                run_cmd("patchelf --force-rpath --set-rpath '%s' %s" % (new_rpath, path), trace=False)
+
+                                curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
+                                self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
+
+                                run_cmd("patchelf --force-rpath --shrink-rpath %s" % path, trace=False)
+
+                                curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
+                                self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
+                                # Potential TODO: should we make sure that after the shrink _SOME_ RPATH is left?
+                                # Otherwise the sanity check may fail. However, our current case (Java) doesn't
+                                # show this, so we'll postpone implementing this until we have a concrete use case.
+
+        except OSError as err:
+            raise EasyBuildError("Failed to patch RPATH or ELF interpreter section in binaries: %s", err)
+
         super(Binary, self).post_install_step()
 
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
-        self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Binary)",
-                      self.__class__.__name__)
+        if self.cfg.get('run_rpath_sanity_check', False):
+            return super(Binary, self).sanity_check_rpath()
+        else:
+            self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Binary)"
+                          " and run_rpath_sanity_check is False",
+                          self.__class__.__name__)
 
     def make_module_extra(self):
         """Add the specified directories to the PATH."""
