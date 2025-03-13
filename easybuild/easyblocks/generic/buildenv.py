@@ -34,6 +34,7 @@ from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.tools.config import build_option, update_build_option
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
+
 class BuildEnv(Bundle):
     """
     Build environment of toolchain: only generate module file
