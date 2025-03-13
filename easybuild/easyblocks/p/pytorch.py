@@ -379,10 +379,10 @@ class EB_PyTorch(PythonPackage):
 
         self.has_xml_test_reports = False
         if pytorch_version >= '1.10.0':
-            out, ec = run_shell_cmd(self.python_cmd + " -c 'import xmlrunner'")
-            if ec != 0:
+            res = run_shell_cmd(self.python_cmd + " -c 'import xmlrunner'", fail_on_error=False)
+            if res.exit_code != 0:
                 msg = ("Python package xmlrunner (unittest-xml-reporting) not found in dependencies of the "
-                       "PyTorch EasyConfig, can't enable advanced test result checks. Output: " + out)
+                       "PyTorch EasyConfig, can't enable advanced test result checks. Output: " + res.output)
                 # We introduced this in the 2.3 EasyConfig
                 if pytorch_version >= '2.3':
                     print_warning(msg)
