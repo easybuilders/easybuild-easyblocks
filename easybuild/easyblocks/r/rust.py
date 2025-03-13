@@ -60,31 +60,34 @@ class EB_Rust(ConfigureMake):
         cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/18079
         """
         shlib_ext = get_shared_lib_ext()
-        shared_libs = glob.glob(os.path.join(self.installdir, 'lib', f'lib*.{shlib_ext}'))
-        executables = glob.glob(os.path.join(self.installdir, 'bin', '*'))
-        binary_files = [file for file in executables + shared_libs if is_binary(read_file(file, mode='rb'))]
+        runpath_files = glob.glob(os.path.join(self.installdir, 'lib', f'lib*.{shlib_ext}'))
 
-        for bin_file in binary_files:
-            res = run_shell_cmd(f"readelf -d {bin_file}", hidden=True)
+        # for Rust > 1.79.0, we also need to replace RUNPATH with RPATH in binaries like cargo and rustc
+        if LooseVersion(self.version) > LooseVersion('1.79.0'):
+            binaries = glob.glob(os.path.join(self.installdir, 'bin', '*'))
+            runpath_files = [file for file in binaries if is_binary(read_file(file, mode='rb'))]
+
+        for runpath_file in runpath_files:
+            res = run_shell_cmd(f"readelf -d {runpath_file}", hidden=True)
             if res.exit_code:
-                raise EasyBuildError(f"Failed to check RPATH section in {bin_file}: {res.output}")
+                raise EasyBuildError(f"Failed to check RPATH section in {runpath_file}: {res.output}")
 
             if RUNPATH_PATTERN.search(res.output):
-                self.log.debug(f"RUNPATH section found in {bin_file} - need to change to RPATH")
+                self.log.debug(f"RUNPATH section found in {runpath_file} - need to change to RPATH")
                 # determine current RUNPATH value
-                res = run_shell_cmd(f"patchelf --print-rpath {bin_file}")
+                res = run_shell_cmd(f"patchelf --print-rpath {runpath_file}")
                 if res.exit_code:
-                    raise EasyBuildError(f"Failed to determine current RUNPATH value for {bin_file}: {res.output}")
+                    raise EasyBuildError(f"Failed to determine current RUNPATH value for {runpath_file}: {res.output}")
 
                 # use RUNPATH value to RPATH value
                 runpath = res.output.strip()
-                res = run_shell_cmd(f"patchelf --set-rpath '{runpath}' --force-rpath {bin_file}")
+                res = run_shell_cmd(f"patchelf --set-rpath '{runpath}' --force-rpath {runpath_file}")
                 if res.exit_code:
-                    raise EasyBuildError(f"Failed to set RPATH for {bin_file}: {res.output}")
+                    raise EasyBuildError(f"Failed to set RPATH for {runpath_file}: {res.output}")
 
-                self.log.info(f"RUNPATH converted to RPATH in file: {bin_file}")
+                self.log.info(f"RUNPATH converted to RPATH in file: {runpath_file}")
             else:
-                self.log.debug(f"No RUNPATH section found in {bin_file}")
+                self.log.debug(f"No RUNPATH section found in {runpath_file}")
 
     def configure_step(self):
         """Custom configure step for Rust"""
@@ -117,8 +120,7 @@ class EB_Rust(ConfigureMake):
         super(EB_Rust, self).install_step()
 
         if build_option('rpath'):
-            if LooseVersion(self.version) >= LooseVersion('1.80.0'):
-                self._convert_runpaths_to_rpaths()
+            self._convert_runpaths_to_rpaths()
 
     def sanity_check_step(self):
         """Custom sanity check for Rust"""
