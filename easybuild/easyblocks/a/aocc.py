@@ -48,7 +48,7 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture
 
 # Wrapper script definition
-WRAPPER_TEMPLATE = """#!/bin/sh
+WRAPPER_TEMPLATE = """#!/bin/bash
 
 # Patch argv[0] to the actual compiler so that the correct driver is used internally
 (exec -a "%(actual_compiler_name)s" %(compiler_name)s --gcc-toolchain=$EBROOTGCCCORE "$@")
