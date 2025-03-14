@@ -52,27 +52,10 @@ class BuildEnv(Bundle):
             self.make_installdir()
             # then set keeppreviousinstall to True (to avoid deleting wrappers we create)
             self.cfg['keeppreviousinstall'] = True
+            # export our RPATH wrappers during the prepare step
+            update_build_option('rpath_wrappers_dir', os.path.join(self.installdir, 'bin'))
 
-            # Temporarily unset the rpath setting so that we can control the rpath wrapper creation
-            update_build_option('rpath', False)
-
-            # Prepare the toolchain, we need to export the wrappers _after_ the modules have been loaded
-            # (so that correct compilers are defined)
-            super(BuildEnv, self).prepare_step(*args, **kwargs)
-
-            # export the rpath wrappers
-            self.toolchain.prepare_rpath_wrappers(
-                rpath_filter_dirs=kwargs.get('rpath_filter_dirs', None),
-                rpath_include_dirs=kwargs.get('rpath_include_dirs', None),
-                wrappers_dir=os.path.join(self.installdir, 'bin'),
-                add_to_path=True,
-                disable_wrapper_log=True
-                )
-
-            # Restore the rpath option
-            update_build_option('rpath', True)
-        else:
-            super(BuildEnv, self).prepare_step(*args, **kwargs)
+        super(BuildEnv, self).prepare_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Add all the build environment variables."""
@@ -90,6 +73,7 @@ class BuildEnv(Bundle):
         """Specify correct bin directories for buildenv installation."""
         filtered_env_vars = build_option('filter_env_vars') or []
         if build_option('rpath') and 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
+            # Final location of wrappers includes a subdirectory
             wrappers_dir = os.path.join(self.installdir, 'bin', RPATH_WRAPPERS_SUBDIR)
             if os.path.exists(wrappers_dir):
                 wrappers_dir_subdirs = [os.path.join(wrappers_dir, dir) for dir in os.listdir(wrappers_dir)]
