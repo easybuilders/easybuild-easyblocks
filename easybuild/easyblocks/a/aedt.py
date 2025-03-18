@@ -33,7 +33,7 @@ import tempfile
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_AEDT(PackedBinary):
@@ -69,10 +69,9 @@ class EB_AEDT(PackedBinary):
             "-DSPECIFY_PORT=1",
             "-DLICENSE_PORT=%s" % licport,
         ])
-        cmd = "./Linux/AnsysEM/Disk1/InstData/setup.exe %s" % options
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd("./Linux/AnsysEM/Disk1/InstData/setup.exe %s" % options)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Disable OS check and set LC_ALL/LANG for runtime"""
         if not self.subdir:
             self._set_subdir()

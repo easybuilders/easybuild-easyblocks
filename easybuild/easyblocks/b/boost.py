@@ -52,7 +52,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import ERROR
 from easybuild.tools.filetools import apply_regex_substitutions, read_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, UNKNOWN
 from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
 
@@ -144,7 +144,7 @@ class EB_Boost(EasyBlock):
 
         cmd = "%s ./bootstrap.sh --with-toolset=%s --prefix=%s %s"
         tup = (self.cfg['preconfigopts'], toolset, self.installdir, self.cfg['configopts'])
-        run_cmd(cmd % tup, log_all=True, simple=True)
+        run_shell_cmd(cmd % tup)
 
         # Use build_toolset if specified or the bootstrap toolset without the OS suffix
         self.toolset = self.cfg['build_toolset'] or re.sub('-linux$', '', toolset)
@@ -227,8 +227,8 @@ class EB_Boost(EasyBlock):
                 self.bjamoptions += " -s%s_INCLUDE=%s/include" % (lib.upper(), libroot)
                 self.bjamoptions += " -s%s_LIBPATH=%s/lib" % (lib.upper(), libroot)
 
-        if self.cfg['parallel']:
-            self.paracmd = "-j %s" % self.cfg['parallel']
+        if self.cfg.parallel > 1:
+            self.paracmd = f"-j {self.cfg.parallel}"
         else:
             self.paracmd = ''
 
@@ -282,7 +282,7 @@ class EB_Boost(EasyBlock):
             self.paracmd,
             self.cfg['buildopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def install_step(self):
         """Install Boost by copying files to install dir."""
@@ -298,7 +298,7 @@ class EB_Boost(EasyBlock):
             self.paracmd,
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         if self.cfg['tagged_layout']:
             if LooseVersion(self.version) >= LooseVersion("1.69.0") or not self.cfg['single_threaded']:

@@ -48,7 +48,8 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.generic.pythonbundle import PythonBundle
 from easybuild.easyblocks.generic.cargopythonbundle import CargoPythonBundle
 from easybuild.easyblocks.gcc import EB_GCC
-from easybuild.easyblocks.imod import EB_IMOD
+from easybuild.easyblocks.elpa import EB_ELPA
+from easybuild.easyblocks.fftw import EB_FFTW
 from easybuild.easyblocks.fftwmpi import EB_FFTW_period_MPI
 from easybuild.easyblocks.imkl_fftw import EB_imkl_minus_FFTW
 from easybuild.easyblocks.openfoam import EB_OpenFOAM
@@ -182,7 +183,8 @@ class ModuleOnlyTest(TestCase):
         print(which('python'))
 
         # create module file
-        app.make_module_step()
+        with self.mocked_stdout_stderr():
+            app.make_module_step()
 
         remove_file(python)
 
@@ -227,11 +229,15 @@ class ModuleOnlyTest(TestCase):
     def test_pythonpackage_pick_python_cmd(self):
         """Test pick_python_cmd function from pythonpackage.py."""
         from easybuild.easyblocks.generic.pythonpackage import pick_python_cmd
+        # Install a dummy Python to use. It only needs to echo the major, minor and patch version
+        tmpdir = tempfile.mkdtemp()
+        for cmd in ('python2', 'python2.6'):
+            install_fake_command(cmd, "#!/bin/bash\n echo 2.6.4", tmpdir)
         self.assertTrue(pick_python_cmd() is not None)
-        self.assertTrue(pick_python_cmd(2) is not None)
-        self.assertTrue(pick_python_cmd(2, 6) is not None)
+        self.assertTrue(pick_python_cmd(3) is not None)
+        self.assertTrue(pick_python_cmd(3, 6) is not None)
         self.assertTrue(pick_python_cmd(123, 456) is None)
-        self.assertTrue(pick_python_cmd(2, 6, 123, 456) is not None)
+        self.assertTrue(pick_python_cmd(3, 6, 123, 456) is not None)
         self.assertTrue(pick_python_cmd(2, 6, 1, 1) is None)
 
 
@@ -278,10 +284,6 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
             os.environ['INTEL_LICENSE_FILE'] = os.path.join(tmpdir, 'intel.lic')
             write_file(os.environ['INTEL_LICENSE_FILE'], '# dummy license')
 
-        elif app_class == EB_IMOD:
-            # $JAVA_HOME must be set for IMOD
-            os.environ['JAVA_HOME'] = tmpdir
-
         elif app_class == PythonBundle or app_class == CargoPythonBundle:
             # $EBROOTPYTHON must be set for PythonBundle easyblock
             os.environ['EBROOTPYTHON'] = '/fake/install/prefix/Python/2.7.14-foss-2018a'
@@ -296,8 +298,9 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
             os.environ['EBROOTJULIA'] = '/fake/install/prefix/Julia/1.6.7'
             os.environ['EBVERSIONJULIA'] = '1.6.7'
 
-        elif app_class == EB_OpenFOAM:
-            # proper toolchain must be used for OpenFOAM(-Extend), to determine value to set for $WM_COMPILER
+        # proper toolchain must be used for OpenFOAM(-Extend), to determine value to set for $WM_COMPILER;
+        # non-system toolchain must be used for ELPA + FFTW*, because no toolchain options are set for system toolchain
+        if app_class in (EB_ELPA, EB_FFTW, EB_FFTW_period_MPI, EB_OpenFOAM):
             write_file(os.path.join(tmpdir, 'GCC', '4.9.3-2.25'), '\n'.join([
                 '#%Module',
                 'setenv EBROOTGCC %s' % tmpdir,
@@ -363,7 +366,8 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         # run all steps, most should be skipped
         orig_workdir = os.getcwd()
         try:
-            app.run_all_steps(run_test_cases=False)
+            with self.mocked_stdout_stderr():
+                app.run_all_steps(run_test_cases=False)
         finally:
             change_dir(orig_workdir)
 
@@ -443,8 +447,13 @@ def suite():
 
     for easyblock in easyblocks:
         eb_fn = os.path.basename(easyblock)
-        # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
+
         if eb_fn == 'systemcompiler.py':
+            # skip SystemCompiler, will be tested through its childs
+            continue
+
+        # dynamically define new inner functions that can be added as class methods to ModuleOnlyTest
+        if eb_fn == 'systemcompilergcc.py':
             # use GCC as name when testing SystemCompiler easyblock
             innertest = make_inner_test(easyblock, name='GCC', version='system')
         elif eb_fn == 'systemmpi.py':
@@ -458,12 +467,28 @@ def suite():
             # exactly one dependency is included with ModuleRC generic easyblock (and name must match)
             extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
             innertest = make_inner_test(easyblock, name='foo', version='1.2.3.4', extra_txt=extra_txt)
+        elif eb_fn in ['advisor.py', 'icc.py', 'iccifort.py', 'ifort.py', 'imkl.py', 'imkl_fftw.py',
+                       'inspector.py', 'itac.py', 'tbb.py', 'vtune.py']:
+            # family of IntelBase easyblocks have a minimum version support based on currently supported toolchains
+            innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], version='9999.9')
+        elif eb_fn == 'aocc.py':
+            # custom easyblock for AOCC expects a version it can map to a Clang version
+            innertest = make_inner_test(easyblock, name='AOCC', version='4.2.0')
         elif eb_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
         elif eb_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, name='OpenSSL-wrapper', version='1.1')
+        elif eb_fn == 'paraver.py':
+            # custom easyblock for Paraver requires version >= 4.7
+            innertest = make_inner_test(easyblock, name='Paraver', version='4.8')
+        elif eb_fn == 'petsc.py':
+            # custom easyblock for PETSc has a minimum required version
+            innertest = make_inner_test(easyblock, name='PETSc', version='99.9')
+        elif eb_fn in ['python.py', 'tkinter.py']:
+            # custom easyblock for Python (ensurepip) requires version >= 3.4.0
+            innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], version='3.4.0')
         elif eb_fn == 'torchvision.py':
             # torchvision easyblock requires that PyTorch is listed as dependency
             extra_txt = "dependencies = [('PyTorch', '1.12.1')]"

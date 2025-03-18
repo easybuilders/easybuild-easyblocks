@@ -143,13 +143,6 @@ class EB_HDF5(ConfigureMake):
         }
         super(EB_HDF5, self).sanity_check_step(custom_paths=custom_paths)
 
-    def make_module_req_guess(self):
-        """Specify pkgconfig path for HDF5."""
-        guesses = super(EB_HDF5, self).make_module_req_guess()
-        guesses.update({'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig')]})
-
-        return guesses
-
     def make_module_extra(self):
         """Also define $HDF5_DIR to installation directory."""
         txt = super(EB_HDF5, self).make_module_extra()

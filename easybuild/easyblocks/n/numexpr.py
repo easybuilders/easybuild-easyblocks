@@ -37,16 +37,6 @@ from easybuild.tools.systemtools import get_cpu_features
 class EB_numexpr(PythonPackage):
     """Support for building/installing numexpr."""
 
-    @staticmethod
-    def extra_options():
-        """Override some custom easyconfig parameters specifically for numexpr."""
-        extra_vars = PythonPackage.extra_options()
-
-        extra_vars['download_dep_fail'][0] = True
-        extra_vars['use_pip'][0] = True
-
-        return extra_vars
-
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for numexpr."""
         super(EB_numexpr, self).__init__(*args, **kwargs)

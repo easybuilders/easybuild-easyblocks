@@ -49,7 +49,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, read_file
 from easybuild.tools.filetools import remove_dir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_WIEN2k(EasyBlock):
@@ -83,17 +83,18 @@ class EB_WIEN2k(EasyBlock):
         """Unpack WIEN2k sources using gunzip and provided expand_lapw script."""
         super(EB_WIEN2k, self).extract_step()
 
-        cmd = "gunzip *gz"
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd("gunzip *gz")
 
         cmd = "./expand_lapw"
-        qanda = {'continue (y/n)': 'y'}
+        qa = [
+            (r"continue \(y/n\)", 'y'),
+        ]
         no_qa = [
-            'tar -xf.*',
-            '.*copied and linked.*',
+            "tar -xf.*",
+            ".*copied and linked.*",
         ]
 
-        run_cmd_qa(cmd, qanda, no_qa=no_qa, log_all=True, simple=True)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa)
 
     def configure_step(self):
         """Configure WIEN2k build by patching siteconfig_lapw script and running it."""
@@ -198,20 +199,20 @@ class EB_WIEN2k(EasyBlock):
         else:
             self.perlbin = ''
 
-        cmd = "./%s" % self.cfgscript
-        qanda = {
-            'Press RETURN to continue': '',
-            'Your compiler:': '',
-            'Hit Enter to continue': '',
-            'Remote shell (default is ssh) =': '',
-            'Remote copy (default is scp) =': '',
-            'and you need to know details about your installed  mpi ..) (y/n)': 'y',
-            'Q to quit Selection:': 'Q',
-            'A Compile all programs (suggested) Q Quit Selection:': 'Q',
-            'Please enter the full path of the perl program: ': self.perlbin,
-            'continue or stop (c/s)': 'c',
-            '(like taskset -c). Enter N / your_specific_command:': 'N',
-        }
+        cmd = './%s' % self.cfgscript
+        qa = [
+            (r"Press RETURN to continue", ''),
+            (r"Your compiler:", ''),
+            (r"Hit Enter to continue", ''),
+            (r"Remote shell \(default is ssh\) =", ''),
+            (r"Remote copy \(default is scp\) =", ''),
+            (r"and you need to know details about your installed  mpi ..\) \(y/n\)", 'y'),
+            (r"Q to quit Selection:", 'Q'),
+            (r"A Compile all programs \(suggested\) Q Quit Selection:", 'Q'),
+            (r"Please enter the full path of the perl program: ", self.perlbin),
+            (r"continue or stop \(c/s\)", 'c'),
+            (r"\(like taskset -c\). Enter N / your_specific_command:", 'N'),
+        ]
         if LooseVersion(self.version) >= LooseVersion("13"):
             fftw_root = get_software_root('FFTW')
             if fftw_root:
@@ -219,16 +220,16 @@ class EB_WIEN2k(EasyBlock):
                 fftw_spec = 'FFTW%s' % fftw_maj
             else:
                 raise EasyBuildError("Required FFTW dependency is missing")
-            qanda.update({
-                ') Selection:': comp_answer,
-                'Shared Memory Architecture? (y/N):': 'N',
-                'Set MPI_REMOTE to  0 / 1:': '0',
-                'You need to KNOW details about your installed  MPI and FFTW ) (y/n)': 'y',
-                'Do you want to use FFTW (recommended, but for sequential code not required)? (Y,n):': 'y',
-                'Please specify whether you want to use FFTW3 (default) or FFTW2  (FFTW3 / FFTW2):': fftw_spec,
-                'Please specify the ROOT-path of your FFTW installation (like /opt/fftw3):': fftw_root,
-                'is this correct? enter Y (default) or n:': 'Y',
-            })
+            qa.extend([
+                (r"\) Selection:", comp_answer),
+                (r"Shared Memory Architecture\? \(y/N\):", 'N'),
+                (r"Set MPI_REMOTE to  0 / 1:", '0'),
+                (r"You need to KNOW details about your installed  MPI and FFTW \) \(y/n\)", 'y'),
+                (r"Do you want to use FFTW \(recommended, but for sequential code not required\)\? \(Y,n\):", 'y'),
+                (r"Please specify whether you want to use FFTW3 \(default\) or FFTW2  \(FFTW3 / FFTW2\):", fftw_spec),
+                (r"Please specify the ROOT-path of your FFTW installation \(like /opt/fftw3\):", fftw_root),
+                (r"is this correct\? enter Y \(default\) or n:", 'Y'),
+            ])
 
             libxcroot = get_software_root('libxc')
 
@@ -242,120 +243,120 @@ class EB_WIEN2k(EasyBlock):
                 libxcstr1 = ''
                 libxcstr3 = ''
 
-            libxcquestion1 = 'LIBXC (that you have installed%s)? (y,N):' % libxcstr1
-            libxcquestion2 = 'Do you want to automatically search for LIBXC installations? (Y,n):'
-            libxcquestion3 = 'Please enter the %sdirectory of your LIBXC-installation!:' % libxcstr3
-            libxcquestion4 = 'Please enter the lib-directory of your LIBXC-installation (usually lib or lib64)!:'
-            libxcquestion5 = 'LIBXC (usually not needed, ONLY for experts who want to play with different DFT options. '
-            libxcquestion5 += 'It must have been installed before)? (y,N):'
-            libxcquestion6 = 'Would you like to use LIBXC (needed ONLY for self-consistent gKS mGGA calculations, '
-            libxcquestion6 += 'for the stress tensor and experts who want to play with different DFT options. '
-            libxcquestion6 += 'It must have been installed before)? (y,N):'
+            libxc_q1 = r"LIBXC \(that you have installed%s\)\? \(y,N\):" % libxcstr1
+            libxc_q2 = r"Do you want to automatically search for LIBXC installations\? \(Y,n\):"
+            libxc_q3 = r"Please enter the %sdirectory of your LIBXC-installation\!:" % libxcstr3
+            libxc_q4 = r"Please enter the lib-directory of your LIBXC-installation \(usually lib or lib64\)\!:"
+            libxc_q5 = r"LIBXC \(usually not needed, ONLY for experts who want to play with different DFT options. "
+            libxc_q5 += r"It must have been installed before\)\? \(y,N\):"
+            libxc_q6 = r"Would you like to use LIBXC \(needed ONLY for self-consistent gKS mGGA calculations, "
+            libxc_q6 += r"for the stress tensor and experts who want to play with different DFT options. "
+            libxc_q6 += r"It must have been installed before\)\? \(y,N\):"
 
             if libxcroot:
-                qanda.update({
-                    libxcquestion1: 'y',
-                    libxcquestion2: 'n',
-                    libxcquestion3: libxcroot,
-                    libxcquestion4: 'lib',
-                    libxcquestion5: 'y',
-                    libxcquestion6: 'y',
-                })
+                qa.extend([
+                    (libxc_q1, 'y'),
+                    (libxc_q2, 'n'),
+                    (libxc_q3, libxcroot),
+                    (libxc_q4, 'lib'),
+                    (libxc_q5, 'y'),
+                    (libxc_q6, 'y'),
+                ])
             else:
-                qanda.update({
-                    libxcquestion1: 'N',
-                    libxcquestion5: 'N',
-                    libxcquestion6: 'N',
-                })
+                qa.extend([
+                    (libxc_q1, 'N'),
+                    (libxc_q5, 'N'),
+                    (libxc_q6, 'N'),
+                ])
 
             if LooseVersion(self.version) >= LooseVersion("17"):
                 scalapack_libs = os.getenv('LIBSCALAPACK').split()
                 scalapack = next((lib[2:] for lib in scalapack_libs if 'scalapack' in lib), 'scalapack')
                 blacs = next((lib[2:] for lib in scalapack_libs if 'blacs' in lib), 'openblas')
-                qanda.update({
-                    'You need to KNOW details about your installed MPI, ELPA, and FFTW ) (y/N)': 'y',
-                    'Do you want to use a present ScaLAPACK installation? (Y,n):': 'y',
-                    'Do you want to use the MKL version of ScaLAPACK? (Y,n):': 'n',  # we set it ourselves below
-                    'Do you use Intel MPI? (Y,n):': 'y',
-                    'Is this correct? (Y,n):': 'y',
-                    'Please specify the target architecture of your ScaLAPACK libraries (e.g. intel64)!:': '',
-                    'ScaLAPACK root:': os.getenv('MKLROOT') or os.getenv('EBROOTSCALAPACK'),
-                    'ScaLAPACK library:': scalapack,
-                    'BLACS root:': os.getenv('MKLROOT') or os.getenv('EBROOTOPENBLAS'),
-                    'BLACS library:': blacs,
-                    'Please enter your choice of additional libraries!:': '',
-                    'Do you want to use a present FFTW installation? (Y,n):': 'y',
-                    'Please specify the path of your FFTW installation (like /opt/fftw3/) '
-                    'or accept present choice (enter):': fftw_root,
-                    'Please specify the target achitecture of your FFTW library (e.g. lib64) '
-                    'or accept present choice (enter):': '',
-                    'Do you want to automatically search for FFTW installations? (Y,n):': 'n',
-                    'Please specify the ROOT-path of your FFTW installation (like /opt/fftw3/) '
-                    'or accept present choice (enter):': fftw_root,
-                    'Is this correct? enter Y (default) or n:': 'Y',
-                    'Please specify the name of your FFTW library or accept present choice (enter):': '',
-                    'or accept the recommendations (Enter - default)!:': '',
+                qa.extend([
+                    (r"You need to KNOW details about your installed MPI, ELPA, and FFTW \) \(y/N\)", 'y'),
+                    (r"Do you want to use a present ScaLAPACK installation\? \(Y,n\):", 'y'),
+                    (r"Do you want to use the MKL version of ScaLAPACK\? \(Y,n\):", 'n'),  # we set it ourselves below
+                    (r"Do you use Intel MPI\? \(Y,n\):", 'y'),
+                    (r"Is this correct\? \(Y,n\):", 'y'),
+                    (r"Please specify the target architecture of your ScaLAPACK libraries \(e.g. intel64\)\!:", ''),
+                    (r"ScaLAPACK root:", os.getenv('MKLROOT') or os.getenv('EBROOTSCALAPACK')),
+                    (r"ScaLAPACK library:", scalapack),
+                    (r"BLACS root:", os.getenv('MKLROOT') or os.getenv('EBROOTOPENBLAS')),
+                    (r"BLACS library:", blacs),
+                    (r"Please enter your choice of additional libraries\!:", ''),
+                    (r"Do you want to use a present FFTW installation\? \(Y,n\):", 'y'),
+                    (r"Please specify the path of your FFTW installation \(like /opt/fftw3/\) "
+                        r"or accept present choice \(enter\):", fftw_root),
+                    (r"Please specify the target achitecture of your FFTW library \(e.g. lib64\) "
+                        r"or accept present choice \(enter\):", ''),
+                    (r"Do you want to automatically search for FFTW installations\? \(Y,n\):", 'n'),
+                    (r"Please specify the ROOT-path of your FFTW installation \(like /opt/fftw3/\) "
+                        r"or accept present choice \(enter\):", fftw_root),
+                    (r"Is this correct\? enter Y \(default\) or n:", 'Y'),
+                    (r"Please specify the name of your FFTW library or accept present choice \(enter\):", ''),
+                    (r"or accept the recommendations \(Enter - default\)\!:", ''),
                     # the temporary directory is hardcoded into execution scripts and must exist at runtime
-                    'Please enter the full path to your temporary directory:': '/tmp',
-                })
+                    (r"Please enter the full path to your temporary directory:", '/tmp'),
+                ])
 
-                std_qa = {}
                 elparoot = get_software_root('ELPA')
                 if elparoot:
 
-                    apply_regex_substitutions(self.cfgscript, [(r'cat elpahelp2$', 'cat -n elpahelp2')])
+                    apply_regex_substitutions(self.cfgscript, [(r"cat elpahelp2$", "cat -n elpahelp2")])
 
                     elpa_dict = {
                         'root': elparoot,
                         'version': get_software_version('ELPA'),
-                        'variant': 'elpa_openmp' if self.toolchain.get_flag('openmp') else 'elpa'}
+                        'variant': 'elpa_openmp' if self.toolchain.get_flag('openmp') else 'elpa',
+                    }
 
                     elpa_dir = "%(root)s/include/%(variant)s-%(version)s" % elpa_dict
-                    std_qa.update({
-                        r".*(?P<number>[0-9]+)\t%s\n(.*\n)*" % elpa_dir: "%(number)s",
-                    })
 
-                    qanda.update({
-                        'Do you want to use ELPA? (y,N):': 'y',
-                        'Do you want to automatically search for ELPA installations? (Y,n):': 'n',
-                        'Please specify the ROOT-path of your ELPA installation (like /usr/local/elpa/) '
-                        'or accept present path (Enter):': elparoot,
-                        'Please specify the lib-directory of your ELPA installation (e.g. lib or lib64)!:': 'lib',
-                        'Please specify the lib-directory of your ELPA installation (e.g. lib or lib64):': 'lib',
-                        'Please specify the name of your installed ELPA library (e.g. elpa or elpa_openmp)!:':
-                            elpa_dict['variant'],
-                        'Please specify the name of your installed ELPA library (e.g. elpa or elpa_openmp):':
-                            elpa_dict['variant'],
-                    })
+                    qa.extend([
+                        (r"Do you want to use ELPA\? \(y,N\):", 'y'),
+                        (r"Do you want to automatically search for ELPA installations\? \(Y,n\):", 'n'),
+                        (r"Please specify the ROOT-path of your ELPA installation \(like /usr/local/elpa/\) "
+                            r"or accept present path \(Enter\):", elparoot),
+                        (r"Please specify the lib-directory of your ELPA installation \(e.g. lib or lib64\)\!:", 'lib'),
+                        (r"Please specify the lib-directory of your ELPA installation \(e.g. lib or lib64\):", 'lib'),
+                        (r"Please specify the name of your installed ELPA library \(e.g. elpa or elpa_openmp\)\!:",
+                         elpa_dict['variant']),
+                        (r"Please specify the name of your installed ELPA library \(e.g. elpa or elpa_openmp\):",
+                         elpa_dict['variant']),
+                        (r".*(?P<number>[0-9]+)\t%s\n(.*\n)*" % elpa_dir, '%(number)s'),
+                    ])
                 else:
-                    qanda.update({'Do you want to use ELPA? (y,N):': 'n'})
+                    qa.append((r"Do you want to use ELPA\? \(y,N\):", 'n'))
         else:
-            qanda.update({
-                'compiler) Selection:': comp_answer,
-                'Shared Memory Architecture? (y/n):': 'n',
-                'If you are using mpi2 set MPI_REMOTE to 0  Set MPI_REMOTE to 0 / 1:': '0',
-                'Do you have MPI and Scalapack installed and intend to run '
-                'finegrained parallel? (This is usefull only for BIG cases '
-                '(50 atoms and more / unit cell) and you need to know details '
-                'about your installed  mpi and fftw ) (y/n)': 'y',
-            })
+            qa.extend([
+                (r"compiler\) Selection:", comp_answer),
+                (r"Shared Memory Architecture\? \(y/n\):", 'n'),
+                (r"If you are using mpi2 set MPI_REMOTE to 0  Set MPI_REMOTE to 0 / 1:", '0'),
+                (r"Do you have MPI and Scalapack installed and intend to run "
+                    r"finegrained parallel\? \(This is usefull only for BIG cases "
+                    r"\(50 atoms and more / unit cell\) and you need to know details "
+                    r"about your installed  mpi and fftw \) \(y/n\)", 'y'),
+            ])
 
         no_qa = [
             'You have the following mkl libraries in %s :' % os.getenv('MKLROOT'),
-            "%s[ \t]*.*" % os.getenv('MPIF90'),
-            "%s[ \t]*.*" % os.getenv('F90'),
-            "%s[ \t]*.*" % os.getenv('CC'),
+            "%s( |\t)*.*" % os.getenv('MPIF90'),
+            "%s( |\t)*.*" % os.getenv('F90'),
+            "%s( |\t)*.*" % os.getenv('CC'),
             ".*SRC_.*",
         ]
 
-        std_qa.update({
-            r'S\s+Save and Quit[\s\n]+To change an item select option.[\s\n]+Selection:': 'S',
-            'Recommended setting for parallel f90 compiler: .* Current selection: Your compiler:': os.getenv('MPIF90'),
-            r'process or you can change single items in "Compiling Options".[\s\n]+Selection:': 'S',
-            r'A\s+Compile all programs (suggested)[\s\n]+Q\s*Quit[\s\n]+Selection:': 'Q',
-        })
+        mpif90 = os.getenv('MPIF90')
+        qa.extend([
+            (r"S\s+Save and Quit[\s\n]+To change an item select option.[\s\n]+Selection:", 'S'),
+            (r"Recommended setting for parallel f90 compiler: .* Current selection: Your compiler:", mpif90),
+            (r"process or you can change single items in \"Compiling Options\".[\s\n]+Selection:", 'S'),
+            (r"A\s+Compile all programs \(suggested\)[\s\n]+Q\s*Quit[\s\n]+Selection:", 'Q'),
+        ])
 
-        run_cmd_qa(cmd, qanda, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
+        # don't check output too frequently for questions, or we'll provide incorrect answers...
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa)
 
         # post-configure patches
         parallel_options = {}
@@ -401,37 +402,36 @@ class EB_WIEN2k(EasyBlock):
 
         self.log.debug('%s part II (build_step)' % self.cfgscript)
 
-        cmd = "./%s" % self.cfgscript
-
-        qanda = {
-            'Press RETURN to continue': '\nQ',  # also answer on first qanda pattern with 'Q' to quit
-            'Please enter the full path of the perl program: ': self.perlbin,
-        }
-
-        if LooseVersion(self.version) < LooseVersion("17"):
-            qanda.update({
-                'L Perl path (if not in /usr/bin/perl) Q Quit Selection:': 'R',
-                'A Compile all programs S Select program Q Quit Selection:': 'A',
-            })
-        else:
-            qanda.update({
-                'program Q Quit Selection:': 'A',
-                'Path Q Quit Selection:': 'R',
-            })
-
-        no_qa = [
-            "%s[ \t]*.*" % os.getenv('MPIF90'),
-            "%s[ \t]*.*" % os.getenv('F90'),
-            "%s[ \t]*.*" % os.getenv('CC'),
-            "mv[ \t]*.*",
-            ".*SRC_.*",
-            ".*: warning .*",
-            ".*Stop.",
-            "Compile time errors (if any) were:",
+        qa = [
+            (r"Press RETURN to continue", '\nQ'),  # also answer on first qanda pattern with 'Q' to quit
+            (r"Please enter the full path of the perl program: ", self.perlbin),
         ]
 
-        self.log.debug("no_qa for %s: %s" % (cmd, no_qa))
-        run_cmd_qa(cmd, qanda, no_qa=no_qa, log_all=True, simple=True)
+        if LooseVersion(self.version) < LooseVersion("17"):
+            qa.extend([
+                (r"L Perl path \(if not in /usr/bin/perl\) Q Quit Selection:", 'R'),
+                (r"A Compile all programs S Select program Q Quit Selection:", 'A'),
+            ])
+        else:
+            qa.extend([
+                (r"program Q Quit Selection:", 'A'),
+                (r"Path Q Quit Selection:", 'R'),
+            ])
+
+        no_qa = [
+            r"%s( |\t)*.*" % os.getenv('MPIF90'),
+            r"%s( |\t)*.*" % os.getenv('F90'),
+            r"%s( |\t)*.*" % os.getenv('CC'),
+            r"mv( |\t)*.*",
+            r".*SRC_.*",
+            r".*: warning .*",
+            r".*Stop.",
+            r"Compile time errors \(if any\) were:",
+        ]
+
+        cmd = "./%s" % self.cfgscript
+        self.log.debug("no_qa for %s: %s", cmd, no_qa)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa)
 
     def test_step(self):
         """Run WIEN2k test benchmarks. """
@@ -440,14 +440,14 @@ class EB_WIEN2k(EasyBlock):
             """Run a WPS command, and check for success."""
 
             cmd = "x_lapw lapw1 %s" % cmd_arg
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            res = run_shell_cmd(cmd, fail_on_error=False)
 
             re_success = re.compile(r"LAPW1\s+END")
-            if not re_success.search(out):
+            if not re_success.search(res.output):
                 raise EasyBuildError("Test '%s' in %s failed (pattern '%s' not found)?",
                                      cmd, os.getcwd(), re_success.pattern)
             else:
-                self.log.info("Test '%s' seems to have run successfully: %s" % (cmd, out))
+                self.log.info("Test '%s' seems to have run successfully: %s" % (cmd, res.output))
 
         if self.cfg['runtest']:
             if not self.cfg['testdata']:
@@ -540,11 +540,8 @@ class EB_WIEN2k(EasyBlock):
                 raise EasyBuildError("Failed to copy %s: %s", test_fp, err)
 
             # run test
-            cmd = "init_lapw %s" % init_args
-            run_cmd(cmd, log_all=True, simple=True)
-
-            cmd = "run_lapw %s" % run_args
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd("init_lapw %s" % init_args)
+            run_shell_cmd("run_lapw %s" % run_args)
 
             # check output
             scf_fn = "%s.scf" % test_name

@@ -34,7 +34,7 @@ from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
 import easybuild.tools.environment as env
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.modules import get_software_root
 
 
@@ -45,15 +45,6 @@ class EB_pybind11(CMakePythonPackage):
     Python packages using `import pybind11`
     Hence we need to install PyBind11 twice: Once with CMake and once with pip
     """
-    @staticmethod
-    def extra_options(extra_vars=None):
-        """Easyconfig parameters specific to PyBind11: Set defaults"""
-        extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
-        extra_vars = CMakeMake.extra_options(extra_vars=extra_vars)
-        extra_vars['use_pip'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
-        extra_vars['download_dep_fail'][0] = True
-        return extra_vars
 
     def configure_step(self):
         """Avoid that a system Python is picked up when a Python module is loaded"""
@@ -80,8 +71,6 @@ class EB_pybind11(CMakePythonPackage):
         build_dir = change_dir(self.cfg['start_dir'])
         PythonPackage.install_step(self)
 
-        # Reset installopts (set by PythonPackage)
-        self.cfg['installopts'] = ''
         change_dir(build_dir)
         CMakeMake.install_step(self)
 
@@ -97,10 +86,10 @@ class EB_pybind11(CMakePythonPackage):
             # since for extension the necessary modules should already be loaded at this point
             fake_mod_data = self.load_fake_module(purge=True)
         cmd = "%s -c 'import pybind11; print(pybind11.get_include())'" % self.python_cmd
-        out, ec = run_cmd(cmd, simple=False)
-        if ec:
+        res = run_shell_cmd(cmd, fail_on_error=False)
+        if res.exit_code:
             raise EasyBuildError("Failed to get pybind11 includes!")
-        python_include = out.strip()
+        python_include = res.output.strip()
         if not self.is_extension:
             self.clean_up_fake_module(fake_mod_data)
 

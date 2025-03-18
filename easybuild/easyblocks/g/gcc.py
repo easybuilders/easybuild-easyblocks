@@ -50,8 +50,8 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file
 from easybuild.tools.filetools import mkdir, move_file, read_file, symlink, which, write_file
-from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
 from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext, get_os_name, get_os_type
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -203,6 +203,14 @@ class EB_GCC(ConfigureMake):
             self.log.warning('Setting withnvptx to False, since we are building on a RISC-V system')
             self.cfg['withnvptx'] = False
 
+        # GCC can find its own headers and libraries in most cases, but we had
+        # cases where paths top libraries needed to be set explicitly
+        # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3256
+        # Therefore, remove paths from header search paths but keep paths in LIBRARY_PATH
+        for disallowed_var in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
+
     def create_dir(self, dirname):
         """
         Create a dir to build in.
@@ -258,10 +266,11 @@ class EB_GCC(ConfigureMake):
 
                 # check whether GCC actually supports LTO (it may be configured with --disable-lto),
                 # by compiling a simple C program using -flto
-                out, ec = run_cmd("echo 'void main() {}' | gcc -x c -flto - -o /dev/null", simple=False, log_ok=False)
+                res = run_shell_cmd("echo 'void main() {}' | gcc -x c -flto - -o /dev/null", fail_on_error=False)
                 gcc_path = which('gcc')
-                if ec:
-                    self.log.info("GCC command %s doesn't seem to support LTO, test compile failed: %s", gcc_path, out)
+                if res.exit_code:
+                    self.log.info("GCC command %s doesn't seem to support LTO, test compile failed: %s", gcc_path,
+                                  res.output)
                     disable_mpfr_lto = True
                 else:
                     self.log.info("GCC command %s provides LTO support, so using it when building MPFR", gcc_path)
@@ -442,16 +451,16 @@ class EB_GCC(ConfigureMake):
         if host_type:
             cmd += ' --host=' + host_type
 
-        (out, ec) = run_cmd("%s %s" % (self.cfg['preconfigopts'], cmd), log_all=True, simple=False)
+        res = run_shell_cmd("%s %s" % (self.cfg['preconfigopts'], cmd))
 
-        if ec != 0:
-            raise EasyBuildError("Command '%s' exited with exit code != 0 (%s)", cmd, ec)
+        if res.exit_code != 0:
+            raise EasyBuildError("Command '%s' exited with exit code != 0 (%s)", cmd, res.exit_code)
 
         # configure scripts tend to simply ignore unrecognized options
         # we should be more strict here, because GCC is very much a moving target
         unknown_re = re.compile("WARNING: unrecognized options")
 
-        unknown_options = unknown_re.findall(out)
+        unknown_options = unknown_re.findall(res.output)
         if unknown_options:
             raise EasyBuildError("Unrecognized options found during configure: %s", unknown_options)
 
@@ -591,7 +600,7 @@ class EB_GCC(ConfigureMake):
                         "-DCMAKE_BUILD_TYPE=Release",
                         self.llvm_dir,
                     ])
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
                     # Need to terminate the current configuration step, but we can't run 'configure' since LLVM uses
                     # CMake, we therefore run 'CMake' manually and then return nothing.
                     # The normal make stage will build LLVM for us as expected, note that we override the install step
@@ -732,14 +741,14 @@ class EB_GCC(ConfigureMake):
 
             # make and install stage 1 build of GCC
             paracmd = ''
-            if self.cfg['parallel']:
-                paracmd = "-j %s" % self.cfg['parallel']
+            if self.cfg.parallel > 1:
+                paracmd = f"-j {self.cfg.parallel}"
 
             cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             cmd = "make install %s" % (self.cfg['installopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             # register built GCC as compiler to use for stage 2/3
             path = "%s/bin:%s" % (self.stage1installdir, os.getenv('PATH'))
@@ -858,10 +867,10 @@ class EB_GCC(ConfigureMake):
 
                     # build and 'install'
                     cmd = "make %s" % paracmd
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
                     cmd = "make install"
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
                     if lib == "gmp":
                         # make sure correct GMP is found
@@ -965,11 +974,11 @@ class EB_GCC(ConfigureMake):
         else:
             super(EB_GCC, self).install_step(*args, **kwargs)
 
-    def post_install_step(self, *args, **kwargs):
+    def post_processing_step(self, *args, **kwargs):
         """
         Post-processing after installation: add symlinks for cc, c++, f77, f95
         """
-        super(EB_GCC, self).post_install_step(*args, **kwargs)
+        super(EB_GCC, self).post_processing_step(*args, **kwargs)
 
         # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')
@@ -1193,17 +1202,3 @@ class EB_GCC(ConfigureMake):
 
         super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
                                               extra_modules=extra_modules)
-
-    def make_module_req_guess(self):
-        """
-        GCC can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        """
-        guesses = super(EB_GCC, self).make_module_req_guess()
-        guesses.update({
-            'PATH': ['bin'],
-            'CPATH': [],
-            'LIBRARY_PATH': ['lib', 'lib64'] if get_cpu_family() == RISCV else [],
-            'LD_LIBRARY_PATH': ['lib', 'lib64'],
-            'MANPATH': ['man', 'share/man']
-        })
-        return guesses

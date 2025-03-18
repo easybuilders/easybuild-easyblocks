@@ -40,7 +40,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions
 from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -76,7 +76,7 @@ class EB_Siesta(ConfigureMake):
 
         par = ''
         if loose_ver >= LooseVersion('4.1'):
-            par = '-j %s' % self.cfg['parallel']
+            par = f"-j {self.cfg.parallel}"
 
         # enable OpenMP support if desired
         env_var_suff = ''
@@ -131,7 +131,7 @@ class EB_Siesta(ConfigureMake):
         change_dir(obj_dir)
 
         # Populate start_dir with makefiles
-        run_cmd(os.path.join(start_dir, 'Src', 'obj_setup.sh'), log_all=True, simple=True, log_output=True)
+        run_shell_cmd(os.path.join(start_dir, 'Src', 'obj_setup.sh'))
 
         if loose_ver < LooseVersion('4.1.0.2.2'):
             # MPI?
@@ -253,7 +253,7 @@ class EB_Siesta(ConfigureMake):
         for regex_nl in regex_newlines:
             apply_regex_substitutions(arch_make, [regex_nl])
 
-        run_cmd('make %s' % par, log_all=True, simple=True, log_output=True)
+        run_shell_cmd('make %s' % par)
 
         # Put binary in temporary install dir
         copy_file(os.path.join(obj_dir, 'siesta'), bindir)
@@ -265,7 +265,7 @@ class EB_Siesta(ConfigureMake):
             if loose_ver >= LooseVersion('4'):
                 # clean_all.sh might be missing executable bit...
                 adjust_permissions('./clean_all.sh', stat.S_IXUSR, recursive=False, relative=True)
-                run_cmd('./clean_all.sh', log_all=True, simple=True, log_output=True)
+                run_shell_cmd('./clean_all.sh')
 
             if loose_ver >= LooseVersion('4.1'):
                 regex_subs_TS = [
@@ -316,7 +316,7 @@ class EB_Siesta(ConfigureMake):
 
             # build_all.sh might be missing executable bit...
             adjust_permissions('./build_all.sh', stat.S_IXUSR, recursive=False, relative=True)
-            run_cmd('./build_all.sh', log_all=True, simple=True, log_output=True)
+            run_shell_cmd('./build_all.sh')
 
             # Now move all the built utils to the temp installdir
             expected_utils = [
@@ -434,8 +434,8 @@ class EB_Siesta(ConfigureMake):
             if loose_ver >= LooseVersion('4.1.0.2.4'):
                 ts_clean_target += '-transiesta'
 
-            run_cmd('make %s' % ts_clean_target, log_all=True, simple=True, log_output=True)
-            run_cmd('make %s transiesta' % par, log_all=True, simple=True, log_output=True)
+            run_shell_cmd('make %s' % ts_clean_target)
+            run_shell_cmd('make %s transiesta' % par)
 
             copy_file(os.path.join(obj_dir, 'transiesta'), bindir)
 

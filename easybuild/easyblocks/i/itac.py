@@ -32,20 +32,19 @@ EasyBuild support for installing the Intel Trace Analyzer and Collector (ITAC), 
 @author: Jens Timmerman (Ghent University)
 """
 
-import os
-
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_itac(IntelBase):
     """
     Class that can be used to install itac
-    - tested with Intel Trace Analyzer and Collector 7.2.1.008
+    - minimum version suported: 2019.x
     """
 
     @staticmethod
@@ -54,6 +53,23 @@ class EB_itac(IntelBase):
             'preferredmpi': ['impi3', "Preferred MPI type", CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Constructor, initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) < LooseVersion('2019'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2019.0."
+            )
+
+        # add cutom paths to the module load environment
+        self.module_load_environment.PATH = ['bin', 'bin/intel64', 'bin64']
+        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib/intel64', 'lib64', 'slib']
+        # avoid software building against itac
+        self.module_load_environment.remove('LIBRARY_PATH')
+        for disallowed_var in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
+            self.module_load_environment.remove(disallowed_var)
 
     def prepare_step(self, *args, **kwargs):
         """
@@ -71,42 +87,9 @@ class EB_itac(IntelBase):
         - create silent cfg file
         - execute command
         """
-
-        if LooseVersion(self.version) >= LooseVersion('8.1'):
-            super(EB_itac, self).install_step_classic(silent_cfg_names_map=None)
-
-            # itac v9.0.1 installer create itac/<version> subdir, so stuff needs to be moved afterwards
-            if LooseVersion(self.version) >= LooseVersion('9.0'):
-                super(EB_itac, self).move_after_install()
-        else:
-            silent = """
-[itac]
-INSTALLDIR=%(ins)s
-LICENSEPATH=%(lic)s
-INSTALLMODE=NONRPM
-INSTALLUSER=NONROOT
-INSTALL_ITA=YES
-INSTALL_ITC=YES
-DEFAULT_MPI=%(mpi)s
-EULA=accept
-""" % {'lic': self.license_file, 'ins': self.installdir, 'mpi': self.cfg['preferredmpi']}
-
-            # already in correct directory
-            silentcfg = os.path.join(os.getcwd(), "silent.cfg")
-            f = open(silentcfg, 'w')
-            f.write(silent)
-            f.close()
-            self.log.debug("Contents of %s: %s" % (silentcfg, silent))
-
-            tmpdir = os.path.join(os.getcwd(), self.version, 'mytmpdir')
-            try:
-                os.makedirs(tmpdir)
-            except OSError as err:
-                raise EasyBuildError("Directory %s can't be created: %s", tmpdir, err)
-
-            cmd = "./install.sh --tmp-dir=%s --silent=%s" % (tmpdir, silentcfg)
-
-            run_cmd(cmd, log_all=True, simple=True)
+        super(EB_itac, self).install_step_classic(silent_cfg_names_map=None)
+        # since itac v9.0.1 installer create itac/<version> subdir, so stuff needs to be moved afterwards
+        super(EB_itac, self).move_after_install()
 
     def install_step_oneapi(self, *args, **kwargs):
         """
@@ -131,7 +114,7 @@ EULA=accept
             "--install-dir=%s" % self.installdir,
         ])
 
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # itac installer create itac/<version> subdir, so stuff needs to be moved afterwards
         super(EB_itac, self).move_after_install()
@@ -145,32 +128,6 @@ EULA=accept
         }
 
         super(EB_itac, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for
-        """
-        guesses = {}
-        if LooseVersion(self.version) < LooseVersion('9.0'):
-            preferredmpi = self.cfg["preferredmpi"]
-            guesses.update({
-                'MANPATH': ['man'],
-                'CLASSPATH': ['itac/lib_%s' % preferredmpi],
-                'VT_LIB_DIR': ['itac/lib_%s' % preferredmpi],
-                'VT_SLIB_DIR': ['itac/lib_s%s' % preferredmpi]
-            })
-
-        if self.cfg['m32']:
-            guesses.update({
-                'PATH': ['bin', 'bin/ia32', 'ia32/bin'],
-                'LD_LIBRARY_PATH': ['lib', 'lib/ia32', 'ia32/lib'],
-            })
-        else:
-            guesses.update({
-                'PATH': ['bin', 'bin/intel64', 'bin64'],
-                'LD_LIBRARY_PATH': ['lib', 'lib/intel64', 'lib64', 'slib'],
-            })
-        return guesses
 
     def make_module_extra(self):
         """Overwritten from IntelBase to add extra txt"""
