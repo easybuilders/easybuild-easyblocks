@@ -301,6 +301,8 @@ class EB_ABAQUS(Binary):
                     std_qa = OrderedDict()
                     std_qa[r"Enter selection \(default: Next\):"] = ''
                     std_qa["Choose the .*installation directory.*\n.*\n\n.*:"] = os.path.join(self.installdir, 'cae')
+                    std_qa["Actions:"] = ''
+                    std_qa["Choose an action:"] = '1'
                     std_qa[r"Enter selection \(default: Install\):"] = ''
                     std_qa[r"The Abaqus commands directory.*:\n.*\n+Actions:\n.*\n_+\n\nPlease.*:"] = '1'
                     std_qa[r"Enter selection \(default: Close\):"] = ''
