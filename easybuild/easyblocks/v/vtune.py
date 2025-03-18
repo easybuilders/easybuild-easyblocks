@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,12 +31,14 @@ EasyBuild support for installing Intel VTune, implemented as an easyblock
 from easybuild.tools import LooseVersion
 import os
 
-from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
+from easybuild.easyblocks.generic.intelbase import IntelBase
+from easybuild.tools.build_log import EasyBuildError
 
 
 class EB_VTune(IntelBase):
     """
     Support for installing Intel VTune
+    - minimum version suported: 2020.x
     """
 
     def __init__(self, *args, **kwargs):
@@ -46,58 +48,34 @@ class EB_VTune(IntelBase):
         # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
         loosever = LooseVersion(self.version)
-        if loosever >= LooseVersion('2021'):
+        if loosever < LooseVersion('2020'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+            )
+
+        if loosever >= LooseVersion('2024'):
+            self.subdir = os.path.join('vtune', '.'.join([str(loosever.version[0]), str(loosever.version[1])]))
+        elif loosever >= LooseVersion('2021'):
             self.subdir = os.path.join('vtune', self.version)
         elif loosever >= LooseVersion('2020'):
             self.subdir = 'vtune_profiler'
-        elif loosever >= LooseVersion('2018'):
-            self.subdir = 'vtune_amplifier'
-        elif loosever >= LooseVersion('2013_update12'):
-            self.subdir = 'vtune_amplifier_xe'
+
+        # prepare module load environment
+        self.prepare_intel_tools_env()
 
     def prepare_step(self, *args, **kwargs):
         """Since 2019u3 there is no license required."""
-        if LooseVersion(self.version) >= LooseVersion('2019_update3'):
-            kwargs['requires_runtime_license'] = False
+        kwargs['requires_runtime_license'] = False
         super(EB_VTune, self).prepare_step(*args, **kwargs)
 
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
         super(EB_VTune, self).make_installdir(dontcreate=True)
 
-    def install_step(self):
-        """
-        Actual installation
-        - create silent cfg file
-        - execute command
-        """
-        silent_cfg_names_map = None
-
-        if LooseVersion(self.version) <= LooseVersion('2013_update11'):
-            silent_cfg_names_map = {
-                'activation_name': ACTIVATION_NAME_2012,
-                'license_file_name': LICENSE_FILE_NAME_2012,
-            }
-
-        super(EB_VTune, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
-
-    def make_module_req_guess(self):
-        """Find reasonable paths for VTune"""
-        return self.get_guesses_tools()
-
     def sanity_check_step(self):
         """Custom sanity check paths for VTune."""
-        if LooseVersion(self.version) >= LooseVersion('2020'):
-            binaries = ['amplxe-feedback', 'amplxe-runss', 'vtune', 'vtune-gui']
-        else:
-            binaries = ['amplxe-cl', 'amplxe-feedback', 'amplxe-gui', 'amplxe-runss']
-
+        binaries = ['amplxe-feedback', 'amplxe-runss', 'vtune', 'vtune-gui']
         custom_paths = self.get_custom_paths_tools(binaries)
-
-        custom_commands = []
-        if LooseVersion(self.version) >= LooseVersion('2020'):
-            custom_commands.append('vtune --version')
-        else:
-            custom_commands.append('amplxe-cl --version')
+        custom_commands = ['vtune --version']
 
         super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

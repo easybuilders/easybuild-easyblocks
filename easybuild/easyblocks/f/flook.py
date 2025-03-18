@@ -1,5 +1,5 @@
 ##
-# Copyright 2023-2024 Utrecht University
+# Copyright 2023-2025 Utrecht University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -55,7 +55,7 @@ class EB_flook(ConfigureMake):
         else:
             local_comp_flags = 'FFLAGS="$FFLAGS" CFLAGS="$CFLAGS"'
         self.cfg.update('buildopts', 'liball %s' % local_comp_flags)
-        self.cfg['parallel'] = 1
+        self.cfg.parallel = 1
 
     def configure_step(self):
         # flook has no configure step

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,15 +48,25 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64, POWER
 
 
 class EB_OpenFOAM(EasyBlock):
     """Support for building and installing OpenFOAM."""
+
+    @staticmethod
+    def extra_options():
+        """Custom easyconfig parameter specific to OpenFOAM."""
+        extra_vars = EasyBlock.extra_options()
+        extra_vars.update({
+            'sanity_check_motorbike': [True, "Should the motorbike sanity check run?", CUSTOM],
+        })
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Specify that OpenFOAM should be built in install dir."""
@@ -271,7 +281,7 @@ class EB_OpenFOAM(EasyBlock):
         env.setvar("WM_COMPILE_OPTION", self.build_type)
 
         # parallel build spec
-        env.setvar("WM_NCOMPPROCS", str(self.cfg['parallel']))
+        env.setvar("WM_NCOMPPROCS", str(self.cfg.parallel))
 
         # OpenFOAM >= 3.0.0 can use 64 bit integers
         if not self.is_extend and self.looseversion >= LooseVersion('3.0'):
@@ -340,18 +350,18 @@ class EB_OpenFOAM(EasyBlock):
             cleancmd = "wcleanAll"
 
         # make directly in install directory
-        cmd_tmpl = "%(precmd)s && %(cleancmd)s && %(prebuildopts)s %(makecmd)s" % {
+        cmd_tmpl = "%(precmd)s && %(cleancmd)s && %(prebuildopts)s bash %(makecmd)s" % {
             'precmd': precmd,
             'cleancmd': cleancmd,
             'prebuildopts': self.cfg['prebuildopts'],
             'makecmd': os.path.join(self.builddir, self.openfoamdir, '%s'),
         }
         if self.is_extend and self.looseversion >= LooseVersion('3.0'):
-            qa = {
-                "Proceed without compiling ParaView [Y/n]": 'Y',
-                "Proceed without compiling cudaSolvers? [Y/n]": 'Y',
-            }
-            noqa = [
+            qa = [
+                (r"Proceed without compiling ParaView \[Y/n\]", 'Y'),
+                (r"Proceed without compiling cudaSolvers\? \[Y/n\]", 'Y'),
+            ]
+            no_qa = [
                 ".* -o .*",
                 "checking .*",
                 "warning.*",
@@ -362,7 +372,7 @@ class EB_OpenFOAM(EasyBlock):
                 r"\s*\^\s*",  # warning indicator
                 "Cleaning .*",
             ]
-            run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True, maxhits=500)
+            run_shell_cmd(cmd_tmpl % 'Allwmake.firstInstall', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=500)
         else:
             cmd = 'Allwmake'
             if self.looseversion > LooseVersion('1606'):
@@ -371,10 +381,10 @@ class EB_OpenFOAM(EasyBlock):
 
                 if self.looseversion >= LooseVersion('2406'):
                     # Also build the plugins
-                    cmd += ' && %s %s -log' % (self.cfg['prebuildopts'],
-                                               os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
+                    cmd += ' && %s bash %s -log' % (self.cfg['prebuildopts'],
+                                                    os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
 
-            run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
+            run_shell_cmd(cmd_tmpl % cmd)
 
     def det_psubdir(self):
         """Determine the platform-specific installation directory for OpenFOAM."""
@@ -540,7 +550,8 @@ class EB_OpenFOAM(EasyBlock):
 
         # run motorBike tutorial case to ensure the installation is functional (if it's available);
         # only for recent (>= v6.0) versions of openfoam.org variant
-        if self.is_dot_org and self.looseversion >= LooseVersion('6'):
+        # could be turned off by set 'sanity_check_motorbike' to False (default True)
+        if self.is_dot_org and self.looseversion >= LooseVersion('6') and self.cfg['sanity_check_motorbike']:
             openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
             if self.looseversion <= LooseVersion('10'):
                 motorbike_path = os.path.join(

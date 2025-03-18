@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2024 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,6 +35,7 @@ from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import print_warning
+from easybuild.tools.config import SEARCH_PATH_LIB_DIRS
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -48,6 +49,14 @@ class EB_R(ConfigureMake):
     Install specified version of libraries, install hard-coded library version
     or latest library version (in that order of preference)
     """
+
+    def __init__(self, *args, **kwargs):
+        """Constructor for R easyblock."""
+        super(EB_R, self).__init__(*args, **kwargs)
+
+        r_lib_subdirs = [os.path.join(libdir, 'R', 'lib') for libdir in SEARCH_PATH_LIB_DIRS]
+        self.module_load_environment.LD_LIBRARY_PATH.extend(r_lib_subdirs)
+        self.module_load_environment.LIBRARY_PATH.extend(r_lib_subdirs)
 
     def prepare_for_extensions(self):
         """
@@ -108,20 +117,6 @@ class EB_R(ConfigureMake):
             warn_msg = "R is configured to be built without BLAS/LAPACK, which will result in (very) poor performance"
             self.log.warning(warn_msg)
             print_warning(warn_msg)
-
-    def make_module_req_guess(self):
-        """
-        Add extra paths to modulefile
-        """
-        guesses = super(EB_R, self).make_module_req_guess()
-
-        guesses.update({
-            'LD_LIBRARY_PATH': ['lib64', 'lib', 'lib64/R/lib', 'lib/R/lib'],
-            'LIBRARY_PATH': ['lib64', 'lib', 'lib64/R/lib', 'lib/R/lib'],
-            'PKG_CONFIG_PATH': ['lib64/pkgconfig', 'lib/pkgconfig'],
-        })
-
-        return guesses
 
     def sanity_check_step(self):
         """Custom sanity check for R."""

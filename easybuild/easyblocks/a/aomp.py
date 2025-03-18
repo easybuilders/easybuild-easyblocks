@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2024 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -68,6 +68,8 @@ class EB_AOMP(Binary):
         super(EB_AOMP, self).__init__(*args, **kwargs)
         self.cfg['extract_sources'] = True
         self.cfg['dontcreateinstalldir'] = True
+        # Bypass the .mod file check for GCCcore installs
+        self.cfg['skip_mod_files_sanity_check'] = True
 
     def configure_step(self):
         """Configure AOMP build and let 'Binary' install"""
@@ -83,11 +85,7 @@ class EB_AOMP(Binary):
             'AOMP_APPLY_ROCM_PATCHES=0',
             'AOMP_STANDALONE_BUILD=1',
         ]
-        if self.cfg['parallel']:
-            install_options.append(
-                'NUM_THREADS={!s}'.format(self.cfg['parallel']))
-        else:
-            install_options.append('NUM_THREADS=1')
+        install_options.append(f'NUM_THREADS={self.cfg.parallel}')
         # Check if CUDA is loaded and alternatively build CUDA backend
         if get_software_root('CUDA') or get_software_root('CUDAcore'):
             cuda_root = get_software_root('CUDA') or get_software_root('CUDAcore')
@@ -131,8 +129,8 @@ class EB_AOMP(Binary):
         # Only build selected components
         self.cfg['installopts'] = 'select ' + ' '.join(components)
 
-    def post_install_step(self):
-        super(EB_AOMP, self).post_install_step()
+    def post_processing_step(self):
+        super(EB_AOMP, self).post_processing_step()
         # The install script will create a symbolic link as the install
         # directory, this creates problems for EB as it won't remove the
         # symlink. To remedy this we remove the link here and rename the actual

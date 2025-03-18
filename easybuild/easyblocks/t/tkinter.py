@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -134,10 +134,3 @@ class EB_Tkinter(EB_Python):
             'dirs': ['lib']
         }
         super(EB_Python, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
-
-    def make_module_extra(self):
-        """Set PYTHONPATH"""
-        txt = super(EB_Tkinter, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
-
-        return txt

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,10 +36,10 @@ from easybuild.tools.modules import get_software_root
 class EB_reticulate(RPackage):
     """Support for installing the reticulate R package."""
 
-    def run(self):
+    def install_extension(self):
         """Add extra environment variables to modulefile"""
 
-        txt = super(EB_reticulate, self).run()
+        txt = super(EB_reticulate, self).install_extension()
         if not txt:
             txt = ""
 

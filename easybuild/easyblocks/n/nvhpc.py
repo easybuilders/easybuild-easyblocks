@@ -1,6 +1,6 @@
 ##
-# Copyright 2015-2024 Bart Oldeman
-# Copyright 2016-2024 Forschungszentrum Juelich
+# Copyright 2015-2025 Bart Oldeman
+# Copyright 2016-2025 Forschungszentrum Juelich
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -45,8 +45,8 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, write_file
-from easybuild.tools.run import run_cmd
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.config import build_option
 from easybuild.tools.build_log import EasyBuildError, print_warning
 
@@ -105,8 +105,61 @@ class EB_NVHPC(PackedBinary):
         # on `ppc64le` systems this function returns `POWER` instead of `ppc64le`. Since this path needs to reflect
         # `arch` (https://easybuild.readthedocs.io/en/latest/version-specific/easyconfig_templates.html) the same
         # procedure from `templates.py` was reused here:
-        architecture = 'Linux_%s' % platform.uname()[4]
-        self.nvhpc_install_subdir = os.path.join(architecture, self.version)
+        architecture = f'Linux_{platform.uname()[4]}'
+        self.install_subdir = os.path.join(architecture, self.version)
+
+        # Set search paths for environment defined in module file
+        self.module_load_environment.PATH = os.path.join(self.install_subdir, 'compilers', 'bin')
+        self.module_load_environment.LD_LIBRARY_PATH = os.path.join(self.install_subdir, 'compilers', 'lib')
+        self.module_load_environment.LIBRARY_PATH = os.path.join(self.install_subdir, 'compilers', 'lib')
+        self.module_load_environment.CMAKE_PREFIX_PATH = os.path.join(self.install_subdir, 'compilers')
+        self.module_load_environment.CMAKE_MODULE_PATH = os.path.join(self.install_subdir, 'cmake')
+        self.module_load_environment.MANPATH = os.path.join(self.install_subdir, 'compilers', 'man')
+        self.module_load_environment.XDG_DATA_DIRS = os.path.join(self.install_subdir, 'compilers', 'share')
+        # compilers can find their own headers, unset $CPATH (and equivalents)
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, [])
+        # BYO Compilers: remove NVHPC compilers from path, use NVHPC's libraries and tools with external compilers
+        if self.cfg['module_byo_compilers']:
+            self.module_load_environment.PATH.remove(os.path.join(self.install_subdir, 'compilers', 'bin'))
+        # Own MPI: enable OpenMPI bundled in NVHPC
+        if self.cfg['module_nvhpc_own_mpi']:
+            mpi_basedir = os.path.join(self.install_subdir, "comm_libs", "mpi")
+            self.module_load_environment.PATH.append(os.path.join(mpi_basedir, 'bin'))
+            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(mpi_basedir, 'lib'))
+            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
+                cpp_header.append(os.path.join(mpi_basedir, 'include'))
+        # Math Libraries: enable math libraries bundled in NVHPC
+        if self.cfg['module_add_math_libs']:
+            math_basedir = os.path.join(self.install_subdir, "math_libs")
+            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(math_basedir, 'lib64'))
+            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
+                cpp_header.append(os.path.join(math_basedir, 'include'))
+        # GPU Profilers: enable NVIDIA's GPU profilers (Nsight Compute/Nsight Systems)
+        if self.cfg['module_add_profilers']:
+            profilers_basedir = os.path.join(self.install_subdir, "profilers")
+            self.module_load_environment.PATH.extend([
+                os.path.join(profilers_basedir, 'Nsight_Compute'),
+                os.path.join(profilers_basedir, 'Nsight_Systems', 'bin'),
+            ])
+        # NCCL: enable NCCL bundled in NVHPC
+        if self.cfg['module_add_nccl']:
+            nccl_basedir = os.path.join(self.install_subdir, "comm_libs", "nccl")
+            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(nccl_basedir, 'lib'))
+            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
+                cpp_header.append(os.path.join(nccl_basedir, 'include'))
+        # NVSHMEM: enable NVSHMEM bundled in NVHPC
+        if self.cfg['module_add_nvshmem']:
+            nvshmem_basedir = os.path.join(self.install_subdir, "comm_libs", "nvshmem")
+            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(nvshmem_basedir, 'lib'))
+            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
+                cpp_header.append(os.path.join(nvshmem_basedir, 'include'))
+        # CUDA: enable CUDA bundled in NVHPC
+        if self.cfg['module_add_cuda']:
+            cuda_basedir = os.path.join(self.install_subdir, "cuda")
+            self.module_load_environment.PATH.append(os.path.join(cuda_basedir, 'bin'))
+            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(cuda_basedir, 'lib64'))
+            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
+                cpp_header.append(os.path.join(cuda_basedir, 'include'))
 
     def install_step(self):
         """Install by running install command."""
@@ -163,10 +216,10 @@ class EB_NVHPC(PackedBinary):
             'NVHPC_STDPAR_CUDACC': str(default_compute_capability),  # 70, 80; single value, no list!
             }
         cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(nvhpc_env_vars.items())])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # make sure localrc uses GCC in PATH, not always the system GCC, and does not use a system g77 but gfortran
-        install_abs_subdir = os.path.join(self.installdir, self.nvhpc_install_subdir)
+        install_abs_subdir = os.path.join(self.installdir, self.install_subdir)
         compilers_subdir = os.path.join(install_abs_subdir, "compilers")
         makelocalrc_filename = os.path.join(compilers_subdir, "bin", "makelocalrc")
         for line in fileinput.input(makelocalrc_filename, inplace='1', backup='.orig'):
@@ -178,7 +231,7 @@ class EB_NVHPC(PackedBinary):
             cmd = "%s -x %s" % (makelocalrc_filename, bin_subdir)
         else:
             cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # If an OS libnuma is NOT found, makelocalrc creates symbolic links to libpgnuma.so
         # If we use the EB libnuma, delete those symbolic links to ensure they are not used
@@ -200,7 +253,7 @@ class EB_NVHPC(PackedBinary):
 
     def sanity_check_step(self):
         """Custom sanity check for NVHPC"""
-        prefix = self.nvhpc_install_subdir
+        prefix = self.install_subdir
         compiler_names = ['nvc', 'nvc++', 'nvfortran']
 
         files = [os.path.join(prefix, 'compilers', 'bin', x) for x in compiler_names]
@@ -213,113 +266,19 @@ class EB_NVHPC(PackedBinary):
                      os.path.join(prefix, 'compilers', 'include'), os.path.join(prefix, 'compilers', 'man')]
         }
 
-        custom_commands = ["%s -v" % compiler for compiler in compiler_names]
-
-        if LooseVersion(self.version) >= LooseVersion('21'):
-            # compile minimal example using -std=c++20 to catch issue where it picks up the wrong GCC
-            # (as long as system gcc is < 9.0)
-            # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
-            tmpdir = tempfile.mkdtemp()
-            write_file(os.path.join(tmpdir, 'minimal.cpp'), NVHPC_MINIMAL_EXAMPLE)
-            minimal_compiler_cmd = "cd %s && nvc++ -std=c++20 minimal.cpp -o minimal" % tmpdir
-            custom_commands.append(minimal_compiler_cmd)
+        custom_commands = []
+        if not self.cfg['module_byo_compilers']:
+            custom_commands = [f"{compiler} -v" for compiler in compiler_names]
+            if LooseVersion(self.version) >= LooseVersion('21'):
+                # compile minimal example using -std=c++20 to catch issue where it picks up the wrong GCC
+                # (as long as system gcc is < 9.0)
+                # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
+                tmpdir = tempfile.mkdtemp()
+                write_file(os.path.join(tmpdir, 'minimal.cpp'), NVHPC_MINIMAL_EXAMPLE)
+                minimal_compiler_cmd = f"cd {tmpdir} && nvc++ -std=c++20 minimal.cpp -o minimal"
+                custom_commands.append(minimal_compiler_cmd)
 
         super(EB_NVHPC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def _nvhpc_extended_components(self, dirs, basepath, env_vars_dirs):
-        """
-        Extends `dirs` dict of key:environment_variables, value:list_of_directories with additional vars and dirs.
-        The dictionary key for a new env var will be created if it doesn't exist.
-        Also, the relative path specified in the `env_vars_dirs` dict is absolutized with the `basepath` prefix.
-        """
-        for env_var, folders in sorted(env_vars_dirs.items()):
-            if env_var not in dirs:
-                dirs[env_var] = []
-            if not isinstance(folders, list):
-                folders = [folders]
-            for folder in folders:
-                dirs[env_var].append(os.path.join(basepath, folder))
-
-    def make_module_req_guess(self):
-        """Prefix subdirectories in NVHPC install dir considered for environment variables defined in module file."""
-        dirs = super(EB_NVHPC, self).make_module_req_guess()
-        for key in dirs:
-            dirs[key] = [os.path.join(self.nvhpc_install_subdir, 'compilers', d) for d in dirs[key]]
-
-        # $CPATH should not be defined in module for NVHPC, it causes problems
-        # cfr. https://github.com/easybuilders/easybuild-easyblocks/issues/830
-        if 'CPATH' in dirs:
-            self.log.info("Removing $CPATH entry: %s", dirs['CPATH'])
-            del dirs['CPATH']
-
-        # EasyBlock option parsing follows:
-        # BYO Compilers:
-        # Use NVHPC's libraries and tools with other, external compilers
-        if self.cfg['module_byo_compilers']:
-            if 'PATH' in dirs:
-                del dirs["PATH"]
-        # Own MPI:
-        # NVHPC is shipped with a compiled OpenMPI installation
-        # Enable it by setting according environment variables
-        if self.cfg['module_nvhpc_own_mpi']:
-            self.nvhpc_mpi_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "mpi")
-            env_vars_dirs = {
-                'PATH': 'bin',
-                'CPATH': 'include',
-                'LD_LIBRARY_PATH': 'lib'
-            }
-            self._nvhpc_extended_components(dirs, self.nvhpc_mpi_basedir, env_vars_dirs)
-        # Math Libraries:
-        # NVHPC is shipped with math libraries (in a dedicated folder)
-        # Enable them by setting according environment variables
-        if self.cfg['module_add_math_libs']:
-            self.nvhpc_math_basedir = os.path.join(self.nvhpc_install_subdir, "math_libs")
-            env_vars_dirs = {
-                'CPATH': 'include',
-                'LD_LIBRARY_PATH': 'lib64'
-            }
-            self._nvhpc_extended_components(dirs, self.nvhpc_math_basedir, env_vars_dirs)
-        # GPU Profilers:
-        # NVHPC is shipped with NVIDIA's GPU profilers (Nsight Compute/Nsight Systems)
-        # Enable them by setting the according environment variables
-        if self.cfg['module_add_profilers']:
-            self.nvhpc_profilers_basedir = os.path.join(self.nvhpc_install_subdir, "profilers")
-            env_vars_dirs = {
-                'PATH': ['Nsight_Compute', 'Nsight_Systems/bin']
-            }
-            self._nvhpc_extended_components(dirs, self.nvhpc_profilers_basedir, env_vars_dirs)
-        # NCCL:
-        # NVHPC is shipped with NCCL
-        # Enable it by setting the according environment variables
-        if self.cfg['module_add_nccl']:
-            self.nvhpc_nccl_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "nccl")
-            env_vars_dirs = {
-                'CPATH': 'include',
-                'LD_LIBRARY_PATH': 'lib'
-            }
-            self._nvhpc_extended_components(dirs, self.nvhpc_nccl_basedir, env_vars_dirs)
-        # NVSHMEM:
-        # NVHPC is shipped with NVSHMEM
-        # Enable it by setting the according environment variables
-        if self.cfg['module_add_nvshmem']:
-            self.nvhpc_nvshmem_basedir = os.path.join(self.nvhpc_install_subdir, "comm_libs", "nvshmem")
-            env_vars_dirs = {
-                'CPATH': 'include',
-                'LD_LIBRARY_PATH': 'lib'
-            }
-            self._nvhpc_extended_components(dirs, self.nvhpc_nvshmem_basedir, env_vars_dirs)
-        # CUDA:
-        # NVHPC is shipped with CUDA (possibly multiple versions)
-        # Rather use this CUDA than an external CUDA (via $CUDA_HOME) by setting according environment variables
-        if self.cfg['module_add_cuda']:
-            self.nvhpc_cuda_basedir = os.path.join(self.nvhpc_install_subdir, "cuda")
-            env_vars_dirs = {
-                'PATH': 'bin',
-                'LD_LIBRARY_PATH': 'lib64',
-                'CPATH': 'include'
-            }
-            self._nvhpc_extended_components(dirs, self.nvhpc_cuda_basedir, env_vars_dirs)
-        return dirs
 
     def make_module_extra(self):
         """Add environment variable for NVHPC location"""

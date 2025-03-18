@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2024 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,15 +39,6 @@ import easybuild.tools.environment as env
 
 class EB_torchvision(PythonPackage):
     """Support for building/installing TorchVison."""
-
-    @staticmethod
-    def extra_options():
-        """Change some defaults for easyconfig parameters."""
-        extra_vars = PythonPackage.extra_options()
-        extra_vars['use_pip'][0] = True
-        extra_vars['download_dep_fail'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
-        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize torchvision easyblock."""
