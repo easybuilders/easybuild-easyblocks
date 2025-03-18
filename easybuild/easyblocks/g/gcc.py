@@ -55,6 +55,8 @@ from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
 from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext, get_os_name, get_os_type
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
+from easybuild.tools.toolchain.utilities import create_rpath_wrappers
 from easybuild.tools.utilities import nub
 
 
@@ -156,6 +158,7 @@ class EB_GCC(ConfigureMake):
             'withppl': [False, "Build GCC with PPL support", CUSTOM],
             'withnvptx': [False, "Build GCC with NVPTX offload support", CUSTOM],
             'withamdgcn': [False, "Build GCC with AMD GCN offload support", CUSTOM],
+            'add_rpath_wrappers': [False, "Install RPATH wrappers with GCCcore and use them on module load", CUSTOM]
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -167,6 +170,7 @@ class EB_GCC(ConfigureMake):
         # offloading and/or AMD GCN offloading
         self.build_stages = [HOST_COMPILER]
         self.current_stage = HOST_COMPILER
+        self.rpath_wrapperdir = os.path.join('bin', RPATH_WRAPPERS_SUBDIR)
         # Directories for additional tools needed when doing offloading to Nvidia and AMD
         self.nvptx_tools_dir = None  # nvptx-tools necessary for Nvidia
         self.llvm_dir = None  # LLVM is necessary when offloading to AMD
@@ -1206,4 +1210,13 @@ class EB_GCC(ConfigureMake):
             'LD_LIBRARY_PATH': ['lib', 'lib64'],
             'MANPATH': ['man', 'share/man']
         })
+
+        if self.cfg['add_rpath_wrappers']:
+            absolute_wrapperdir = os.path.join(self.installdir, self.rpath_wrapperdir)
+            create_rpath_wrappers(absolute_wrapperdir, 'GCCcore', self.version)
+            # appending to "PATH" is important! Otherwise "/bin" will be ahead in PATH and wrappers are not used
+            for wrapperdir in os.listdir(absolute_wrapperdir):
+                # Append wrapper subdir for each
+                guesses['PATH'].append(os.path.join(self.rpath_wrapperdir, wrapperdir))
+
         return guesses
