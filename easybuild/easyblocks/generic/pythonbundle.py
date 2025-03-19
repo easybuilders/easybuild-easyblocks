@@ -51,6 +51,7 @@ class PythonBundle(Bundle):
             extra_vars = {}
         # combine custom easyconfig parameters of Bundle & PythonPackage
         extra_vars = Bundle.extra_options(extra_vars)
+        extra_vars['default_easyblock'][0] = 'PythonPackage'
         return PythonPackage.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
