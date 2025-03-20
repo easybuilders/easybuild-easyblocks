@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -23,27 +23,33 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for using (already installed/existing) system compiler instead of a full install via EasyBuild.
+EasyBuild support for using (already installed/existing) system compiler
+instead of a full install via EasyBuild.
 
 @author Bernd Mohr (Juelich Supercomputing Centre)
 @author Kenneth Hoste (Ghent University)
 @author Alan O'Cais (Juelich Supercomputing Centre)
+@author Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 import re
-from easybuild.tools import LooseVersion
 
 from easybuild.base import fancylogger
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.icc import EB_icc
-from easybuild.easyblocks.ifort import EB_ifort
-from easybuild.easyblocks.gcc import EB_GCC
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import read_file, resolve_path, which
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 _log = fancylogger.getLogger('easyblocks.generic.systemcompiler')
+
+KNOWN_SYSTEM_COMPILERS = {
+    'GCC': 'gcc',
+    'GCCcore': 'gcc',
+    'icc': 'icc',
+    'ifort': 'ifort',
+}
 
 
 def extract_compiler_version(compiler_name):
@@ -54,7 +60,8 @@ def extract_compiler_version(compiler_name):
     # Intel(R) C Intel(R) 64 Compiler XE for applications running on Intel(R) 64, Version 15.0.1.133 Build 20141023
     version_regex = re.compile(r'\s([0-9]+(?:\.[0-9]+){1,3})\s', re.M)
     if compiler_name == 'gcc':
-        out, _ = run_cmd("gcc --version", simple=False)
+        res = run_shell_cmd("gcc --version")
+        out = res.output
         res = version_regex.search(out)
         if res is None:
             raise EasyBuildError("Could not extract GCC version from %s", out)
@@ -70,8 +77,8 @@ def extract_compiler_version(compiler_name):
             raise EasyBuildError("Compiler command '%s' not found", compiler_name)
         # Check what we have looks like a version number (the regex we use requires spaces around the version number)
         if version_regex.search(' ' + compiler_version + ' ') is None:
-            error_msg = "Derived Intel compiler version '%s' doesn't look correct, " % compiler_version
-            error_msg += "is compiler installed in a path like '.../composer_xe_2015.3.187/bin/intel64/icc'?"
+            error_msg = f"Derived Intel compiler version '{compiler_version}' doesn't look correct, "
+            error_msg += "is compiler installed in a path like '.../composer_xe_0000.0.000/bin/intel64/icc'?"
             raise EasyBuildError(error_msg)
     else:
         raise EasyBuildError("Unknown compiler %s", compiler_name)
@@ -85,8 +92,7 @@ def extract_compiler_version(compiler_name):
     return compiler_version
 
 
-# No need to inherit from EB_icc since EB_ifort already inherits from that
-class SystemCompiler(Bundle, EB_GCC, EB_ifort):
+class SystemCompiler(Bundle):
     """
     Support for generating a module file for the system compiler with specified name.
 
@@ -100,11 +106,8 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
     def extra_options():
         """Add custom easyconfig parameters for SystemCompiler easyblock."""
         # Gather extra_vars from inherited classes, order matters here to make this work without problems in __init__
-        extra_vars = EB_GCC.extra_options()
-        extra_vars.update(EB_icc.extra_options())
-        extra_vars.update(EB_ifort.extra_options())
-        extra_vars.update(Bundle.extra_options())
-        # Add an option to add all module path extensions to the resultant easyconfig
+        extra_vars = Bundle.extra_options()
+        # Add an option to add all module path extensions to the resulting easyconfig
         # This is useful if you are importing a compiler from a non-default path
         extra_vars.update({
             'generate_standalone_module': [
@@ -117,7 +120,11 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
 
     def __init__(self, *args, **kwargs):
         """Extra initialization: keep track of values that may change due to modifications to the version."""
-        super(SystemCompiler, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+
+        # by default rely on Bundle easyblock, child SytemCompiler subclasses
+        # might define other easyblocks to handle standalone modules
+        self.compiler_class = Bundle
 
         # Keep track of original values of vars that are subject to change, for restoring later.
         # The version is determined/matched from the installation and the installdir is determined from the system
@@ -127,28 +134,23 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
 
     def prepare_step(self, *args, **kwargs):
         """Do compiler appropriate prepare step, determine system compiler version and prefix."""
-        if self.cfg['generate_standalone_module']:
-            if self.cfg['name'] in ['GCC', 'GCCcore']:
-                EB_GCC.prepare_step(self, *args, **kwargs)
-            elif self.cfg['name'] in ['icc']:
-                EB_icc.prepare_step(self, *args, **kwargs)
-            elif self.cfg['name'] in ['ifort']:
-                EB_ifort.prepare_step(self, *args, **kwargs)
-            else:
-                raise EasyBuildError("I don't know how to do the prepare_step for %s", self.cfg['name'])
-        else:
-            Bundle.prepare_step(self, *args, **kwargs)
+        # disable RPATH as SystemCompiler just generates wrapper modules
+        self.toolchain.options['rpath'] = False
+
+        self.compiler_class.prepare_step(self, *args, **kwargs)
 
         # Determine compiler path (real path, with resolved symlinks)
-        compiler_name = self.cfg['name'].lower()
-        if compiler_name == 'gcccore':
-            compiler_name = 'gcc'
+        try:
+            compiler_name = KNOWN_SYSTEM_COMPILERS[self.cfg['name']]
+        except KeyError as err:
+            raise EasyBuildError(f"EasyConfig '{self.cfg['name']}' has no known system compilers") from err
+
         path_to_compiler = which(compiler_name)
         if path_to_compiler:
             path_to_compiler = resolve_path(path_to_compiler)
-            self.log.info("Found path to compiler '%s' (with symlinks resolved): %s", compiler_name, path_to_compiler)
+            self.log.info(f"Found path to compiler '{compiler_name}' (with symlinks resolved): {path_to_compiler}")
         else:
-            raise EasyBuildError("%s not found in $PATH", compiler_name)
+            raise EasyBuildError(f"{compiler_name} not found in $PATH")
 
         # Determine compiler version
         self.compiler_version = extract_compiler_version(compiler_name)
@@ -180,47 +182,31 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
                 self.compiler_prefix = os.path.dirname(os.path.dirname(self.compiler_prefix))
 
         else:
-            raise EasyBuildError("Unknown system compiler %s" % self.cfg['name'])
+            raise EasyBuildError(f"Unknown system compiler {self.cfg['name']}")
 
         if not os.path.exists(self.compiler_prefix):
-            raise EasyBuildError("Path derived for system compiler (%s) does not exist: %s!",
-                                 compiler_name, self.compiler_prefix)
-        self.log.debug("Derived version/install prefix for system compiler %s: %s, %s",
-                       compiler_name, self.compiler_version, self.compiler_prefix)
+            raise EasyBuildError(
+                f"Prefix path derived for system compiler ({compiler_name}) does not exist: {self.compiler_prefix}!"
+            )
+        self.log.debug(
+            f"Derived version/install prefix for system compiler {compiler_name}: "
+            f"{self.compiler_version}, {self.compiler_prefix}"
+        )
 
         # If EasyConfig specified "real" version (not 'system' which means 'derive automatically'), check it
         if self.cfg['version'] == 'system':
-            self.log.info("Found specified version '%s', going with derived compiler version '%s'",
-                          self.cfg['version'], self.compiler_version)
+            self.log.info(
+                f"Found requested version '{self.cfg['version']}', derived from compiler as '{self.compiler_version}'"
+            )
         elif self.cfg['version'] != self.compiler_version:
-            raise EasyBuildError("Specified version (%s) does not match version reported by compiler (%s)" %
-                                 (self.cfg['version'], self.compiler_version))
+            raise EasyBuildError(
+                f"Requested version ({self.cfg['version']}) does not match version "
+                f"reported by compiler ({self.compiler_version})"
+            )
 
     def make_installdir(self, dontcreate=None):
         """Custom implementation of make installdir: do nothing, do not touch system compiler directories and files."""
         pass
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for.  Return known dict for the system compiler, or empty dict if
-        generate_standalone_module parameter is False
-        """
-        guesses = {}
-        if self.cfg['generate_standalone_module']:
-            if self.compiler_prefix in ['/usr', '/usr/local']:
-                # Force off adding paths to module since unloading such a module would be a potential shell killer
-                print_warning("Ignoring option 'generate_standalone_module' since installation prefix is %s",
-                              self.compiler_prefix)
-            else:
-                if self.cfg['name'] in ['GCC', 'GCCcore']:
-                    guesses = EB_GCC.make_module_req_guess(self)
-                elif self.cfg['name'] in ['icc']:
-                    guesses = EB_icc.make_module_req_guess(self)
-                elif self.cfg['name'] in ['ifort']:
-                    guesses = EB_ifort.make_module_req_guess(self)
-                else:
-                    raise EasyBuildError("I don't know how to generate module var guesses for %s", self.cfg['name'])
-        return guesses
 
     def make_module_step(self, fake=False):
         """
@@ -232,12 +218,29 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         self.installdir = self.compiler_prefix
 
         # Generate module
-        res = super(SystemCompiler, self).make_module_step(fake=fake)
+        module_generator_class = Bundle
+        if self.compiler_class is not None:
+            if self.compiler_prefix in ['/usr', '/usr/local']:
+                # reset module load environment for system compilers in default $PATHS
+                # as such a module would be a potential shell killer
+                print_warning(
+                    "Ignoring option 'generate_standalone_module' since installation prefix is "
+                    f"already in $PATH: {self.compiler_prefix}"
+                )
+                module_vars = [str(env_var) for env_var in self.module_load_environment]
+                for env_var in module_vars:
+                    self.module_load_environment.remove(env_var)
+            else:
+                # rely on compiler class module step to generate standalone module
+                module_generator_class = self.compiler_class
+
+        module_path = module_generator_class.make_module_step(self, fake=fake)
 
         # Reset version and installdir to EasyBuild values
         self.installdir = self.orig_installdir
         self.cfg['version'] = self.orig_version
-        return res
+
+        return module_path
 
     def make_module_extend_modpath(self):
         """
@@ -248,28 +251,18 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         self.cfg['version'] = self.orig_version
 
         # Retrieve module path extensions
-        res = super(SystemCompiler, self).make_module_extend_modpath()
+        extended_modpath = self.compiler_class.make_module_extend_modpath(self)
 
         # Reset to actual compiler version (e.g., "4.8.2")
         self.cfg['version'] = self.compiler_version
-        return res
+
+        return extended_modpath
 
     def make_module_extra(self, *args, **kwargs):
         """Add any additional module text."""
-        if self.cfg['generate_standalone_module']:
-            if self.cfg['name'] in ['GCC', 'GCCcore']:
-                extras = EB_GCC.make_module_extra(self, *args, **kwargs)
-            elif self.cfg['name'] in ['icc']:
-                extras = EB_icc.make_module_extra(self, *args, **kwargs)
-            elif self.cfg['name'] in ['ifort']:
-                extras = EB_ifort.make_module_extra(self, *args, **kwargs)
-            else:
-                raise EasyBuildError("I don't know how to generate extra module text for %s", self.cfg['name'])
-        else:
-            extras = super(SystemCompiler, self).make_module_extra(*args, **kwargs)
-        return extras
+        return self.compiler_class.make_module_extra(self, *args, **kwargs)
 
-    def post_install_step(self, *args, **kwargs):
+    def post_processing_step(self, *args, **kwargs):
         """Do nothing."""
         pass
 
@@ -281,11 +274,11 @@ class SystemCompiler(Bundle, EB_GCC, EB_ifort):
         """Do nothing."""
         pass
 
-    def sanity_check_step(self, *args, **kwargs):
+    def sanity_check_step(self):
         """
         Nothing is being installed, so just being able to load the (fake) module is sufficient
         """
-        self.log.info("Testing loading of module '%s' by means of sanity check" % self.full_mod_name)
+        self.log.info(f"Testing loading of module '{self.full_mod_name}' by means of sanity check")
         fake_mod_data = self.load_fake_module(purge=True)
         self.log.debug("Cleaning up after testing loading of module")
         self.clean_up_fake_module(fake_mod_data)

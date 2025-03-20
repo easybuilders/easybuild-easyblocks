@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,7 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir
 from easybuild.tools.filetools import copy_file, mkdir, remove_file, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -50,7 +50,9 @@ class EB_Xmipp(SCons):
     def __init__(self, *args, **kwargs):
         """Initialize Xmipp-specific variables."""
         super(EB_Xmipp, self).__init__(*args, **kwargs)
+
         self.xmipp_modules = ['xmippCore', 'xmipp', 'xmippViz']
+
         if LooseVersion(self.version) >= LooseVersion('3.20.07'):
             self.cfg['start_dir'] = os.path.join(self.builddir, 'xmipp-' + self.version)
             self.srcdir = os.path.join(self.cfg['start_dir'], 'src')
@@ -61,7 +63,11 @@ class EB_Xmipp(SCons):
             self.srcdir = os.path.join(self.builddir, 'src')
             self.cfgfile = os.path.join(self.builddir, 'xmipp.conf')
             self.xmipp_exe = os.path.join(self.srcdir, 'xmipp', 'xmipp')
+
         self.use_cuda = False
+
+        self.module_load_environment.LD_LIBRARY_PATH = ['lib', os.path.join('bindings', 'python')]
+        self.module_load_environment.PYTHONPATH = [os.path.join('bindings', 'python'), 'pylib']
 
     def extract_step(self):
         """Extract Xmipp sources."""
@@ -112,7 +118,7 @@ class EB_Xmipp(SCons):
             noask,
             self.cfg['configopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # Parameters to be set in the config file
         params = {
@@ -237,7 +243,7 @@ class EB_Xmipp(SCons):
                 'all',
                 self.cfg['buildopts'],
             ])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
             change_dir(cwd)
             xmipp_lib = os.path.join(self.srcdir, 'xmipp', 'lib')
             mkdir(xmipp_lib)
@@ -265,7 +271,7 @@ class EB_Xmipp(SCons):
             self.installdir,
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # Remove the bash and fish files. Everything should be in the module
         remove_file(os.path.join(self.installdir, 'xmipp.bashrc'))
@@ -296,12 +302,3 @@ class EB_Xmipp(SCons):
         txt += self.module_generator.set_environment('XMIPP_HOME', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
-
-    def make_module_req_guess(self):
-        """Custom guesses for environment variables for Xmipp."""
-        guesses = super(EB_Xmipp, self).make_module_req_guess()
-        guesses.update({
-            'LD_LIBRARY_PATH': ['lib', os.path.join('bindings', 'python')],
-            'PYTHONPATH': [os.path.join('bindings', 'python'), 'pylib'],
-        })
-        return guesses

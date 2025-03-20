@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2024 Ghent University
+# Copyright 2019-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -219,7 +219,7 @@ class EB_OpenMPI(ConfigureMake):
         # Run with correct MPI launcher
         mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
         # Limit number of ranks to 8 to avoid it failing due to hyperthreading
-        ranks = min(8, self.cfg['parallel'])
+        ranks = min(8, self.cfg.parallel)
         for srcdir, src, compiler in (
             ('examples', 'hello_c.c', 'mpicc'),
             ('examples', 'hello_mpifh.f', 'mpifort'),

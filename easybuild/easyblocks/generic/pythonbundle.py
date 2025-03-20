@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2024 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,9 +30,10 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import EBPYTHONPREFIXES, EXTS_FILTER_PYTHON_PACKAGES
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd, run_pip_check
+from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES, run_pip_check
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd_from_ec
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
 import easybuild.tools.environment as env
 
@@ -50,6 +51,7 @@ class PythonBundle(Bundle):
             extra_vars = {}
         # combine custom easyconfig parameters of Bundle & PythonPackage
         extra_vars = Bundle.extra_options(extra_vars)
+        extra_vars['default_easyblock'][0] = 'PythonPackage'
         return PythonPackage.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
@@ -67,9 +69,6 @@ class PythonBundle(Bundle):
                 if key not in self.cfg['exts_default_options']:
                     self.cfg['exts_default_options'][key] = self.cfg[key]
 
-            self.cfg['exts_default_options']['download_dep_fail'] = True
-            self.log.info("Detection of downloaded extension dependencies is enabled")
-
             self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.python_cmd = None
@@ -84,7 +83,7 @@ class PythonBundle(Bundle):
 
         if get_software_root('Python') is None:
             raise EasyBuildError("Python not included as dependency!")
-        self.python_cmd = find_python_cmd(self.log, self.cfg['req_py_majver'], self.cfg['req_py_minver'], required=True)
+        self.python_cmd = find_python_cmd_from_ec(self.log, self.cfg, required=True)
 
         self.all_pylibdirs = get_pylibdirs(python_cmd=self.python_cmd)
         self.pylibdir = self.all_pylibdirs[0]
@@ -116,9 +115,20 @@ class PythonBundle(Bundle):
         txt = super(Bundle, self).make_module_extra(*args, **kwargs)
 
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
-        # if this Python package was installed for multiple Python versions
-        if self.multi_python:
-            txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, '')
+        # if this Python package was installed for multiple Python versions, or if we prefer it
+        use_ebpythonprefixes = False
+        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+
+        if 'Python' in runtime_deps:
+            self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
+            if build_option('prefer_python_search_path') == EBPYTHONPREFIXES:
+                self.log.info("Preferred Python search path is $EBPYTHONPREFIXES, so using that")
+                use_ebpythonprefixes = True
+
+        if self.multi_python or use_ebpythonprefixes:
+            path = ''  # EBPYTHONPREFIXES are relative to the install dir
+            if path not in self.module_generator.added_paths_per_key[EBPYTHONPREFIXES]:
+                txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, path)
         else:
 
             # the temporary module file that is generated before installing extensions
@@ -133,9 +143,22 @@ class PythonBundle(Bundle):
                 ]
 
             for pylibdir in new_pylibdirs:
-                txt += self.module_generator.prepend_paths('PYTHONPATH', pylibdir)
+                if pylibdir not in self.module_generator.added_paths_per_key[PYTHONPATH]:
+                    txt += self.module_generator.prepend_paths(PYTHONPATH, pylibdir)
 
         return txt
+
+    def load_module(self, *args, **kwargs):
+        """
+        Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
+
+        super(PythonBundle, self).load_module(*args, **kwargs)
+
+        # Don't add user site directory to sys.path (equivalent to python -s),
+        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check.
+        # Required here to ensure that it is defined for sanity check commands of the bundle
+        # because the environment is reset to the initial environment right before loading the module
+        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Python package."""

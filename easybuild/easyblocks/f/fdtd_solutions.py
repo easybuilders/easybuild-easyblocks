@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,7 @@ import os
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_FDTD_underscore_Solutions(PackedBinary):
@@ -49,7 +49,7 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
         if len(rpms) != 1:
             raise EasyBuildError("Incorrect number of RPMs found, was expecting exactly one: %s", rpms)
         cmd = "rpm2cpio %s | cpio -idm " % rpms[0]
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def make_installdir(self):
         """Override installdir creation"""

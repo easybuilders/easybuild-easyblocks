@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, copy_file, mkdir, remove_file, symlink
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_HPL(ConfigureMake):
@@ -65,7 +65,7 @@ class EB_HPL(ConfigureMake):
 
         cmd = "/bin/bash make_generic"
 
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
         remove_file(makeincfile)
         symlink(os.path.join(setupdir, 'Make.UNKNOWN'), makeincfile)

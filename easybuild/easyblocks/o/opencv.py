@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2024 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -247,8 +247,5 @@ class EB_OpenCV(CMakeMake):
             txt += self.module_generator.prepend_paths('CPATH', os.path.join('include', 'opencv4'))
 
         txt += self.module_generator.prepend_paths('CLASSPATH', os.path.join('share', 'OpenCV', 'java'))
-
-        if os.path.exists(os.path.join(self.installdir, self.pylibdir)):
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
 
         return txt

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,7 +40,7 @@ import sys
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_NCL(EasyBlock):
@@ -61,10 +61,10 @@ class EB_NCL(EasyBlock):
             raise EasyBuildError("Failed to change to the 'config' dir: %s", err)
 
         cmd = "make -f Makefile.ini"
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         cmd = "./ymake -config $PWD"
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # figure out name of config file
         cfg_regexp = re.compile(r'^\s*SYSTEM_INCLUDE\s*=\s*"(.*)"\s*$', re.M)
@@ -215,7 +215,7 @@ class EB_NCL(EasyBlock):
 
         # generate Makefile
         cmd = "./config/ymkmf"
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def build_step(self):
         """Building is done in install_step."""
@@ -225,7 +225,7 @@ class EB_NCL(EasyBlock):
         """Build in install dir using build_step."""
 
         cmd = "%s make Everything %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """

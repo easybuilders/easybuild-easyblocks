@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,15 +37,6 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibd
 
 class EB_sympy(PythonPackage):
     """Custom easyblock for installing the sympy Python package."""
-
-    @staticmethod
-    def extra_options(extra_vars=None):
-        """Customize default value for easyconfig parameters for sympy"""
-        extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
-        extra_vars['use_pip'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
-        extra_vars['download_dep_fail'][0] = True
-        return extra_vars
 
     def test_step(self):
         """Custom test step for sympy"""

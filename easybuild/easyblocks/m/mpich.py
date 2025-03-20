@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University, Forschungszentrum Juelich
+# Copyright 2009-2025 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -92,23 +92,29 @@ class EB_MPICH(ConfigureMake):
         # additional configuration options
         add_configopts = []
 
-        # use POSIX threads
-        add_configopts.append('--with-thread-package=pthreads')
-
         if self.cfg['debug']:
             # debug build, with error checking, timing and debug info
             # note: this will affect performance
-            add_configopts.append('--enable-fast=none')
+            if LooseVersion(self.version) < LooseVersion('4.0.0'):
+                add_configopts.append('--enable-fast=none')
+            else:
+                add_configopts.append('--enable-error-checking=all')
+                add_configopts.append('--enable-timing=runtime')
+                add_configopts.append('--enable-debuginfo')
         else:
             # optimized build, no error checking, timing or debug info
-            add_configopts.append('--enable-fast')
+            if LooseVersion(self.version) < LooseVersion('4.0.0'):
+                add_configopts.append('--enable-fast')
+            else:
+                add_configopts.append('--enable-error-checking=no')
+                add_configopts.append('--enable-timing=none')
 
         # enable shared libraries, using GCC and GNU ld options
-        add_configopts.extend(['--enable-shared', '--enable-sharedlibs=gcc'])
+        add_configopts.append('--enable-shared')
         # enable static libraries
-        add_configopts.extend(['--enable-static'])
+        add_configopts.append('--enable-static')
         # enable Fortran 77/90 and C++ bindings
-        add_configopts.extend(['--enable-f77', '--enable-fc', '--enable-cxx'])
+        add_configopts.extend(['--enable-fortran=all', '--enable-cxx'])
 
         self.cfg.update('configopts', ' '.join(add_configopts))
 

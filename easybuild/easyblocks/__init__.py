@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,6 @@ easybuild.easyblocks package declaration
 @author: Jens Timmerman (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
 from pkgutil import extend_path
 
 # note: release candidates should be versioned as a pre-release, e.g. "1.1rc1"
@@ -43,7 +42,7 @@ from pkgutil import extend_path
 # recent setuptools versions will *TRANSFORM* something like 'X.Y.Zdev' into 'X.Y.Z.dev0', with a warning like
 #   UserWarning: Normalizing '2.4.0dev' to '2.4.0.dev0'
 # This causes problems further up the dependency chain...
-VERSION = LooseVersion('4.9.3.dev0')
+VERSION = '5.0.1.dev0'
 UNKNOWN = 'UNKNOWN'
 
 
@@ -76,7 +75,7 @@ git_rev = get_git_revision()
 if git_rev == UNKNOWN:
     VERBOSE_VERSION = VERSION
 else:
-    VERBOSE_VERSION = LooseVersion("%s-r%s" % (VERSION, git_rev))
+    VERBOSE_VERSION = "%s-r%s" % (VERSION, git_rev)
 
 # extend path so python finds our easyblocks in the subdirectories where they are located
 subdirs = [chr(x) for x in range(ord('a'), ord('z') + 1)] + ['0']

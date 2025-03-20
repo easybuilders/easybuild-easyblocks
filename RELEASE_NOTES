@@ -1,9 +1,192 @@
 This file contains a description of the major changes to the easybuild-easyblocks EasyBuild package.
 For more detailed information, please see the git log.
 
-These release notes can also be consulted at http://easybuild.readthedocs.org/en/latest/Release_notes.html.
+These release notes can also be consulted at https://docs.easybuild.io/release-notes .
 
-The latest version of easybuild-easyblocks provides 259 software-specific easyblocks and 43 generic easyblocks.
+The latest version of easybuild-easyblocks provides 196 software-specific easyblocks and 44 generic easyblocks.
+
+v5.0.0 (18 March 2025)
+----------------------
+
+- use `run_shell_cmd` rather than `run_cmd` and/or `run_cmd_qa` in all easyblocks (#3046, #3074, #3090, #3091, #3092, #3093, #3094, #3098, #3099, #3100, #3101, #3102, #3105, #3106, #3107, #3109, #3110, #3112, #3113, #3115, #3120, #3122, #3123, #3124, #3127, #3128, #3129, #3130, #3131, #3132, #3133, #3134, #3135, #3136, #3137, #3139, #3140, #3141, #3142, #3143, #3144, #3145, #3146, #3147, #3149, #3150, #3153, #3156, #3158, #3159, #3162, #3163, #3164, #3165, #3166, #3167, #3168, #3169, #3171, #3179, #3180, #3187, #3188, #3189, #3190, #3192, #3193, #3195, #3197, #3198, #3199, #3200, #3201, #3203, #3204, #3206, #3207, #3209, #3210, #3212, #3213, #3214, #3215, #3217, #3218, #3219, #3242, #3243, #3244, #3270, #3274, #3286, #3288, #3289, #3290, #3291, #3293, #3295, #3297, #3298, #3299, #3308, #3327, #3342, #3411, #3413, #3414, #3415, #3426, #3664)
+- adopt `module_load_environment` in all easyblocks (#3513, #3529, #3530, #3550, #3551, #3552, #3553, #3555, #3556, #3559, #3560, #3561, #3562, #3577, #3578, #3579, #3585, #3586, #3587, #3592, #3593, #3594, #3596, #3597, #3598, #3600, #3601, #3602, #3603, #3604, #3606, #3607, #3608, #3609, #3610, #3611, #3612, #3613, #3615, #3616, #3618, #3619, #3620, #3622, #3625, #3626, #3627, #3628, #3629, #3630, #3631, #3634, #3647, #3635, #3641)
+- enable `download_dep_fail`, `use_pip`, `sanity_pip_check` by default in `PythonPackage` easyblock (#3022, #3079, #3221)
+- enhance `ConfigureMake` easyblock to error out on unknown configure options (#3025, #3563)
+- adopt to changes in EasyBuild framework:
+  - stop testing with Python 3.5 and Lmod 6.x, stop using `toolchain.DUMMY` (#3014)
+  - stop importing from deprecated easybuild.tools.py2vs3 module + stop testing with Python 2.7 and 3.5 (#2916, #3015)
+  - use `LooseVersion` from `easybuild.tools` in all easyblocks (#3018)
+  - rename `run` method to `install_extension`, and likewise for `prerun` to `pre_install_extension`, `postrun` to `post_install_extension`, and `run_async` to `install_extension_async` (#3064)
+  - disable check for `.mod` files in Clang, AOCC, AOMP, and CPLEX easyblocks (#3067)
+  - stop running easyblocks test suite with Lmod 7.x (#3083)
+  - use `sysconfig.get_config_vars` from Python standard library in `PythonPackage` easyblock (instead of `distutils.sysconfig.get_config_vars`) (#3264)
+  - also run easyblocks test suite with Python 3.12 (#3266)
+  - use `ERROR` global from tools.config in Clang (#3318) and TensorFlow (#3320) easyblocks
+  - update easyblocks to let EasyBuild framework take care of prepend to `$PYTHONPATH` or `$EBPYTHONPREFIXES` (#3343)
+  - use `PYPI_SOURCE` constant in generic `PythonPackage` easyblock + custom easyblock for Python (#3410)
+  - use non-system toolchain for testing `--module-only` for ELPA and FFTW easyblocks, since they rely on toolchain options like 'pic' being set (#3425)
+  - take into account that '`pic`' toolchain option may not be defined in `CMakeMake` easyblock (#3470)
+  - remove use of deprecated `parse_log_for_error` in `RPackage` easyblock (#3515)
+  - rename `post_install_step` to `post_processing_step` (#3525)
+  - be more careful when getting value of particular easyconfig parameter in `PythonBundle` and `PythonPackage` easyblock, to avoid trouble with unresolved template values (#3537)
+  - remove use of deprecated `extract_errors_from_log` in `ConfigureMake` easyblock (#3540)
+  - remove Python 2 fallback in `openssl_wrapper` (#3544)
+  - update easyblocks to use `EasyConfig.parallel` property (#3557)
+  - honor `--module-search-path-headers` in easyblocks that hardcode CPATH (#3584)
+  - remove hardcoded CPLUS_INCLUDE_PATH in favor of module-search-path-headers in custom easyblock for Eigen (#3599)
+- various updates:
+  - update version of `config.guess` used by `ConfigureMake` (#3013)
+  - enhance Score-P EasyBlock for future releases and better oneAPI support (#3548)
+  - enhance AOCC easyblock to work with LLVM 16 and newer (#3458)
+  - update VTune easyblock to work with v2024 and newer (#3465)
+  - enhance NAMD easyblock to support NAMD v3.0 (#3494)
+  - fix oneAPI sanity check for ifort removal in 2025.0 and newer (#3495)
+- various other enhancements:
+  - set CMake installation `LIBDIR` to `lib` by default in `CMakeMake` easyblock (#3227)
+  - add warning if `.Renviron` detected during install of RPackage (#3263)
+  - make `PythonBundle` and `PythonPackage` aware of `--prefer-python-search-path` EasyBuild configuration option (#3343)
+  - enhance `LLVM` easyblock for compilation of clang/flang + other llvm-projects (#3373, #3657)
+  - enhance `CMakeMake` easyblock to check whether correct `Python` installation was picked up by `CMake` (#3399)
+  - enhance Qt5 easyblock to support building on RISC-V (#3462)
+  - let `CMakeMake` easyblock also set `Python_EXECUTABLE` option, as well as `Python3_EXECUTABLE` and `Python2_EXECUTABLE` derivatives (when appropriate) (#3463)
+  - update ROOT easyblock to support sysroot (#3467)
+  - enhance generic `Bundle` easyblock to transfer module requirements of components, but do not create logfile in components (#3472, #3504, #3509)
+  - enhance cuDNN easyblock to verify that EULA is accepted before installing it (#3473)
+  - enhance AOCC easyblock to correctly pass GCC toolchain and compiler driver (#3480)
+  - enhance Cargo easyblock for sources from git repositories (#3483, #3654)
+  - enhance Cargo easyblock to print message for generating `Cargo.lock` if it's missing (#3491)
+  - let `PythonPackage` easyblock fix python shebangs by default (#3499)
+  - make it possible to disable single precision as build target in GROMACS easyblock (#3501)
+  - pass netCDF-Fortran path via `$NETCDFF_DIR` in WPS easyblock (#3522)
+  - set `CMAKE_CUDA_HOST_COMPILER`, `CMAKE_CUDA_COMPILER`, and `CMAKE_CUDA_ARCHITECTURES` when using CUDA in `CMakeMake` easyblock (#3523)
+  - show path of output file produced by MATLAB installer (#3532)
+  - make path to temporary install directory used in test step of `PythonPackage` easyblock available through environment variable so that it may be used in easyconfigs (#3565)
+  - add support for Sapphire Rapids in LAMMPS (#3569)
+  - allow installing from commit for LAMMPS (#3582)
+  - add support to OpenFOAM easyblock for custom `sanity_check_motorbike` easyconfig parameter to opt out of running motorBike tutorial example during sanity check	(#3595)
+  - enhance FlexiBLAS easyblock to add support for AOCL-BLAS backend (#3589, #3605)
+  - enhance handling of `PETSC_ARCH` in SLEPc easyblock	(#3629)
+  - use unittest XML files to parse PyTorch test results (#3633)
+- various bug fixes:
+  - don't change `installopts` easyconfig parameter value in-place in `PythonPackage` easyblock (#3080)
+  - fail on non-zero exit code in command to run Perl test suite (#3170)
+  - fix `--module-only` + cleanup for custom easyblock for Geant4 (#3302)
+  - consider both `easybuild-easyblocks*.tar.gz` and `easybuild_easyblocks*tar.gz` in CI workflows (#3309)
+  - make `CMakeMake` respect `debug` and `noopt` toolchain options when selecting build type (#3452)
+  - make `MesonNinja` respect the `debug`/`noopt`/`lowopt`/`opt` toolchain options to correctly set build type and use `--debug` and `--optimization` flags (#3454)
+  - strip leading `local/` from pylibdir where appropriate in `PythonPackage` easyblock (#3464)
+  - remove X11 flag for GROMACS 2023+ (#3466)
+  - fix setting of `CMAKE_OPTIONS` for SuiteSparse versions between 5.1.2 and 6.0.0 (#3471)
+  - add missing `return` for customised `install_extension_async` methods in Rserve and Rmpi easyblocks (#3474)
+  - disable CPU-specific optimizations for generic builds (by using a custom `processor_arch`) in LAMMPS easyblock (#3484)
+  - also add path to `libtorch.so` & co to `$LIBRARY_PATH` in generated module file for PyTorch (#3488)
+  - use `*DESCRIPTION` rather than `*/DESCRIPTION` in `RPackage.requires_deps` (#3490)
+  - use `DYNAMIC_ARCH=1` when building OpenBLAS with `--optarch=GENERIC` (#3492)
+  - fix check in Score-P's configure scripts that may fail if the path to certain dependencies include `yes` or `no` (#3496)
+  - let internal easyblock not create a log file in QuantumESPRESSO easyblock (#3505)
+  - update CUDA easyblock to add CUPTI and nvvm library directories to `$LIBRARY_PATH` (#3516)
+  - force use of `bash` for `Allwmake` scripts in OpenFOAM easyblock (#3519)
+  - fix detection of math library in numpy build (#3520)
+  - retain custom easyconfig parameters supported by `MesonNinja` easyblock in custom easyblock for `scipy` (#3526)
+  - inject custom '`%(python)s`' template value before getting value of '`buildcmd`' custom easyconfig parameter in `PythonPackage` easyblock (#3539)
+  - import from other easyblocks without the single folder letter (#3543)
+  - fix `$PYTHONPATH` for hermetic Python in TensorFlow builds (#3568)
+  - fix building PyTorch when using `setup.py` as the build command (#3574)
+  - set Cargo variables also for extensions (#3576)
+  - use bash for compiler wrapper in AOCC easyblock (#3648)
+  - fix compatibility of Molpro easyblock with `--module-only` (#3615)
+  - specify tmpdir for ANSYS installations (#3646)
+  - update + fixes in GitHub Actions workflows to use Ubuntu 22.04 (#3651, #3655)
+  - make AOCC compiler wrappers aware of keepsymlinks option (#3659)
+  - convert RUNPATH into RPATH for Rust binaries in recent Rust versions (> 1.79.0) (#3660)
+  - update configuration options for version 4+ of MPICH (#3663)
+- various minor changes:
+  - don't auto-enable use of `-DSCOTCH_PTHREAD` when using MPI library other than Intel MPI in SCOTCH easyblock (#3019)
+  - replace `log.warn` with `log.warning` (#3245)
+  - refactor search for `python_cmd` in `PythonPackage` and `PythonBundle` easyblocks (#3475)
+  - update `Python` easyblock to move `sitecustomize.py` into `site-packages` (#3514)
+  - switch default to `install_pip=True` in custom Python easyblock (#3546)
+  - use context managers for templating changes in `Bundle` easyblock (#3547)
+  - use `PythonPackage` as the `default_easyblock` for `PythonBundle` (#3649)
+- cleanup of dead code
+  - drop support for versions < 2.0 in custom easyblock for ScaLAPACK (#3106)
+  - drop support for versions < 9.5 in custom easyblock for Geant4 (#3296)
+  - remove code supporting obsolete versions from `IntelBase` family of easyblocks (#3533)
+  - clean up custom easyblock for Paraver, only support Paravar >= v4.7 (#3535)
+  - set minimum supported version of PETSc to v3.9 (#3627)
+- remove unused software-specific easyblocks for ACML (#3172), ALADIN (#3173), Allinea (#3423), ARB (#3096), ATLAS (#3103), BamTools (#3424), Bioconductor (#3423), BiSearch (#3174), BLACS (#3104), Blender  (#3423), BWISE (#3423), CFDEMcoupling (#3151), Chapel (#3423), CHARMM (#3108), cppcheck (#3111), DL_POLY_Classic (#3152), DOLFIN (#3154), Doris (#3175), Doxygen (#3114), EggLib (#3066), EPD (#3423), ESPResSo (#3117), fastStructure (#3155), FoldX (#3423), FreeFEM (#3157), HEALPix (#3285), IMOD (#3126), IPP (#3533), IronPython (#3125), libsmm (#3216), MetaVelvet (#3423), Modeller (#3292), Mono (#3211), Mothur (#3423), MSM (#3208), MTL4 (#3617), MyMediaLite (#3205), mutil (#3423), MVAPICH2 (#3423), ncurses (#3265), NEMO (#3202), OpenIFS (#3194), Pasha (#3423), pbdMPI (#3423), pbdSLAP (#3423), PGI (#3181), picard (#3423), pplacer (#3185), Primer3 (#3621), PyQuante (#3423), python_meep (#3182), Samcef (#3176), SAS (#3177), Scalasca v1.x (#3423), SHRiMP (#3423), SNPhylo (#3178), SOAPdenovo (#3423), TAU (#3535), TotalView (#3191), UFC (#3423), VSC-tools (#3138), WRF-Fire (#3271)
+
+
+v4.9.4 (22 September 2024)
+--------------------------
+
+update/bugfix release
+
+- various enhancements, including:
+  - allow Python bundles and packages to specify a maximum Python version for the system toolchain (#3431)
+  - copy EasyConfig instance in constructor of Bundle and Cargo easyblocks before making changes to it (#3448)
+  - fix crash in GCC easyblock when cuda-compute-capabilities EasyBuild configuration option is not set (#3449)
+- various bug fixes, including:
+  - ignore Python from virtualenvs in GROMACS configure via -DPython3_FIND_VIRTUALENV=STANDARD (#3283)
+  - enhance custom easyblock for NCCL: add licence to NCCL installation (#3451)
+
+
+v4.9.3 (14 September 2024)
+--------------------------
+
+update/bugfix release
+
+- minor updates, including:
+  - update custom easyblock for Tensorflow for versions 2.14 + 2.15 (#3303)
+  - add support for versions >= 2024a to MCR easyblock (#3369)
+  - update custom easyblock for Bazel for versions >= 7.0 (#3370)
+  - don't consider lib/release for impi >= 2021.11 (#3375)
+  - update ORCA easyblock for version 6 (#3395)
+  - update custom easyblock for psmpi to support the renaming of a couple of options in 5.10.0-1 (#3420)
+  - update sanity check in OpenFOAM easyblock, since there's no `modifyMesh` in OpenFOAM 12 (#3434)
+  - fix sanity check for Geant4 >= v11.2 (#3439)
+- minor enhancements, including:
+  - enhance psmpi easyblock to activate CUDA support when it is a dependency + make check for static libs in MPICH easyblock optional (#2787)
+  - make a project environment and manage LOAD_PATH for JuliaPackage (#3239)
+  - set build type for PyTorch explicitely (#3332)
+  - add `sanity_check_test_inputs` custom easyconfig parameter, mapping for zen4, and support building of non-stable versions to LAMMPS easyblock (#3336)
+  - add RISCV64 support and update config options of new versions of Extrae (#3339)
+  - set `$ESMFMKFILE` environment variable in environment module for ESMF (#3368)
+  - use build dir for big files/folders while building TensorFlow (#3371)
+  - update `PythonPackage` easyblock to allow installation of Python packages with `$PIP_REQUIRE_VIRTUALENV` set + move temporary pip folder into build dir (#3374)
+  - add RISC-V support to Boost easyblock (#3376)
+  - add support for generating `.gem` files from `.gemspec` files and support for `preinstallopts` in the `RubyGem` easyblock (#3381)
+  - simplify install step in custom easyblock for `Tkinter` (#3382)
+  - add MSA and specially PMIx support for ParaStationMPI (#3383)
+  - update custom easyblock for PETSc to consider `include/suitesparse` subdirectory for SuiteSparse headers (#3391)
+  - enhance custom easyblock for GCC to use `with-arch` option for nvptx with 13.1+ (#3396)
+  - support revisions in crates extraction of cargo packages (#3405)
+  - set `$R_LIBS_USER` in `RPackage` easyblock to avoid picking up on R packages installed in home directory (#3407)
+  - update custom easyblock for QuantumESPRESSO to be aware of MPI tests being disabled in EasyBuild configuration (#3412)
+  - disable the version check of pip in Python packages by defining `$PIP_DISABLE_PIP_VERSION_CHECK` (#3427)
+  - make sure user packages are not used in sanity check of PythonBundle (#3435)
+  - enhance OpenFOAM easyblock to also build the plugins for OpenFOAM >= v2406 (#3436)
+  - enhance binutils easyblock to explicitely pass msgpack configure option (#3438)
+- various bug fixes, including:
+  - patch `ctypes` for Python installations when filtering `LD_LIBRARY_PATH` + fix path to `ldconfig` when using alternate sysroot (#3352)
+  - also consider 'normalised' package name with underscore rather than dash in EasyBuild easyblock (#3358)
+  - use PRRTE MCA environment variable for oversubscription in OpenMPI easyblock (#3360)
+  - fix import of `parse` in `openssl_wrapper.py` for Python 2.7 (#3364)
+  - make sure that OpenFOAM's wmake can find MPFR and GMP if CGAL >= 5.0 (header-only) is used (#3366)
+  - remove dummy license server info from ANSYS (#3377)
+  - explicitly call `csh` in custom easyblock for WPS (#3384)
+  - use relative paths to object files when compiling shared libraries in the OpenFOAM easyblock (#3388)
+  - change extra `$PATH` entry for OCaml to use `opam/default` rather than `opam/system` (#3390)
+  - force `--without-unwind` for ARM and add `--with-libz` option for all architectures in custom easyblock for Extrae (#3393)
+  - fix `--sanity-check-only` for impi (#3403)
+  - fix crash in Cargo easyblock when no crates are specified (#3404)
+  - fix double initialization of `Cargo` by `CargoPythonPackage` by removing incorrect custom `__init__` implementation + fix use of `super()` in PALM easyblock (since that doesn't work with Python 2.7) (#3406)
+  - fix typo in log message in `PythonPackage` easyblock (#3408)
+  - make sure to raise an error if `pick_python_cmd` returns `False` for Python bundles/packages (#3430)
+  - don't wipe build environment before building opam in install step of OCaml easyblock (#3443)
+- other changes:
+  - merge of the `ConfigureMake` and `CMakeMake` versions of the easyblock for QuantumESPRESSO (#3338)
+  - remove redundant backslashes in GEANT easyblock (#3394)
 
 
 v4.9.2 (12 June 2024)
