@@ -404,7 +404,7 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         self.assertTrue(False, "Class found in easyblock %s" % easyblock)
 
 
-def suite():
+def suite(loader):
     """Return all easyblock --module-only tests."""
     def make_inner_test(easyblock, **kwargs):
         def innertest(self):
@@ -506,10 +506,10 @@ def suite():
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
         setattr(ModuleOnlyTest, innertest.__name__, innertest)
 
-    return TestLoader().loadTestsFromTestCase(ModuleOnlyTest)
+    return loader.loadTestsFromTestCase(ModuleOnlyTest)
 
 
 if __name__ == '__main__':
-    res = TextTestRunner(verbosity=1).run(suite())
+    res = TextTestRunner(verbosity=1).run(suite(TestLoader()))
     remove_dir(TMPDIR)
     sys.exit(len(res.failures))

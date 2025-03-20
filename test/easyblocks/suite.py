@@ -46,35 +46,48 @@ import test.easyblocks.general as g
 import test.easyblocks.init_easyblocks as i
 import test.easyblocks.module as m
 
-# initialize logger for all the unit tests
-fd, log_fn = tempfile.mkstemp(prefix='easybuild-easyblocks-tests-', suffix='.log')
-os.close(fd)
-os.remove(log_fn)
-fancylogger.logToFile(log_fn)
-log = fancylogger.getLogger()
-log.setLevelName('DEBUG')
 
-try:
-    tmpdir = set_tmpdir(raise_error=True)
-except EasyBuildError as err:
-    sys.stderr.write("No execution rights on temporary files, specify another location via $TMPDIR: %s\n" % err)
-    sys.exit(1)
+class EasyBuildEasyBlocksTestSuite(unittest.TestSuite):
+    def __init__(self, loader):
+        super(EasyBuildEasyBlocksTestSuite, self).__init__([x.suite(loader) for x in [g, i, m, e]])
 
-os.environ['EASYBUILD_TMP_LOGDIR'] = tempfile.mkdtemp(prefix='easyblocks_test_')
+    def run(self, *args, **kwargs):
+        # initialize logger for all the unit tests
+        fd, log_fn = tempfile.mkstemp(prefix='easybuild-easyblocks-tests-', suffix='.log')
+        os.close(fd)
+        os.remove(log_fn)
+        fancylogger.logToFile(log_fn)
+        log = fancylogger.getLogger()
+        log.setLevelName('DEBUG')
 
-# call suite() for each module and then run them all
-SUITE = unittest.TestSuite([x.suite() for x in [g, i, m, e]])
-res = unittest.TextTestRunner().run(SUITE)
+        try:
+            tmpdir = set_tmpdir(raise_error=True)
+        except EasyBuildError as err:
+            sys.stderr.write("No execution rights on temporary files, specify another location via $TMPDIR: %s\n" % err)
+            sys.exit(1)
 
-fancylogger.logToFile(log_fn, enable=False)
-shutil.rmtree(os.environ['EASYBUILD_TMP_LOGDIR'])
-del os.environ['EASYBUILD_TMP_LOGDIR']
+        os.environ['EASYBUILD_TMP_LOGDIR'] = tempfile.mkdtemp(prefix='easyblocks_test_')
 
-if not res.wasSuccessful():
-    sys.stderr.write("ERROR: Not all tests were successful.\n")
-    print("Log available at %s" % log_fn)
-    sys.exit(2)
-else:
-    for f in glob.glob('%s*' % log_fn):
-        os.remove(f)
-    shutil.rmtree(tmpdir)
+        res = super(EasyBuildEasyBlocksTestSuite, self).run(*args, **kwargs)
+
+        fancylogger.logToFile(log_fn, enable=False)
+        shutil.rmtree(os.environ['EASYBUILD_TMP_LOGDIR'])
+        del os.environ['EASYBUILD_TMP_LOGDIR']
+
+        if not res.wasSuccessful():
+            sys.stderr.write("ERROR: Not all tests were successful.\n")
+            print("Log available at %s" % log_fn)
+        else:
+            for f in glob.glob('%s*' % log_fn):
+                os.remove(f)
+            shutil.rmtree(tmpdir)
+
+        return res
+
+
+def load_tests(loader, tests, pattern):
+    return EasyBuildEasyBlocksTestSuite(loader)
+
+
+if __name__ == '__main__':
+    unittest.main()

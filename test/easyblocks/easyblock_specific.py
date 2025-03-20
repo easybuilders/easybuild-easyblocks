@@ -360,11 +360,11 @@ class EasyBlockSpecificTest(TestCase):
         self.assertFalse(os.path.islink(lib64_site_path))
 
 
-def suite():
+def suite(loader):
     """Return all easyblock-specific tests."""
-    return TestLoader().loadTestsFromTestCase(EasyBlockSpecificTest)
+    return loader.loadTestsFromTestCase(EasyBlockSpecificTest)
 
 
 if __name__ == '__main__':
-    res = TextTestRunner(verbosity=1).run(suite())
+    res = TextTestRunner(verbosity=1).run(suite(TestLoader()))
     sys.exit(len(res.failures))
