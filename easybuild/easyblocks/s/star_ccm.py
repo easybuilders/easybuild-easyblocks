@@ -161,7 +161,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
         topdir = os.path.dirname(self.starccm_subdir)
         version_dir = os.path.basename(topdir)
-        self.starview_subdir = os.path.join(topdir, 'STAR-View+%s' % version_dir)
+        self.starview_subdir = os.path.join(topdir, 'STAR-View+%s' % self.version)
 
     def sanity_check_step(self):
         """Custom sanity check for STAR-CCM+."""
