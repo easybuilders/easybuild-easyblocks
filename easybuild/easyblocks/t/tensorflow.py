@@ -41,7 +41,7 @@ from itertools import chain
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
-from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
+from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES, PY_ENV_VARS
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
@@ -899,7 +899,7 @@ class EB_TensorFlow(PythonPackage):
             action_env['EBPYTHONPREFIXES'] = INHERIT
 
         # Ignore user environment for Python
-        action_env['PYTHONNOUSERSITE'] = '1'
+        action_env.update(PY_ENV_VARS)
 
         # TF 2 (final) sets this in configure
         if LooseVersion(self.version) < LooseVersion('2.0'):

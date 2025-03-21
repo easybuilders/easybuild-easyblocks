@@ -59,6 +59,17 @@ EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
 # magic value for unlimited stack size
 UNLIMITED = 'unlimited'
 
+# Environment variables and values to avoid common issues during Python package installations and usage in EasyBuild
+PY_ENV_VARS = {
+    # don't add user site directory to sys.path (equivalent to python -s), see https://www.python.org/dev/peps/pep-0370
+    'PYTHONNOUSERSITE': '1',
+    # Users or sites may require using a virtualenv for user installations
+    # We need to disable this to be able to install into modules
+    'PIP_REQUIRE_VIRTUALENV': 'false',
+    # Don't let pip connect to PYPI to check for a new version
+    'PIP_DISABLE_PIP_VERSION_CHECK': 'true',
+}
+
 # We want the following import order:
 # 1. Packages installed into VirtualEnv
 # 2. Packages installed into $EBPYTHONPREFIXES (e.g. our modules)
@@ -105,6 +116,22 @@ if ebpythonprefixes:
     # Move base python paths to the end of sys.path so modules can override packages from the core Python module
     sys.path = [p for p in sys.path if p not in base_paths] + base_paths
 """ % {'EBPYTHONPREFIXES': EBPYTHONPREFIXES}
+
+
+def set_py_env_vars(log, verbose=False):
+    """Set environment variables required/useful for installing or using Python packages"""
+
+    py_vars = PY_ENV_VARS.copy()
+    # avoid that pip (ab)uses $HOME/.cache/pip
+    # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
+    py_vars['XDG_CACHE_HOME'] = os.path.join(tempfile.gettempdir(), 'xdg-cache-home')
+    # Only set (all) environment variables if any has a different value to
+    # avoid (non)changes (and log messages) for each package in a bundle
+    set_required = any(os.environ.get(name, None) != value for name, value in py_vars.items())
+    if set_required:
+        for name, value in py_vars.items():
+            env.setvar(name, value, verbose=verbose)
+        log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
 
 class EB_Python(ConfigureMake):
@@ -158,9 +185,9 @@ class EB_Python(ConfigureMake):
         }
 
         exts_default_options = self.cfg.get_ref('exts_default_options')
-        for key in ext_defaults:
+        for key, value in ext_defaults.items():
             if key not in exts_default_options:
-                exts_default_options[key] = ext_defaults[key]
+                exts_default_options[key] = value
         self.log.debug("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.install_pip = self.cfg['install_pip']
@@ -293,8 +320,7 @@ class EB_Python(ConfigureMake):
         self.cfg['exts_defaultclass'] = "PythonPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
-        # don't add user site directory to sys.path (equivalent to python -s)
-        env.setvar('PYTHONNOUSERSITE', '1')
+        set_py_env_vars(self.log)
 
         # don't pass down any build/install options that may have been specified
         # 'make' options do not make sense for when building/installing Python libraries (usually via 'python setup.py')
@@ -431,9 +457,8 @@ class EB_Python(ConfigureMake):
                 env.setvar('TCLTK_CFLAGS', '-I%s/include -I%s/include' % (tcl, tk))
                 env.setvar('TCLTK_LIBS', tcltk_libs)
 
-        # don't add user site directory to sys.path (equivalent to python -s)
         # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)
-        env.setvar('PYTHONNOUSERSITE', '1')
+        set_py_env_vars(self.log)
 
         super(EB_Python, self).configure_step()
 

@@ -32,6 +32,7 @@ import os
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.python import PY_ENV_VARS
 from easybuild.tools import LooseVersion
 from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_shell_cmd
@@ -104,7 +105,7 @@ class EB_tensorflow_minus_compression(PythonPackage):
             action_env['EBPYTHONPREFIXES'] = INHERIT
 
         # Ignore user environment for Python
-        action_env['PYTHONNOUSERSITE'] = '1'
+        action_env.update(PY_ENV_VARS)
 
         # Use the same configuration (i.e. environment) for compiling and using host tools
         # This means that our action_envs are (almost) always passed
