@@ -48,8 +48,8 @@ from easybuild.tools.filetools import apply_regex_substitutions, change_dir, cop
 from easybuild.tools.filetools import mkdir, remove_file, symlink, which, write_file
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64
-from easybuild.tools.systemtools import get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64, POWER_LE
+from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_family, get_shared_lib_ext
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake, get_cmake_python_config_dict
 
@@ -153,6 +153,18 @@ def _wrap_env(path="", ld_path=""):
     finally:
         setvar('PATH', orig_path)
         setvar('LD_LIBRARY_PATH', orig_ld_library_path)
+
+
+def get_arch_prefix():
+    """Return the architecture prefix"""
+    arch = get_cpu_architecture()
+    if arch == POWER:
+        if get_cpu_family() == POWER_LE:
+            return 'powerpc64le'
+        else:
+            return 'powerpc64'
+    else:
+        return arch.lower()
 
 
 class EB_LLVM(CMakeMake):
@@ -485,7 +497,7 @@ class EB_LLVM(CMakeMake):
     @staticmethod
     def _get_gcc_prefix():
         """Get the GCC prefix for the build."""
-        arch = get_cpu_architecture()
+        arch = get_arch_prefix()
         gcc_root = get_software_root('GCCcore')
         gcc_version = get_software_version('GCCcore')
         # If that doesn't work, try with GCC
@@ -986,8 +998,8 @@ class EB_LLVM(CMakeMake):
 
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
-        arch = get_cpu_architecture()
-        glob_pattern = os.path.join(base_dir, 'lib', '%s-*' % arch)
+        arch = get_arch_prefix()
+        glob_pattern = os.path.join(base_dir, 'lib', f'%s-{arch}')
         matches = glob.glob(glob_pattern)
         if matches:
             directory = os.path.basename(matches[0])
