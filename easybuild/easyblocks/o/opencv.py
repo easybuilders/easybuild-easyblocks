@@ -235,7 +235,7 @@ class EB_OpenCV(CMakeMake):
 
         custom_commands = []
         if get_software_root('Python'):
-            custom_commands.append("python -c 'import cv2'")
+            custom_commands.append("python -s -c 'import cv2'")
 
         super(EB_OpenCV, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 

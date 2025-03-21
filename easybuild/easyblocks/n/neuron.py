@@ -175,7 +175,7 @@ class EB_NEURON(CMakeMake):
         ]
 
         if self.python_root:
-            custom_commands.append("python -c 'import neuron; neuron.test()'")
+            custom_commands.append("python -s -c 'import neuron; neuron.test()'")
 
         super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
@@ -184,7 +184,7 @@ class EB_NEURON(CMakeMake):
         Custom paths of NEURON module load environment
         """
         if self.python_root:
-            # location of neuron python package
+            # location of neuron Python package
             if LooseVersion(self.version) < LooseVersion('8'):
                 self.module_load_environment.PYTHONPATH = [os.path.join("lib", "python*", "site-packages")]
             else:
