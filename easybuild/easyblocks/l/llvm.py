@@ -467,7 +467,7 @@ class EB_LLVM(CMakeMake):
 
         if 'openmp' in self.final_projects:
             if LooseVersion(self.version) >= LooseVersion('19') and self.cfg['build_openmp_offload']:
-                self._cmakeopts['LIBOMPTARGET_PLUGINS_TO_BUILD'] = ';'.join(self.offload_targets)
+                self._cmakeopts['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '"%s"' % ';'.join(self.offload_targets)
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
             if not self.cfg['build_openmp_tools']:
@@ -999,7 +999,7 @@ class EB_LLVM(CMakeMake):
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
         arch = get_arch_prefix()
-        glob_pattern = os.path.join(base_dir, 'lib', f'%s-{arch}')
+        glob_pattern = os.path.join(base_dir, 'lib', f'{arch}-*')
         matches = glob.glob(glob_pattern)
         if matches:
             directory = os.path.basename(matches[0])
