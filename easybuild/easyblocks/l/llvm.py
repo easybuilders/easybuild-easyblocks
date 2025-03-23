@@ -999,7 +999,7 @@ class EB_LLVM(CMakeMake):
     def get_runtime_lib_path(self, base_dir, fail_ok=True):
         """Return the path to the runtime libraries."""
         arch = get_arch_prefix()
-        glob_pattern = os.path.join(base_dir, 'lib', f'%s-{arch}')
+        glob_pattern = os.path.join(base_dir, 'lib', f'{arch}-*')
         matches = glob.glob(glob_pattern)
         if matches:
             directory = os.path.basename(matches[0])
