@@ -32,6 +32,7 @@ import os
 import re
 from easybuild.tools import LooseVersion
 
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig.constants import EASYCONFIG_CONSTANTS
@@ -140,6 +141,13 @@ class EB_OpenMPI(ConfigureMake):
                 else:
                     self.cfg.update('configopts', '--without-verbs')
 
+        if '--with-pmix' in self.cfg['configopts']:
+            # Unset PMIX variables potentially set by SLURM which may cause configure errors such as
+            # > configure: WARNING: OPAL_VAR_SCOPE_PUSH called on "PMIX_VERSION",
+            # > configure: WARNING: but it is already defined with value "3.2.3"
+            # > configure: WARNING: This usually indicates an error in configure.
+            # > configure: error: Cannot continue
+            env.unset_env_vars([v for v in os.environ if v.startswith("PMIX_")])
         super(EB_OpenMPI, self).configure_step()
 
     def test_step(self):
