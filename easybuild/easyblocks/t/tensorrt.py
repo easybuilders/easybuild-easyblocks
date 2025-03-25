@@ -100,7 +100,6 @@ class EB_TensorRT(PythonPackage, Binary):
             ])
         whls.append(os.path.join('python', 'tensorrt-%s-cp%s-*-linux_x86_64.whl' % (self.version, pyver)))
 
-
         installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
 
         for whl in whls:
