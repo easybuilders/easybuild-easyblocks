@@ -163,6 +163,8 @@ def get_arch_prefix():
             return 'powerpc64le'
         else:
             return 'powerpc64'
+    elif arch == RISCV64:
+        return 'riscv64'
     else:
         return arch.lower()
 
