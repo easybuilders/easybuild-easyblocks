@@ -1009,7 +1009,8 @@ class EB_LLVM(CMakeMake):
         else:
             if not fail_ok:
                 raise EasyBuildError("Could not find runtime library directory")
-            print_warning("Could not find runtime library directory")
+            print_warning("Could not find runtime library directory:")
+            print_warning(res)
             res = 'lib'
 
         return res
