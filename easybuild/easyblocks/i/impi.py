@@ -32,7 +32,9 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Jens Timmerman (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 @author: Alex Domingo (Vrije Universiteit Brussel)
+@author: Jan Andre Reuter (Forschungszentrum Juelich GmbH)
 """
+import glob
 import os
 import tempfile
 from easybuild.tools import LooseVersion
@@ -42,7 +44,8 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, \
+    copy_files, remove, get_cwd
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -64,6 +67,8 @@ class EB_impi(IntelBase):
             'set_mpi_wrapper_aliases_gcc': [False, 'Set compiler for mpigcc/mpigxx via aliases', CUSTOM],
             'set_mpi_wrapper_aliases_intel': [False, 'Set compiler for mpiicc/mpiicpc/mpiifort via aliases', CUSTOM],
             'set_mpi_wrappers_all': [False, 'Set (default) compiler for all MPI wrapper commands', CUSTOM],
+            'rebuild_f08_bindings': [False, 'Rebuild and replace the Fortran 2008 bindings.'
+                                            'Not built by default due to backwards compatibility.', CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
 
@@ -148,6 +153,35 @@ class EB_impi(IntelBase):
                     wrapper_path = os.path.join(self.installdir, script_dir, wrapper)
                     if os.path.exists(wrapper_path):
                         apply_regex_substitutions(wrapper_path, regex_subs)
+
+        # Rebuild Fortran 2008 bindings if requested.
+        # For more information, see:
+        # https://community.intel.com/t5/Intel-MPI-Library/MPI-f08-with-polymorphic-argument-CLASS/m-p/1590421
+        if self.cfg['rebuild_f08_bindings']:
+            # Check if the binding tarball exists within the installation
+            bindings_path = os.path.join(self.installdir, 'mpi', 'latest', 'opt', 'mpi', 'binding')
+            bindings_tarball = os.path.join(bindings_path, 'intel-mpi-binding-kit.tar.gz')
+            if not os.path.exists(bindings_tarball):
+                raise EasyBuildError(
+                    f"Requested to rebuild Fortran 2008 bindings, but the bindings tarball in {bindings_tarball} "
+                    f"does not exist.")
+            self.log.info(f"Found bindings tarball at {bindings_tarball}. Rebuilding Fortran 2008 bindings.")
+            # Extract the tarball
+            run_shell_cmd(f"tar -xzf {bindings_tarball} -C {self.installdir}/mpi/latest/opt/mpi/binding/")
+            # Build the bindings
+            change_dir(os.path.join(bindings_path, 'f08'))
+            run_shell_cmd(f"make MPI_INST={self.installdir}/mpi/latest F90=ifx NAME=ifx")
+            change_dir(os.path.join(get_cwd(), 'include', 'ifx'))
+            initial_module_files = glob.glob(f"{self.installdir}/mpi/latest/include/mpi/*.mod")
+            written_module_files = glob.glob("*.mod")
+            # Preserve the initial module files for people to use
+            mkdir(f"{self.installdir}/mpi/latest/include/mpi/back", parents=True)
+            copy_files(initial_module_files, f"{self.installdir}/mpi/latest/include/mpi/back")
+            # Copy the new module files
+            copy_files(written_module_files, f"{self.installdir}/mpi/latest/include/mpi/")
+            # Cleanup
+            change_dir(bindings_path)
+            remove(['c', 'cxx', 'f08', 'f77', 'f90'])
 
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
