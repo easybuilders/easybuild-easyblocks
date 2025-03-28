@@ -1008,9 +1008,13 @@ class EB_LLVM(CMakeMake):
             res = os.path.join("lib", directory)
         else:
             if not fail_ok:
+                print_warning("Could not find runtime library directory:")
+                print_warning("arch=")
+                print_warning(arch)
+                print_warning("glob_pattern=")
+                print_warning(glob_pattern)
                 raise EasyBuildError("Could not find runtime library directory")
-            print_warning("Could not find runtime library directory:")
-            print_warning(glob_pattern)
+            print_warning("Could not find runtime library directory")
             res = 'lib'
 
         return res
