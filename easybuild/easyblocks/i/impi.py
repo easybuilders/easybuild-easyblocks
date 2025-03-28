@@ -167,9 +167,10 @@ class EB_impi(IntelBase):
                     f"does not exist.")
             self.log.info(f"Found bindings tarball at {bindings_tarball}. Rebuilding Fortran 2008 bindings.")
             # Extract the tarball
-            run_shell_cmd(f"tar -xzf {bindings_tarball} -C {self.installdir}/mpi/latest/opt/mpi/binding/")
+            build_dir = tempfile.mkdtemp()
+            run_shell_cmd(f"tar -xzf {bindings_tarball} -C {build_dir}")
             # Build the bindings
-            change_dir(os.path.join(bindings_path, 'f08'))
+            change_dir(os.path.join(build_dir, 'f08'))
             run_shell_cmd(f"make MPI_INST={self.installdir}/mpi/latest F90=ifx NAME=ifx")
             change_dir(os.path.join(get_cwd(), 'include', 'ifx'))
             initial_module_files = glob.glob(f"{self.installdir}/mpi/latest/include/mpi/*.mod")
@@ -180,8 +181,8 @@ class EB_impi(IntelBase):
             # Copy the new module files
             copy_files(written_module_files, f"{self.installdir}/mpi/latest/include/mpi/")
             # Cleanup
-            change_dir(bindings_path)
-            remove(['c', 'cxx', 'f08', 'f77', 'f90'])
+            remove(build_dir)
+            change_dir(self.installdir)
 
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
