@@ -936,6 +936,7 @@ class EB_LLVM(CMakeMake):
             num_failed = self._para_test_step(parallel=1)
             if num_failed is None:
                 self.report_test_failure("Failed to extract test results from output")
+                return
 
             if num_failed > max_failed:
                 self.report_test_failure(f"Too many failed tests: {num_failed} ({max_failed} allowed)")
