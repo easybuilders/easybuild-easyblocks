@@ -1181,7 +1181,7 @@ class EB_LLVM(CMakeMake):
                 if 'AMDGPU' in self.cfg['build_targets']:
                     if LooseVersion(self.version) < LooseVersion('19'):
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
-                    omp_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+                    omp_lib_files += ['libomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
 
                 if LooseVersion(self.version) < LooseVersion('19'):
                     # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
