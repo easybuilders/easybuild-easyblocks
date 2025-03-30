@@ -935,10 +935,10 @@ class EB_LLVM(CMakeMake):
             max_failed = self.cfg['test_suite_max_failed']
             num_failed = self._para_test_step(parallel=1)
             if num_failed is None:
-                raise EasyBuildError("Failed to extract test results from output")
+                self.report_test_failure("Failed to extract test results from output")
 
             if num_failed > max_failed:
-                raise EasyBuildError(f"Too many failed tests: {num_failed} ({max_failed} allowed)")
+                self.report_test_failure(f"Too many failed tests: {num_failed} ({max_failed} allowed)")
             elif num_failed:
                 self.log.info(f"Test suite completed with {num_failed} failed tests ({max_failed} allowed)")
             else:
