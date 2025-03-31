@@ -468,7 +468,7 @@ class EB_LLVM(CMakeMake):
 
         if 'openmp' in self.final_projects:
             if LooseVersion(self.version) >= LooseVersion('19') and self.cfg['build_openmp_offload']:
-                self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '"%s"' % ';'.join(self.offload_targets)
+                self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '\\"%s\\"' % ';'.join(self.offload_targets)
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
             if not self.cfg['build_openmp_tools']:
