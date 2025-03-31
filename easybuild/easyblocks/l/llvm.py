@@ -1167,14 +1167,14 @@ class EB_LLVM(CMakeMake):
                 omp_lib_files += ['libomptarget.so']
                 if LooseVersion(self.version) < LooseVersion('19'):
                     omp_lib_files += ['libomptarget.rtl.%s.so' % arch]
-                if 'NVPTX' in self.cfg['build_targets']:
+                if BUILD_TARGET_NVPTX in self.cfg['build_targets'] or self.cfg['build_targets'] == 'all':
                     if LooseVersion(self.version) < LooseVersion('19'):
                         omp_lib_files += ['libomptarget.rtl.cuda.so']
                     if LooseVersion(self.version) < LooseVersion('20'):
                         omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
                     else:
                         omp_lib_files += ['libomptarget-nvptx.bc']
-                if 'AMDGPU' in self.cfg['build_targets']:
+                if BUILD_TARGET_AMDGPU in self.cfg['build_targets'] or self.cfg['build_targets'] == 'all':
                     if LooseVersion(self.version) < LooseVersion('19'):
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
                     if LooseVersion(self.version) < LooseVersion('20'):
