@@ -1188,7 +1188,11 @@ class EB_LLVM(CMakeMake):
                 else:
                     # Starting from LLVM 19, omp related libraries are installed the runtime library directory
                     check_librt_files += omp_lib_files
-                    check_bin_files += ['llvm-omp-kernel-replay', 'llvm-omp-device-info']
+                    check_bin_files += ['llvm-omp-kernel-replay']
+                    if LooseVersion(self.version) < LooseVersion('20'):
+                        check_bin_files += ['llvm-omp-device-info']
+                    else:
+                        check_bin_files += ['llvm-offload-device-info']
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
