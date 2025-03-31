@@ -452,6 +452,7 @@ class EB_LLVM(CMakeMake):
                 self.log.debug("Enabling `amdgpu` offload target")
 
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
+
         general_opts['LLVM_TARGETS_TO_BUILD'] = '"%s"' % ';'.join(build_targets)
 
         self._cmakeopts = {}
