@@ -1178,11 +1178,17 @@ class EB_LLVM(CMakeMake):
                 if 'NVPTX' in self.cfg['build_targets']:
                     if LooseVersion(self.version) < LooseVersion('19'):
                         omp_lib_files += ['libomptarget.rtl.cuda.so']
-                    omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
+                    if LooseVersion(self.version) < LooseVersion('20'):
+                        omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
+                    else:
+                        omp_lib_files += ['libomptarget-nvptx.bc']
                 if 'AMDGPU' in self.cfg['build_targets']:
                     if LooseVersion(self.version) < LooseVersion('19'):
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
-                    omp_lib_files += ['libomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+                    if LooseVersion(self.version) < LooseVersion('20'):
+                        omp_lib_files += ['libomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+                    else:
+                        omp_lib_files += ['libomptarget-amdgpu.bc']
 
                 if LooseVersion(self.version) < LooseVersion('19'):
                     # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
