@@ -640,7 +640,7 @@ class EB_LLVM(CMakeMake):
             gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
             gpu_archs += self.amd_gfx
             if gpu_archs:
-                general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '"%s"' % ';'.join(gpu_archs)
+                self.runtimes_cmake_args['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '"%s"' % ';'.join(gpu_archs)
 
         self._configure_general_build()
         self.add_cmake_opts()
