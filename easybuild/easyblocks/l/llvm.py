@@ -74,13 +74,6 @@ DEFAULT_TARGETS_MAP = {
     X86_64: ['X86'],
 }
 
-AMDGPU_GFX_SUPPORT = [
-    'gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900', 'gfx902', 'gfx906', 'gfx908', 'gfx90a', 'gfx90c',
-    'gfx940', 'gfx941', 'gfx942', 'gfx1010', 'gfx1030', 'gfx1031', 'gfx1032', 'gfx1033', 'gfx1034',
-    'gfx1035', 'gfx1036', 'gfx1100', 'gfx1101', 'gfx1102', 'gfx1103', 'gfx1150', 'gfx1151', 'gfx1200',
-    'gfx1201'
-]
-
 remove_gcc_dependency_opts = {
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
@@ -204,8 +197,7 @@ class EB_LLVM(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'amd_gfx_list': [None, "List of AMDGPU targets to build for. Possible values: " +
-                             ', '.join(AMDGPU_GFX_SUPPORT), CUSTOM],
+            'amd_gfx_list': [None, "List of AMDGPU targets to build for.", CUSTOM],
             'assertions': [False, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'bootstrap': [True, "Build LLVM-Clang using itself", CUSTOM],
             'build_bolt': [False, "Build the LLVM bolt binary optimizer", CUSTOM],
