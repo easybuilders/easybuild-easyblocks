@@ -636,7 +636,7 @@ class EB_LLVM(CMakeMake):
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
-        if 'openmp' in self.final_projects:
+        if 'openmp' in self.final_projects and LooseVersion('19') <= LooseVersion(self.version) <= LooseVersion('20'):
             gpu_archs = []
             gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
             gpu_archs += self.amd_gfx
