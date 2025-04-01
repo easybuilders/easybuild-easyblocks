@@ -80,7 +80,7 @@ class EB_OCaml(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for OCaml."""
-        super(EB_OCaml, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.with_opam = False
 
         # custom extra paths/variables to define in generated module for OCaml
@@ -97,14 +97,14 @@ class EB_OCaml(ConfigureMake):
         if 'world.opt' not in self.cfg['buildopts']:
             self.cfg.update('buildopts', 'world.opt')
 
-        super(EB_OCaml, self).configure_step()
+        super().configure_step()
 
     def install_step(self):
         """
         Custom install procedure for OCaml.
         First install OCaml using 'make install', then install OPAM (if sources are provided).
         """
-        super(EB_OCaml, self).install_step()
+        super().install_step()
 
         try:
             all_dirs = os.listdir(self.builddir)
@@ -138,7 +138,7 @@ class EB_OCaml(ConfigureMake):
         # build and install additional packages with OCamlPackage easyblock
         self.cfg['exts_defaultclass'] = "OCamlPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_OCAML_PACKAGES
-        super(EB_OCaml, self).prepare_for_extensions()
+        super().prepare_for_extensions()
 
     def collect_exts_file_info(self, *args, **kwargs):
         """Don't fetch extension sources, OPAM takes care of that (and archiving too)."""
@@ -166,4 +166,4 @@ class EB_OCaml(ConfigureMake):
             'dirs': dirs,
         }
 
-        super(EB_OCaml, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

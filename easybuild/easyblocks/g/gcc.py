@@ -160,7 +160,7 @@ class EB_GCC(ConfigureMake):
         return ConfigureMake.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
-        super(EB_GCC, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.stagedbuild = False
         # Each build iteration is related to a specific build, first build host compiler, then potentially build NVPTX
@@ -468,7 +468,7 @@ class EB_GCC(ConfigureMake):
         """
         Prepare build environment, track currently active build stage
         """
-        super(EB_GCC, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # Set the current build stage to the specified stage based on the iteration index
         self.current_stage = self.build_stages[self.iter_idx]
@@ -578,7 +578,7 @@ class EB_GCC(ConfigureMake):
                 if self.current_stage == NVPTX_TOOLS:
                     # Configure NVPTX tools and build
                     change_dir(self.nvptx_tools_dir)
-                    return super(EB_GCC, self).configure_step()
+                    return super().configure_step()
 
                 elif self.current_stage == AMD_LLVM:
                     # determine LLVM target to use for host CPU
@@ -636,7 +636,7 @@ class EB_GCC(ConfigureMake):
                     self.cfg.update('configopts', "--disable-sjlj-exceptions")
 
                     self.cfg['configure_cmd_prefix'] = '../'
-                    return super(EB_GCC, self).configure_step()
+                    return super().configure_step()
 
                 else:
                     raise EasyBuildError("Unknown offload configure step: %s, available: %s"
@@ -735,7 +735,7 @@ class EB_GCC(ConfigureMake):
 
         if self.iter_idx > 0:
             # call standard build_step for nvptx-tools and nvptx GCC
-            return super(EB_GCC, self).build_step()
+            return super().build_step()
 
         if self.stagedbuild:
 
@@ -946,7 +946,7 @@ class EB_GCC(ConfigureMake):
             self.cfg.update('buildopts', 'bootstrap')
 
         # call standard build_step
-        super(EB_GCC, self).build_step()
+        super().build_step()
 
     def install_step(self, *args, **kwargs):
         """Custom install step: avoid installing LLVM when building with AMD GCN offloading support"""
@@ -972,13 +972,13 @@ class EB_GCC(ConfigureMake):
                 raise EasyBuildError("Failed to isolate GCC build directory in %s", self.builddir)
 
         else:
-            super(EB_GCC, self).install_step(*args, **kwargs)
+            super().install_step(*args, **kwargs)
 
     def post_processing_step(self, *args, **kwargs):
         """
         Post-processing after installation: add symlinks for cc, c++, f77, f95
         """
-        super(EB_GCC, self).post_processing_step(*args, **kwargs)
+        super().post_processing_step(*args, **kwargs)
 
         # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')
@@ -1087,7 +1087,7 @@ class EB_GCC(ConfigureMake):
             self.cfg['buildopts'] += ['', '']
             self.build_stages.append(AMD_LLVM)
             self.build_stages.append(AMD_NEWLIB)
-        return super(EB_GCC, self).run_all_steps(*args, **kwargs)
+        return super().run_all_steps(*args, **kwargs)
 
     def sanity_check_step(self):
         """
@@ -1200,5 +1200,5 @@ class EB_GCC(ConfigureMake):
         else:
             extra_modules = None
 
-        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
-                                              extra_modules=extra_modules)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
+                                  extra_modules=extra_modules)

@@ -39,7 +39,7 @@ class EB_PALM(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialise PALM easyblock."""
-        super(EB_PALM, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def configure_step(self):
         """No configuration procedure for PALM."""
@@ -73,4 +73,4 @@ class EB_PALM(EasyBlock):
             'files': [os.path.join(self.installdir, 'bin', 'palmrun')],
             'dirs': [],
         }
-        super(EB_PALM, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

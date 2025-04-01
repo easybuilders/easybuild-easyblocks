@@ -74,7 +74,7 @@ class EB_impi(IntelBase):
 
     def prepare_step(self, *args, **kwargs):
         kwargs['requires_runtime_license'] = False
-        super(EB_impi, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def install_step(self):
         """
@@ -90,13 +90,13 @@ class EB_impi(IntelBase):
             )
 
         if impiver >= LooseVersion('2021'):
-            super(EB_impi, self).install_step()
+            super().install_step()
         else:
             # impi starting from version 4.0.1.x uses standard installation procedure.
             silent_cfg_names_map = {}
-            super(EB_impi, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
+            super().install_step(silent_cfg_names_map=silent_cfg_names_map)
             # since v5.0.1 installers create impi/<version> subdir, so stuff needs to be moved afterwards
-            super(EB_impi, self).move_after_install()
+            super().move_after_install()
 
         # recompile libfabric (if requested)
         # some Intel MPI versions (like 2019 update 6) no longer ship libfabric sources
@@ -169,7 +169,7 @@ class EB_impi(IntelBase):
 
     def post_processing_step(self):
         """Custom post install step for IMPI, fix broken env scripts after moving installed files."""
-        super(EB_impi, self).post_processing_step()
+        super().post_processing_step()
 
         impiver = LooseVersion(self.version)
 
@@ -273,7 +273,7 @@ class EB_impi(IntelBase):
                 mpi_cmd_tmpl % params,  # run test program
             ])
 
-        super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_step(self, *args, **kwargs):
         """
@@ -351,7 +351,7 @@ class EB_impi(IntelBase):
         else:
             mpiroot = self.installdir
 
-        txt = super(EB_impi, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
         txt += self.module_generator.set_environment('I_MPI_ROOT', mpiroot)
         if self.cfg['set_mpi_wrappers_compiler'] or self.cfg['set_mpi_wrappers_all']:
             for var in ['CC', 'CXX', 'F77', 'F90', 'FC']:

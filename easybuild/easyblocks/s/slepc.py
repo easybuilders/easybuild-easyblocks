@@ -57,14 +57,14 @@ class EB_SLEPc(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize SLEPc custom variables."""
-        super(EB_SLEPc, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.cfg['sourceinstall']:
             self.build_in_installdir = True
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
-        super(EB_SLEPc, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # PETSc installed in 'sourceinstall' mode defines $PETSC_ARCH
         self.petsc_arch = os.environ.get('PETSC_ARCH', '')
@@ -120,7 +120,7 @@ class EB_SLEPc(ConfigureMake):
             # regular './configure --prefix=X' for non-source install
             # make sure old install dir is removed first
             self.make_installdir(dontcreate=True)
-            out = super(EB_SLEPc, self).configure_step()
+            out = super().configure_step()
 
         # check for errors in configure
         error_regexp = re.compile("ERROR")
@@ -136,11 +136,11 @@ class EB_SLEPc(ConfigureMake):
         Install using make install (for non-source installations)
         """
         if not self.cfg['sourceinstall']:
-            super(EB_SLEPc, self).install_step()
+            super().install_step()
 
     def make_module_extra(self):
         """Set SLEPc specific environment variables (SLEPC_DIR)."""
-        txt = super(EB_SLEPc, self).make_module_extra()
+        txt = super().make_module_extra()
 
         if self.cfg['sourceinstall']:
             subdir = '%s-%s' % (self.name.lower(), self.version)
@@ -161,4 +161,4 @@ class EB_SLEPc(ConfigureMake):
                 os.path.join(self.slepc_subdir, 'lib', 'slepc', 'conf'),
             ],
         }
-        super(EB_SLEPc, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

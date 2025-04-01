@@ -43,7 +43,7 @@ class EB_VTune(IntelBase):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor; define class variables."""
-        super(EB_VTune, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # recent versions of VTune are installed to a subdirectory
         self.subdir = ''
@@ -66,11 +66,11 @@ class EB_VTune(IntelBase):
     def prepare_step(self, *args, **kwargs):
         """Since 2019u3 there is no license required."""
         kwargs['requires_runtime_license'] = False
-        super(EB_VTune, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
-        super(EB_VTune, self).make_installdir(dontcreate=True)
+        super().make_installdir(dontcreate=True)
 
     def sanity_check_step(self):
         """Custom sanity check paths for VTune."""
@@ -78,4 +78,4 @@ class EB_VTune(IntelBase):
         custom_paths = self.get_custom_paths_tools(binaries)
         custom_commands = ['vtune --version']
 
-        super(EB_VTune, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

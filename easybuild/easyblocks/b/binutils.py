@@ -58,7 +58,7 @@ class EB_binutils(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor"""
-        super(EB_binutils, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # ld.gold linker is not supported on RISC-V
         self.use_gold = get_cpu_family() != RISCV
@@ -185,7 +185,7 @@ class EB_binutils(ConfigureMake):
                 self.cfg.update('configopts', '--without-debuginfod')
 
         # complete configuration with configure_method of parent
-        super(EB_binutils, self).configure_step()
+        super().configure_step()
 
         if self.cfg['install_libiberty']:
             cflags = os.getenv('CFLAGS')
@@ -198,7 +198,7 @@ class EB_binutils(ConfigureMake):
 
     def install_step(self):
         """Install using 'make install', also install libiberty if desired."""
-        super(EB_binutils, self).install_step()
+        super().install_step()
 
         # only install libiberty files if if they're not there yet;
         # libiberty.a is installed by default for old binutils versions
@@ -278,4 +278,4 @@ class EB_binutils(ConfigureMake):
                 if re.search(r'libz\.%s' % shlib_ext, res.output):
                     raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, res.output)
 
-        super(EB_binutils, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

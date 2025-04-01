@@ -363,4 +363,4 @@ class EB_Trinity(EasyBlock):
 
         custom_commands = ["Trinity --version | grep 'Trinity version'"]
 
-        super(EB_Trinity, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

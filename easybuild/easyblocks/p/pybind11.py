@@ -57,14 +57,14 @@ class EB_pybind11(CMakePythonPackage):
             self.log.info("Adding %s to configopts since it is not specified yet", configopt)
             self.cfg.update('configopts', configopt)
 
-        super(EB_pybind11, self).configure_step()
+        super().configure_step()
 
     def test_step(self):
         """Run pybind11 tests"""
         # run tests unless explicitly disabled
         if self.cfg['runtest'] is not False:
             self.cfg['runtest'] = 'check'
-        super(EB_pybind11, self).test_step()
+        super().test_step()
 
     def install_step(self):
         """Install with cmake install and pip install"""

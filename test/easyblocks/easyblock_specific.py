@@ -70,7 +70,7 @@ class EasyBlockSpecificTest(TestCase):
 
     def setUp(self):
         """Test setup."""
-        super(EasyBlockSpecificTest, self).setUp()
+        super().setUp()
         self.tmpdir = tempfile.mkdtemp()
 
         self.orig_sys_stdout = sys.stdout
@@ -87,7 +87,7 @@ class EasyBlockSpecificTest(TestCase):
         # restore original environment
         modify_env(os.environ, self.orig_environ, verbose=False)
 
-        super(EasyBlockSpecificTest, self).tearDown()
+        super().tearDown()
 
     def mock_stdout(self, enable):
         """Enable/disable mocking stdout."""

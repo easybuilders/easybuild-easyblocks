@@ -83,7 +83,7 @@ class EB_GAMESS_minus_US(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor, enable building in installation directory."""
-        super(EB_GAMESS_minus_US, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.build_in_installdir = True
 
         # resolve path to scratch dir and make it
@@ -115,7 +115,7 @@ class EB_GAMESS_minus_US(EasyBlock):
         """Extract sources."""
         # strip off 'gamess' part to avoid having everything in a 'gamess' subdirectory
         self.cfg['unpack_options'] = "--strip-components=1"
-        super(EB_GAMESS_minus_US, self).extract_step()
+        super().extract_step()
 
     def configure_step(self):
         """Configure GAMESS-US via install.info file"""
@@ -497,11 +497,11 @@ class EB_GAMESS_minus_US(EasyBlock):
             'files': [f'gamess.{self.version}.x', 'rungms'],
             'dirs': [],
         }
-        super(EB_GAMESS_minus_US, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Define GAMESS-US specific variables in generated module file, i.e. $GAMESSUSROOT."""
-        txt = super(EB_GAMESS_minus_US, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('GAMESSUSROOT', self.installdir)
         txt += self.module_generator.prepend_paths("PATH", [''])
         return txt

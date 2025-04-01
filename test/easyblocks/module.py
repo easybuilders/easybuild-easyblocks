@@ -137,7 +137,7 @@ class ModuleOnlyTest(TestCase):
 
     def setUp(self):
         """Setup test."""
-        super(ModuleOnlyTest, self).setUp()
+        super().setUp()
 
         self.log = fancylogger.getLogger("EasyblocksModuleOnlyTest", fname=False)
         fd, self.eb_file = tempfile.mkstemp(prefix='easyblocks_module_only_test_', suffix='.eb')
@@ -147,7 +147,7 @@ class ModuleOnlyTest(TestCase):
 
     def tearDown(self):
         """Clean up after running test."""
-        super(ModuleOnlyTest, self).tearDown()
+        super().tearDown()
 
         os.environ = self.orig_environ
 

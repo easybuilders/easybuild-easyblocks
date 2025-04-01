@@ -46,4 +46,4 @@ class EB_Mamba(EB_Anaconda):
             'dirs': ['etc', 'lib', 'pkgs'],
         }
         # Directly call EB_Anaconda's super, as this sanity_check_step should _overwrite_ Anaconda's (not call it)
-        super(EB_Anaconda, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

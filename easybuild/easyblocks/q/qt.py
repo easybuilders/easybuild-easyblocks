@@ -175,7 +175,7 @@ class EB_Qt(ConfigureMake):
         libdirs = [os.path.join(self.cfg['start_dir'], d, 'lib') for d in libdirs]
         self.cfg.update('prebuildopts', 'LD_LIBRARY_PATH=%s' % os.pathsep.join(libdirs + ['$LD_LIBRARY_PATH']))
 
-        super(EB_Qt, self).build_step()
+        super().build_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Qt."""
@@ -211,4 +211,4 @@ class EB_Qt(ConfigureMake):
         if LooseVersion(self.version) >= LooseVersion('4'):
             custom_paths['files'].append('bin/xmlpatterns')
 
-        super(EB_Qt, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

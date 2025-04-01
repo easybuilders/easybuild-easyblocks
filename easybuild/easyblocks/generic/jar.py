@@ -48,7 +48,7 @@ class JAR(Binary):
     def make_module_extra(self):
         """Extra module entries for JAR files: CLASSPATH."""
 
-        txt = super(JAR, self).make_module_extra()
+        txt = super().make_module_extra()
 
         for srcfile in self.src:
             srcname = srcfile['name']

@@ -53,7 +53,7 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
-        super(PerlModule, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.testcmd = None
 
         # Environment variables PERL_MM_OPT and PERL_MB_OPT cause installations to fail.

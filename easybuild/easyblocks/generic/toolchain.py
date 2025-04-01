@@ -55,7 +55,7 @@ class Toolchain(Bundle):
         Define $EBROOT* and $EBVERSION* environment for toolchain components marked as external module,
         if corresponding metadata is available.
         """
-        txt = super(Toolchain, self).make_module_extra()
+        txt = super().make_module_extra()
 
         # include $EBROOT* and $EBVERSION* definitions for toolchain components marked as external modules (if any)
         # in the generated module file for this toolchain;

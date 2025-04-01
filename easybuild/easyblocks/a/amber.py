@@ -68,7 +68,7 @@ class EB_Amber(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor: initialise class variables."""
-        super(EB_Amber, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('20'):
             # Build Amber <20 in install directory
@@ -83,7 +83,7 @@ class EB_Amber(CMakeMake):
     def extract_step(self):
         """Extract sources; strip off parent directory during unpack"""
         self.cfg.update('unpack_options', "--strip-components=1")
-        super(EB_Amber, self).extract_step()
+        super().extract_step()
 
     def patch_step(self, *args, **kwargs):
         """Patch Amber using 'update_amber' tool, prior to applying listed patch files (if any)."""
@@ -118,7 +118,7 @@ class EB_Amber(CMakeMake):
                 for _ in range(self.cfg['patchruns']):
                     run_shell_cmd(cmd)
 
-        super(EB_Amber, self).patch_step(*args, **kwargs)
+        super().patch_step(*args, **kwargs)
 
     def configure_step(self):
         """Apply the necessary CMake config opts."""
@@ -203,7 +203,7 @@ class EB_Amber(CMakeMake):
         self.cfg.update('configopts', '-DCOMPILER=AUTO')
 
         # configure using cmake
-        super(EB_Amber, self).configure_step()
+        super().configure_step()
 
     def build_step(self):
         """Build Amber"""
@@ -211,7 +211,7 @@ class EB_Amber(CMakeMake):
             # Building Amber < 20 is done in install step.
             return
 
-        super(EB_Amber, self).build_step()
+        super().build_step()
 
     def test_step(self):
         """Testing Amber build is done in install step."""
@@ -308,7 +308,7 @@ class EB_Amber(CMakeMake):
 
             # build in situ using 'make install'
             # note: not 'build'
-            super(EB_Amber, self).install_step()
+            super().install_step()
 
             # test
             if self.cfg['runtest']:
@@ -325,7 +325,7 @@ class EB_Amber(CMakeMake):
             self.configuremake_install_step()
             return
 
-        super(EB_Amber, self).install_step()
+        super().install_step()
 
         # Run the tests located in the build directory
         if self.cfg['runtest']:
@@ -374,11 +374,11 @@ class EB_Amber(CMakeMake):
             'files': [os.path.join(self.installdir, 'bin', binary) for binary in binaries],
             'dirs': [],
         }
-        super(EB_Amber, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add module entries specific to Amber/AmberTools"""
-        txt = super(EB_Amber, self).make_module_extra()
+        txt = super().make_module_extra()
 
         txt += self.module_generator.set_environment('AMBERHOME', self.installdir)
 

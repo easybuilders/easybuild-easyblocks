@@ -68,7 +68,7 @@ class Bundle(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialize easyblock."""
-        super(Bundle, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.altroot = None
         self.altversion = None
 
@@ -220,7 +220,7 @@ class Bundle(EasyBlock):
 
         :return: list of strings describing checksum issues (missing checksums, wrong checksum type, etc.)
         """
-        checksum_issues = super(Bundle, self).check_checksums()
+        checksum_issues = super().check_checksums()
 
         for comp, _ in self.comp_instances:
             checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
@@ -399,7 +399,7 @@ class Bundle(EasyBlock):
             kwargs['altroot'] = self.altroot
         if 'altversion' not in kwargs:
             kwargs['altversion'] = self.altversion
-        return super(Bundle, self).make_module_extra(*args, **kwargs)
+        return super().make_module_extra(*args, **kwargs)
 
     def sanity_check_step(self, *args, **kwargs):
         """
@@ -407,7 +407,7 @@ class Bundle(EasyBlock):
         If nothing is being installed, just being able to load the (fake) module is sufficient
         """
         if self.cfg['exts_list'] or self.cfg['sanity_check_paths'] or self.cfg['sanity_check_commands']:
-            super(Bundle, self).sanity_check_step(*args, **kwargs)
+            super().sanity_check_step(*args, **kwargs)
         else:
             self.log.info("Testing loading of module '%s' by means of sanity check" % self.full_mod_name)
             fake_mod_data = self.load_fake_module(purge=True)

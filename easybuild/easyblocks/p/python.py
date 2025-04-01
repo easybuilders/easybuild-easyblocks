@@ -138,7 +138,7 @@ class EB_Python(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Constructor for Python easyblock."""
-        super(EB_Python, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
@@ -183,7 +183,7 @@ class EB_Python(ConfigureMake):
         * patch setup.py when --sysroot EasyBuild configuration setting is used
         """
 
-        super(EB_Python, self).patch_step(*args, **kwargs)
+        super().patch_step(*args, **kwargs)
 
         if self.install_pip:
             # Ignore user site dir. -E ignores PYTHONNOUSERSITE, so we have to add -s
@@ -435,7 +435,7 @@ class EB_Python(ConfigureMake):
         # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)
         env.setvar('PYTHONNOUSERSITE', '1')
 
-        super(EB_Python, self).configure_step()
+        super().configure_step()
 
     def build_step(self, *args, **kwargs):
         """Custom build procedure for Python, ensure stack size limit is set to 'unlimited' (if desired)."""
@@ -476,7 +476,7 @@ class EB_Python(ConfigureMake):
                 print_warning(msg % (curr_ulimit_s, UNLIMITED, max_ulimit_s, max_ulimit_s))
                 self.cfg.update('prebuildopts', "ulimit -s %s && " % max_ulimit_s)
 
-        super(EB_Python, self).build_step(*args, **kwargs)
+        super().build_step(*args, **kwargs)
 
     @property
     def site_packages_path(self):
@@ -490,7 +490,7 @@ class EB_Python(ConfigureMake):
         env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
         self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
-        super(EB_Python, self).install_step()
+        super().install_step()
 
         # Create non-versioned, relative symlinks for python, python-config and pip
         python_binary_path = os.path.join(self.installdir, 'bin', 'python')
@@ -634,4 +634,4 @@ class EB_Python(ConfigureMake):
             else:
                 raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
 
-        super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

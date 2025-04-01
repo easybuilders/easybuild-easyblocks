@@ -278,7 +278,7 @@ class EB_PyTorch(PythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Constructor for PyTorch easyblock."""
-        super(EB_PyTorch, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.options['modulename'] = 'torch'
         self.has_xml_test_reports = False
 
@@ -304,7 +304,7 @@ class EB_PyTorch(PythonPackage):
 
     def fetch_step(self, skip_checksums=False):
         """Fetch sources for installing PyTorch, including those for tests."""
-        super(EB_PyTorch, self).fetch_step(skip_checksums)
+        super().fetch_step(skip_checksums)
         # Resolve tests early to avoid failures later. Use obtain_file if path is not absolute
         tests = [test if os.path.isabs(test) else self.obtain_file(test) for test in self.cfg['tests']]
         self.cfg['tests'] = tests
@@ -357,7 +357,7 @@ class EB_PyTorch(PythonPackage):
 
     def prepare_step(self, *args, **kwargs):
         """Make sure that versioned CMake alias exists"""
-        super(EB_PyTorch, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         # PyTorch preferes cmake3 over cmake which usually does not exist
         cmake_root = get_software_root('CMake')
         cmake_version = get_software_version('CMake')
@@ -373,7 +373,7 @@ class EB_PyTorch(PythonPackage):
 
     def configure_step(self):
         """Custom configure procedure for PyTorch."""
-        super(EB_PyTorch, self).configure_step()
+        super().configure_step()
 
         pytorch_version = LooseVersion(self.version)
 
@@ -614,7 +614,7 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': ' '.join(excluded_tests)
         })
 
-        parsed_test_result = super(EB_PyTorch, self).test_step(return_output_ec=True)
+        parsed_test_result = super().test_step(return_output_ec=True)
         if parsed_test_result is None:
             if self.cfg['runtest'] is False:
                 msg = "Do not set 'runtest' to False, use --skip-test-step instead."
@@ -767,7 +767,7 @@ class EB_PyTorch(PythonPackage):
 
     def test_cases_step(self):
         self._set_cache_dir()
-        super(EB_PyTorch, self).test_cases_step()
+        super().test_cases_step()
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for PyTorch"""
@@ -783,7 +783,7 @@ class EB_PyTorch(PythonPackage):
                 fail_msg = 'found one or more downloaded dependencies: %s' % ', '.join(downloaded_deps)
                 self.sanity_check_fail_msgs.append(fail_msg)
 
-        super(EB_PyTorch, self).sanity_check_step(*args, **kwargs)
+        super().sanity_check_step(*args, **kwargs)
 
 
 # ###################################### Code for parsing PyTorch Test XML files ######################################

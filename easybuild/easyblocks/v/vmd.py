@@ -47,7 +47,7 @@ class EB_VMD(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize VMD-specific variables."""
-        super(EB_VMD, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         # source tarballs contains a 'plugins' and 'vmd-<version>' directory
         self.vmddir = os.path.join(self.builddir, '%s-%s' % (self.name.lower(), self.version))
         self.surf_dir = os.path.join(self.vmddir, 'lib', 'surf')
@@ -55,7 +55,7 @@ class EB_VMD(ConfigureMake):
 
     def extract_step(self):
         """Custom extract step for VMD."""
-        super(EB_VMD, self).extract_step()
+        super().extract_step()
 
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
             change_dir(self.surf_dir)
@@ -196,7 +196,7 @@ class EB_VMD(ConfigureMake):
 
     def build_step(self):
         """Custom build step for VMD."""
-        super(EB_VMD, self).build_step()
+        super().build_step()
 
         self.have_stride = False
         # Build Surf, which is part of VMD as of VMD version 1.9.3
@@ -218,7 +218,7 @@ class EB_VMD(ConfigureMake):
 
         # Install must also be done in 'src' subdir
         change_dir(os.path.join(self.vmddir, 'src'))
-        super(EB_VMD, self).install_step()
+        super().install_step()
 
         if LooseVersion(self.version) >= LooseVersion("1.9.3"):
             surf_bin = os.path.join(self.surf_dir, 'surf')
@@ -233,4 +233,4 @@ class EB_VMD(ConfigureMake):
             'files': ['bin/vmd'],
             'dirs': ['lib'],
         }
-        super(EB_VMD, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

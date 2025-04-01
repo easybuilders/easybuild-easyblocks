@@ -50,7 +50,7 @@ class EB_fastStructure(CmdCp):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for fastStructure."""
-        super(EB_fastStructure, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg['files_to_copy'] = ['*']
         self.pyfiles = ['distruct.py', 'chooseK.py', 'structure.py']
@@ -72,7 +72,7 @@ class EB_fastStructure(CmdCp):
             write_file(pf_path, "#!/usr/bin/env python\n" + pf_contents)
             adjust_permissions(pf_path, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-        super(EB_fastStructure, self).post_processing_step()
+        super().post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for fastStructure."""
@@ -80,4 +80,4 @@ class EB_fastStructure(CmdCp):
             'files': self.pyfiles,
             'dirs': ['vars'],
         }
-        super(EB_fastStructure, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

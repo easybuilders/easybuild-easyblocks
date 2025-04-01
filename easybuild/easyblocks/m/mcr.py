@@ -52,7 +52,7 @@ class EB_MCR(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to MCR."""
-        super(EB_MCR, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.comp_fam = None
         self.configfilename = "my_installer_input.txt"
         self.subdir = None
@@ -135,11 +135,11 @@ class EB_MCR(PackedBinary):
                 os.path.join(self.subdir, 'runtime', 'glnxa64'),
                 os.path.join(self.subdir, 'sys', 'os', 'glnxa64'),
             ])
-        super(EB_MCR, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
-        txt = super(EB_MCR, self).make_module_extra()
+        txt = super().make_module_extra()
 
         self.set_subdir()
         # if no subdir was selected, set it to NOTFOUND

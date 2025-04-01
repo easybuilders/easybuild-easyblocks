@@ -237,7 +237,7 @@ class EB_LLVM(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize LLVM-specific variables."""
-        super(EB_LLVM, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.llvm_src_dir = None
         self.llvm_obj_dir_stage1 = None
@@ -646,7 +646,7 @@ class EB_LLVM(CMakeMake):
         self.add_cmake_opts()
 
         src_dir = os.path.join(self.llvm_src_dir, 'llvm')
-        super(EB_LLVM, self).configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+        super().configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
@@ -826,7 +826,7 @@ class EB_LLVM(CMakeMake):
             print_msg("Building stage 1/1")
 
         change_dir(self.llvm_obj_dir_stage1)
-        super(EB_LLVM, self).build_step(*args, **kwargs)
+        super().build_step(*args, **kwargs)
 
         if self.cfg['bootstrap']:
             self.log.info("Building stage 2")
@@ -961,11 +961,11 @@ class EB_LLVM(CMakeMake):
 
             self.cfg.update('preinstallopts', f'LD_LIBRARY_PATH={lib_path}')
 
-        super(EB_LLVM, self).install_step()
+        super().install_step()
 
     def post_processing_step(self):
         """Install python bindings."""
-        super(EB_LLVM, self).post_processing_step()
+        super().post_processing_step()
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
@@ -1225,7 +1225,7 @@ class EB_LLVM(CMakeMake):
         else:
             self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
 
-        return super(EB_LLVM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_step(self, *args, **kwargs):
         """
@@ -1249,7 +1249,7 @@ class EB_LLVM(CMakeMake):
 
     def make_module_extra(self):
         """Custom variables for Clang module."""
-        txt = super(EB_LLVM, self).make_module_extra()
+        txt = super().make_module_extra()
         # we set the symbolizer path so that asan/tsan give meanfull output by default
         asan_symbolizer_path = os.path.join(self.installdir, 'bin', 'llvm-symbolizer')
         txt += self.module_generator.set_environment('ASAN_SYMBOLIZER_PATH', asan_symbolizer_path)

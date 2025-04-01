@@ -39,7 +39,7 @@ class EB_nose(PythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Set custom class variables (unpack options)."""
-        super(EB_nose, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # use extra unpack options to avoid problems like
         # 'tar: Ignoring unknown extended header keyword `SCHILY.nlink'
