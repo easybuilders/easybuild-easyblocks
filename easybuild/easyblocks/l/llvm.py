@@ -37,13 +37,12 @@ import contextlib
 import glob
 import os
 import re
-import shutil
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
-from easybuild.tools.config import ERROR, SEARCH_PATH_LIB_DIRS, build_option
+from easybuild.tools.config import ERROR, IGNORE, SEARCH_PATH_LIB_DIRS, build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file
 from easybuild.tools.filetools import mkdir, remove_file, symlink, which, write_file
@@ -927,7 +926,7 @@ class EB_LLVM(CMakeMake):
                 self._set_gcc_prefix()
                 self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
-            pxtas_path = shutil.which('ptxas')
+            pxtas_path = which('ptxas', on_error=IGNORE)
             if not pxtas_path:
                 self.cfg['test_suite_ignore_patterns'] += \
                     ["nvptx64-nvidia-cuda", "nvptx64-nvidia-cuda-LTO"]
