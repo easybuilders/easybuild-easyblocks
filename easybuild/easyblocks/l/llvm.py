@@ -37,6 +37,7 @@ import contextlib
 import glob
 import os
 import re
+import shutil
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
@@ -925,6 +926,12 @@ class EB_LLVM(CMakeMake):
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
                 self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
+            # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
+            pxtas_path = shutil.which('ptxas')
+            if not pxtas_path:
+                self.cfg['test_suite_ignore_patterns'] += \
+                    ["nvptx64-nvidia-cuda", "nvptx64-nvidia-cuda-LTO"]
+
             max_failed = self.cfg['test_suite_max_failed']
             num_failed = self._para_test_step(parallel=1)
             if num_failed is None:
