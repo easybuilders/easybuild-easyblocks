@@ -81,5 +81,4 @@ class EB_code_minus_server(PackedBinary, EasyBlock):
 
     def make_module_extra(self):
         """Add the default directories to the PATH."""
-        txt = EasyBlock.make_module_extra(self)
-        return txt
+        return EasyBlock.make_module_extra(self)

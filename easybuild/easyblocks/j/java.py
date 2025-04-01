@@ -211,6 +211,6 @@ class EB_Java(PackedBinary):
         """
         Set $JAVA_HOME to installation directory
         """
-        txt = PackedBinary.make_module_extra(self)
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('JAVA_HOME', self.installdir)
         return txt

@@ -95,5 +95,4 @@ class JuliaBundle(Bundle, JuliaPackage):
 
     def make_module_extra(self, *args, **kwargs):
         """Custom module environment from JuliaPackage"""
-        mod = super().make_module_extra(*args, **kwargs)
-        return mod
+        return super().make_module_extra(*args, **kwargs)

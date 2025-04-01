@@ -344,8 +344,8 @@ class RPackage(ExtensionEasyBlock):
         """
         return super().sanity_check_step(EXTS_FILTER_R_PACKAGES, *args, **kwargs)
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Add install path to R_LIBS_SITE"""
         # prepend R_LIBS_SITE with install path
         extra = self.module_generator.prepend_paths("R_LIBS_SITE", [self.cfg['exts_subdir']])
-        return super().make_module_extra(extra)
+        return super().make_module_extra(*args, **kwargs) + extra
