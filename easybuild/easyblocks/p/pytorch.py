@@ -496,7 +496,7 @@ class EB_PyTorch(PythonPackage):
 
         if pytorch_version >= '2.0':
             add_enable_option('USE_ROCM', get_software_root('ROCm'))
-        elif pytorch_version >= 'v1.10.0':
+        if pytorch_version >= 'v1.10.0':
             add_enable_option('USE_MAGMA', get_software_root('magma'))
 
         if get_cpu_architecture() == POWER:
