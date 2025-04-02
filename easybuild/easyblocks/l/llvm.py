@@ -928,7 +928,8 @@ class EB_LLVM(CMakeMake):
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
             pxtas_path = which('ptxas', on_error=IGNORE)
             if not pxtas_path:
-                self.cfg['test_suite_ignore_patterns'] += \
+                self.cfg['test_suite_ignore_patterns'] = \
+                    (self.cfg['test_suite_ignore_patterns'] or []) + \
                     ["nvptx64-nvidia-cuda", "nvptx64-nvidia-cuda-LTO"]
 
             max_failed = self.cfg['test_suite_max_failed']
