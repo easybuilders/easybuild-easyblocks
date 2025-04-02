@@ -490,14 +490,20 @@ class EB_PyTorch(PythonPackage):
             # determine the compute capability of a GPU in the system and use that which may fail tests if
             # it is to new for the used nvcc
             env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
+            with_gpu_support = True
         else:
             # Disable CUDA
             options.append('USE_CUDA=0')
+            with_gpu_support = False
 
         if pytorch_version >= '2.0':
-            add_enable_option('USE_ROCM', get_software_root('ROCm'))
-        elif pytorch_version >= 'v1.10.0':
-            add_enable_option('USE_MAGMA', get_software_root('magma'))
+            has_rocm = get_software_root('ROCm')
+            add_enable_option('USE_ROCM', has_rocm)
+            if has_rocm:
+                with_gpu_support = True
+
+        if pytorch_version >= 'v1.10.0':
+            add_enable_option('USE_MAGMA', with_gpu_support and get_software_root('magma'))
 
         if get_cpu_architecture() == POWER:
             # *NNPACK is not supported on Power, disable to avoid warnings
