@@ -931,6 +931,14 @@ class EB_LLVM(CMakeMake):
                 self.cfg['test_suite_ignore_patterns'] = \
                     (self.cfg['test_suite_ignore_patterns'] or []) + \
                     ["nvptx64-nvidia-cuda", "nvptx64-nvidia-cuda-LTO"]
+            # Several AMDGPU tests are prone to fail if ROCm is not available.
+            # Building these tests works fine, but running them can end up in a segmentation fault.
+            # Since these tests are built with '-nogpulib', no binary is checked like done for NVIDIA.
+            # To avoid build failures because of high test failure numbers, ignore these failed tests.
+            if BUILD_TARGET_AMDGPU in self.cfg['build_targets'] or 'all' in self.cfg['build_targets']:
+                self.cfg['test_suite_ignore_patterns'] = \
+                    (self.cfg['test_suite_ignore_patterns'] or []) + \
+                    ['amdgcn-amd-amdhsa']
 
             max_failed = self.cfg['test_suite_max_failed']
             num_failed = self._para_test_step(parallel=1)
