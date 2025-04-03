@@ -35,7 +35,7 @@ import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, find_glob_pattern, adjust_permissions, copy_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_STAR_minus_CCM_plus_(EasyBlock):
@@ -136,7 +136,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
         # ignore exit code of command, since there's always a non-zero exit if $CHECK_DISK_SPACE is set to OFF;
         # rely on sanity check to catch problems with the installation
-        run_cmd(cmd, log_all=False, log_ok=False, simple=False)
+        run_shell_cmd(cmd, fail_on_error=False)
 
         if self.aol_install:
             # we expect to find a subdirectory that is not called 'sip' and looks like a version number,
@@ -145,7 +145,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
             for entry in contents:
                 if entry != 'sip' and os.path.isdir(entry) and entry[0] >= '0' and entry[0] <= '9':
                     self.log.info("Found entry to move to installdir: %s" % entry)
-                    run_cmd("mv " + os.path.join(self.builddir, entry) + ' ' + self.installdir)
+                    run_shell_cmd("mv " + os.path.join(self.builddir, entry) + ' ' + self.installdir)
                     break
                 else:
                     self.log.info("Skipping entry '%s' in build dir..." % entry)
