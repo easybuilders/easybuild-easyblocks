@@ -66,6 +66,18 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
                 adjust_permissions(dst, stat.S_IRWXU, add=True)
         else:
             EasyBlock.extract_step(self)
+            # Check if an .aol file appeared after extraction
+            extracted_subdir = os.path.join(self.builddir, 'starccm+_%s' % self.version)
+            if os.path.isdir(extracted_subdir):
+                for fname in os.listdir(extracted_subdir):
+                    if fname.endswith('.aol'):
+                        self.log.info(
+                            "Found .aol file after extraction in %s: %s. "
+                            "Switching to aol_install mode.",
+                            extracted_subdir, fname
+                        )
+                        self.aol_install = True
+                        break
 
     def configure_step(self):
         """No configuration procedure for STAR-CCM+."""
@@ -134,7 +146,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
                 if entry != 'sip' and os.path.isdir(entry) and entry[0] >= '0' and entry[0] <= '9':
                     self.log.info("Found entry to move to installdir: %s" % entry)
                     run_cmd("mv " + os.path.join(self.builddir, entry) + ' ' + self.installdir)
-                    break;
+                    break
                 else:
                     self.log.info("Skipping entry '%s' in build dir..." % entry)
 
