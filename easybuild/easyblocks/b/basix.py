@@ -1,9 +1,9 @@
 import os
 
 from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
-from easybuild.easyblocks.generic.pythonpackage import PIP_INSTALL_CMD
 from easybuild.tools.run import run_cmd
 from easybuild.tools.build_log import EasyBuildError
+
 
 class EB_Basix(CMakePythonPackage):
     """Custom easyblock for Basix"""
@@ -58,4 +58,3 @@ class EB_Basix(CMakePythonPackage):
         self.log.info('Extending PYTHONPATH to: "%s"' % os.environ['PYTHONPATH'])
 
         super(EB_Basix, self).install_step()
-
