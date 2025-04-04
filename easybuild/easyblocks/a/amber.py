@@ -329,7 +329,11 @@ class EB_Amber(CMakeMake):
 
         # Run the tests located in the build directory
         if self.cfg['runtest']:
-            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, self.builddir)
+            if LooseVersion(self.version) >= LooseVersion('24'):
+                testdir = os.path.join(self.builddir, 'test')
+            else:
+                testdir = self.builddir
+            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, testdir)
 
             # serial tests
             run_shell_cmd("%s && make test.serial" % pretestcommands)
