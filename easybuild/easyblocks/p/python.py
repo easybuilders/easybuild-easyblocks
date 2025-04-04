@@ -290,10 +290,9 @@ class EB_Python(ConfigureMake):
         self.log.debug("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.install_pip = self.cfg['install_pip']
-        if self.install_pip:
-            if not self._has_ensure_pip():
-                raise EasyBuildError("The ensurepip module required to install pip (requested by install_pip=True) "
-                                     "is not available in Python %s", self.version)
+        if self.install_pip and not self._has_ensure_pip():
+            raise EasyBuildError("The ensurepip module required to install pip (requested by install_pip=True) "
+                                 "is not available in Python %s", self.version)
 
     def _get_pip_ext_version(self):
         """Return the pip version from exts_list or None"""
@@ -397,18 +396,17 @@ class EB_Python(ConfigureMake):
 
         # The path to ldconfig is hardcoded in cpython.util._findSoname_ldconfig(name) as /sbin/ldconfig.
         # This is incorrect if a custom sysroot is used
-        if sysroot is not None:
-            # Have confirmed for all versions starting with this one that _findSoname_ldconfig hardcodes /sbin/ldconfig
-            if LooseVersion(self.version) >= "3.9.1":
-                orig_ld_config_call = "with subprocess.Popen(['/sbin/ldconfig', '-p'],"
-                ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
-                orig_ld_config_call_regex = r'(\s*)' + re.escape(orig_ld_config_call) + r'(\s*)'
-                updated_ld_config_call = "with subprocess.Popen(['%s/sbin/ldconfig', '-p']," % sysroot
-                apply_regex_substitutions(
-                    ctypes_util_py,
-                    [(orig_ld_config_call_regex, r'\1' + updated_ld_config_call + r'\2')],
-                    on_missing_match=ERROR
-                )
+        # Have confirmed for all versions starting with this one that _findSoname_ldconfig hardcodes /sbin/ldconfig
+        if sysroot is not None and LooseVersion(self.version) >= "3.9.1":
+            orig_ld_config_call = "with subprocess.Popen(['/sbin/ldconfig', '-p'],"
+            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+            orig_ld_config_call_regex = r'(\s*)' + re.escape(orig_ld_config_call) + r'(\s*)'
+            updated_ld_config_call = "with subprocess.Popen(['%s/sbin/ldconfig', '-p']," % sysroot
+            apply_regex_substitutions(
+                ctypes_util_py,
+                [(orig_ld_config_call_regex, r'\1' + updated_ld_config_call + r'\2')],
+                on_missing_match=ERROR
+            )
 
     def prepare_for_extensions(self):
         """
@@ -435,12 +433,11 @@ class EB_Python(ConfigureMake):
             use_pip_default = self.cfg['exts_default_options'].get('use_pip')
             # self.exts is populated in fetch_step
             for ext in self.exts:
-                if ext['name'] in ('pip', 'setuptools'):
-                    if not ext.get('options', {}).get('use_pip', use_pip_default):
-                        raise EasyBuildError("When using ensurepip to install pip (requested by install_pip=True) "
-                                             "you must set 'use_pip=True' for the pip & setuptools extensions. "
-                                             "Found 'use_pip=False' (maybe by default) for %s.",
-                                             ext['name'])
+                if ext['name'] in ('pip', 'setuptools') and not ext.get('options', {}).get('use_pip', use_pip_default):
+                    raise EasyBuildError("When using ensurepip to install pip (requested by install_pip=True) "
+                                         "you must set 'use_pip=True' for the pip & setuptools extensions. "
+                                         "Found 'use_pip=False' (maybe by default) for %s.",
+                                         ext['name'])
 
     def auto_detect_lto_support(self):
         """Return True, if LTO should be enabled for current toolchain"""
@@ -570,13 +567,12 @@ class EB_Python(ConfigureMake):
         #   ./python: symbol lookup error: ./python: undefined symbol: __gcov_indirect_call
         # see also https://bugs.python.org/issue29712
         enable_opts_flag = '--enable-optimizations'
-        if build_option('rpath') and enable_opts_flag in self.cfg['configopts']:
-            if os.path.exists(self.installdir):
-                warning_msg = "Removing existing installation directory '%s', "
-                warning_msg += "because EasyBuild is configured to use RPATH linking "
-                warning_msg += "and %s configure option is used." % enable_opts_flag
-                print_warning(warning_msg % self.installdir)
-                remove_dir(self.installdir)
+        if build_option('rpath') and enable_opts_flag in self.cfg['configopts'] and os.path.exists(self.installdir):
+            warning_msg = "Removing existing installation directory '%s', "
+            warning_msg += "because EasyBuild is configured to use RPATH linking "
+            warning_msg += "and %s configure option is used." % enable_opts_flag
+            print_warning(warning_msg % self.installdir)
+            remove_dir(self.installdir)
 
         if self.cfg['ulimit_unlimited']:
             # determine current stack size limit
