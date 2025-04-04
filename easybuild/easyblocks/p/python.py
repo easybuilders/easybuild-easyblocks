@@ -284,9 +284,9 @@ class EB_Python(ConfigureMake):
         }
 
         exts_default_options = self.cfg.get_ref('exts_default_options')
-        for key in ext_defaults:
+        for key, default_value in ext_defaults.items():
             if key not in exts_default_options:
-                exts_default_options[key] = ext_defaults[key]
+                exts_default_options[key] = default_value
         self.log.debug("exts_default_options: %s", self.cfg['exts_default_options'])
 
         self.install_pip = self.cfg['install_pip']
