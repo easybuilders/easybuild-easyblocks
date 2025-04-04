@@ -166,13 +166,18 @@ class EB_impi(IntelBase):
                     f"Requested to rebuild Fortran 2008 bindings, but the bindings tarball in {bindings_tarball} "
                     f"does not exist.")
             self.log.info(f"Found bindings tarball at {bindings_tarball}. Rebuilding Fortran 2008 bindings.")
+            # Determine compilers to build with
+            if self.toolchain.is_system_toolchain():
+                f90_compiler = 'gfortran'
+            else:
+                f90_compiler = self.toolchain.COMPILER_F90
             # Extract the tarball
             build_dir = tempfile.mkdtemp()
             run_shell_cmd(f"tar -xzf {bindings_tarball} -C {build_dir}")
             # Build the bindings
             change_dir(os.path.join(build_dir, 'f08'))
-            run_shell_cmd(f"make MPI_INST={self.installdir}/mpi/latest F90=ifx NAME=ifx")
-            change_dir(os.path.join(get_cwd(), 'include', 'ifx'))
+            run_shell_cmd(f"make MPI_INST={self.installdir}/mpi/latest F90={f90_compiler} NAME={f90_compiler}")
+            change_dir(os.path.join(get_cwd(), 'include', f'{f90_compiler}'))
             initial_module_files = glob.glob(f"{self.installdir}/mpi/latest/include/mpi/*.mod")
             written_module_files = glob.glob("*.mod")
             # Preserve the initial module files for people to use
