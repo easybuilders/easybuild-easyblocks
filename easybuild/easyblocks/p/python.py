@@ -401,7 +401,6 @@ class EB_Python(ConfigureMake):
             # Have confirmed for all versions starting with this one that _findSoname_ldconfig hardcodes /sbin/ldconfig
             if LooseVersion(self.version) >= "3.9.1":
                 orig_ld_config_call = "with subprocess.Popen(['/sbin/ldconfig', '-p'],"
-            if orig_ld_config_call:
                 ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
                 orig_ld_config_call_regex = r'(\s*)' + re.escape(orig_ld_config_call) + r'(\s*)'
                 updated_ld_config_call = "with subprocess.Popen(['%s/sbin/ldconfig', '-p']," % sysroot
