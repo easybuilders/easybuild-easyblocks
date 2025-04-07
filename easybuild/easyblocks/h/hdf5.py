@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -142,13 +142,6 @@ class EB_HDF5(ConfigureMake):
             'dirs': ['include'],
         }
         super(EB_HDF5, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Specify pkgconfig path for HDF5."""
-        guesses = super(EB_HDF5, self).make_module_req_guess()
-        guesses.update({'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig')]})
-
-        return guesses
 
     def make_module_extra(self):
         """Also define $HDF5_DIR to installation directory."""

@@ -1,5 +1,5 @@
 ##
-# Copyright 2023 Ghent University
+# Copyright 2023-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.filetools import find_glob_pattern
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_PALM(EasyBlock):
@@ -39,7 +39,7 @@ class EB_PALM(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialise PALM easyblock."""
-        super().__init__(*args, **kwargs)
+        super(EB_PALM, self).__init__(*args, **kwargs)
 
     def configure_step(self):
         """No configuration procedure for PALM."""
@@ -65,7 +65,7 @@ class EB_PALM(EasyBlock):
             "-p %s" % self.installdir,
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for PALM."""
@@ -73,4 +73,4 @@ class EB_PALM(EasyBlock):
             'files': [os.path.join(self.installdir, 'bin', 'palmrun')],
             'dirs': [],
         }
-        super().sanity_check_step(custom_paths=custom_paths)
+        super(EB_PALM, self).sanity_check_step(custom_paths=custom_paths)

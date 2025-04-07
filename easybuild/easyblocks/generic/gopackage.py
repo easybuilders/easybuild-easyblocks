@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,7 +35,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class GoPackage(EasyBlock):
@@ -65,14 +65,16 @@ class GoPackage(EasyBlock):
     def configure_step(self):
         """Configure Go package build/install."""
 
+        # Move compiled .a files into builddir, else they pollute $HOME/go
+        env.setvar('GOPATH', self.builddir, verbose=False)
         # enforce use of go modules
         env.setvar('GO111MODULE', 'on', verbose=False)
         # set bin folder
         env.setvar('GOBIN', os.path.join(self.installdir, 'bin'), verbose=False)
 
         # creates log entries for go being used, for debugging
-        run_cmd("go version", verbose=False, trace=False)
-        run_cmd("go env", verbose=False, trace=False)
+        run_shell_cmd("go version", hidden=True)
+        run_shell_cmd("go env", hidden=True)
 
     def build_step(self):
         """If Go package is not native go module, lets try to make the module."""
@@ -81,7 +83,7 @@ class GoPackage(EasyBlock):
         go_sum_file = 'go.sum'
 
         if not os.path.exists(go_mod_file) or not os.path.isfile(go_mod_file):
-            self.log.warn("go.mod not found! This is not natively supported go module. Trying to init module.")
+            self.log.warning("go.mod not found! This is not natively supported go module. Trying to init module.")
 
             if self.cfg['modulename'] is None:
                 raise EasyBuildError("Installing non-native go module. You need to specify 'modulename' in easyconfig")
@@ -91,13 +93,13 @@ class GoPackage(EasyBlock):
 
             # go mod init
             cmd = ' '.join(['go', 'mod', 'init', self.cfg['modulename']])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             if self.cfg['forced_deps']:
                 for dep in self.cfg['forced_deps']:
                     # go get specific dependencies which locks them in go.mod
                     cmd = ' '.join(['go', 'get', '%s@%s' % dep])
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
             # note: ... (tripledot) used below is not a typo, but go wildcard pattern
             # which means: anything you can find in this directory, including all subdirectories
@@ -105,20 +107,20 @@ class GoPackage(EasyBlock):
             # see: https://stackoverflow.com/a/28031651/2047157
 
             # building and testing will add packages to go.mod
-            run_cmd('go build ./...', log_all=True, simple=True)
-            run_cmd('go test ./...', log_all=True, simple=True)
+            run_shell_cmd('go build ./...')
+            run_shell_cmd('go test ./...')
 
             # tidy up go.mod
-            run_cmd('go mod tidy', log_all=True, simple=True)
+            run_shell_cmd('go mod tidy')
 
             # build and test again, to ensure go mod tidy didn't removed anything needed
-            run_cmd('go build ./...', log_all=True, simple=True)
-            run_cmd('go test ./...', log_all=True, simple=True)
+            run_shell_cmd('go build ./...')
+            run_shell_cmd('go test ./...')
 
-            self.log.warn('Include generated go.mod and go.sum via patch to ensure locked dependencies '
-                          'and run this easyconfig again.')
-            run_cmd('cat go.mod', log_all=True, simple=True)
-            run_cmd('cat go.sum', log_all=True, simple=True)
+            self.log.warning('Include generated go.mod and go.sum via patch to ensure locked dependencies '
+                             'and run this easyconfig again.')
+            run_shell_cmd('cat go.mod')
+            run_shell_cmd('cat go.sum')
 
         if not os.path.exists(go_sum_file) or not os.path.isfile(go_sum_file):
             raise EasyBuildError("go.sum not found! This module has no locked dependency versions.")
@@ -136,7 +138,7 @@ class GoPackage(EasyBlock):
             '-x',
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, log_ok=True, simple=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for Go package."""

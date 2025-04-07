@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,6 +38,7 @@ import glob
 import os
 import re
 import shutil
+import stat
 from copy import copy
 from easybuild.tools import LooseVersion
 
@@ -47,10 +48,10 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, move_file, symlink
-from easybuild.tools.filetools import which, read_file, write_file
-from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file
+from easybuild.tools.filetools import mkdir, move_file, read_file, symlink, which, write_file
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
 from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext, get_os_name, get_os_type
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -71,6 +72,58 @@ COMP_CMD_SYMLINKS = {
     'f95': 'gfortran',
 }
 
+RECREATE_INCLUDE_FIXED_SCRIPT_TMPL = """#!/bin/bash
+
+# Script to (re)generate fixed headers in include-fixed subdirectory of GCC installation
+
+set -u
+
+gccInstallDir=$(dirname "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")")
+mkheadersPath="$gccInstallDir/%(relative_mkheaders)s"
+includesFixedDir="$gccInstallDir/%(relative_include_fixed)s"
+
+if [[ ! -f "$mkheadersPath" ]]; then
+    echo "mkheaders not found in '$(dirname "$mkheadersPath")'" >&2
+    exit 1
+fi
+
+if [[ -d "$includesFixedDir" && ! -w "$includesFixedDir" ]]; then
+    resetReadOnly=1
+    echo "Found READONLY $includesFixedDir. Adding write permissions"
+    if ! chmod -R u+w "$includesFixedDir"; then
+        echo "$includesFixedDir is readonly and failed to change that automatically." >&2
+        echo "Add write permissions manually and rerun this script." >&2
+        exit 1
+    fi
+else
+    resetReadOnly=0
+fi
+
+readmePath="$includesFixedDir/README"
+if [[ -f $readmePath ]]; then
+    tmpReadmePath=$(mktemp)
+    cp "$readmePath" "$tmpReadmePath"
+else
+    tmpReadmePath=""
+fi
+
+echo "Starting $mkheadersPath $*"
+"$mkheadersPath" "$@"
+ec=$?
+
+if [[ -n "$tmpReadmePath" && -f "$tmpReadmePath" ]]; then
+    mv -f "$tmpReadmePath" "$readmePath"
+fi
+
+if [[ $resetReadOnly -eq 1 ]] && ! chmod -R u-w "$includesFixedDir"; then
+    echo "Failed to set $includesFixedDir as readonly again after adding write permissions." >&2
+    echo "Ensure the permissions are set as required!" >&2
+    exit 1
+fi
+
+exit $ec
+"""
+
 
 class EB_GCC(ConfigureMake):
     """
@@ -84,6 +137,11 @@ class EB_GCC(ConfigureMake):
             'clooguseisl': [False, "Use ISL with CLooG or not", CUSTOM],
             'generic': [None, "Build GCC and support libraries such that it runs on all processors of the target "
                               "architecture (use False to enforce non-generic regardless of configuration)", CUSTOM],
+            'rename_include_fixed': [False, "Rename the 'include-fixed' directory to avoid that it is used by GCC. "
+                                            "This avoids issues when upgrading the OS but might limit the "
+                                            "functionality of GCC, especially if the OS GLIBC is older than GCC. "
+                                            "A script to (re-)generate the include-fixed folder is created in the "
+                                            "'easybuild' subfolder inside the installation directory.", CUSTOM],
             'languages': [[], "List of languages to build GCC for (--enable-languages)", CUSTOM],
             'multilib': [False, "Build multilib gcc (both i386 and x86_64)", CUSTOM],
             'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
@@ -140,14 +198,27 @@ class EB_GCC(ConfigureMake):
         if get_os_name() not in ['ubuntu', 'debian']:
             self.cfg.update('unwanted_env_vars', ['LIBRARY_PATH'])
 
+        # disable NVPTX on RISC-V
+        if get_cpu_family() == RISCV:
+            self.log.warning('Setting withnvptx to False, since we are building on a RISC-V system')
+            self.cfg['withnvptx'] = False
+
+        # GCC can find its own headers and libraries in most cases, but we had
+        # cases where paths top libraries needed to be set explicitly
+        # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3256
+        # Therefore, remove paths from header search paths but keep paths in LIBRARY_PATH
+        for disallowed_var in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
+
     def create_dir(self, dirname):
         """
         Create a dir to build in.
         """
         dirpath = os.path.join(self.cfg['start_dir'], dirname)
         try:
-            os.mkdir(dirpath)
-            os.chdir(dirpath)
+            mkdir(dirpath)
+            change_dir(dirpath)
             self.log.debug("Created dir at %s" % dirpath)
             return dirpath
         except OSError as err:
@@ -195,10 +266,11 @@ class EB_GCC(ConfigureMake):
 
                 # check whether GCC actually supports LTO (it may be configured with --disable-lto),
                 # by compiling a simple C program using -flto
-                out, ec = run_cmd("echo 'void main() {}' | gcc -x c -flto - -o /dev/null", simple=False, log_ok=False)
+                res = run_shell_cmd("echo 'void main() {}' | gcc -x c -flto - -o /dev/null", fail_on_error=False)
                 gcc_path = which('gcc')
-                if ec:
-                    self.log.info("GCC command %s doesn't seem to support LTO, test compile failed: %s", gcc_path, out)
+                if res.exit_code:
+                    self.log.info("GCC command %s doesn't seem to support LTO, test compile failed: %s", gcc_path,
+                                  res.output)
                     disable_mpfr_lto = True
                 else:
                     self.log.info("GCC command %s provides LTO support, so using it when building MPFR", gcc_path)
@@ -303,6 +375,70 @@ class EB_GCC(ConfigureMake):
             'versions': versions
         }
 
+    def map_nvptx_capability(self):
+        """
+        Convert PTX ISA architecture passed via EasyBuild configs to a version which is understood by GCC.
+        Valid architecture strings include 'sm_30', 'sm_35', 'sm_53', 'sm_70', 'sm_75', 'sm_80'.
+        (as of GCC 14.1.0). Some additional architectures may be mapped.
+        See: https://github.com/gcc-mirror/gcc/commit/de0ef04419e90eacf0d1ddb265552a1b08c18d4b
+
+        As this list is updated regularly, try to parse the GCC source file (gcc/config/nvptx/nvptx.opt)
+        and extract the supported architectures and their mapping. Based on the result, determine the lowest
+        architecture required to support all 'cuda_compute_capabilities' and return this value.
+        """
+        cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
+        architecture_mappings_file = os.path.join(self.cfg['start_dir'], 'gcc', 'config', 'nvptx', 'nvptx.opt')
+        architecture_mappings_flag = "march-map="
+        architecture_mappings_replacement = "misa=,"
+
+        # Determine which compute capabilities are configured. If there are none, return immediately.
+        if not cuda_cc_list:
+            return None
+        cuda_sm_list = [f"sm_{cc.replace('.', '')}" for cc in cuda_cc_list]
+
+        if not os.path.exists(architecture_mappings_file):
+            warn_msg = f"Tried to parse nvptx.opt but file {architecture_mappings_file} was not found. " \
+                       "Please check the path and update the EasyBlock if necessary!"
+            self.log.warning(warn_msg)
+            return None
+
+        # We want to read the mappings found in the GCC sources and create a map for this.
+        # We're searching for the following pattern:
+        # march-map=sm_32
+        # Target RejectNegative Alias(misa=,sm_30)
+        gcc_architecture_mappings = {}
+        file_content = read_file(architecture_mappings_file).splitlines()
+        for line_idx, line in enumerate(file_content):
+            line = line.strip()
+            if line.startswith(architecture_mappings_flag):
+                key = line.split('=')[1]
+                # Mapped architecture can be found in the following line
+                line = file_content[line_idx + 1]
+                if architecture_mappings_replacement not in line:
+                    warn_msg = "Tried to parse nvptx.opt but failed to extract mapped architectures! " \
+                                f"Expected to find substring '{architecture_mappings_replacement}' in " \
+                                f"line {line_idx + 1} but found '{line}'. Choosing default of GCC."
+                    self.log.warning(warn_msg)
+                    # Bail out, since results of mapping cannot be trusted
+                    return None
+                value = line.split(architecture_mappings_replacement)[1].rstrip(')')
+                gcc_architecture_mappings[key] = value
+        self.log.info(f"Available architecture mappings in GCC {self.version}:\n {str(gcc_architecture_mappings)}")
+
+        # Map compute capabilities to GCC ones
+        # If no compute capability can be mapped, stick to default of GCC and return None
+        gcc_cc = [gcc_architecture_mappings[cc] if cc in gcc_architecture_mappings else None for cc in cuda_sm_list]
+        self.log.info(f"Mapped architectures: {str(cuda_sm_list)} -> {str(gcc_cc)}")
+        if any(cc is None for cc in gcc_cc):
+            self.log.info("At least one architecture could not be mapped. Choosing default of GCC.")
+            return None
+
+        # Get the lowest architecture mapping and return it
+        sorted_gcc_cc = sorted(gcc_cc)
+        self.log.info("Choosing first architecture in sorted list as default nvptx "
+                      f"architecture: {str(sorted_gcc_cc)}")
+        return sorted_gcc_cc[0]
+
     def run_configure_cmd(self, cmd):
         """
         Run a configure command, with some extra checking (e.g. for unrecognized options).
@@ -315,16 +451,16 @@ class EB_GCC(ConfigureMake):
         if host_type:
             cmd += ' --host=' + host_type
 
-        (out, ec) = run_cmd("%s %s" % (self.cfg['preconfigopts'], cmd), log_all=True, simple=False)
+        res = run_shell_cmd("%s %s" % (self.cfg['preconfigopts'], cmd))
 
-        if ec != 0:
-            raise EasyBuildError("Command '%s' exited with exit code != 0 (%s)", cmd, ec)
+        if res.exit_code != 0:
+            raise EasyBuildError("Command '%s' exited with exit code != 0 (%s)", cmd, res.exit_code)
 
         # configure scripts tend to simply ignore unrecognized options
         # we should be more strict here, because GCC is very much a moving target
         unknown_re = re.compile("WARNING: unrecognized options")
 
-        unknown_options = unknown_re.findall(out)
+        unknown_options = unknown_re.findall(res.output)
         if unknown_options:
             raise EasyBuildError("Unrecognized options found during configure: %s", unknown_options)
 
@@ -464,7 +600,7 @@ class EB_GCC(ConfigureMake):
                         "-DCMAKE_BUILD_TYPE=Release",
                         self.llvm_dir,
                     ])
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
                     # Need to terminate the current configuration step, but we can't run 'configure' since LLVM uses
                     # CMake, we therefore run 'CMake' manually and then return nothing.
                     # The normal make stage will build LLVM for us as expected, note that we override the install step
@@ -481,6 +617,10 @@ class EB_GCC(ConfigureMake):
                         self.create_dir("build-nvptx-gcc")
                         target = 'nvptx-none'
                         self.cfg.update('configopts', "--enable-newlib-io-long-long")
+                        if LooseVersion(self.version) >= LooseVersion('13.1.0'):
+                            cuda_cc = self.map_nvptx_capability()
+                            if cuda_cc:
+                                self.cfg.update('configopts', f'--with-arch={cuda_cc}')
                     else:
                         # compile AMD GCN target compiler
                         self.create_dir("build-amdgcn-gcc")
@@ -601,14 +741,14 @@ class EB_GCC(ConfigureMake):
 
             # make and install stage 1 build of GCC
             paracmd = ''
-            if self.cfg['parallel']:
-                paracmd = "-j %s" % self.cfg['parallel']
+            if self.cfg.parallel > 1:
+                paracmd = f"-j {self.cfg.parallel}"
 
             cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             cmd = "make install %s" % (self.cfg['installopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             # register built GCC as compiler to use for stage 2/3
             path = "%s/bin:%s" % (self.stage1installdir, os.getenv('PATH'))
@@ -619,6 +759,10 @@ class EB_GCC(ConfigureMake):
                 'val': os.getenv('LD_LIBRARY_PATH')
             }
             env.setvar('LD_LIBRARY_PATH', ld_lib_path)
+            if get_cpu_family() == RISCV:
+                # on RISC-V the compilers built in stage 1 fail to find some libraries from the lib dir,
+                # so let's also set $LIBRARY_PATH to work around it
+                env.setvar('LIBRARY_PATH', ld_lib_path)
 
             #
             # STAGE 2: build GMP/PPL/CLooG for stage 3
@@ -723,10 +867,10 @@ class EB_GCC(ConfigureMake):
 
                     # build and 'install'
                     cmd = "make %s" % paracmd
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
                     cmd = "make install"
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
                     if lib == "gmp":
                         # make sure correct GMP is found
@@ -830,11 +974,11 @@ class EB_GCC(ConfigureMake):
         else:
             super(EB_GCC, self).install_step(*args, **kwargs)
 
-    def post_install_step(self, *args, **kwargs):
+    def post_processing_step(self, *args, **kwargs):
         """
         Post-processing after installation: add symlinks for cc, c++, f77, f95
         """
-        super(EB_GCC, self).post_install_step(*args, **kwargs)
+        super(EB_GCC, self).post_processing_step(*args, **kwargs)
 
         # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')
@@ -849,9 +993,9 @@ class EB_GCC(ConfigureMake):
             else:
                 raise EasyBuildError("Can't link '%s' to non-existing location %s", target, os.path.join(bindir, src))
 
-        # Rename include-fixed directory which includes system header files that were processed by fixincludes,
-        # since these may cause problems when upgrading to newer OS version.
-        # (see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666)
+        # The include-fixed directory includes system header files that were processed by fixincludes.
+        # These may cause problems when upgrading to newer OS version,
+        # see https://github.com/easybuilders/easybuild-easyconfigs/issues/10666
         glob_pattern = os.path.join(self.installdir, 'lib*', 'gcc', '*-linux-gnu', self.version, 'include-fixed')
         paths = glob.glob(glob_pattern)
         if paths:
@@ -862,26 +1006,26 @@ class EB_GCC(ConfigureMake):
                 if not any(os.path.samefile(path, x) for x in include_fixed_paths):
                     include_fixed_paths.append(path)
 
-            if len(include_fixed_paths) == 1:
-                include_fixed_path = include_fixed_paths[0]
+            if len(include_fixed_paths) != 1:
+                raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
+                                     len(include_fixed_paths), include_fixed_paths)
+            include_fixed_path = include_fixed_paths[0]
 
-                msg = "Found include-fixed subdirectory at %s, "
-                msg += "renaming it to avoid using system header files patched by fixincludes..."
-                self.log.info(msg, include_fixed_path)
-
-                # limits.h and syslimits.h need to be copied to include/ first,
-                # these are strictly required (by /usr/include/limits.h for example)
-                include_path = os.path.join(os.path.dirname(include_fixed_path), 'include')
+            if self.cfg['rename_include_fixed']:
+                self.log.info("Found include-fixed subdirectory at %s", include_fixed_path)
+                include_fixed_renamed = include_fixed_path + '.renamed-by-easybuild'
+                move_file(include_fixed_path, include_fixed_renamed)
+                self.log.info("%s renamed to %s to avoid using the header files in it",
+                              include_fixed_path, include_fixed_renamed)
+                # We need to retain some files, e.g. syslimits.h is required by /usr/include/limits.h
+                mkdir(include_fixed_path)
                 retained_header_files = ['limits.h', 'syslimits.h']
                 for fn in retained_header_files:
-                    from_path = os.path.join(include_fixed_path, fn)
-                    to_path = os.path.join(include_path, fn)
+                    from_path = os.path.join(include_fixed_renamed, fn)
+                    to_path = os.path.join(include_fixed_path, fn)
                     if os.path.exists(from_path):
-                        if os.path.exists(to_path):
-                            raise EasyBuildError("%s already exists, not overwriting it with %s!", to_path, from_path)
-                        else:
-                            copy_file(from_path, to_path)
-                            self.log.info("%s copied to %s before renaming %s", from_path, to_path, include_fixed_path)
+                        copy_file(from_path, to_path)
+                        self.log.info("%s copied to %s after renaming %s", from_path, to_path, include_fixed_path)
                     else:
                         self.log.warning("Can't copy non-existing file %s to %s, since it doesn't exist!",
                                          from_path, to_path)
@@ -891,20 +1035,30 @@ class EB_GCC(ConfigureMake):
                     "This directory was renamed by EasyBuild to avoid that the header files in it are picked up,",
                     "since they may cause problems when the OS is upgraded to a new (minor) version.",
                     '',
-                    "These files were copied to %s first: %s" % (include_path, ', '.join(retained_header_files)),
+                    "These files were copied to %s first: %s" % (include_fixed_path, ', '.join(retained_header_files)),
                     '',
                     "See https://github.com/easybuilders/easybuild-easyconfigs/issues/10666 for more information.",
                     '',
                 ])
                 write_file(readme, readme_txt)
 
-                include_fixed_renamed = include_fixed_path + '.renamed-by-easybuild'
-                move_file(include_fixed_path, include_fixed_renamed)
-                self.log.info("%s renamed to %s to avoid using the header files in it",
-                              include_fixed_path, include_fixed_renamed)
-            else:
-                raise EasyBuildError("Exactly one 'include-fixed' directory expected, found %d: %s",
-                                     len(include_fixed_paths), include_fixed_paths)
+            # If the mkheaders utility exists we create a wrapper script to (re)generate the fixed headers manually,
+            # e.g. after OS upgrades.
+            # Get the '*-linux-gnu' part
+            target_machine = os.path.basename(os.path.dirname(os.path.dirname(include_fixed_path)))
+            mkheaders_path = os.path.join(self.installdir, 'libexec', 'gcc', target_machine, self.version,
+                                          'install-tools', 'mkheaders')
+            if os.path.isfile(mkheaders_path):
+                recreate_include_fixed_script = os.path.join(self.installdir, 'easybuild', 'recreate_includes.sh')
+                self.log.info("Creating script to regenerate %s on OS upgrades at %s",
+                              include_fixed_path, recreate_include_fixed_script)
+                relative_mkheaders = os.path.relpath(mkheaders_path, self.installdir)
+                relative_include_fixed = os.path.relpath(include_fixed_path, self.installdir)
+                write_file(recreate_include_fixed_script, RECREATE_INCLUDE_FIXED_SCRIPT_TMPL % {
+                    "relative_mkheaders": relative_mkheaders,
+                    "relative_include_fixed": relative_include_fixed
+                })
+                adjust_permissions(recreate_include_fixed_script, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH, add=True)
         else:
             self.log.info("No include-fixed subdirectory found at %s", glob_pattern)
 
@@ -1048,17 +1202,3 @@ class EB_GCC(ConfigureMake):
 
         super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
                                               extra_modules=extra_modules)
-
-    def make_module_req_guess(self):
-        """
-        GCC can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        """
-        guesses = super(EB_GCC, self).make_module_req_guess()
-        guesses.update({
-            'PATH': ['bin'],
-            'CPATH': [],
-            'LIBRARY_PATH': [],
-            'LD_LIBRARY_PATH': ['lib', 'lib64'],
-            'MANPATH': ['man', 'share/man']
-        })
-        return guesses

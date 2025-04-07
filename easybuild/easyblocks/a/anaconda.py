@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,11 +34,27 @@ import stat
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.tools.filetools import adjust_permissions, remove_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Anaconda(Binary):
     """Support for building/installing Anaconda and Miniconda."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        # Do not add installation to search paths for headers or libraries to avoid
+        # that the Anaconda environment is used by other software at building or linking time.
+        # LD_LIBRARY_PATH issue discusses here:
+        # http://superuser.com/questions/980250/environment-module-cannot-initialize-tcl
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
+        mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
+        mod_env_cmake = ['CMAKE_LIBRARY_PATH', 'CMAKE_PREFIX_PATH']
+        for disallowed_var in mod_env_headers + mod_env_libs + mod_env_cmake:
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def install_step(self):
         """Copy all files in build directory to the install directory"""
@@ -51,17 +67,7 @@ class EB_Anaconda(Binary):
         # Anacondas own install instructions specify "bash [script]" despite using different shebangs
         cmd = "%s bash ./%s -p %s -b -f" % (self.cfg['preinstallopts'], install_script, self.installdir)
         self.log.info("Installing %s using command '%s'..." % (self.name, cmd))
-        run_cmd(cmd, log_all=True, simple=True)
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for.
-        """
-        return {
-            'MANPATH': ['man', os.path.join('share', 'man')],
-            'PATH': ['bin', 'sbin'],
-            'PKG_CONFIG_PATH': [os.path.join(x, 'pkgconfig') for x in ['lib', 'lib32', 'lib64', 'share']],
-        }
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """

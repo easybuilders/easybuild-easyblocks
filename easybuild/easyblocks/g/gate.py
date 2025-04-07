@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,7 +40,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -144,8 +144,8 @@ class EB_GATE(CMakeMake):
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
 
             cmd = "source %s &> /dev/null && echo $G4SYSTEM" % os.path.join(self.cfg['start_dir'], 'env_gate.sh')
-            out, _ = run_cmd(cmd, simple=False)
-            self.g4system = out.strip()
+            res = run_shell_cmd(cmd)
+            self.g4system = res.output.strip()
             if self.g4system:
                 self.log.debug("Value obtained for $G4SYSTEM: %s" % self.g4system)
             else:

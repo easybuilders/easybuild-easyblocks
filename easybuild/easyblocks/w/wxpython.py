@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_python_version
 from easybuild.tools.filetools import change_dir, symlink
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -63,10 +63,10 @@ class EB_wxPython(PythonPackage):
             # Do we need to build wxWidgets internally?
             if self.wxflag == '':
                 cmd = base_cmd + " build_wx"
-                run_cmd(cmd, log_all=True, simple=True)
+                run_shell_cmd(cmd)
 
             cmd = base_cmd + " %s build_py" % self.wxflag
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
     def install_step(self):
         """Custom install procedure for wxPython."""
@@ -83,13 +83,15 @@ class EB_wxPython(PythonPackage):
             }
             # install fails and attempts to install in the python module. building the wheel, and then installing it
             cmd = cmd + " %s -v bdist_wheel" % self.wxflag
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             # get whether it is 35, 36, 37, 38, etc.
             pyver = det_python_version(self.python_cmd)
             pyver = pyver[0] + pyver[2]
 
-            cmd = "pip install --no-deps --prefix=%(prefix)s dist/wxPython-%(version)s-cp%(pyver)s*.whl" % {
+            installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
+            cmd = "pip install %(installopts)s --prefix=%(prefix)s dist/wxPython-%(version)s-cp%(pyver)s*.whl" % {
+                'installopts': installopts,
                 'prefix': self.installdir,
                 'version': self.version,
                 'pyver': pyver
@@ -104,7 +106,7 @@ class EB_wxPython(PythonPackage):
             }
             cmd = cmd + " --wxpy_installdir=%s --install" % self.installdir
 
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # add symbolic links for libwx_*so.* files
         # (which are created automatically by 'build.py install', but not by 'pip install *.whl')

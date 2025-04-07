@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2023 Ghent University
+# Copyright 2019-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,6 +33,7 @@ import stat
 import sys
 import tempfile
 import textwrap
+from io import StringIO
 from unittest import TestLoader, TextTestRunner
 from test.easyblocks.module import cleanup
 
@@ -50,7 +51,6 @@ from easybuild.tools.environment import modify_env
 from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, remove_dir, symlink, write_file
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
-from easybuild.tools.py2vs3 import StringIO
 
 
 class EasyBlockSpecificTest(TestCase):

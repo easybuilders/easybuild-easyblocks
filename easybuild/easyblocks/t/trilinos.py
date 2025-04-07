@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,8 @@ import os
 import random
 import re
 
+from string import ascii_letters
+
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
@@ -39,7 +41,6 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
 from easybuild.tools.filetools import mkdir, remove_dir, symlink
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import ascii_letters
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 

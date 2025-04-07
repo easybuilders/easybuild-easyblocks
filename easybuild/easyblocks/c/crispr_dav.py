@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2023 Ghent University
+# Copyright 2020-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,7 +46,7 @@ class EB_CRISPR_minus_DAV(Binary):
         super(EB_CRISPR_minus_DAV, self).__init__(*args, **kwargs)
         self.cfg['extract_sources'] = True
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Update configuration files with correct paths to dependencies and files in installation."""
 
         # getting paths of deps + files we will work with

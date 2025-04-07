@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2012-2023 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,8 +35,7 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import subprocess_popen_text
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -77,12 +76,13 @@ class EB_UCX_Plugins(ConfigureMake):
         if not get_software_root('UCX'):
             raise EasyBuildError("UCX is a required dependency")
 
-        self.cfg['configure_cmd'] = 'contrib/configure-release'
         self.cfg.update('preconfigopts', 'autoreconf -i &&')
 
         configopts = '--enable-optimizations --without-java --disable-doxygen-doc '
         # omit the lib subdirectory since we are just installing plugins
         configopts += '--libdir=%(installdir)s '
+        # include the configure options from contrib/configure-release
+        configopts += '--disable-logging --disable-debug --disable-assertions --disable-params-check '
 
         cudaroot = get_software_root('CUDAcore') or get_software_root('CUDA')
         if cudaroot:
@@ -106,12 +106,12 @@ class EB_UCX_Plugins(ConfigureMake):
     def build_step(self):
         """Build plugins"""
         for makefile_dir in self.makefile_dirs:
-            run_cmd('make -C src/%s V=1' % makefile_dir)
+            run_shell_cmd('make -C src/%s V=1' % makefile_dir)
 
     def install_step(self):
         """Install plugins"""
         for makefile_dir in self.makefile_dirs:
-            run_cmd('make -C src/%s install' % (makefile_dir))
+            run_shell_cmd('make -C src/%s install' % (makefile_dir))
 
     def make_module_extra(self, *args, **kwargs):
         """Add extra statements to generated module file specific to UCX plugins"""

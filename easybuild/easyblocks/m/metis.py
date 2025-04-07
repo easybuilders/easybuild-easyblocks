@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_METIS(ConfigureMake):
@@ -60,7 +60,7 @@ class EB_METIS(ConfigureMake):
                 apply_regex_substitutions('Makefile', [(r'^(CONFIG_FLAGS\s*=\s*)', r'\1 -DCMAKE_SKIP_RPATH=ON ')])
 
             cmd = "make %s config prefix=%s" % (self.cfg['configopts'], self.installdir)
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             if 'shared=1' in self.cfg['configopts']:
                 self.lib_exts.append('so')

@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2023 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,6 @@ EasyBuild support for OpenBabel, implemented as an easyblock
 import glob
 import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -108,14 +107,6 @@ class EB_OpenBabel(CMakeMake):
     def make_module_extra(self):
         """Custom variables for OpenBabel module."""
         txt = super(EB_OpenBabel, self).make_module_extra()
-        if self.with_python:
-            if LooseVersion(self.version) >= LooseVersion('2.4'):
-                # since OpenBabel 2.4.0 the Python bindings under
-                # ${PREFIX}/lib/python2.7/site-packages  rather than ${PREFIX}/lib
-                ob_pythonpath = det_pylibdir()
-            else:
-                ob_pythonpath = 'lib'
-            txt += self.module_generator.prepend_paths('PYTHONPATH', [ob_pythonpath])
         babel_libdir = os.path.join(self.installdir, 'lib', 'openbabel', self.version)
         txt += self.module_generator.set_environment('BABEL_LIBDIR', babel_libdir)
         babel_datadir = os.path.join(self.installdir, 'share', 'openbabel', self.version)

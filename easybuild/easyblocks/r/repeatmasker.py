@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,11 +32,18 @@ from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, patch_perl_script_autoflush
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_RepeatMasker(Tarball):
     """Support for building/installing RepeatMasker."""
+
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+        super(EB_RepeatMasker, self).__init__(*args, **kwargs)
+
+        # custom path-like environment variables for RepeatMaskerConfig
+        self.module_load_environment.PATH = ['']
 
     def install_step(self):
         """Custom install procedure for RepeatMasker."""
@@ -83,15 +90,14 @@ class EB_RepeatMasker(Tarball):
                 'HMMER': '3',
                 'WUBlast': '4',
             }
-            qa = {}
-            std_qa = {
-                r'\*\*TRF PROGRAM\*\*\n\n.*\n.*\n+Enter path.*': trf,
-                r'.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n'
-                r'.*\[ Un\-configured \]\n\n.*\n\n\nEnter Selection:\s*': search_engine_map[search_engine],
-                r'\*\*.* INSTALLATION PATH\*\*\n\n.*\n.*\n+Enter path.*': search_engine_bindir,
-                r'search engine for Repeatmasker.*': 'Y',
-                r'.*\[ Configured, Default \](.*\n)*\n\nEnter Selection:\s*': '5',  # 'Done'
-            }
+            qa = [
+                (r'\*\*TRF PROGRAM\*\*\n\n.*\n.*\n+Enter path.*', trf),
+                (r'.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n.*\[ Un\-configured \]\n'
+                 r'.*\[ Un\-configured \]\n\n.*\n\n\nEnter Selection:\s*', search_engine_map[search_engine]),
+                (r'\*\*.* INSTALLATION PATH\*\*\n\n.*\n.*\n+Enter path.*', search_engine_bindir),
+                (r'search engine for Repeatmasker.*', 'Y'),
+                (r'.*\[ Configured, Default \](.*\n)*\n\nEnter Selection:\s*', '5'),  # 'Done'
+            ]
         else:
             search_engine_map = {
                 'CrossMatch': '1',
@@ -99,22 +105,20 @@ class EB_RepeatMasker(Tarball):
                 'WUBlast': '3',
                 'HMMER': '4',
             }
-            qa = {
-                '<PRESS ENTER TO CONTINUE>': '',
+            qa = [
+                (r'<PRESS ENTER TO CONTINUE>', ''),
                 # select search engine
-                'Enter Selection:': search_engine_map[search_engine],
-            }
-            std_qa = {
-                r'\*\*PERL PROGRAM\*\*\n([^*]*\n)+Enter path.*': perl,
-                r'\*\*REPEATMASKER INSTALLATION DIRECTORY\*\*\n([^*]*\n)+Enter path.*': self.installdir,
-                r'\*\*TRF PROGRAM\*\*\n([^*]*\n)+Enter path.*': trf,
+                (r'Enter Selection:', search_engine_map[search_engine]),
+                (r'\*\*PERL PROGRAM\*\*\n([^*]*\n)+Enter path.*', perl),
+                (r'\*\*REPEATMASKER INSTALLATION DIRECTORY\*\*\n([^*]*\n)+Enter path.*', self.installdir),
+                (r'\*\*TRF PROGRAM\*\*\n([^*]*\n)+Enter path.*', trf),
                 # search engine installation path (location of /bin subdirectory)
                 # also enter 'Y' to confirm + '5' ("Done") to complete selection process for search engine
-                r'\*\*.* INSTALLATION PATH\*\*\n([^*]*\n)+Enter path.*': search_engine_bindir + '\nY\n5',
-            }
+                (r'\*\*.* INSTALLATION PATH\*\*\n([^*]*\n)+Enter path.*', search_engine_bindir + '\nY\n5'),
+            ]
 
         cmd = "perl ./configure"
-        run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True, maxhits=300)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_timeout=300)
 
     def sanity_check_step(self):
         """Custom sanity check for RepeatMasker."""
@@ -127,11 +131,3 @@ class EB_RepeatMasker(Tarball):
         custom_commands = ['RepeatMasker']
 
         super(EB_RepeatMasker, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Custom guesses for path-like environment variables for RepeatMaskerConfig."""
-        guesses = super(EB_RepeatMasker, self).make_module_req_guess()
-
-        guesses['PATH'] = ['']
-
-        return guesses

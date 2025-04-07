@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ import stat
 from easybuild.easyblocks.generic.cmdcp import CmdCp
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, change_dir, read_file, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_fastStructure(CmdCp):
@@ -54,13 +54,15 @@ class EB_fastStructure(CmdCp):
 
         self.cfg['files_to_copy'] = ['*']
         self.pyfiles = ['distruct.py', 'chooseK.py', 'structure.py']
+        # custom path-like environment variables for RepeatMaskerConfig
+        self.module_load_environment.PATH = ['']
 
     def build_step(self):
         """Build fastStructure using setup.py."""
         cwd = change_dir('vars')
-        run_cmd("python setup.py build_ext --inplace")
+        run_shell_cmd("python setup.py build_ext --inplace")
         change_dir(cwd)
-        run_cmd("python setup.py build_ext --inplace")
+        run_shell_cmd("python setup.py build_ext --inplace")
 
     def post_install_step(self):
         """Add a shebang to the .py files and make them executable."""
@@ -79,9 +81,3 @@ class EB_fastStructure(CmdCp):
             'dirs': ['vars'],
         }
         super(EB_fastStructure, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Make sure PATH is set correctly."""
-        guesses = super(EB_fastStructure, self).make_module_req_guess()
-        guesses['PATH'] = ['']
-        return guesses

@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2023 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,13 +52,14 @@ class EB_FreeSurfer(Tarball):
         super(EB_FreeSurfer, self).install_step()
         write_file(os.path.join(self.installdir, '.license'), self.cfg['license_text'])
 
-    def make_module_req_guess(self):
-        """Include correct subdirectories to $PATH for FreeSurfer."""
-        guesses = super(EB_FreeSurfer, self).make_module_req_guess()
+    def __init__(self, *args, **kwargs):
+        """Custom constructor for FLUENT easyblock, initialize/define class parameters."""
+        super(EB_FreeSurfer, self).__init__(*args, **kwargs)
 
-        guesses['PATH'].extend([os.path.join('fsfast', 'bin'), os.path.join('mni', 'bin'), 'tktools'])
-
-        return guesses
+        self.module_load_environment.PATH.extend([
+            os.path.join('fsfast', 'bin'),
+            os.path.join('mni', 'bin'), 'tktools',
+        ])
 
     def make_module_extra(self):
         """Define FreeSurfer-specific environment variable in generated module file."""

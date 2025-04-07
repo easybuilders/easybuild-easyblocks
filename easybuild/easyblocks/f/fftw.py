@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ from easybuild.toolchains.compiler.fujitsu import TC_CONSTANT_FUJITSU
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
+from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV32, RISCV64, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
@@ -141,7 +141,7 @@ class EB_FFTW(ConfigureMake):
                     setattr(self, flag, True)
 
         # Auto-disable quad-precision on ARM and POWER, as it is unsupported
-        if self.cfg['with_quad_prec'] and cpu_arch in [AARCH32, AARCH64, POWER]:
+        if self.cfg['with_quad_prec'] and cpu_arch in [AARCH32, AARCH64, POWER, RISCV32, RISCV64]:
             self.cfg['with_quad_prec'] = False
             self.log.debug("Quad-precision automatically disabled; not supported on %s.", cpu_arch)
 

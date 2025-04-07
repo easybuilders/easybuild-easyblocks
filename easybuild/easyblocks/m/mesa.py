@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,7 +35,7 @@ from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.filetools import copy_dir
-from easybuild.tools.systemtools import POWER, X86_64, AARCH64
+from easybuild.tools.systemtools import POWER, X86_64, AARCH64, RISCV64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 
 
@@ -69,6 +69,7 @@ class EB_Mesa(MesonNinja):
                 X86_64: ['swrast'],
                 POWER: ['swrast'],
                 AARCH64: ['swrast'],
+                RISCV64: ['swrast'],
             }
             if LooseVersion(self.version) < LooseVersion('22'):
                 # swr driver support removed in Mesa 22.0

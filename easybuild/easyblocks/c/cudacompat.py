@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2023 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import copy_file, find_glob_pattern, mkdir, symlink, which
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_CUDAcompat(Binary):
@@ -65,6 +65,8 @@ class EB_CUDAcompat(Binary):
         """Initialize custom class variables for CUDACompat."""
         super(EB_CUDAcompat, self).__init__(*args, **kwargs)
         self._has_nvidia_smi = None
+        # avoid building software with this compat libraries
+        self.module_load_environment.remove('LIBRARY_PATH')
 
     @property
     def has_nvidia_smi(self):
@@ -85,12 +87,12 @@ class EB_CUDAcompat(Binary):
         if not self.has_nvidia_smi:
             raise RuntimeError('Could not find nvidia-smi.')
         cmd = 'nvidia-smi ' + args
-        out, ec = run_cmd(cmd, log_ok=False, log_all=False, regexp=False)
-        if ec != 0:
-            raise RuntimeError("`%s` returned exit code %s with output:\n%s" % (cmd, ec, out))
+        res = run_shell_cmd(cmd, fail_on_error=False)
+        if res.exit_code != 0:
+            raise RuntimeError("`%s` returned exit code %s with output:\n%s" % (cmd, res.exit_code, res.output))
         else:
-            self.log.info('`%s` succeeded with output:\n%s' % (cmd, out))
-            return out.strip().split('\n')
+            self.log.info('`%s` succeeded with output:\n%s' % (cmd, res.output))
+            return res.output.strip().split('\n')
 
     def prepare_step(self, *args, **kwargs):
         """Parse and check the compatible_driver_versions value of the EasyConfig"""
@@ -127,7 +129,7 @@ class EB_CUDAcompat(Binary):
         execpath = self.src[0]['path']
         tmpdir = os.path.join(self.builddir, 'tmp')
         targetdir = os.path.join(self.builddir, 'extracted')
-        run_cmd("/bin/sh " + execpath + " --extract-only --tmpdir='%s' --target '%s'" % (tmpdir, targetdir))
+        run_shell_cmd("/bin/sh " + execpath + " --extract-only --tmpdir='%s' --target '%s'" % (tmpdir, targetdir))
         self.src[0]['finalpath'] = targetdir
 
     def test_step(self):
@@ -213,17 +215,6 @@ class EB_CUDAcompat(Binary):
             # E.g. libcuda.so.1 -> libcuda.so
             unversioned_symlink = versioned_symlink.rsplit('.', 1)[0]
             symlink(versioned_symlink, os.path.join(libdir, unversioned_symlink), use_abspath_source=False)
-
-    def make_module_req_guess(self):
-        """Don't try to guess anything."""
-        return dict()
-
-    def make_module_extra(self):
-        """Skip the changes from the Binary EasyBlock and (only) set LD_LIBRARY_PATH."""
-
-        txt = super(Binary, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', 'lib')
-        return txt
 
     def sanity_check_step(self):
         """Check for core files (unversioned libs, symlinks)"""

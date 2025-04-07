@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -54,19 +54,21 @@ class EB_imkl_minus_FFTW(EB_imkl):
         self.mkl_basedir = os.getenv('MKLROOT')
         self.build_mkl_fftw_interfaces(os.path.join(self.installdir, 'lib'))
 
-    def make_module_req_guess(self):
-        """Custom guesses for imkl-FFTW module file"""
-        # bypass custom paths for imkl, only use standard library location
-        return super(EB_imkl, self).make_module_req_guess()
+    def make_module_step(self, *args, **kwargs):
+        """
+        Custom paths of imkl are unnecessary as imkl-FFTW only ships libraries under the 'lib' subdir
+        Use generic make_module_step skipping imkl
+        """
+        return super(EB_imkl, self).make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Custom extra variables to set in module file"""
         # bypass extra module variables for imkl
         return super(EB_imkl, self).make_module_extra()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Custom post install step for imkl-FFTW"""
-        # bypass post_install_step of imkl easyblock
+        # bypass post_processing_step of imkl easyblock
         pass
 
     def sanity_check_step(self):

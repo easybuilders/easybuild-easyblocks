@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,7 +48,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_file, extract_file, mkdir
 from easybuild.tools.filetools import patch_perl_script_autoflush, remove_dir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_WPS(EasyBlock):
@@ -80,6 +80,9 @@ class EB_WPS(EasyBlock):
         else:
             self.wps_subdir = 'WPS-%s' % self.version
 
+        self.module_load_environment.LD_LIBRARY_PATH = self.wps_subdir
+        self.module_load_environment.PATH = [self.wps_subdir, os.path.join(self.wps_subdir, 'util')]
+
     @staticmethod
     def extra_options():
         extra_vars = {
@@ -106,6 +109,9 @@ class EB_WPS(EasyBlock):
             wrfdir = os.path.join(wrf, det_wrf_subdir(get_software_version('WRF')))
         else:
             raise EasyBuildError("WRF module not loaded?")
+        netcdf_fortran = get_software_root('NETCDFMINFORTRAN')
+        if netcdf_fortran:
+            env.setvar('NETCDFF_DIR', netcdf_fortran)
 
         self.compile_script = 'compile'
 
@@ -150,7 +156,7 @@ class EB_WPS(EasyBlock):
         ]
         apply_regex_substitutions(os.path.join('ungrib', 'src', 'Makefile'), regex_subs)
 
-        # patch arch/Config.pl script, so that run_cmd_qa receives all output to answer questions
+        # patch arch/Config.pl script, so that run_shell_cmd receives all output to answer questions
         patch_perl_script_autoflush(os.path.join("arch", "Config.pl"))
 
         # configure
@@ -209,14 +215,13 @@ class EB_WPS(EasyBlock):
             './configure',
             self.cfg['configopts'],
         ])
-        qa = {}
-        no_qa = [".*compiler is.*"]
-        std_qa = {
+        qa = [
             # named group in match will be used to construct answer
-            r"%s(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
-        }
+            (r"%s(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question, "%(nr)s"),
+        ]
+        no_qa = [".*compiler is.*"]
 
-        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa)
 
         # make sure correct compilers and compiler flags are being used
         comps = {
@@ -237,10 +242,12 @@ class EB_WPS(EasyBlock):
         """Build in install dir using compile script."""
         cmd = ' '.join([
             self.cfg['prebuildopts'],
-            './' + self.compile_script,
+            # compile script rely on /bin/csh
+            # Better call csh command to allow tcsh build dependency
+            'csh ./' + self.compile_script,
             self.cfg['buildopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def test_step(self):
         """Run WPS test (requires large dataset to be downloaded). """
@@ -259,10 +266,10 @@ class EB_WPS(EasyBlock):
                     self.log.info("Skipping MPI test for %s, since MPI tests are disabled", cmd)
                     return
 
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            res = run_shell_cmd(cmd)
 
             re_success = re.compile("Successful completion of %s" % cmdname)
-            if not re_success.search(out):
+            if not re_success.search(res.output):
                 raise EasyBuildError("%s.exe failed (pattern '%s' not found)?", cmdname, re_success.pattern)
 
         if self.cfg['runtest']:
@@ -342,8 +349,8 @@ class EB_WPS(EasyBlock):
                     raise EasyBuildError("Could not find Vtable file to use for testing ungrib")
 
                 # run link_grib.csh script
-                cmd = "%s %s*" % (os.path.join(wpsdir, "link_grib.csh"), grib_file_prefix)
-                run_cmd(cmd, log_all=True, simple=True)
+                cmd = "csh %s %s*" % (os.path.join(wpsdir, "link_grib.csh"), grib_file_prefix)
+                run_shell_cmd(cmd)
 
                 # run ungrib.exe
                 run_wps_cmd("ungrib", mpi_cmd=False)
@@ -384,14 +391,6 @@ class EB_WPS(EasyBlock):
             'dirs': [],
         }
         super(EB_WPS, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Make sure PATH and LD_LIBRARY_PATH are set correctly."""
-        return {
-            'PATH': [self.wps_subdir, os.path.join(self.wps_subdir, 'util')],
-            'LD_LIBRARY_PATH': [self.wps_subdir],
-            'MANPATH': [],
-        }
 
     def make_module_extra(self):
         """Add netCDF environment variables to module file."""

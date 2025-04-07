@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2023 Ghent University
+# Copyright 2017-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools import LooseVersion
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_tensorflow_minus_compression(PythonPackage):
@@ -85,7 +85,7 @@ class EB_tensorflow_minus_compression(PythonPackage):
         # https://docs.bazel.build/versions/master/user-manual.html#flag--verbose_failures
         self.target_opts.extend(['--subcommands', '--verbose_failures'])
 
-        self.target_opts.append('--jobs=%s' % self.cfg['parallel'])
+        self.target_opts.append(f'--jobs={self.cfg.parallel}')
 
         # include install location of Python packages in $PYTHONPATH,
         # and specify that value of $PYTHONPATH should be passed down into Bazel build environment,
@@ -136,7 +136,7 @@ class EB_tensorflow_minus_compression(PythonPackage):
             + [':build_pip_pkg']
         )
 
-        run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(' '.join(cmd))
 
         # run generated 'build_pip_pkg' script to build the .whl
         cmd = (
@@ -146,7 +146,7 @@ class EB_tensorflow_minus_compression(PythonPackage):
             self.builddir,
             self.version
         )
-        run_cmd(' '.join(cmd), log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(' '.join(cmd))
 
     def install_step(self):
         """Custom install procedure for TensorFlow-Compression."""

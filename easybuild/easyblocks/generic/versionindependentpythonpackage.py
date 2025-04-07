@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2023 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ import re
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class VersionIndependentPythonPackage(PythonPackage):
@@ -72,14 +72,14 @@ class VersionIndependentPythonPackage(PythonPackage):
                 '--record %s' % os.path.join(self.builddir, 'record'),
                 '--no-compile',
             ]
-            self.cfg.update('installopts', ' '.join(extra_installopts))
+            self.py_installopts.extend(extra_installopts)
         else:
             # using easy_install or pip always results in installation that is specific to Python version
             eb_name = self.__class__.__name__
             raise EasyBuildError("%s easyblock is not compatible with using easy_install or pip", eb_name)
 
         cmd = self.compose_install_command(self.installdir)
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
         # setuptools stubbornly replaces the shebang line in scripts with
         # the full path to the Python interpreter used to install;

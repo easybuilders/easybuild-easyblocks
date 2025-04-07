@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,7 +42,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import (adjust_permissions, change_dir, copy_dir, copy_file, mkdir, remove_file,
                                        remove_dir, symlink, write_file)
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_NWChem(ConfigureMake):
@@ -262,11 +262,11 @@ class EB_NWChem(ConfigureMake):
         env.setvar('LIB_DEFINES', self.cfg['lib_defines'])
 
         # clean first (why not)
-        run_cmd("make clean", simple=True, log_all=True, log_ok=True)
+        run_shell_cmd("make clean")
 
         # configure build
         cmd = "make %s nwchem_config" % self.cfg['buildopts']
-        run_cmd(cmd, simple=True, log_all=True, log_ok=True, log_output=True)
+        run_shell_cmd(cmd)
 
     def build_step(self):
         """Custom build procedure for NWChem."""
@@ -276,9 +276,9 @@ class EB_NWChem(ConfigureMake):
 
         # check whether 64-bit integers should be used, and act on it
         if not self.toolchain.options['i8']:
-            if self.cfg['parallel']:
-                self.cfg.update('buildopts', '-j %s' % self.cfg['parallel'])
-            run_cmd("make %s 64_to_32" % self.cfg['buildopts'], simple=True, log_all=True, log_ok=True, log_output=True)
+            if self.parallel_flag:
+                self.cfg.update('buildopts', self.parallel_flag)
+            run_shell_cmd("make %s 64_to_32" % self.cfg['buildopts'])
 
             self.setvar_env_makeopt('USE_64TO32', "y")
 
@@ -299,11 +299,11 @@ class EB_NWChem(ConfigureMake):
             cwd = os.getcwd()
             change_dir(os.path.join(self.cfg['start_dir'], 'src', 'util'))
 
-            run_cmd("make version", simple=True, log_all=True, log_ok=True, log_output=True)
-            run_cmd("make", simple=True, log_all=True, log_ok=True, log_output=True)
+            run_shell_cmd("make version")
+            run_shell_cmd("make")
 
             change_dir(os.path.join(self.cfg['start_dir'], 'src'))
-            run_cmd("make link", simple=True, log_all=True, log_ok=True, log_output=True)
+            run_shell_cmd("make link")
 
             change_dir(cwd)
 
@@ -315,7 +315,7 @@ class EB_NWChem(ConfigureMake):
         # this recompiles the appropriate files and relinks
         if 'DDFLT_TOT_MEM' not in self.cfg['lib_defines']:
             change_dir(os.path.join(self.cfg['start_dir'], 'contrib'))
-            run_cmd("./getmem.nwchem", simple=True, log_all=True, log_ok=True, log_output=True)
+            run_shell_cmd("./getmem.nwchem")
             change_dir(self.cfg['start_dir'])
 
     def install_step(self):
@@ -479,26 +479,26 @@ class EB_NWChem(ConfigureMake):
                     msg = "Running test '%s' (from %s) in %s..." % (cmd, testdir, tmpdir)
                     self.log.info(msg)
                     test_cases_log.write("\n%s\n" % msg)
-                    (out, ec) = run_cmd(cmd, simple=False, log_all=False, log_ok=False, log_output=True)
+                    res = run_shell_cmd(cmd, fail_on_error=False)
 
                     # check exit code and output
-                    if ec:
-                        msg = "Test %s failed (exit code: %s)!" % (testx, ec)
+                    if res.exit_code:
+                        msg = "Test %s failed (exit code: %s)!" % (testx, res.exit_code)
                         self.log.warning(msg)
                         test_cases_log.write('FAIL: %s' % msg)
                         fail += 1
                     else:
-                        if success_regexp.search(out):
+                        if success_regexp.search(res.output):
                             msg = "Test %s successful!" % testx
                             self.log.info(msg)
                             test_cases_log.write('SUCCESS: %s' % msg)
                         else:
-                            msg = "No 'Total times' found for test %s (but exit code is %s)!" % (testx, ec)
+                            msg = "No 'Total times' found for test %s (but exit code is %s)!" % (testx, res.exit_code)
                             self.log.warning(msg)
                             test_cases_log.write('FAIL: %s' % msg)
                             fail += 1
 
-                    test_cases_log.write("\nOUTPUT:\n\n%s\n\n" % out)
+                    test_cases_log.write("\nOUTPUT:\n\n%s\n\n" % res.output)
 
                     tot += 1
 

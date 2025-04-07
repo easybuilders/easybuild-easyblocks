@@ -1,5 +1,5 @@
 ##
-# Copyright 2016-2023 Ghent University
+# Copyright 2016-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,7 +33,7 @@ import shutil
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ADF(EasyBlock):
@@ -63,7 +63,7 @@ class EB_ADF(EasyBlock):
             raise EasyBuildError("No or non-existing license file specified: %s", self.cfg['license_file'])
 
         cmd = './Install/configure'
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(cmd)
 
     def build_step(self):
         """No separate custom build procedure for ADF, see install step."""
@@ -80,8 +80,8 @@ class EB_ADF(EasyBlock):
         except OSError as err:
             raise EasyBuildError("Failed to copy %s to %s: %s", src_init_path, target_init_path, err)
 
-        cmd = "./bin/foray -j %d" % self.cfg['parallel']
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        cmd = f"./bin/foray -j {self.cfg.parallel}"
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for ADF."""

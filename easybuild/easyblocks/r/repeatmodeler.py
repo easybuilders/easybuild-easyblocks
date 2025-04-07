@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,11 +31,11 @@ EasyBuild support for building and installing RepeatModeler, implemented as an e
 import os
 
 from easybuild.easyblocks.generic.tarball import Tarball
-from easybuild.easyblocks.perl import get_site_suffix
+from easybuild.easyblocks.perl import get_major_perl_version, get_site_suffix
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, patch_perl_script_autoflush
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 
 
 def get_dep_path(dep_name, rel_path, log, optional):
@@ -58,6 +58,13 @@ def get_dep_path(dep_name, rel_path, log, optional):
 
 class EB_RepeatModeler(Tarball):
     """Support for building/installing RepeatModeler."""
+
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+        super(EB_RepeatModeler, self).__init__(*args, **kwargs)
+
+        # custom path-like environment variables for RepeatModelerConfig
+        self.module_load_environment.PATH = ['']
 
     def install_step(self):
         """Custom install procedure for RepeatModeler."""
@@ -132,25 +139,23 @@ class EB_RepeatModeler(Tarball):
 
         patch_perl_script_autoflush('configure')
 
-        qa = {
-            '<PRESS ENTER TO CONTINUE>': '',
-        }
-        std_qa = {
-            r'\*\*PERL INSTALLATION PATH\*\*\n\n[^*]*\n+Enter path.*:\s*': required_deps['Perl'],
-            r'UCSCTOOLS_DIR.*:\s*': required_deps['Kent_tools'],
-            r'LTR_RETRIEVER_DIR.*:\s*': optional_LTR_deps['LTR_retriever'],
-            r'RMBLAST_DIR.*:\s*': search_engines['RMBlast'],
-            r'ABBLAST_DIR.*:\s*': search_engines['ABBlast'] or search_engines['WUBlast'],
+        qa = [
+            (r'<PRESS ENTER TO CONTINUE>', ''),
+            (r'\*\*PERL INSTALLATION PATH\*\*\n\n[^*]*\n+Enter path.*:\s*', required_deps['Perl']),
+            (r'UCSCTOOLS_DIR.*:\s*', required_deps['Kent_tools']),
+            (r'LTR_RETRIEVER_DIR.*:\s*', optional_LTR_deps['LTR_retriever']),
+            (r'RMBLAST_DIR.*:\s*', search_engines['RMBlast']),
+            (r'ABBLAST_DIR.*:\s*', search_engines['ABBlast'] or search_engines['WUBlast']),
             # Configure first engine
-            r'.*(\[ Un\-configured \]\n.*){2}\n.*\n+Enter Selection\:\s*': mapped_engines[0],
+            (r'.*(\[ Un\-configured \]\n.*){2}\n.*\n+Enter Selection\:\s*', mapped_engines[0]),
             # Configure second engine if multiple specified, otherwise skip
-            r'.*(\[ Un\-configured \]\n.*\[ Configured \]|\[ Configured \]\n.*\[ Un-configured \])'
-            r'\n\n.*\n+Enter Selection\:\s*': mapped_engines[1],
+            (r'.*(\[ Un\-configured \]\n.*\[ Configured \]|\[ Configured \]\n.*\[ Un-configured \])'
+             r'\n\n.*\n+Enter Selection\:\s*', mapped_engines[1]),
             # All engines configured
-            r'.*(\[ Configured \]\n.*){2}\n.*\n+Enter Selection\:\s*': '3',
+            (r'.*(\[ Configured \]\n.*){2}\n.*\n+Enter Selection\:\s*', '3'),
             # LTR
-            r'LTR.*\[optional](.*\n)*of analysis \[y] or n\?\:\s*': with_LTR,
-        }
+            (r'LTR.*\[optional](.*\n)*of analysis \[y] or n\?\:\s*', with_LTR),
+        ]
 
         cmdopts = ' ' + ' '.join([
             '-trf_prgm "%(TRF)s"',
@@ -170,7 +175,7 @@ class EB_RepeatModeler(Tarball):
             ]) % optional_LTR_deps
 
         cmd = "perl ./configure" + cmdopts
-        run_cmd_qa(cmd, qa, std_qa=std_qa, log_all=True, simple=True, log_ok=True, maxhits=100)
+        run_shell_cmd(cmd, qa_patterns=qa)
 
     def sanity_check_step(self):
         """Custom sanity check for RepeatModeler."""
@@ -184,13 +189,9 @@ class EB_RepeatModeler(Tarball):
 
         super(EB_RepeatModeler, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
-    def make_module_req_guess(self):
-        """Custom guesses for path-like environment variables for RepeatModelerConfig."""
-        guesses = super(EB_RepeatModeler, self).make_module_req_guess()
+    def make_module_step(self, *args, **kwargs):
+        """Additional path-like environment variables that depend on installation files"""
+        perl_lib_var = f"PERL{get_major_perl_version()}LIB"
+        setattr(self.module_load_environment, perl_lib_var, [get_site_suffix('sitelib')])
 
-        guesses.update({
-            'PATH': [''],
-            'PERL5LIB': [get_site_suffix('sitelib')],
-        })
-
-        return guesses
+        return super().make_module_step(*args, **kwargs)

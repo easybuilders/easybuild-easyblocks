@@ -10,10 +10,12 @@ import re
 from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.systemtools import POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import ERROR
-from easybuild.tools.run import run_cmd, check_log_for_errors
+from easybuild.tools.config import build_option
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.systemtools import AARCH64, POWER, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
+import easybuild.tools.environment as env
 
 LAPACK_TEST_TARGET = 'lapack-test'
 TARGET = 'TARGET'
@@ -43,9 +45,9 @@ class EB_OpenBLAS(ConfigureMake):
             'BINARY': '64',
             'CC': os.getenv('CC'),
             'FC': os.getenv('FC'),
+            'MAKE_NB_JOBS': '-1',  # Disable internal parallelism to let EB choose
             'USE_OPENMP': '1',
             'USE_THREAD': '1',
-            'MAKE_NB_JOBS': '-1',  # Disable internal parallelism to let EB choose
         }
 
         if '%s=' % TARGET in self.cfg['buildopts']:
@@ -58,6 +60,23 @@ class EB_OpenBLAS(ConfigureMake):
             # There doesn't seem to be a POWER9 option yet, but POWER8 should work.
             print_warning("OpenBLAS 0.3.5 and lower have known issues on POWER systems")
             default_opts[TARGET] = 'POWER8'
+
+        # special care must be taken when performing a generic build of OpenBLAS
+        if build_option('optarch') == OPTARCH_GENERIC:
+            default_opts['DYNAMIC_ARCH'] = '1'
+
+            if get_cpu_architecture() == AARCH64:
+                # when building for aarch64/generic, we also need to set TARGET=ARMV8 to make sure
+                # that the driver parts of OpenBLAS are compiled generically;
+                # see also https://github.com/OpenMathLib/OpenBLAS/issues/4945
+                default_opts[TARGET] = 'ARMV8'
+
+                # use -mtune=generic rather than -mcpu=generic in $CFLAGS for aarch64/generic,
+                # because -mcpu=generic implies a particular -march=armv* which clashes with those used by OpenBLAS
+                # when building with DYNAMIC_ARCH=1
+                cflags = os.getenv('CFLAGS').replace('-mcpu=generic', '-mtune=generic')
+                self.log.info("Replaced -mcpu=generic with -mtune=generic in $CFLAGS")
+                env.setvar('CFLAGS', cflags)
 
         for key in sorted(default_opts.keys()):
             for opts_key in ['buildopts', 'testopts', 'installopts']:
@@ -86,12 +105,10 @@ class EB_OpenBLAS(ConfigureMake):
             del os.environ[cflags]
             self.log.info("Environment variable %s unset and passed through command line" % cflags)
 
-        makecmd = 'make'
-        if self.cfg['parallel']:
-            makecmd += ' -j %s' % self.cfg['parallel']
+        makecmd = f'make {self.parallel_flag}'
 
         cmd = ' '.join([self.cfg['prebuildopts'], makecmd, ' '.join(build_parts), self.cfg['buildopts']])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def check_lapack_test_results(self, test_output):
         """Check output of OpenBLAS' LAPACK test suite ('make lapack-test')."""
@@ -139,14 +156,17 @@ class EB_OpenBLAS(ConfigureMake):
 
         for runtest in run_tests:
             cmd = "%s make %s %s" % (self.cfg['pretestopts'], runtest, self.cfg['testopts'])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False, regexp=False)
+            res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed
-            check_log_for_errors(out, [('FATAL ERROR', ERROR)])
+            regex = re.compile("FATAL ERROR", re.M)
+            errors = regex.findall(res.output)
+            if errors:
+                raise EasyBuildError("Found %d fatal errors in test output!", len(errors))
 
             # check number of failing LAPACK tests more closely
             if runtest == LAPACK_TEST_TARGET:
-                self.check_lapack_test_results(out)
+                self.check_lapack_test_results(res.output)
 
     def sanity_check_step(self):
         """ Custom sanity check for OpenBLAS """

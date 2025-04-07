@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,7 +29,7 @@ EasyBuild support for building and installing libQGLViewer, implemented as an ea
 """
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.build_log import EasyBuildError
@@ -47,7 +47,7 @@ class EB_libQGLViewer(ConfigureMake):
             'installdir': self.installdir,
             'configopts': self.cfg['configopts'],
         }
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for libQGLViewer."""

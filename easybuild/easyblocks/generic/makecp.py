@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2023 the Cyprus Institute
+# Copyright 2013-2025 the Cyprus Institute
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,7 +35,6 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir
-from easybuild.tools.py2vs3 import string_type
 
 
 class MakeCp(ConfigureMake):
@@ -78,13 +77,13 @@ class MakeCp(ConfigureMake):
         for fil in files_to_copy:
             if isinstance(fil, tuple):
                 # ([src1, src2], targetdir)
-                if len(fil) == 2 and isinstance(fil[0], list) and isinstance(fil[1], string_type):
+                if len(fil) == 2 and isinstance(fil[0], list) and isinstance(fil[1], str):
                     files_specs = fil[0]
                     target = os.path.join(self.installdir, fil[1])
                 else:
                     raise EasyBuildError("Only tuples of format '([<source files>], <target dir>)' supported.")
             # 'src_file' or 'src_dir'
-            elif isinstance(fil, string_type):
+            elif isinstance(fil, str):
                 files_specs = [fil]
                 target = self.installdir
             else:
