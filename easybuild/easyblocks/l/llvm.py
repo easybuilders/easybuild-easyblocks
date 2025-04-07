@@ -358,11 +358,13 @@ class EB_LLVM(CMakeMake):
         cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities'] or []
         amd_gfx_list = self.cfg['amd_gfx_list'] or []
 
+        # List of (lower-case) dependencies
+        self.deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
+
         # Build targets
         build_targets = self.cfg['build_targets'] or []
         if not build_targets:
             self.log.debug("No build targets specified, using default detection")
-            deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
             arch = get_cpu_architecture()
             if arch not in DEFAULT_TARGETS_MAP:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
@@ -371,7 +373,7 @@ class EB_LLVM(CMakeMake):
             # If CUDA is included as a dep, add NVPTX as a target
             # There are (old) toolchains with CUDA as part of the toolchain
             cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
-            if 'cuda' in deps or cuda_toolchain or cuda_cc_list:
+            if 'cuda' in self.deps or cuda_toolchain or cuda_cc_list:
                 if LooseVersion(self.version) < LooseVersion('18'):
                     self.log.info(f"Not auto-enabling {BUILD_TARGET_NVPTX} offload target, only done for LLVM >= 18")
                 else:
@@ -383,7 +385,7 @@ class EB_LLVM(CMakeMake):
             # ROCT-Thunk-Interface, however, since ROCT is a dependency of
             # ROCR we only check for the ROCR-Runtime here
             # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
-            if 'rocr-runtime' in deps or amd_gfx_list:
+            if 'rocr-runtime' in self.deps or amd_gfx_list:
                 if LooseVersion(self.version) < LooseVersion('18'):
                     self.log.info(f"Not auto-enabling {BUILD_TARGET_AMDGPU} offload target, only done for LLVM >= 18")
                 else:
@@ -931,14 +933,18 @@ class EB_LLVM(CMakeMake):
                 self.cfg['test_suite_ignore_patterns'] = \
                     (self.cfg['test_suite_ignore_patterns'] or []) + \
                     ["nvptx64-nvidia-cuda", "nvptx64-nvidia-cuda-LTO"]
-            # Several AMDGPU tests are prone to fail if ROCm is not available.
-            # Building these tests works fine, but running them can end up in a segmentation fault.
-            # Since these tests are built with '-nogpulib', no binary is checked like done for NVIDIA.
-            # To avoid build failures because of high test failure numbers, ignore these failed tests.
-            if BUILD_TARGET_AMDGPU in self.cfg['build_targets'] or 'all' in self.cfg['build_targets']:
+            # If the AMDGPU target is built, tests will be run if libhsa-runtime64.so is found.
+            # However, this can cause issues if the system libraries are used, due to other loaded modules.
+            # Therefore, ignore failing tests if ROCr-Runtime is not in the dependencies and
+            # warn about this in the logs.
+            if ((BUILD_TARGET_AMDGPU in self.cfg['build_targets'] or
+                 'all' in self.cfg['build_targets']) and
+                    'rocr-runtime' not in self.deps):
                 self.cfg['test_suite_ignore_patterns'] = \
                     (self.cfg['test_suite_ignore_patterns'] or []) + \
                     ['amdgcn-amd-amdhsa']
+                self.log.warning("ROCr-Runtime not in dependencies, "
+                                 "ignoring failing tests for AMDGPU target.")
 
             max_failed = self.cfg['test_suite_max_failed']
             num_failed = self._para_test_step(parallel=1)
