@@ -349,6 +349,10 @@ class EB_LLVM(CMakeMake):
         if self.cfg['build_bolt']:
             self.final_projects.append('bolt')
 
+        # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3689
+        if LooseVersion(self.version) < LooseVersion('16'):
+            general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
+
         # Sysroot
         sysroot = build_option('sysroot')
         if sysroot:
