@@ -64,7 +64,7 @@ class EB_fastStructure(CmdCp):
         change_dir(cwd)
         run_shell_cmd("python setup.py build_ext --inplace")
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Add a shebang to the .py files and make them executable."""
         for pyfile in self.pyfiles:
             pf_path = os.path.join(self.installdir, pyfile)
@@ -72,7 +72,7 @@ class EB_fastStructure(CmdCp):
             write_file(pf_path, "#!/usr/bin/env python\n" + pf_contents)
             adjust_permissions(pf_path, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-        super(EB_fastStructure, self).post_install_step()
+        super(EB_fastStructure, self).post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for fastStructure."""
