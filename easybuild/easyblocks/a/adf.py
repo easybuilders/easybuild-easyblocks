@@ -80,7 +80,7 @@ class EB_ADF(EasyBlock):
         except OSError as err:
             raise EasyBuildError("Failed to copy %s to %s: %s", src_init_path, target_init_path, err)
 
-        cmd = "./bin/foray -j %d" % self.cfg['parallel']
+        cmd = f"./bin/foray -j {self.cfg.parallel}"
         run_shell_cmd(cmd)
 
     def sanity_check_step(self):

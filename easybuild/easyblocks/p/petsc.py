@@ -26,6 +26,7 @@
 EasyBuild support for PETSc, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import glob
 import os
@@ -192,7 +193,7 @@ class EB_PETSc(ConfigureMake):
             self.cfg.update('configopts', '--with-mpi=1')
 
         # build options
-        self.cfg.update('configopts', '--with-build-step-np=%s' % self.cfg['parallel'])
+        self.cfg.update('configopts', f'--with-build-step-np={self.cfg.parallel}')
         self.cfg.update('configopts', '--with-shared-libraries=%d' % self.cfg['shared_libs'])
         self.cfg.update('configopts', '--with-debugging=%d' % self.toolchain.options['debug'])
         self.cfg.update('configopts', '--with-pic=%d' % self.toolchain.options['pic'])
@@ -347,14 +348,14 @@ class EB_PETSc(ConfigureMake):
             else:
                 raise EasyBuildError("Failed to determine PETSC_ARCH setting.")
 
-        # Make sure to set test_parallel before self.cfg['parallel'] is set to None
-        if self.cfg['test_parallel'] is None and self.cfg['parallel']:
-            self.cfg['test_parallel'] = self.cfg['parallel']
+        # Make sure to set test_parallel before self.cfg.parallel is set to 1
+        if self.cfg['test_parallel'] is None:
+            self.cfg['test_parallel'] = self.cfg.parallel
 
         # PETSc make does not accept -j
         # to control parallel build, we need to specify MAKE_NP=... as argument to 'make' command
-        self.cfg.update('buildopts', "MAKE_NP=%s" % self.cfg['parallel'])
-        self.cfg['parallel'] = None
+        self.cfg.update('buildopts', f"MAKE_NP={self.cfg.parallel}")
+        self.cfg.parallel = 1
 
     # default make should be fine
 
@@ -363,13 +364,13 @@ class EB_PETSc(ConfigureMake):
         Test the compilation
         """
 
-        # Each PETSc test may use multiple threads, so running "self.cfg['parallel']" of them may lead to
+        # Each PETSc test may use multiple threads, so running "self.cfg.parallel" of them may lead to
         # some oversubscription every now and again. Not a big deal, but if needed a reduced parallelism
         # can be specified with test_parallel - and it takes priority
         paracmd = ''
         self.log.info("In test_step: %s" % self.cfg['test_parallel'])
-        if self.cfg['test_parallel'] is not None:
-            paracmd = "-j %s" % self.cfg['test_parallel']
+        if self.cfg['test_parallel'] > 1:
+            paracmd = f"-j {self.cfg['test_parallel']}"
 
         if self.cfg['runtest']:
             cmd = "%s make %s %s %s" % (self.cfg['pretestopts'], paracmd, self.cfg['runtest'], self.cfg['testopts'])

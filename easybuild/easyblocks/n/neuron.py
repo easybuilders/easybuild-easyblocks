@@ -27,6 +27,7 @@ EasyBuild support for building and installing NEURON, implemented as an easybloc
 
 @author: Kenneth Hoste (Ghent University)
 @author: Maxime Boissonneault (Universite Laval, Compute Canada)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import os
 import re
@@ -104,7 +105,7 @@ class EB_NEURON(CMakeMake):
     def test_step(self):
         """Custom tests for NEURON."""
         if build_option('mpi_tests'):
-            nproc = self.cfg['parallel']
+            nproc = self.cfg.parallel
             try:
                 hoc_file = os.path.join(self.cfg['start_dir'], 'src', 'parallel', 'test0.hoc')
                 cmd = self.toolchain.mpi_cmd_for(f"bin/nrniv -mpi {hoc_file}", nproc)

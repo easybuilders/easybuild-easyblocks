@@ -74,8 +74,7 @@ class EB_MRtrix(EasyBlock):
 
     def build_step(self):
         """Custom build procedure for MRtrix."""
-        parallel = self.cfg['parallel']
-        env.setvar('NUMBER_OF_PROCESSORS', str(parallel))
+        env.setvar('NUMBER_OF_PROCESSORS', str(self.cfg.parallel))
 
         cmd = "python build -verbose"
         run_shell_cmd(cmd)

@@ -109,8 +109,11 @@ class EB_FlexiBLAS(CMakeMake):
         unsupported_libs = [x for x in self.blas_libs if x not in supported_blas_libs]
         if unsupported_libs:
             raise EasyBuildError("One or more unsupported libraries used: %s", ', '.join(unsupported_libs))
+        # need to use CMake naming convention
         if 'AOCL-BLAS' in self.blas_libs:
             self.blas_libs[self.blas_libs.index('AOCL-BLAS')] = 'AOCL_mt'
+        if configopts['FLEXIBLAS_DEFAULT'] == 'AOCL-BLAS':
+            configopts['FLEXIBLAS_DEFAULT'] = 'AOCL_mt'
         # list of BLAS libraries to use is specified via -DEXTRA=...
         configopts['EXTRA'] = ';'.join(self.blas_libs)
 

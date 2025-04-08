@@ -98,8 +98,8 @@ class EB_PDT(ConfigureMake):
     def install_step(self):
         """Create symlinks into arch-specific directories"""
 
-        if self.cfg['parallel']:
-            self.cfg.update('installopts', '-j %s' % self.cfg['parallel'])
+        if self.parallel_flag:
+            self.cfg.update('installopts', self.parallel_flag)
 
         super(EB_PDT, self).install_step()
 

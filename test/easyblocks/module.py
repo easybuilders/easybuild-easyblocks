@@ -229,11 +229,15 @@ class ModuleOnlyTest(TestCase):
     def test_pythonpackage_pick_python_cmd(self):
         """Test pick_python_cmd function from pythonpackage.py."""
         from easybuild.easyblocks.generic.pythonpackage import pick_python_cmd
+        # Install a dummy Python to use. It only needs to echo the major, minor and patch version
+        tmpdir = tempfile.mkdtemp()
+        for cmd in ('python2', 'python2.6'):
+            install_fake_command(cmd, "#!/bin/bash\n echo 2.6.4", tmpdir)
         self.assertTrue(pick_python_cmd() is not None)
         self.assertTrue(pick_python_cmd(3) is not None)
         self.assertTrue(pick_python_cmd(3, 6) is not None)
         self.assertTrue(pick_python_cmd(123, 456) is None)
-        self.assertTrue(pick_python_cmd(2, 6, 123, 456) is not None)
+        self.assertTrue(pick_python_cmd(3, 6, 123, 456) is not None)
         self.assertTrue(pick_python_cmd(2, 6, 1, 1) is None)
 
 

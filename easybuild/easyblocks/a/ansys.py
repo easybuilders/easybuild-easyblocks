@@ -35,7 +35,7 @@ from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions
+from easybuild.tools.filetools import adjust_permissions, mkdir
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -75,11 +75,12 @@ class EB_ANSYS(PackedBinary):
         # Sources (e.g. iso files) may drop the execute permissions
         adjust_permissions('INSTALL', stat.S_IXUSR)
 
-        cmd = "./INSTALL -silent -install_dir %s" % self.installdir
+        mkdir(f'{self.builddir}/tmp')
+        cmd = f"./INSTALL -silent -install_dir {self.installdir} -usetempdir {self.builddir}/tmp"
         # E.g. license.example.com or license1.example.com,license2.example.com
-        licserv = self.cfg.get('license_server', os.getenv('EB_ANSYS_LICENSE_SERVER'))
+        licserv = self.cfg.get('license_server') or os.getenv('EB_ANSYS_LICENSE_SERVER')
         # E.g. '2325:1055' or just ':' to use those defaults
-        licport = self.cfg.get('license_server_port', os.getenv('EB_ANSYS_LICENSE_SERVER_PORT'))
+        licport = self.cfg.get('license_server_port') or os.getenv('EB_ANSYS_LICENSE_SERVER_PORT')
         if licserv is not None and licport is not None:
             cmd += ' -licserverinfo %s:%s' % (licport, licserv)
 

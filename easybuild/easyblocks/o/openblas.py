@@ -105,9 +105,7 @@ class EB_OpenBLAS(ConfigureMake):
             del os.environ[cflags]
             self.log.info("Environment variable %s unset and passed through command line" % cflags)
 
-        makecmd = 'make'
-        if self.cfg['parallel']:
-            makecmd += ' -j %s' % self.cfg['parallel']
+        makecmd = f'make {self.parallel_flag}'
 
         cmd = ' '.join([self.cfg['prebuildopts'], makecmd, ' '.join(build_parts), self.cfg['buildopts']])
         run_shell_cmd(cmd)

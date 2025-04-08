@@ -32,6 +32,7 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 @author: Guilherme Peretti-Pezzi (CSCS)
 @author: Oliver Stueker (Compute Canada/ACENET)
 @author: Davide Vanzo (Vanderbilt University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import glob
 import os
@@ -81,7 +82,8 @@ class EB_GROMACS(CMakeMake):
         """Initialize GROMACS-specific variables."""
         super(EB_GROMACS, self).__init__(*args, **kwargs)
 
-        self.lib_subdirs = ''
+        self._lib_subdirs = []  # list of directories with libraries
+
         self.pre_env = ''
         self.cfg['build_shared_libs'] = self.cfg.get('build_shared_libs', False)
 
@@ -298,12 +300,12 @@ class EB_GROMACS(CMakeMake):
                 mpi_numprocs = self.cfg.get('mpi_numprocs', 0)
                 if mpi_numprocs == 0:
                     self.log.info("No number of test MPI tasks specified -- using default: %s",
-                                  self.cfg['parallel'])
-                    mpi_numprocs = self.cfg['parallel']
+                                  self.cfg.parallel)
+                    mpi_numprocs = self.cfg.parallel
 
-                elif mpi_numprocs > self.cfg['parallel']:
+                elif mpi_numprocs > self.cfg.parallel:
                     self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
-                                     mpi_numprocs, self.cfg['parallel'])
+                                     mpi_numprocs, self.cfg.parallel)
 
                 mpiexec = self.cfg.get('mpiexec')
                 if mpiexec:
@@ -510,7 +512,7 @@ class EB_GROMACS(CMakeMake):
 
                 # run 'make check' or whatever the easyconfig specifies
                 # in parallel since it involves more compilation
-                self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
+                self.cfg.update('runtest', f"-j {self.cfg.parallel}")
                 super(EB_GROMACS, self).test_step()
 
                 if build_option('rpath'):
@@ -534,7 +536,7 @@ class EB_GROMACS(CMakeMake):
             self.log.info("skipping install step")
         else:
             # run 'make install' in parallel since it involves more compilation
-            self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
+            self.cfg.update('installopts', f"-j {self.cfg.parallel}")
             super(EB_GROMACS, self).install_step()
 
     def extensions_step(self, fetch=False):
@@ -553,6 +555,21 @@ class EB_GROMACS(CMakeMake):
             super(EB_GROMACS, self).extensions_step(fetch)
             self.cfg['runtest'] = orig_runtest
 
+    @property
+    def lib_subdirs(self):
+        """Return list of relative paths to subdirs holding library files"""
+        if len(self._lib_subdirs) == 0:
+            try:
+                self._lib_subdirs = self.get_lib_subdirs()
+            except EasyBuildError as error:
+                if build_option('force') and build_option('module_only'):
+                    self.log.info(f"No sub-directory with GROMACS libraries found in installation: {error}")
+                    self.log.info("You are forcing module creation for a non-existent installation!")
+                else:
+                    raise error
+
+        return self._lib_subdirs
+
     def get_lib_subdirs(self):
         """
         Return list of relative paths to sub-directories that contain GROMACS libraries
@@ -570,7 +587,7 @@ class EB_GROMACS(CMakeMake):
 
         lib_subdirs = []
         real_installdir = os.path.realpath(self.installdir)
-        for lib_path in glob.glob(os.path.join(real_installdir, '**', libname)):
+        for lib_path in glob.glob(os.path.join(real_installdir, '**', libname), recursive=True):
             lib_relpath = os.path.realpath(lib_path)  # avoid symlinks
             lib_relpath = lib_relpath[len(real_installdir) + 1:]  # relative path from installdir
             subdir = lib_relpath.split(os.sep)[0:-1]
@@ -587,16 +604,6 @@ class EB_GROMACS(CMakeMake):
 
     def make_module_step(self, *args, **kwargs):
         """Custom library subdirectories for GROMACS."""
-        if not self.lib_subdirs:
-            try:
-                self.lib_subdirs = self.get_lib_subdirs()
-            except EasyBuildError as error:
-                if build_option('force') and build_option('module_only'):
-                    self.log.info(f"No sub-directory with GROMACS libraries found in installation: {error}")
-                    self.log.info("You are forcing module creation for a non-existent installation!")
-                else:
-                    raise error
-
         self.module_load_environment.LD_LIBRARY_PATH = self.lib_subdirs
         self.module_load_environment.LIBRARY_PATH = self.lib_subdirs
         self.module_load_environment.PKG_CONFIG_PATH = [os.path.join(ld, 'pkgconfig') for ld in self.lib_subdirs]
@@ -674,9 +681,6 @@ class EB_GROMACS(CMakeMake):
 
         lib_files.extend([f'lib{x}{suff}.{self.libext}' for x in libnames + mpi_libnames for suff in suffixes])
         bin_files.extend([b + suff for b in bins + mpi_bins for suff in suffixes])
-
-        if not self.lib_subdirs:
-            self.lib_subdirs = self.get_lib_subdirs()
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):

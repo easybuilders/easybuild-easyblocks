@@ -669,18 +669,17 @@ class EB_CP2K(EasyBlock):
             change_dir(makefiles)
 
             # modify makefile for parallel build
-            parallel = self.cfg['parallel']
-            if parallel:
-
+            parallel = self.cfg.parallel
+            if parallel > 1:
                 try:
                     for line in fileinput.input('Makefile', inplace=1, backup='.orig.patchictce'):
-                        line = re.sub(r"^PMAKE\s*=.*$", "PMAKE\t= $(SMAKE) -j %s" % parallel, line)
+                        line = re.sub(r"^PMAKE\s*=.*$", f"PMAKE\t= $(SMAKE) -j {parallel}", line)
                         sys.stdout.write(line)
                 except IOError as err:
                     raise EasyBuildError("Can't modify/write Makefile in %s: %s", makefiles, err)
 
         # update make options with MAKE
-        self.cfg.update('buildopts', 'MAKE="make -j %s"' % self.cfg['parallel'])
+        self.cfg.update('buildopts', f'MAKE="make -j {self.cfg.parallel}"')
 
         # update make options with ARCH and VERSION
         self.cfg.update('buildopts', 'ARCH=%s VERSION=%s' % (self.typearch, self.cfg['type']))
@@ -757,7 +756,7 @@ class EB_CP2K(EasyBlock):
                 self.log.info("No reference output found for regression test, just continuing without it...")
 
             # prefer using 4 cores, since some tests require/prefer square (n^2) numbers or powers of 2 (2^n)
-            test_core_cnt = min(self.cfg['parallel'], 4)
+            test_core_cnt = min(self.cfg.parallel, 4)
             if get_avail_core_count() < test_core_cnt:
                 raise EasyBuildError("Cannot run MPI tests as not enough cores (< %s) are available", test_core_cnt)
             else:

@@ -122,17 +122,13 @@ class EB_Perl(ConfigureMake):
         """Test Perl build via 'make test'."""
         # allow escaping with runtest = False
         if self.cfg['runtest'] is None or self.cfg['runtest']:
-            parallel = self.cfg['parallel']
+            parallel = self.cfg.parallel
             if isinstance(self.cfg['runtest'], str):
                 cmd = "make %s" % self.cfg['runtest']
-            elif parallel and LooseVersion(self.version) >= LooseVersion('5.30.0'):
+            elif parallel > 1 and LooseVersion(self.version) >= LooseVersion('5.30.0'):
                 # run tests in parallel, see https://perldoc.perl.org/perlhack#Parallel-tests;
                 # only do this for Perl 5.30 and newer (conservative choice, actually supported in Perl >= 5.10.1)
-                cmd = ' '.join([
-                    'TEST_JOBS=%s' % parallel,
-                    'PERL_TEST_HARNESS_ASAP=1',
-                    "make -j %s test_harness" % parallel,
-                ])
+                cmd = f'TEST_JOBS={parallel} PERL_TEST_HARNESS_ASAP=1 make -j {parallel} test_harness',
             else:
                 cmd = "make test"
 

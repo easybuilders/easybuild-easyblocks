@@ -276,8 +276,8 @@ class EB_NWChem(ConfigureMake):
 
         # check whether 64-bit integers should be used, and act on it
         if not self.toolchain.options['i8']:
-            if self.cfg['parallel']:
-                self.cfg.update('buildopts', '-j %s' % self.cfg['parallel'])
+            if self.parallel_flag:
+                self.cfg.update('buildopts', self.parallel_flag)
             run_shell_cmd("make %s 64_to_32" % self.cfg['buildopts'])
 
             self.setvar_env_makeopt('USE_64TO32', "y")
