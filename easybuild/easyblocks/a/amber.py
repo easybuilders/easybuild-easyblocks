@@ -165,7 +165,6 @@ class EB_Amber(CMakeMake):
         pythonroot = get_software_root('Python')
         if pythonroot:
             self.cfg.update('configopts', '-DDOWNLOAD_MINICONDA=FALSE')
-            self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s' % os.path.join(pythonroot, 'bin', 'python'))
 
             self.pylibdir = det_pylibdir()
             pythonpath = os.environ.get('PYTHONPATH', '')

@@ -588,11 +588,6 @@ class EB_LAMMPS(CMakeMake):
                 raise EasyBuildError("Failed to determine Python include dir: %s", res.output)
             python_include_dir = res.output.strip()
 
-            # Whether you need one or the other of the options below depends on the version of CMake and LAMMPS
-            # Rather than figure this out, use both (and one will be ignored)
-            self.cfg.update('configopts', '-DPython_EXECUTABLE=%s/bin/python' % python_dir)
-            self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s/bin/python' % python_dir)
-
             # Older LAMMPS need more hints to get things right as they use deprecated CMake packages
             self.cfg.update('configopts', '-DPYTHON_LIBRARY=%s' % python_lib_path)
             self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % python_include_dir)
