@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -45,7 +45,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, mkdir
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
@@ -126,6 +126,7 @@ KOKKOS_CPU_MAPPING = {
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
     'icelake': 'SKX',
+    'sapphirerapids': 'SKX',
     'knights-landing': 'KNL',
     'zen': 'ZEN',
     'zen2': 'ZEN2',
@@ -242,6 +243,7 @@ class EB_LAMMPS(CMakeMake):
 
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
             self.kokkos_cpu_mapping['icelake'] = 'ICX'
+            self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
@@ -433,18 +435,18 @@ class EB_LAMMPS(CMakeMake):
         if python_dir:
             # Find the Python .so lib
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'LDLIBRARY\'))"'
-            (python_lib, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
-            if not python_lib:
-                raise EasyBuildError("Failed to determine Python .so library: %s", python_lib)
-            python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', python_lib.strip()))[0]
+            res = run_shell_cmd(cmd, hidden=True)
+            if not res.output:
+                raise EasyBuildError("Failed to determine Python .so library: %s", res.output)
+            python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', res.output.strip()))[0]
             if not python_lib_path:
-                raise EasyBuildError("Could not find path to Python .so library: %s", python_lib)
+                raise EasyBuildError("Could not find path to Python .so library: %s", res.output)
             # and the path to the Python include folder
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'INCLUDEPY\'))"'
-            (python_include_dir, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
-            if not python_include_dir:
-                raise EasyBuildError("Failed to determine Python include dir: %s", python_include_dir)
-            python_include_dir = python_include_dir.strip()
+            res = run_shell_cmd(cmd, hidden=True)
+            if not res.output:
+                raise EasyBuildError("Failed to determine Python include dir: %s", res.output)
+            python_include_dir = res.output.strip()
 
             # Whether you need one or the other of the options below depends on the version of CMake and LAMMPS
             # Rather than figure this out, use both (and one will be ignored)
@@ -478,7 +480,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
+            self.lammpsdir = os.path.join(self.builddir, '%s-*' % self.name.lower())
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
@@ -493,7 +495,7 @@ class EB_LAMMPS(CMakeMake):
                 'site_packages': site_packages,
             }
 
-            run_cmd(cmd, log_all=True, simple=False)
+            run_shell_cmd(cmd)
 
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
@@ -554,19 +556,6 @@ class EB_LAMMPS(CMakeMake):
             custom_paths['dirs'].append(pythonpath)
 
         return super(EB_LAMMPS, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
-
-    def make_module_extra(self):
-        """Add install path to PYTHONPATH"""
-
-        txt = super(EB_LAMMPS, self).make_module_extra()
-
-        python = get_software_version('Python')
-        if python:
-            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-            pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
-            txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
-
-        return txt
 
 
 def get_cuda_gpu_arch(cuda_cc):
@@ -688,7 +677,7 @@ def get_cpu_arch():
 
     :return: returns detected cpu architecture
     """
-    out, ec = run_cmd("python -c 'from archspec.cpu import host; print(host())'", simple=False)
-    if ec:
-        raise EasyBuildError("Failed to determine CPU architecture: %s", out)
-    return out.strip()
+    res = run_shell_cmd("python -c 'from archspec.cpu import host; print(host())'")
+    if res.exit_code:
+        raise EasyBuildError("Failed to determine CPU architecture: %s", res.output)
+    return res.output.strip()

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,7 +33,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import mkdir, remove_dir
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_dm_minus_reverb(PythonPackage):
@@ -60,7 +60,8 @@ class EB_dm_minus_reverb(PythonPackage):
 
         # execute custom configuration script
         conf_cmd = "python configure.py"
-        return run_cmd(conf_cmd, log_all=True, simple=True, log_output=True)
+        res = run_shell_cmd(conf_cmd)
+        return res.exit_code
 
     def build_step(self, *args, **kwargs):
         """Build with Bazel"""
@@ -90,14 +91,15 @@ class EB_dm_minus_reverb(PythonPackage):
         # use JDK from EB
         bazel_build_opts += " --host_javabase=@local_jdk//:jdk"
         # explicitly set the number of processes
-        bazel_build_opts += " --jobs=%d" % self.cfg['parallel']
+        bazel_build_opts += f" --jobs={self.cfg.parallel}"
         # print full compilation commands
         bazel_build_opts += " --subcommands"
 
         bazel_cmd = "%s bazel %s build %s %s" % (self.cfg['prebuildopts'], bazel_opts, bazel_build_opts,
                                                  bazel_build_pkg)
 
-        return run_cmd(bazel_cmd, log_all=True, simple=True, log_output=True)
+        res = run_shell_cmd(bazel_cmd)
+        return res.exit_code
 
     def install_step(self, *args, **kwargs):
         """Package deepmind/reverb in a wheel and install it with pip"""
@@ -111,15 +113,17 @@ class EB_dm_minus_reverb(PythonPackage):
 
         whl_cmd = "./bazel-bin/reverb/pip_package/build_pip_package %s" % whl_build_opts
 
-        run_cmd(whl_cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(whl_cmd)
 
         # install wheel with pip
         pymajmin = ''.join(get_software_version('Python').split('.')[:2])
         whl_file = '%s-%s-cp%s*.whl' % (self.name.replace('-', '_'), self.version, pymajmin)
         whl_path = os.path.join(self.builddir, whl_file)
 
+        installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
+
         self.install_cmd = PIP_INSTALL_CMD % {
-            'installopts': self.cfg['installopts'],
+            'installopts': installopts,
             'loc': whl_path,
             'prefix': self.installdir,
             'python': self.python_cmd,

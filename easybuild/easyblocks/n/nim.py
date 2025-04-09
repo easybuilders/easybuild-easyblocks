@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2024 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.filetools import copy_file, move_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Nim(EasyBlock):
@@ -45,22 +45,22 @@ class EB_Nim(EasyBlock):
         """Custom build procedure for Nim."""
 
         # build Nim (bin/nim)
-        run_cmd("sh build.sh")
+        run_shell_cmd("sh build.sh")
 
         # build koch management tool
-        run_cmd("bin/nim c -d:release koch")
+        run_shell_cmd("bin/nim c -d:release koch")
 
         # rebuild Nim, with readline bindings
-        run_cmd("./koch boot -d:release -d:useLinenoise")
+        run_shell_cmd("./koch boot -d:release -d:useLinenoise")
 
         # build nimble/nimgrep/nimsuggest tools
-        run_cmd("./koch tools")
+        run_shell_cmd("./koch tools")
 
     def install_step(self):
         """Custom install procedure for Nim."""
 
-        run_cmd("./koch geninstall")
-        run_cmd("sh install.sh %s" % self.installdir)
+        run_shell_cmd("./koch geninstall")
+        run_shell_cmd("sh install.sh %s" % self.installdir)
 
         # install.sh copies stuff into <prefix>/nim, so move it
         nim_dir = os.path.join(self.installdir, 'nim')

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,7 +35,7 @@ import tempfile
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_optiSLang(PackedBinary):
@@ -44,6 +44,17 @@ class EB_optiSLang(PackedBinary):
     def __init__(self, *args, **kwargs):
         """Initialize optiSLang-specific variables."""
         super(EB_optiSLang, self).__init__(*args, **kwargs)
+
+        # custom extra module file entries for ANSYS optiSLang
+        bin_dirs = [
+            'aisol/bin/linx64',
+            'dpf/bin/linux64',
+            'optiSLang',
+        ]
+        # use glob pattern as we don't know exact version at this stage
+        # it will be expanded before injection into the module file
+        ansysver_glob = 'v[0-9]*'
+        self.module_load_environment.PATH = [os.path.join(ansysver_glob, d) for d in bin_dirs]
 
     def install_step(self):
         """Custom install procedure for ANSYS optiSLang."""
@@ -61,27 +72,9 @@ class EB_optiSLang(PackedBinary):
 
         # Sources (e.g. iso files) may drop the execute permissions
         adjust_permissions('INSTALL', stat.S_IXUSR)
-        cmd = "./INSTALL -silent -install_dir %s -usetempdir %s %s" % (self.installdir, tmpdir, licoptsstr)
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd("./INSTALL -silent -install_dir %s -usetempdir %s %s" % (self.installdir, tmpdir, licoptsstr))
 
         adjust_permissions(self.installdir, stat.S_IWOTH, add=False)
-
-    def make_module_req_guess(self):
-        """Custom extra module file entries for ANSYS optiSLang."""
-
-        guesses = super(EB_optiSLang, self).make_module_req_guess()
-
-        idirs = glob.glob(os.path.join(self.installdir, 'v*/'))
-        if len(idirs) == 1:
-            subdir = os.path.relpath(idirs[0], self.installdir)
-            bindirs = [
-                'aisol/bin/linx64',
-                'dpf/bin/linux64',
-                'optiSLang',
-            ]
-            guesses['PATH'] = [os.path.join(subdir, d) for d in bindirs]
-
-        return guesses
 
     def sanity_check_step(self):
         """Custom sanity check for ANSYS optiSLang."""

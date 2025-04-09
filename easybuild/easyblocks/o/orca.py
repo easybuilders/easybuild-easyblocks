@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2024 Vrije Universiteit Brussel
+# Copyright 2021-2025 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,6 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
-from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture
 
 
@@ -119,7 +118,7 @@ class EB_ORCA(PackedBinary, MakeCp):
                     if isinstance(spec, tuple):
                         file_pattern = spec[0]
                         dest_dir = spec[1]
-                    elif isinstance(spec, string_type):
+                    elif isinstance(spec, str):
                         file_pattern = spec
                         dest_dir = ''
                     else:
@@ -127,7 +126,7 @@ class EB_ORCA(PackedBinary, MakeCp):
                             "Found neither string nor tuple as file to copy: '%s' (type %s)", spec, type(spec)
                         )
 
-                    if isinstance(file_pattern, string_type):
+                    if isinstance(file_pattern, str):
                         file_pattern = [file_pattern]
 
                     source_files = []

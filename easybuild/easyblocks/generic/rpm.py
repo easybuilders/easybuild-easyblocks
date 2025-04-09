@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,7 +46,7 @@ from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, symlink, which
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 _log = fancylogger.getLogger('easyblocks.generic.rpm')
@@ -88,7 +88,7 @@ def rebuild_rpm(rpm_path, targetdir):
         targetdir,
         rpm_path,
     ])
-    run_cmd(cmd, log_all=True, simple=True)
+    run_shell_cmd(cmd)
 
 
 class Rpm(Binary):
@@ -104,6 +104,11 @@ class Rpm(Binary):
         super(Rpm, self).__init__(*args, **kwargs)
 
         self.rebuild_rpm = False
+
+        # Add common PATH/LD_LIBRARY_PATH paths found in RPMs to module load environment
+        self.module_load_environment.PATH = [os.path.join('usr', 'bin'), 'sbin', os.path.join('usr', 'sbin')]
+        self.module_load_environment.LD_LIBRARY_PATH = [os.path.join('usr', 'lib'), os.path.join('usr', 'lib64')]
+        self.module_load_environment.MANPATH = [os.path.join('usr', 'share', 'man')]
 
     @staticmethod
     def extra_options(extra_vars=None):
@@ -142,10 +147,10 @@ class Rpm(Binary):
 
         # determine whether RPMs need to be rebuilt to make relocation work
         cmd = "rpm --version"
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        res = run_shell_cmd(cmd)
 
         rpmver_re = re.compile(r"^RPM\s+version\s+(?P<version>[0-9.]+).*")
-        res = rpmver_re.match(out)
+        res = rpmver_re.match(res.output)
         self.log.debug("RPM version found: %s" % res.group())
 
         if res:
@@ -185,7 +190,7 @@ class Rpm(Binary):
 
         cmd = "rpm --initdb --dbpath /rpm --root %s" % self.installdir
 
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         force = ''
         if self.cfg['force']:
@@ -219,7 +224,7 @@ class Rpm(Binary):
                 'post': postinstall,
                 'installopts': self.cfg['installopts'],
             }
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
         for path in self.cfg['makesymlinks']:
             # allow globs, always use first hit.
@@ -232,16 +237,3 @@ class Rpm(Binary):
                 symlink(realdirs[0], os.path.join(self.installdir, os.path.basename(path)))
             else:
                 self.log.debug("No match found for symlink glob %s." % path)
-
-    def make_module_req_guess(self):
-        """Add common PATH/LD_LIBRARY_PATH paths found in RPMs to list of guesses."""
-
-        guesses = super(Rpm, self).make_module_req_guess()
-
-        guesses.update({
-            'PATH': guesses.get('PATH', []) + ['usr/bin', 'sbin', 'usr/sbin'],
-            'LD_LIBRARY_PATH': guesses.get('LD_LIBRARY_PATH', []) + ['usr/lib', 'usr/lib64'],
-            'MANPATH': guesses.get('MANPATH', []) + ['usr/share/man'],
-        })
-
-        return guesses

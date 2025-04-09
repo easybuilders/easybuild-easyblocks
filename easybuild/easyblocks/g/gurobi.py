@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,14 +31,13 @@ EasyBuild support for installing Gurobi, implemented as an easyblock
 """
 import os
 
-from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Gurobi(Tarball):
@@ -77,7 +76,7 @@ class EB_Gurobi(Tarball):
             copy_file(self.orig_license_file, self.license_file)
 
         if get_software_root('Python') and LooseVersion(self.version) < LooseVersion('11'):
-            run_cmd("python setup.py install --prefix=%s" % self.installdir)
+            run_shell_cmd("python setup.py install --prefix=%s" % self.installdir)
 
     def sanity_check_step(self):
         """Custom sanity check for Gurobi."""
@@ -101,10 +100,6 @@ class EB_Gurobi(Tarball):
         txt = super(EB_Gurobi, self).make_module_extra()
         txt += self.module_generator.set_environment('GUROBI_HOME', self.installdir)
         txt += self.module_generator.set_environment('GRB_LICENSE_FILE', self.license_file)
-
-        if get_software_root('Python'):
-            txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
-
         txt += self.module_generator.prepend_paths('MATLABPATH', 'matlab')
 
         return txt

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,13 +43,13 @@ from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.framework.easyconfig.templates import TEMPLATE_CONSTANTS
+from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option, ERROR, log_path
+from easybuild.tools.config import build_option, ERROR, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 import easybuild.tools.toolchain as toolchain
 
@@ -58,8 +58,6 @@ EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
 
 # magic value for unlimited stack size
 UNLIMITED = 'unlimited'
-
-EBPYTHONPREFIXES = 'EBPYTHONPREFIXES'
 
 # We want the following import order:
 # 1. Packages installed into VirtualEnv
@@ -126,7 +124,7 @@ class EB_Python(ConfigureMake):
         """Add extra config options specific to Python."""
         extra_vars = {
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
-            'install_pip': [False,
+            'install_pip': [True,
                             "Use the ensurepip module (Python 2.7.9+, 3.4+) to install the bundled versions "
                             "of pip and setuptools into Python. You _must_ then use pip for upgrading "
                             "pip & setuptools by installing newer versions as extensions!",
@@ -144,12 +142,9 @@ class EB_Python(ConfigureMake):
 
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
-        # Used for EBPYTHONPREFIXES handler script
-        self.pythonpath = os.path.join(log_path(), 'python')
-
         ext_defaults = {
             # Use PYPI_SOURCE as the default for source_urls of extensions.
-            'source_urls': [url for name, url, _ in TEMPLATE_CONSTANTS if name == 'PYPI_SOURCE'],
+            'source_urls': [PYPI_SOURCE],
             # We should enable this (by default) for all extensions because the only installed packages at this point
             # (i.e. those in the site-packages folder) are the default installed ones, e.g. pip & setuptools.
             # And we must upgrade them cleanly, i.e. uninstall them first. This also applies to any other package
@@ -158,6 +153,8 @@ class EB_Python(ConfigureMake):
             'pip_ignore_installed': False,
             # Python installations must be clean. Requires pip >= 9
             'sanity_pip_check': LooseVersion(self._get_pip_ext_version() or '0.0') >= LooseVersion('9.0'),
+            # EasyBuild 5
+            'use_pip': True,
         }
 
         exts_default_options = self.cfg.get_ref('exts_default_options')
@@ -458,13 +455,13 @@ class EB_Python(ConfigureMake):
 
         if self.cfg['ulimit_unlimited']:
             # determine current stack size limit
-            (out, _) = run_cmd("ulimit -s")
-            curr_ulimit_s = out.strip()
+            res = run_shell_cmd("ulimit -s")
+            curr_ulimit_s = res.output.strip()
 
             # figure out hard limit for stack size limit;
             # this determines whether or not we can use "ulimit -s unlimited"
-            (out, _) = run_cmd("ulimit -s -H")
-            max_ulimit_s = out.strip()
+            res = run_shell_cmd("ulimit -s -H")
+            max_ulimit_s = res.output.strip()
 
             if curr_ulimit_s == UNLIMITED:
                 self.log.info("Current stack size limit is %s: OK", curr_ulimit_s)
@@ -480,6 +477,10 @@ class EB_Python(ConfigureMake):
                 self.cfg.update('prebuildopts', "ulimit -s %s && " % max_ulimit_s)
 
         super(EB_Python, self).build_step(*args, **kwargs)
+
+    @property
+    def site_packages_path(self):
+        return os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
 
     def install_step(self):
         """Extend make install to make sure that the 'python' command is present."""
@@ -504,7 +505,7 @@ class EB_Python(ConfigureMake):
                 symlink('pip' + self.pyshortver, pip_binary_path, use_abspath_source=False)
 
         if self.cfg.get('ebpythonprefixes'):
-            write_file(os.path.join(self.installdir, self.pythonpath, 'sitecustomize.py'), SITECUSTOMIZE)
+            write_file(os.path.join(self.installdir, self.site_packages_path, 'sitecustomize.py'), SITECUSTOMIZE)
 
         # symlink lib/python*/lib-dynload to lib64/python*/lib-dynload if it doesn't exist;
         # see https://github.com/easybuilders/easybuild-easyblocks/issues/1957
@@ -525,16 +526,15 @@ class EB_Python(ConfigureMake):
     def _sanity_check_ebpythonprefixes(self):
         """Check that EBPYTHONPREFIXES works"""
         temp_prefix = tempfile.mkdtemp(suffix='-tmp-prefix')
-        site_packages_path = os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
-        temp_site_packages_path = os.path.join(temp_prefix, site_packages_path)
+        temp_site_packages_path = os.path.join(temp_prefix, self.site_packages_path)
         mkdir(temp_site_packages_path, parents=True)  # Must exist
-        (out, _) = run_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
-        out = out.strip()
+        res = run_shell_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
+        out = res.output.strip()
         # Output should be a list which we can evaluate directly
         if not out.startswith('[') or not out.endswith(']'):
             raise EasyBuildError("Unexpected output for sys.path: %s", out)
         paths = eval(out)
-        base_site_packages_path = os.path.join(self.installdir, site_packages_path)
+        base_site_packages_path = os.path.join(self.installdir, self.site_packages_path)
         try:
             base_prefix_idx = paths.index(base_site_packages_path)
         except ValueError:
@@ -560,9 +560,10 @@ class EB_Python(ConfigureMake):
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
-            run_cmd("command -v python", log_all=True, simple=False, trace=False)
+            run_shell_cmd("command -v python", hidden=True)
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'abiflags\'));"'
-            (abiflags, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
+            res = run_shell_cmd(cmd, hidden=True)
+            abiflags = res.output
             if not abiflags:
                 raise EasyBuildError("Failed to determine abiflags: %s", abiflags)
             else:
@@ -572,7 +573,8 @@ class EB_Python(ConfigureMake):
         # (python will exit with 0 regardless of whether or not errors are printed...)
         # cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/6484
         cmd = "python -c 'import hashlib'"
-        (out, _) = run_cmd(cmd)
+        res = run_shell_cmd(cmd)
+        out = res.output
         regex = re.compile('error', re.I)
         if regex.search(out):
             raise EasyBuildError("Found one or more errors in output of %s: %s", cmd, out)
@@ -633,12 +635,3 @@ class EB_Python(ConfigureMake):
                 raise EasyBuildError("Expected to find exactly one _tkinter*.so: %s", tkinter_so_hits)
 
         super(EB_Python, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_extra(self, *args, **kwargs):
-        """Add path to sitecustomize.py to $PYTHONPATH"""
-        txt = super(EB_Python, self).make_module_extra()
-
-        if self.cfg.get('ebpythonprefixes'):
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pythonpath)
-
-        return txt

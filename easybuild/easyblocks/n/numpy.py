@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,7 +44,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools import LooseVersion
 
 
@@ -204,12 +204,21 @@ class EB_numpy(FortranPythonPackage):
             'includes': includes,
         }
 
+        if LooseVersion(self.version) < LooseVersion('1.26'):
+            # NumPy detects the required math by trying to link a minimal code containing a call to `log(0.)`.
+            # The first try is without any libraries, which works with `gcc -fno-math-errno` (our optimization default)
+            # because the call gets removed due to not having any effect. So it concludes that `-lm` is not required.
+            # This then fails to detect availability of functions such as `acosh` which do not get removed in the same
+            # way and so less exact replacements are used instead which e.g. fail the tests on PPC.
+            # This variable makes it try `-lm` first and is supported until the Meson backend is used in 1.26+.
+            env.setvar('MATHLIB', 'm')
+
         super(EB_numpy, self).configure_step()
 
         if LooseVersion(self.version) < LooseVersion('1.21'):
             # check configuration (for debugging purposes)
             cmd = "%s setup.py config" % self.python_cmd
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
         if LooseVersion(self.version) >= LooseVersion('1.26'):
             # control BLAS/LAPACK library being used
@@ -267,7 +276,7 @@ class EB_numpy(FortranPythonPackage):
             mkdir(pylibdir, parents=True)
         pythonpath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
         cmd = self.compose_install_command(tmpdir, extrapath=pythonpath)
-        run_cmd(cmd, log_all=True, simple=True, verbose=False)
+        run_shell_cmd(cmd)
 
         try:
             pwd = os.getcwd()
@@ -283,20 +292,20 @@ class EB_numpy(FortranPythonPackage):
             '-s "import numpy; x = numpy.random.random((%(size)d, %(size)d))"' % {'size': size},
             '"numpy.dot(x, x.T)"',
         ])
-        (out, ec) = run_cmd(cmd, simple=False)
-        self.log.debug("Test output: %s" % out)
+        res = run_shell_cmd(cmd)
+        self.log.debug("Test output: %s" % res.output)
 
         # fetch result
         time_msec = None
         msec_re = re.compile(r"\d+ loops, best of \d+: (?P<time>[0-9.]+) msec per loop")
-        res = msec_re.search(out)
-        if res:
-            time_msec = float(res.group('time'))
+        msec = msec_re.search(res.output)
+        if msec:
+            time_msec = float(msec.group('time'))
         else:
             sec_re = re.compile(r"\d+ loops, best of \d+: (?P<time>[0-9.]+) sec per loop")
-            res = sec_re.search(out)
-            if res:
-                time_msec = 1000 * float(res.group('time'))
+            sec = sec_re.search(res.output)
+            if sec:
+                time_msec = 1000 * float(sec.group('time'))
             elif self.dry_run:
                 # use fake value during dry run
                 time_msec = 123
@@ -333,9 +342,9 @@ class EB_numpy(FortranPythonPackage):
         except OSError as err:
             raise EasyBuildError("Failed to clean up numpy build dir %s: %s", builddir, err)
 
-    def run(self):
+    def install_extension(self):
         """Install numpy as an extension"""
-        super(EB_numpy, self).run()
+        super(EB_numpy, self).install_extension()
 
         return self.make_module_extra_numpy_include()
 

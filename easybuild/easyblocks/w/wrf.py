@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,7 +48,7 @@ from easybuild.tools.filetools import apply_regex_substitutions, change_dir
 from easybuild.tools.filetools import patch_perl_script_autoflush, read_file, which
 from easybuild.tools.filetools import remove_file, symlink
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 
 
 def det_wrf_subdir(wrf_version):
@@ -75,6 +75,10 @@ class EB_WRF(EasyBlock):
         self.comp_fam = None
 
         self.wrfsubdir = det_wrf_subdir(self.version)
+
+        main_dir = os.path.join(self.wrfsubdir, 'main')
+        self.module_load_environment.LD_LIBRARY_PATH = main_dir
+        self.module_load_environment.PATH = main_dir
 
     @staticmethod
     def extra_options():
@@ -137,7 +141,7 @@ class EB_WRF(EasyBlock):
         # enable support for large file support in netCDF
         env.setvar('WRFIO_NCD_LARGE_FILE_SUPPORT', '1')
 
-        # patch arch/Config_new.pl script, so that run_cmd_qa receives all output to answer questions
+        # patch arch/Config_new.pl script, so that run_shell_cmd receives all output to answer questions
         if LooseVersion(self.version) < LooseVersion('4.0'):
             patch_perl_script_autoflush(os.path.join(wrfdir, "arch", "Config_new.pl"))
 
@@ -190,21 +194,19 @@ class EB_WRF(EasyBlock):
 
         # run configure script
         cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
-        qa = {
+        qa = [
             # named group in match will be used to construct answer
-            "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
-            "Compile for nesting? (0=no nesting, 1=basic, 2=preset moves, 3=vortex following) [default 0]:": "0"
-        }
+            (r"Compile for nesting\? \(1=basic, .*\) \[default 1\]:", '1'),
+            (r"Compile for nesting\? \(0=no nesting, .*\) \[default 0\]:", '0'),
+            # named group in match will be used to construct answer
+            (r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question, "%(nr)s"),
+        ]
         no_qa = [
             "testing for fseeko and fseeko64",
             r"If you wish to change the default options, edit the file:[\s\n]*arch/configure_new.defaults"
         ]
-        std_qa = {
-            # named group in match will be used to construct answer
-            r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
-        }
 
-        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
 
         cfgfile = 'configure.wrf'
 
@@ -250,10 +252,7 @@ class EB_WRF(EasyBlock):
         """Build and install WRF and testcases using provided compile script."""
 
         # enable parallel build
-        par = self.cfg['parallel']
-        self.par = ''
-        if par:
-            self.par = "-j %s" % par
+        self.par = f'-j {self.cfg.parallel}' if self.cfg.parallel else ''
 
         # fix compile script shebang to use provided tcsh
         cmpscript = os.path.join(self.start_dir, 'compile')
@@ -279,12 +278,12 @@ class EB_WRF(EasyBlock):
 
         # build wrf
         cmd = "%s %s wrf" % (cmpscript, self.par)
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
         # build two testcases to produce ideal.exe and real.exe
         for test in ["em_real", "em_b_wave"]:
             cmd = "%s %s %s" % (cmpscript, self.par, test)
-            run_cmd(cmd, log_all=True, simple=True, log_output=True)
+            run_shell_cmd(cmd)
 
     def test_step(self):
         """Build and run tests included in the WRF distribution."""
@@ -326,7 +325,7 @@ class EB_WRF(EasyBlock):
             # determine number of MPI ranks to use in tests (1/2 of available processors + 1);
             # we need to limit max number of MPI ranks (8 is too high for some tests, 4 is OK),
             # since otherwise run may fail because domain size is too small
-            n_mpi_ranks = min(self.cfg['parallel'] // 2 + 1, 4)
+            n_mpi_ranks = min(self.cfg.parallel // 2 + 1, 4)
 
             # prepare run command
 
@@ -344,7 +343,7 @@ class EB_WRF(EasyBlock):
                 """Run a single test and check for success."""
 
                 # run test
-                (_, ec) = run_cmd(test_cmd, log_all=False, log_ok=False, simple=False)
+                res = run_shell_cmd(test_cmd, fail_on_error=False)
 
                 # read output file
                 out_fn = 'rsl.error.0000'
@@ -353,7 +352,7 @@ class EB_WRF(EasyBlock):
                 else:
                     out_txt = 'FILE NOT FOUND'
 
-                if ec == 0:
+                if res.exit_code == 0:
                     # exit code zero suggests success, but let's make sure...
                     if re_success.search(out_txt):
                         self.log.info("Test %s ran successfully (found '%s' in %s)", test, re_success.pattern, out_fn)
@@ -362,7 +361,7 @@ class EB_WRF(EasyBlock):
                                              test, re_success.pattern, out_fn, out_txt)
                 else:
                     # non-zero exit code means trouble, show command output
-                    raise EasyBuildError("Test %s failed with exit code %s, output: %s", test, ec, out_txt)
+                    raise EasyBuildError("Test %s failed with exit code %s, output: %s", test, res.exit_code, out_txt)
 
                 # clean up stuff that gets in the way
                 fn_prefs = ["wrfinput_", "namelist.output", "wrfout_", "rsl.out.", "rsl.error."]
@@ -379,7 +378,7 @@ class EB_WRF(EasyBlock):
 
                 # build and install
                 cmd = "./compile %s %s" % (self.par, test)
-                run_cmd(cmd, log_all=True, simple=True)
+                run_shell_cmd(cmd)
 
                 # run test
                 try:
@@ -432,16 +431,6 @@ class EB_WRF(EasyBlock):
         }
 
         super(EB_WRF, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Path-like environment variable updates specific to WRF."""
-
-        maindir = os.path.join(self.wrfsubdir, 'main')
-        return {
-            'PATH': [maindir],
-            'LD_LIBRARY_PATH': [maindir],
-            'MANPATH': [],
-        }
 
     def make_module_extra(self):
         """Add netCDF environment variables to module file."""

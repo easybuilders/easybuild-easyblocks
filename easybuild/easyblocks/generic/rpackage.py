@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,16 +33,17 @@ EasyBuild support for building and installing R packages, implemented as an easy
 @author: Balazs Hajgato (Vrije Universiteit Brussel)
 """
 import os
+import pathlib
 import re
 
 from easybuild.easyblocks.r import EXTS_FILTER_R_PACKAGES, EB_R
 from easybuild.easyblocks.generic.configuremake import check_config_guess, obtain_config_guess
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import mkdir, copy_file
-from easybuild.tools.run import run_cmd, parse_log_for_error
+from easybuild.tools.run import run_shell_cmd
 
 
 def make_R_install_option(opt, values, cmdline=False):
@@ -88,6 +89,12 @@ class RPackage(ExtensionEasyBlock):
         self.configureargs = []
         self.ext_src = None
         self._required_deps = None
+
+        Renviron = pathlib.Path.home() / '.Renviron'
+        if Renviron.exists():
+            msg = f".Renviron file detected ({Renviron}). This file may impact the building of R packages. "
+            msg += "If you did not expect this file to exist then you should remove it."
+            print_warning(msg)
 
     def make_r_cmd(self, prefix=None):
         """Create a command to run in R to install an R package."""
@@ -169,15 +176,17 @@ class RPackage(ExtensionEasyBlock):
     def install_R_package(self, cmd, inp=None):
         """Install R package as specified, and check for errors."""
 
-        output, _ = run_cmd(cmd, log_all=True, simple=False, inp=inp, regexp=False)
-        self.check_install_output(output)
+        res = run_shell_cmd(cmd, stdin=inp)
+        self.check_install_output(res.output)
 
     def check_install_output(self, output):
         """
         Check output of installation command, and clean up installation if needed.
         """
-        errors = parse_log_for_error(output, regExp="^ERROR:")
+        errors = re.findall(r"^ERROR:.*", output, flags=re.I | re.M)
+
         if errors:
+            self.log.info("R package %s failed with error:\n%s", self.name, '\n'.join(errors))
             self.handle_installation_errors()
             cmd = "R -q --no-save"
             stdin = """
@@ -185,7 +194,7 @@ class RPackage(ExtensionEasyBlock):
             """ % self.name
             # remove package if errors were detected
             # it's possible that some of the dependencies failed, but the package itself was installed
-            run_cmd(cmd, log_all=False, log_ok=False, simple=False, inp=stdin, regexp=False)
+            run_shell_cmd(cmd, fail_on_error=False, stdin=stdin)
             raise EasyBuildError("Errors detected during installation of R package %s!", self.name)
         else:
             self.log.debug("R package %s installed succesfully", self.name)
@@ -216,12 +225,12 @@ class RPackage(ExtensionEasyBlock):
 
         if self._required_deps is None:
             if self.src:
-                cmd = "tar --wildcards --extract --file %s --to-stdout '*/DESCRIPTION'" % self.src
-                out, _ = run_cmd(cmd, simple=False, trace=False)
+                cmd = "tar --wildcards --extract --file %s --to-stdout '*DESCRIPTION'" % self.src
+                res = run_shell_cmd(cmd, hidden=True)
 
                 # lines that start with whitespace are merged with line above
                 lines = []
-                for line in out.splitlines():
+                for line in res.output.splitlines():
                     if line and line[0] in (' ', '\t'):
                         lines[-1] = lines[-1] + line
                     else:
@@ -277,8 +286,8 @@ class RPackage(ExtensionEasyBlock):
         # determine location
         if isinstance(self.master, EB_R):
             # extension is being installed as part of an R installation/module
-            (out, _) = run_cmd("R RHOME", log_all=True, simple=False, trace=False)
-            rhome = out.strip()
+            res = run_shell_cmd("R RHOME", hidden=True)
+            rhome = res.output.strip()
             lib_install_prefix = os.path.join(rhome, 'library')
         else:
             # extension is being installed in a separate installation prefix
@@ -286,7 +295,7 @@ class RPackage(ExtensionEasyBlock):
             mkdir(lib_install_prefix, parents=True)
 
         if self.src:
-            super(RPackage, self).run(unpack_src=True)
+            super(RPackage, self).install_extension(unpack_src=True)
             self.ext_src = self.src
             self.update_config_guess(self.ext_dir)
             self.log.debug("Installing R package %s version %s." % (self.name, self.version))
@@ -299,19 +308,21 @@ class RPackage(ExtensionEasyBlock):
 
         return cmd, stdin
 
-    def run(self):
+    def install_extension(self):
         """
         Install R package as an extension.
         """
         cmd, stdin = self.prepare_r_ext_install()
         self.install_R_package(cmd, inp=stdin)
 
-    def run_async(self):
+    def install_extension_async(self, thread_pool):
         """
         Start installation of R package as an extension asynchronously.
         """
         cmd, stdin = self.prepare_r_ext_install()
-        self.async_cmd_start(cmd, inp=stdin)
+        task_id = f'ext_{self.name}_{self.version}'
+        return thread_pool.submit(run_shell_cmd, cmd, stdin=stdin, asynchronous=True, env=os.environ.copy(),
+                                  fail_on_error=False, task_id=task_id, work_dir=os.getcwd())
 
     def async_cmd_check(self):
         """

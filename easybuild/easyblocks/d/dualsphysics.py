@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_DualSPHysics(CMakeMakeCp):
@@ -90,9 +90,9 @@ class EB_DualSPHysics(CMakeMakeCp):
         ]
         super(EB_DualSPHysics, self).install_step()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Custom post-installation step: ensure rpath is patched into binaries/libraries if configured."""
-        super(EB_DualSPHysics, self).post_install_step()
+        super(EB_DualSPHysics, self).post_processing_step()
 
         if build_option('rpath'):
             # only the compiled binary (e.g. DualSPHysics5.0CPU_linux64) is rpath'd, the precompiled libraries
@@ -102,8 +102,8 @@ class EB_DualSPHysics(CMakeMakeCp):
                 self.installdir, 'bin', 'DualSPHysics%s%s_linux64' % (self.shortver, self.dsph_target)
             )
 
-            out, _ = run_cmd("patchelf --print-rpath %s" % rpathed_bin, simple=False, trace=False)
-            comp_rpath = out.strip()
+            res = run_shell_cmd("patchelf --print-rpath %s" % rpathed_bin, hidden=True)
+            comp_rpath = res.output.strip()
 
             files_to_patch = []
             for x in [('bin', '*_linux64'), ('bin', '*.so'), ('lib', '*.so')]:
@@ -111,14 +111,14 @@ class EB_DualSPHysics(CMakeMakeCp):
 
             try:
                 for x in files_to_patch:
-                    out, _ = run_cmd("patchelf --print-rpath %s" % x, trace=False)
-                    self.log.debug("Original RPATH for %s: %s" % (out, x))
+                    res = run_shell_cmd("patchelf --print-rpath %s" % x, hidden=True)
+                    self.log.debug("Original RPATH for %s: %s" % (res.output, x))
 
-                    run_cmd("patchelf --set-rpath '%s' --force-rpath %s" % (comp_rpath, x), trace=False)
-                    run_cmd("patchelf --shrink-rpath --force-rpath %s" % x, trace=False)
+                    run_shell_cmd("patchelf --set-rpath '%s' --force-rpath %s" % (comp_rpath, x), hidden=True)
+                    run_shell_cmd("patchelf --shrink-rpath --force-rpath %s" % x, hidden=True)
 
-                    out, _ = run_cmd("patchelf --print-rpath %s" % x, trace=False)
-                    self.log.debug("RPATH for %s (after patching and shrinking): %s" % (out, x))
+                    res = run_shell_cmd("patchelf --print-rpath %s" % x, hidden=True)
+                    self.log.debug("RPATH for %s (after patching and shrinking): %s" % (res.output, x))
 
             except OSError as err:
                 raise EasyBuildError("Failed to patch RPATH section in binaries/libraries: %s", err)

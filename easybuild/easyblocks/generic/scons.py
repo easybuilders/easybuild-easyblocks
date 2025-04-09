@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,7 +29,7 @@ EasyBuild support for building and installing SCons, implemented as an easyblock
 """
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class SCons(EasyBlock):
@@ -56,9 +56,7 @@ class SCons(EasyBlock):
         Build with SCons
         """
 
-        par = ''
-        if self.cfg['parallel']:
-            par = "-j %s" % self.cfg['parallel']
+        par = f'-j {self.cfg.parallel}' if self.cfg.parallel > 1 else ''
 
         cmd = "%(prebuildopts)s scons %(par)s %(buildopts)s %(prefix)s" % {
             'buildopts': self.cfg['buildopts'],
@@ -66,9 +64,9 @@ class SCons(EasyBlock):
             'prefix': self.prefix,
             'par': par,
         }
-        (out, _) = run_cmd(cmd, log_all=True, log_output=verbose)
+        res = run_shell_cmd(cmd)
 
-        return out
+        return res.output
 
     def test_step(self):
         """
@@ -76,7 +74,7 @@ class SCons(EasyBlock):
         """
         if self.cfg['runtest']:
             cmd = "%s scons %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
-            run_cmd(cmd, log_all=True)
+            run_shell_cmd(cmd)
 
     def install_step(self):
         """
@@ -87,6 +85,6 @@ class SCons(EasyBlock):
             'preinstallopts': self.cfg['preinstallopts'],
             'prefix': self.prefix,
         }
-        (out, _) = run_cmd(cmd, log_all=True)
+        res = run_shell_cmd(cmd)
 
-        return out
+        return res.output
