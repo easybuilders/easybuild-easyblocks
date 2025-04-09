@@ -127,6 +127,46 @@ class EB_impi(IntelBase):
             else:
                 raise EasyBuildError("Rebuild of libfabric is requested, but ofi_internal is set to False.")
 
+    def rebuild_f08_bindings(self):
+        """
+        Rebuild Fortran 2008 bindings
+        """
+        # For more information, see:
+        # https://community.intel.com/t5/Intel-MPI-Library/MPI-f08-with-polymorphic-argument-CLASS/m-p/1590421
+        # Check if the binding tarball exists within the installation
+        bindings_path = os.path.join(self.installdir, 'mpi', 'latest', 'opt', 'mpi', 'binding')
+        bindings_tarball = os.path.join(bindings_path, 'intel-mpi-binding-kit.tar.gz')
+        if not os.path.exists(bindings_tarball):
+            raise EasyBuildError(
+                f"Requested to rebuild Fortran 2008 bindings, but the bindings tarball in {bindings_tarball} "
+                f"does not exist.")
+        self.log.info(f"Found bindings tarball at {bindings_tarball}. Rebuilding Fortran 2008 bindings.")
+        # Determine compilers to build with
+        if self.toolchain.is_system_toolchain():
+            f90_compiler = 'gfortran'
+        else:
+            f90_compiler = self.toolchain.COMPILER_F90
+        # Extract the tarball
+        build_dir = tempfile.mkdtemp(prefix='rebuild-bindings-', dir=self.builddir)
+        run_shell_cmd(f"tar -xzf {bindings_tarball} -C {build_dir}")
+        # Build the bindings
+        change_dir(os.path.join(build_dir, 'f08'))
+        mpi_latest_dir = os.path.join(self.installdir, 'mpi', 'latest')
+        run_shell_cmd(f"make MPI_INST={mpi_latest_dir} F90={f90_compiler} NAME={f90_compiler}")
+        change_dir(os.path.join(get_cwd(), 'include', f'{f90_compiler}'))
+        include_mpi_dir = os.path.join(mpi_latest_dir, 'include', 'mpi')
+        initial_module_files = glob.glob(os.path.join(include_mpi_dir, '*.mod'))
+        written_module_files = glob.glob("*.mod")
+        # Preserve the original module files for people to use
+        include_mpi_originals_dir = os.path.join(include_mpi_dir, 'originals')
+        mkdir(include_mpi_originals_dir, parents=True)
+        copy_files(initial_module_files, include_mpi_originals_dir)
+        # Copy the new module files
+        copy_files(written_module_files, include_mpi_dir)
+        # Cleanup
+        remove(build_dir)
+        change_dir(self.installdir)
+
     def post_processing_step(self):
         """Custom post install step for IMPI, fix broken env scripts after moving installed files."""
         super(EB_impi, self).post_processing_step()
@@ -154,40 +194,8 @@ class EB_impi(IntelBase):
                     if os.path.exists(wrapper_path):
                         apply_regex_substitutions(wrapper_path, regex_subs)
 
-        # Rebuild Fortran 2008 bindings if requested.
-        # For more information, see:
-        # https://community.intel.com/t5/Intel-MPI-Library/MPI-f08-with-polymorphic-argument-CLASS/m-p/1590421
         if self.cfg['rebuild_f08_bindings']:
-            # Check if the binding tarball exists within the installation
-            bindings_path = os.path.join(self.installdir, 'mpi', 'latest', 'opt', 'mpi', 'binding')
-            bindings_tarball = os.path.join(bindings_path, 'intel-mpi-binding-kit.tar.gz')
-            if not os.path.exists(bindings_tarball):
-                raise EasyBuildError(
-                    f"Requested to rebuild Fortran 2008 bindings, but the bindings tarball in {bindings_tarball} "
-                    f"does not exist.")
-            self.log.info(f"Found bindings tarball at {bindings_tarball}. Rebuilding Fortran 2008 bindings.")
-            # Determine compilers to build with
-            if self.toolchain.is_system_toolchain():
-                f90_compiler = 'gfortran'
-            else:
-                f90_compiler = self.toolchain.COMPILER_F90
-            # Extract the tarball
-            build_dir = tempfile.mkdtemp()
-            run_shell_cmd(f"tar -xzf {bindings_tarball} -C {build_dir}")
-            # Build the bindings
-            change_dir(os.path.join(build_dir, 'f08'))
-            run_shell_cmd(f"make MPI_INST={self.installdir}/mpi/latest F90={f90_compiler} NAME={f90_compiler}")
-            change_dir(os.path.join(get_cwd(), 'include', f'{f90_compiler}'))
-            initial_module_files = glob.glob(f"{self.installdir}/mpi/latest/include/mpi/*.mod")
-            written_module_files = glob.glob("*.mod")
-            # Preserve the initial module files for people to use
-            mkdir(f"{self.installdir}/mpi/latest/include/mpi/back", parents=True)
-            copy_files(initial_module_files, f"{self.installdir}/mpi/latest/include/mpi/back")
-            # Copy the new module files
-            copy_files(written_module_files, f"{self.installdir}/mpi/latest/include/mpi/")
-            # Cleanup
-            remove(build_dir)
-            change_dir(self.installdir)
+            self.rebuild_f08_bindings()
 
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
