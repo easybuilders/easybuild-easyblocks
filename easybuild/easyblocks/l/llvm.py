@@ -381,9 +381,12 @@ class EB_LLVM(CMakeMake):
                     self.offload_targets += ['cuda']  # Used for LLVM >= 19
                     self.log.debug(f"{BUILD_TARGET_NVPTX} enabled by CUDA dependency/cuda_compute_capabilities")
 
-            # For AMDGPU support we need ROCR-Runtime and
-            # ROCT-Thunk-Interface, however, since ROCT is a dependency of
-            # ROCR we only check for the ROCR-Runtime here
+            # For AMDGPU support during runtime we need ROCR-Runtime and ROCT-Thunk-Interface. While split into
+            # separate packages pre ROCm 6.2, it is now combined into ROCR-Runtime. As ROCR-Thunk-Interface was a
+            # dependency for ROCR-Runtime before, checking for ROCR-Runtime as a dependency is sufficient.
+            # Generally, ROCR-Runtime is not a hard dependency for LLVM. If not found, LLVM can still build
+            # an offload-capable compiler runtime, and will try to dlopen the required libraries at runtime.
+            # Therefore, also allow the build without ROCR-Runtime, with only the desired architecture list being set.
             # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
             if 'rocr-runtime' in self.deps or amd_gfx_list:
                 if LooseVersion(self.version) < LooseVersion('18'):
