@@ -147,19 +147,22 @@ class EB_impi(IntelBase):
         else:
             f90_compiler = self.toolchain.COMPILER_F90
         # Extract the tarball
-        build_dir = tempfile.mkdtemp()
+        build_dir = tempfile.mkdtemp(prefix='rebuild-bindings-', dir=self.builddir)
         run_shell_cmd(f"tar -xzf {bindings_tarball} -C {build_dir}")
         # Build the bindings
         change_dir(os.path.join(build_dir, 'f08'))
-        run_shell_cmd(f"make MPI_INST={self.installdir}/mpi/latest F90={f90_compiler} NAME={f90_compiler}")
+        mpi_latest_dir = os.path.join(self.installdir, 'mpi', 'latest')
+        run_shell_cmd(f"make MPI_INST={mpi_latest_dir} F90={f90_compiler} NAME={f90_compiler}")
         change_dir(os.path.join(get_cwd(), 'include', f'{f90_compiler}'))
-        initial_module_files = glob.glob(f"{self.installdir}/mpi/latest/include/mpi/*.mod")
+        include_mpi_dir = os.path.join(mpi_latest_dir, 'include', 'mpi')
+        initial_module_files = glob.glob(os.path.join(include_mpi_dir, '*.mod'))
         written_module_files = glob.glob("*.mod")
-        # Preserve the initial module files for people to use
-        mkdir(f"{self.installdir}/mpi/latest/include/mpi/back", parents=True)
-        copy_files(initial_module_files, f"{self.installdir}/mpi/latest/include/mpi/back")
+        # Preserve the original module files for people to use
+        include_mpi_originals_dir = os.path.join(include_mpi_dir, 'originals')
+        mkdir(include_mpi_originals_dir, parents=True)
+        copy_files(initial_module_files, include_mpi_originals_dir)
         # Copy the new module files
-        copy_files(written_module_files, f"{self.installdir}/mpi/latest/include/mpi/")
+        copy_files(written_module_files, include_mpi_dir)
         # Cleanup
         remove(build_dir)
         change_dir(self.installdir)
