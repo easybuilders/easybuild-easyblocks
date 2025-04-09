@@ -213,7 +213,7 @@ class CMakeMake(ConfigureMake):
         # All options are of the form '-D<key>=<value>'
         new_opts = ' '.join('-D%s=%s' % (key, value) for key, value in config_opts.items()
                             if '-D%s=' % key not in cfg_configopts)
-        self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
+        return ' '.join([new_opts, cfg_configopts])
 
     def configure_step(self, srcdir=None, builddir=None):
         """Configure build using cmake"""
@@ -383,12 +383,11 @@ class CMakeMake(ConfigureMake):
         self.cmake_options = options
 
         if self.cfg.get('configure_cmd') == DEFAULT_CONFIGURE_CMD:
-            self.prepend_config_opts(options)
             command = ' '.join([
                 self.cfg['preconfigopts'],
                 DEFAULT_CONFIGURE_CMD,
                 generator,
-                self.cfg['configopts'],
+                self.prepend_config_opts(options),
                 srcdir])
         else:
             command = ' '.join([
