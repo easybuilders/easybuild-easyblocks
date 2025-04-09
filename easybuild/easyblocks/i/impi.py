@@ -44,8 +44,8 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file, mkdir, \
-    copy_files, remove, get_cwd
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_files, extract_file
+from easybuild.tools.filetools import mkdir, remove, get_cwd
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
