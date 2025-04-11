@@ -232,7 +232,7 @@ class EB_NWChem(ConfigureMake):
                 libmpi += " -libumad -libverbs -lpthread"
 
         # compiler optimization flags: set environment variables _and_ add them to list of make options
-        self.setvar_env_makeopt('COPTIMIZE', os.getenv('CFLAGS').replace(" DMKL_ILP64"," -DMKL_ILP64"))
+        self.setvar_env_makeopt('COPTIMIZE', os.getenv('CFLAGS').replace(" DMKL_ILP64", " -DMKL_ILP64"))
         self.setvar_env_makeopt('FOPTIMIZE', os.getenv('FFLAGS'))
 
         # BLAS and ScaLAPACK
