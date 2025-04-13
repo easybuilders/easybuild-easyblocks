@@ -42,7 +42,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, extract_file, mkdir, move_file
-from easybuild.tools.filetools import read_file, write_file
+from easybuild.tools.filetools import read_file, write_file, which
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
@@ -241,11 +241,14 @@ class Cargo(ExtensionEasyBlock):
 
     def set_cargo_vars(self):
         """Set environment variables for Rust compilation and Cargo"""
+        rustc_optarch = self.rustc_optarch()
+        gcc = which('gcc')  # makes sure gcc wrapper is used in case of rpath linking.
+
         env.setvar('CARGO_HOME', self.cargo_home)
         env.setvar('RUSTC', 'rustc')
         env.setvar('RUSTDOC', 'rustdoc')
         env.setvar('RUSTFMT', 'rustfmt')
-        env.setvar('RUSTFLAGS', self.rustc_optarch())
+        env.setvar('RUSTFLAGS', f'{rustc_optarch} -C linker={gcc}')
         env.setvar('RUST_LOG', 'DEBUG')
         env.setvar('RUST_BACKTRACE', '1')
 
