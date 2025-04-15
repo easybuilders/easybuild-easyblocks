@@ -954,6 +954,7 @@ class EB_TensorFlow(PythonPackage):
                 self.target_opts.append('--host_action_env=' + option)
 
         # Compose final command
+        binpath = os.getenv('PATH', '')
         cmd = (
             [self.cfg['prebuildopts']]
             + ['bazel']
@@ -961,16 +962,18 @@ class EB_TensorFlow(PythonPackage):
             + ['build']
             + self.target_opts
             + [self.cfg['buildopts']]
+            # add PATH to bazel build cmd
+            + [f"--action_env=PATH={binpath}:$PATH --host_action_env=PATH={binpath}:$PATH "]
             # specify target of the build command as last argument
-            + ['//tensorflow/tools/pip_package:build_pip_package']
+            + ['//tensorflow/tools/pip_package:wheel --repo_env=WHEEL_NAME=tensorflow']
         )
 
         with self.set_tmp_dir():
             run_shell_cmd(' '.join(cmd))
 
-            # run generated 'build_pip_package' script to build the .whl
-            cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
-            run_shell_cmd(cmd)
+            # run generated 'build_pip_package' script to build the .whl -> not used ?
+            # cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
+            # run_shell_cmd(cmd)
 
     def test_step(self):
         """Run TensorFlow unit tests"""
