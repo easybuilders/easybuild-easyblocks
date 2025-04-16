@@ -954,7 +954,6 @@ class EB_TensorFlow(PythonPackage):
                 self.target_opts.append('--host_action_env=' + option)
 
         # Compose final command
-        binpath = os.getenv('PATH', '')
         cmd = (
             [self.cfg['prebuildopts']]
             + ['bazel']
@@ -965,7 +964,7 @@ class EB_TensorFlow(PythonPackage):
         )
         if LooseVersion(self.version) < LooseVersion('2.16'):
             cmd += ['//tensorflow/tools/pip_package:build_pip_package']
-        elif LooseVersion(self.version) < LooseVersion('2.17'): #  for v2.16.x
+        elif LooseVersion(self.version) < LooseVersion('2.17'):  # for v2.16.x
             cmd += ['//tensorflow/tools/pip_package:v2/wheel --repo_env=WHEEL_NAME=tensorflow']
         else:
             cmd += ['//tensorflow/tools/pip_package:wheel --repo_env=WHEEL_NAME=tensorflow']
