@@ -65,6 +65,9 @@ class EB_EasyBuildMeta(PythonPackage):
             self.easybuild_pkgs.extend(['vsc-base', 'vsc-install'])
             # consider setuptools first, in case it is listed as a sources
             self.easybuild_pkgs.insert(0, 'setuptools')
+        elif LooseVersion(self.version) >= LooseVersion('5.0'):
+            # use easybuild-base for easybuild to avoid matching all easybuild-* directories during install
+            self.easybuild_pkgs.append('easybuild-base')
 
     # Override this function since we want to respect the user choice for the python installation to use
     # (which can be influenced by EB_PYTHON and EB_INSTALLPYTHON)
