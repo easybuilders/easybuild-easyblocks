@@ -37,12 +37,12 @@ from easybuild.easyblocks.generic.rpackage import RPackage
 class EB_Rserve(RPackage):
     """Build and install Rserve R library."""
 
-    def run(self):
+    def install_extension(self):
         """Set LIBS environment variable correctly prior to building."""
         self.configurevars = ['LIBS="$LIBS -lpthread"']
-        super(EB_Rserve, self).run()
+        super(EB_Rserve, self).install_extension()
 
-    def run_async(self):
+    def install_extension_async(self, *args, **kwargs):
         """Set LIBS environment variable correctly prior to building."""
         self.configurevars = ['LIBS="$LIBS -lpthread"']
-        super(EB_Rserve, self).run_async()
+        return super(EB_Rserve, self).install_extension_async(*args, **kwargs)

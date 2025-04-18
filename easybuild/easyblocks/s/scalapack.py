@@ -37,11 +37,9 @@ import os
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
-from easybuild.easyblocks.blacs import det_interface  # @UnresolvedImport
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.toolchains.linalg.acml import Acml
 from easybuild.toolchains.linalg.atlas import Atlas
-from easybuild.toolchains.linalg.blacs import Blacs
 from easybuild.toolchains.linalg.blis import Blis
 from easybuild.toolchains.linalg.flexiblas import FlexiBLAS, det_flexiblas_backend_libs
 from easybuild.toolchains.linalg.gotoblas import GotoBLAS
@@ -51,7 +49,7 @@ from easybuild.toolchains.linalg.intelmkl import IntelMKL
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file, remove_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ScaLAPACK(CMakeMake):
@@ -90,13 +88,11 @@ class EB_ScaLAPACK(CMakeMake):
         known_mpi_libs = [toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]  # @UndefinedVariable
         known_mpi_libs += [toolchain.OPENMPI, toolchain.QLOGICMPI]  # @UndefinedVariable
         known_mpi_libs += [toolchain.INTELMPI]  # @UndefinedVariable
-        if os.getenv('MPICC') and os.getenv('MPIF77') and os.getenv('MPIF90'):
+        if os.getenv('MPICC') and os.getenv('MPIF90'):
             mpicc = os.getenv('MPICC')
-            mpif77 = os.getenv('MPIF77')
             mpif90 = os.getenv('MPIF90')
         elif self.toolchain.mpi_family() in known_mpi_libs:
             mpicc = 'mpicc'
-            mpif77 = 'mpif77'
             mpif90 = 'mpif90'
         else:
             raise EasyBuildError("Don't know which compiler commands to use.")
@@ -155,62 +151,22 @@ class EB_ScaLAPACK(CMakeMake):
         else:
             raise EasyBuildError("Unknown LAPACK library used, no idea how to set BLASLIB/LAPACKLIB make options")
 
-        # build procedure changed in v2.0.0
-        if self.loosever < LooseVersion('2.0.0'):
-
-            blacs = get_software_root(Blacs.BLACS_MODULE_NAME[0])
-            if not blacs:
-                raise EasyBuildError("BLACS not available, yet required for ScaLAPACK version < 2.0.0")
-
-            # determine interface
-            interface = det_interface(self.log, os.path.join(blacs, 'bin'))
-
-            # set build and BLACS dir correctly
-            extra_makeopts.append('home=%s BLACSdir=%s' % (self.cfg['start_dir'], blacs))
-
-            # set BLACS libs correctly
-            blacs_libs = [
-                ('BLACSFINIT', "F77init"),
-                ('BLACSCINIT', "Cinit"),
-                ('BLACSLIB', "")
-            ]
-            for (var, lib) in blacs_libs:
-                extra_makeopts.append('%s=%s/lib/libblacs%s.a' % (var, blacs, lib))
-
-            # set compilers and options
-            noopt = ''
-            if self.toolchain.options['noopt']:
-                noopt += " -O0"
-            if self.toolchain.options['pic']:
-                noopt += " -fPIC"
-            extra_makeopts += [
-                'F77="%s"' % mpif77,
-                'CC="%s"' % mpicc,
-                'NOOPT="%s"' % noopt,
-                'CCFLAGS="-O3 %s"' % os.getenv('CFLAGS')
-            ]
-
-            # set interface
-            extra_makeopts.append("CDEFS='-D%s -DNO_IEEE $(USEMPI)'" % interface)
-
+        # determine interface
+        if self.toolchain.mpi_family() in known_mpi_libs:
+            interface = 'Add_'
         else:
+            raise EasyBuildError("Don't know which interface to pick for the MPI library being used.")
 
-            # determine interface
-            if self.toolchain.mpi_family() in known_mpi_libs:
-                interface = 'Add_'
-            else:
-                raise EasyBuildError("Don't know which interface to pick for the MPI library being used.")
+        # set compilers and options
+        extra_makeopts += [
+            'FC="%s"' % mpif90,
+            'CC="%s"' % mpicc,
+            'CCFLAGS="%s"' % os.getenv('CFLAGS'),
+            'FCFLAGS="%s"' % os.getenv('FFLAGS'),
+        ]
 
-            # set compilers and options
-            extra_makeopts += [
-                'FC="%s"' % mpif90,
-                'CC="%s"' % mpicc,
-                'CCFLAGS="%s"' % os.getenv('CFLAGS'),
-                'FCFLAGS="%s"' % os.getenv('FFLAGS'),
-            ]
-
-            # set interface
-            extra_makeopts.append('CDEFS="-D%s"' % interface)
+        # set interface
+        extra_makeopts.append('CDEFS="-D%s"' % interface)
 
         # update make opts, and build_step
         saved_buildopts = self.cfg['buildopts']
@@ -221,22 +177,17 @@ class EB_ScaLAPACK(CMakeMake):
         self.cfg.update('buildopts', 'lib')
         self.cfg.update('buildopts', ' '.join(extra_makeopts))
 
-        # Copied from ConfigureMake easyblock
-        paracmd = ''
-        if self.cfg['parallel']:
-            paracmd = "-j %s" % self.cfg['parallel']
-
-        cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
+        cmd = "%s make %s %s" % (self.cfg['prebuildopts'], self.parallel_flag, self.cfg['buildopts'])
 
         # Ignore exit code for parallel run
-        (out, _) = run_cmd(cmd, log_ok=False, log_all=False, simple=False)
+        run_shell_cmd(cmd, fail_on_error=False)
 
         # Now prepare to remake libscalapack.a serially and the tests.
         self.cfg['buildopts'] = saved_buildopts
         self.cfg.update('buildopts', ' '.join(extra_makeopts))
 
         remove_file('libscalapack.a')
-        self.cfg['parallel'] = 1
+        self.cfg.parallel = 1
 
     def build_step(self):
         """Build ScaLAPACK using make after setting make options."""

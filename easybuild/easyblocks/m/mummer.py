@@ -35,7 +35,7 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.perl import get_major_perl_version
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file, is_binary, mkdir, read_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_MUMmer(ConfigureMake):
@@ -59,7 +59,7 @@ class EB_MUMmer(ConfigureMake):
         """Configure MUMmer build by running make check and setting make options."""
 
         cmd = "%s make check %s" % (self.cfg['preconfigopts'], self.cfg['configopts'])
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
         self.cfg.update('buildopts', 'all')
 

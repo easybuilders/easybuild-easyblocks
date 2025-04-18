@@ -24,13 +24,14 @@
 ##
 """
 EasyBuild support for software using the Score-P configuration style (e.g., Cube, OTF2, Scalasca, and Score-P),
-implemented as an easyblock.
+implemented as an EasyBlock.
 
 @author: Kenneth Hoste (Ghent University)
 @author: Bernd Mohr (Juelich Supercomputing Centre)
 @author: Markus Geimer (Juelich Supercomputing Centre)
 @author: Alexander Grund (TU Dresden)
 @author: Christian Feld (Juelich Supercomputing Centre)
+@author: Jan Andre Reuter (Juelich Supercomputing Centre)
 """
 import os
 
@@ -48,11 +49,10 @@ class EB_Score_minus_P(ConfigureMake):
     Support for building and installing software using the Score-P configuration style (e.g., Cube, OTF2, Scalasca,
     and Score-P).
     """
-
     def configure_step(self, *args, **kwargs):
         """Configure the build, set configure options for compiler, MPI and dependencies."""
 
-        if LooseVersion(self.version) >= LooseVersion('8.0') and LooseVersion(self.version) < LooseVersion('8.5'):
+        if LooseVersion('8.0') <= LooseVersion(self.version) < LooseVersion('8.5'):
             # Fix an issue where the configure script would fail if certain dependencies are installed in a path
             # that includes "yes" or "no", see https://gitlab.com/score-p/scorep/-/issues/1008.
             yes_no_regex = [
@@ -71,8 +71,8 @@ class EB_Score_minus_P(ConfigureMake):
         # Score-P's configure magic...
         unset_env_vars(['CPPFLAGS', 'LDFLAGS', 'LIBS'])
 
-        # On non-cross-compile platforms, specify compiler and MPI suite explicitly.  This is much quicker and safer
-        # than autodetection.  In Score-P build-system terms, the following platforms are considered cross-compile
+        # On non-cross-compile platforms, specify compiler and MPI suite explicitly. This is much quicker and safer
+        # than autodetection. In Score-P build-system terms, the following platforms are considered cross-compile
         # architectures:
         #
         #   - Cray XT/XE/XK/XC series
@@ -82,7 +82,8 @@ class EB_Score_minus_P(ConfigureMake):
         # Of those, only Cray is supported right now.
         tc_fam = self.toolchain.toolchain_family()
         if tc_fam != toolchain.CRAYPE:
-            # since 2022/12 releases: --with-nocross-compiler-suite=(gcc|ibm|intel|oneapi|nvhpc|pgi|clang|aocc|amdclang)
+            # --with-nocross-compiler-suite=(gcc|ibm|intel|oneapi|nvhpc|pgi|clang| \
+            #                                aocc|amdclang|cray)
             comp_opts = {
                 # assume that system toolchain uses a system-provided GCC
                 toolchain.SYSTEM: 'gcc',
@@ -102,6 +103,11 @@ class EB_Score_minus_P(ConfigureMake):
             }
             if LooseVersion(self.version) < LooseVersion(nvhpc_since.get(self.name, '0')):
                 comp_opts[toolchain.NVHPC] = 'pgi'
+            # Switch to oneAPI for toolchains using oneAPI variants as default.
+            # This may result in installations without Fortran compiler instrumentation support,
+            # if this is chosen before 2024.0.0, as prior versions did not support the required flags.
+            if self.toolchain.options.get('oneapi', None) is True:
+                comp_opts[toolchain.INTELCOMP] = 'oneapi'
 
             comp_fam = self.toolchain.comp_family()
             if comp_fam in comp_opts:
@@ -110,8 +116,9 @@ class EB_Score_minus_P(ConfigureMake):
                 raise EasyBuildError("Compiler family %s not supported yet (only: %s)",
                                      comp_fam, ', '.join(comp_opts.keys()))
 
-            # --with-mpi=(bullxmpi|hp|ibmpoe|intel|intel2|intelpoe|lam|mpibull2|mpich|mpich2|mpich3|openmpi|
-            #             platform|scali|sgimpt|sun)
+            # --with-mpi=(bullxmpi|cray|hp|ibmpoe|intel|intel2|intel3|intelpoe|lam|
+            #             mpibull2|mpich|mpich2|mpich3|mpich4|openmpi|openmpi3| \
+            #             platform|scali|sgimpt|sgimptwrapper|spectrum|sun)
             #
             # Notes:
             #   - intel:    Intel MPI v1.x (ancient & unsupported)
@@ -125,12 +132,13 @@ class EB_Score_minus_P(ConfigureMake):
             #               safe to use 'mpich3' for all supported versions although MVAPICH2 is based on MPICH v3.x
             #               only since v1.9b.
             #
-            # With minimal toolchains, packages using this easyblock may be built with a non-MPI toolchain (e.g., OTF2).
+            # With minimal toolchains, packages using this EasyBlock may be built with a non-MPI toolchain (e.g., OTF2).
             # In this case, skip passing the '--with-mpi' option.
             mpi_opts = {
                 toolchain.INTELMPI: 'intel2',
                 toolchain.OPENMPI: 'openmpi',
-                toolchain.MPICH: 'mpich3',     # In EB terms, MPICH means MPICH 3.x
+                # In EB terms, MPICH means MPICH 3.x
+                toolchain.MPICH: 'mpich3',
                 toolchain.MPICH2: 'mpich2',
                 toolchain.MVAPICH2: 'mpich3',
             }
@@ -151,27 +159,34 @@ class EB_Score_minus_P(ConfigureMake):
             'binutils': ['--with-libbfd-include=%s/include',
                          '--with-libbfd-lib=%%s/%s' % get_software_libdir('binutils', fs=['libbfd.a'])],
             'libunwind': ['--with-libunwind=%s'],
-            # Older versions use Cube
-            'Cube': ['--with-cube=%s/bin'],
-            # Recent versions of Cube are split into CubeLib and CubeW(riter)
             'CubeLib': ['--with-cubelib=%s/bin'],
             'CubeWriter': ['--with-cubew=%s/bin'],
             'CUDA': ['--enable-cuda', '--with-libcudart=%s'],
+            'GOTCHA': ['--with-libgotcha=%s'],
             'OTF2': ['--with-otf2=%s/bin'],
             'OPARI2': ['--with-opari2=%s/bin'],
             'PAPI': ['--with-papi-header=%s/include', '--with-papi-lib=%%s/%s' % get_software_libdir('PAPI')],
             'PDT': ['--with-pdt=%s/bin'],
-            'Qt': ['--with-qt=%s'],
+            # Used for CubeGUI. As EasyBuild splits Qt versions into separate EasyConfig names, we need to specify all
+            # supported Qt versions. EasyConfigs should only use one of them.
+            'Qt': ['--with-qt=%s/bin'],
+            'Qt5': ['--with-qt=%s/bin'],
+            'Qt6': ['--with-qt=%s/bin'],
             'SIONlib': ['--with-sionlib=%s/bin'],
         }
-        for (dep_name, dep_opts) in deps.items():
-            dep_root = get_software_root(dep_name)
-            if dep_root:
-                for dep_opt in dep_opts:
-                    try:
-                        dep_opt = dep_opt % dep_root
-                    except TypeError:
-                        pass  # Ignore subtitution error when there is nothing to substitute
-                    self.cfg.update('configopts', dep_opt)
+
+        # Go through all dependencies of passed EasyConfig to determine which flags to pass
+        # explicitly to configure.
+        ec_explicit_deps = [dep for dep in self.cfg.all_dependencies if dep['name'] in deps.keys()]
+        for dep in ec_explicit_deps:
+            dep_root = get_software_root(dep['name'])
+            configure_opts = deps[dep['name']]
+            for configure_opt in configure_opts:
+                try:
+                    configure_opt = configure_opt % dep_root
+                except TypeError:
+                    # Ignore substitution error when there is nothing to substitute
+                    pass
+                self.cfg.update('configopts', configure_opt)
 
         super(EB_Score_minus_P, self).configure_step(*args, **kwargs)

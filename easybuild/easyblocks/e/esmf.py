@@ -37,7 +37,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.framework.easyconfig import CUSTOM
 
@@ -127,8 +127,7 @@ class EB_ESMF(ConfigureMake):
                 env.setvar('ESMF_NETCDF_LIBS', ' '.join(netcdf_libs))
 
         # 'make info' provides useful debug info
-        cmd = "make info"
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        run_shell_cmd("make info")
 
     def install_step(self):
         # first, install the software
@@ -146,25 +145,16 @@ class EB_ESMF(ConfigureMake):
 
             cmd = "python setup.py build --ESMFMKFILE=%s/lib/esmf.mk " % self.installdir
             cmd += " && python setup.py install --prefix=%s" % self.installdir
-            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+            run_shell_cmd(cmd)
 
     def make_module_extra(self):
-        """Add install path to PYTHONPATH or EBPYTHONPREFIXES"""
+        """Set $ESMFMKFILE environment variable"""
         txt = super(EB_ESMF, self).make_module_extra()
 
         # set environment variable ESMFMKFILE
         # see section 9.9 in https://earthsystemmodeling.org/docs/release/latest/ESMF_usrdoc/node10.html
         esmf_mkfile_path = os.path.join(self.installdir, "lib", "esmf.mk")
         txt += self.module_generator.set_environment('ESMFMKFILE', esmf_mkfile_path)
-
-        if self.cfg['multi_deps'] and 'Python' in self.cfg['multi_deps']:
-            txt += self.module_generator.prepend_paths('EBPYTHONPREFIXES', '')
-        else:
-            python = get_software_version('Python')
-            if python:
-                pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-                pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
-                txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
 
         return txt
 

@@ -37,7 +37,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
 from easybuild.tools.systemtools import AARCH64, POWER, RISCV64
 
@@ -139,11 +139,11 @@ class EB_Qt(ConfigureMake):
             self.cfg.update('configopts', '-no-feature-getentropy')
 
         cmd = "%s ./configure -prefix %s %s" % (self.cfg['preconfigopts'], self.installdir, self.cfg['configopts'])
-        qa = {
-            "Type 'o' if you want to use the Open Source Edition.": 'o',
-            "Do you accept the terms of either license?": 'yes',
-            "Which edition of Qt do you want to use?": 'o',
-        }
+        qa = [
+            (r"Type 'o' if you want to use the Open Source Edition\.", 'o'),
+            (r"Do you accept the terms of either license\?", 'yes'),
+            (r"Which edition of Qt do you want to use\?", 'o'),
+        ]
         no_qa = [
             "for .*pro",
             r"%s.*" % os.getenv('CXX', '').replace('+', '\\+'),  # need to escape + in 'g++'
@@ -154,14 +154,14 @@ class EB_Qt(ConfigureMake):
             'Creating qmake...',
             'Checking for .*...',
         ]
-        run_cmd_qa(cmd, qa, no_qa=no_qa, log_all=True, simple=True, maxhits=120)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=120)
 
         # Ninja uses all visible cores by default, which can lead to lack of sufficient memory;
         # so $NINJAFLAGS is set to control number of parallel processes used by Ninja;
         # note that $NINJAFLAGS is not a generic thing for Ninja, it's very specific to the Qt5 build procedure
         if LooseVersion(self.version) >= LooseVersion('5'):
             if get_software_root('Ninja'):
-                env.setvar('NINJAFLAGS', '-j%s' % self.cfg['parallel'])
+                env.setvar('NINJAFLAGS', self.parallel_flag)
 
     def build_step(self):
         """Set $LD_LIBRARY_PATH before calling make, to ensure that all required libraries are found during linking."""

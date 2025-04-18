@@ -31,9 +31,10 @@ import os
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
-from easybuild.easyblocks.t.tbb import get_tbb_gccprefix
+from easybuild.easyblocks.tbb import get_tbb_gccprefix
 from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_intel_minus_compilers(IntelBase):
@@ -134,41 +135,38 @@ class EB_intel_minus_compilers(IntelBase):
         super(EB_intel_minus_compilers, self).sanity_check_step(custom_paths=custom_paths,
                                                                 custom_commands=custom_commands)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """
-        Paths to consider for prepend-paths statements in module file
+        Set paths for module load environment based on the actual installation files
         """
-        libdirs = [
-            'lib',
-            os.path.join('lib', 'x64'),
-            os.path.join('compiler', 'lib', 'intel64_lin'),
+        tbb_lib_prefix = os.path.join(self.tbb_subdir, 'lib', 'intel64')
+        tbb_lib_gccdir = get_tbb_gccprefix(os.path.join(self.installdir, tbb_lib_prefix))
+
+        self.module_load_environment.PATH = [os.path.join(self.compilers_subdir, path) for path in (
+            'bin',
+            os.path.join('bin', 'intel64'),
+        )]
+        self.module_load_environment.LD_LIBRARY_PATH = [
+            os.path.join(self.compilers_subdir, 'lib'),
+            os.path.join(self.compilers_subdir, 'lib', 'x64'),
+            os.path.join(self.compilers_subdir, 'compiler', 'lib', 'intel64_lin'),
+            os.path.join(tbb_lib_prefix, tbb_lib_gccdir),
         ]
-        libdirs = [os.path.join(self.compilers_subdir, x) for x in libdirs]
-        tbb_subdir = self.tbb_subdir
-        tbb_libsubdir = os.path.join(tbb_subdir, 'lib', 'intel64')
-        libdirs.append(os.path.join(tbb_libsubdir,
-                                    get_tbb_gccprefix(os.path.join(self.installdir, tbb_libsubdir))))
-        guesses = {
-            'PATH': [
-                os.path.join(self.compilers_subdir, 'bin'),
-                os.path.join(self.compilers_subdir, 'bin', 'intel64'),
-            ],
-            'LD_LIBRARY_PATH': libdirs,
-            'LIBRARY_PATH': libdirs,
-            'MANPATH': [
-                os.path.join(os.path.dirname(self.compilers_subdir), 'documentation', 'en', 'man', 'common'),
-                os.path.join(self.compilers_subdir, 'share', 'man'),
-            ],
-            'OCL_ICD_FILENAMES': [
-                os.path.join(self.compilers_subdir, 'lib', 'x64', 'libintelocl.so'),
-                os.path.join(self.compilers_subdir, 'lib', 'libintelocl.so'),
-            ],
-            'CPATH': [
-                os.path.join(tbb_subdir, 'include'),
-            ],
-            'TBBROOT': [tbb_subdir],
-        }
-        return guesses
+        self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
+        self.module_load_environment.MANPATH = [
+            os.path.join(os.path.dirname(self.compilers_subdir), 'documentation', 'en', 'man', 'common'),
+            os.path.join(self.compilers_subdir, 'share', 'man'),
+        ]
+        self.module_load_environment.OCL_ICD_FILENAMES = [os.path.join(self.compilers_subdir, path) for path in (
+            os.path.join('lib', 'x64', 'libintelocl.so'),
+            os.path.join('lib', 'libintelocl.so'),
+        )]
+        self.module_load_environment.TBBROOT = [self.tbb_subdir]
+
+        # include paths to headers (e.g. CPATH)
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, os.path.join(self.tbb_subdir, 'include'))
+
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Additional custom variables for intel-compiler"""
@@ -176,19 +174,23 @@ class EB_intel_minus_compilers(IntelBase):
 
         # On Debian/Ubuntu, /usr/include/x86_64-linux-gnu, or whatever dir gcc uses, needs to be included
         # in $CPATH for Intel C compiler
-        multiarch_out, ec = run_cmd("gcc -print-multiarch", simple=False)
-        multiarch_out = multiarch_out.strip()
-        if ec == 0 and multiarch_out:
+        res = run_shell_cmd("gcc -print-multiarch", hidden=True)
+        multiarch_out = res.output.strip()
+        if res.exit_code == 0 and multiarch_out:
             multi_arch_inc_dir_cmd = '|'.join([
                 "gcc -E -Wp,-v -xc /dev/null 2>&1",
-                "grep %s$" % multiarch_out,
+                f"grep {multiarch_out}$",
                 "grep -v /include-fixed/",
             ])
-            multiarch_inc_dir, ec = run_cmd(multi_arch_inc_dir_cmd)
-            if ec == 0 and multiarch_inc_dir:
-                multiarch_inc_dir = multiarch_inc_dir.strip()
-                self.log.info("Adding multiarch include path %s to $CPATH in generated module file", multiarch_inc_dir)
+            res = run_shell_cmd(multi_arch_inc_dir_cmd, hidden=True)
+            multiarch_inc_dir = res.output.strip()
+            if res.exit_code == 0 and multiarch_inc_dir:
                 # system location must be appended at the end, so use append_paths
-                txt += self.module_generator.append_paths('CPATH', [multiarch_inc_dir], allow_abs=True)
+                for envar in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
+                    self.log.info(
+                        f"Adding multiarch include path '{multiarch_inc_dir}' to ${envar} in generated module file"
+                    )
+                    # system location must be appended at the end, so use append_paths
+                    txt += self.module_generator.append_paths(envar, [multiarch_inc_dir], allow_abs=True)
 
         return txt

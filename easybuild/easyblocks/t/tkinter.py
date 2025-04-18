@@ -134,10 +134,3 @@ class EB_Tkinter(EB_Python):
             'dirs': ['lib']
         }
         super(EB_Python, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
-
-    def make_module_extra(self):
-        """Set PYTHONPATH"""
-        txt = super(EB_Tkinter, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
-
-        return txt

@@ -36,7 +36,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import remove_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.modules import get_software_root
 
 
@@ -59,10 +59,6 @@ class EB_Go(ConfigureMake):
         specifying the final installation prefix by setting $GOROOT_FINAL.
         """
         srcdir = os.path.join(self.cfg['start_dir'], 'src')
-        try:
-            os.chdir(srcdir)
-        except OSError as err:
-            raise EasyBuildError("Failed to move to %s: %s", srcdir, err)
 
         # $GOROOT_FINAL only specifies the location of the final installation, which gets baked into the binaries
         # the installation itself is *not* done by the all.bash script, that needs to be done manually
@@ -77,7 +73,7 @@ class EB_Go(ConfigureMake):
         else:
             cmd = "GOROOT_FINAL=%s ./all.bash" % self.installdir
 
-        run_cmd(cmd, log_all=True, simple=False)
+        run_shell_cmd(cmd, work_dir=srcdir)
 
         try:
             remove_dir(self.installdir)

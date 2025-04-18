@@ -39,7 +39,7 @@ class EB_Metagenome_Atlas(PythonPackage):
     Support for building/installing Metagenome-Atlas.
     """
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Create snakemake config files"""
 
         # https://metagenome-atlas.readthedocs.io/en/latest/usage/getting_started.html#set-up-of-cluster-execution

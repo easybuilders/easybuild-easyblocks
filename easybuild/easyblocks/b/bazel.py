@@ -35,7 +35,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file, which
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.framework.easyconfig import CUSTOM
 
 
@@ -158,7 +158,7 @@ class EB_Bazel(EasyBlock):
         ])
 
         # enable building in parallel
-        bazel_args = '--jobs=%d' % self.cfg['parallel']
+        bazel_args = f'--jobs={self.cfg.parallel}'
 
         # Bazel provides a JDK by itself for some architectures
         # We want to enforce it using the JDK we provided via modules
@@ -190,7 +190,7 @@ class EB_Bazel(EasyBlock):
             self.cfg['prebuildopts'],
             "bash -c 'set -x && ./compile.sh'",  # Show the commands the script is running to faster debug failures
         ])
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(cmd)
 
     def test_step(self):
         """Test the compilation"""
@@ -206,7 +206,7 @@ class EB_Bazel(EasyBlock):
                 # Avoid bazel using $HOME
                 '--output_user_root=%s' % self.output_user_root,
                 runtest,
-                '--jobs=%d' % self.cfg['parallel'],
+                f'--jobs={self.cfg.parallel}',
                 '--host_javabase=@local_jdk//:jdk',
                 # Be more verbose
                 '--subcommands', '--verbose_failures',
@@ -214,7 +214,7 @@ class EB_Bazel(EasyBlock):
                 '--build_tests_only',
                 self.cfg['testopts']
             ])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
     def install_step(self):
         """Custom install procedure for Bazel."""

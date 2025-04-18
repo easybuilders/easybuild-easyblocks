@@ -36,7 +36,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class RubyGem(ExtensionEasyBlock):
@@ -56,12 +56,12 @@ class RubyGem(ExtensionEasyBlock):
         super(RubyGem, self).__init__(*args, **kwargs)
         self.ext_src = None
 
-    def run(self):
+    def install_extension(self):
         """Perform the actual Ruby gem build/install"""
         if not self.src:
             raise EasyBuildError("No source found for Ruby Gem %s, required for installation.", self.name)
 
-        super(RubyGem, self).run()
+        super(RubyGem, self).install_extension()
 
         self.ext_src = self.src
         self.log.debug("Installing Ruby gem %s version %s." % (self.name, self.version))
@@ -103,10 +103,10 @@ class RubyGem(ExtensionEasyBlock):
                 gemspec = "%s.gemspec" % self.name
                 gemspec_lower = "%s.gemspec" % self.name.lower()
                 if os.path.exists(gemspec):
-                    run_cmd("gem build %s -o %s.gem" % (gemspec, self.name))
+                    run_shell_cmd("gem build %s -o %s.gem" % (gemspec, self.name))
                     self.ext_src = "%s.gem" % self.name
                 elif os.path.exists(gemspec_lower):
-                    run_cmd("gem build %s -o %s.gem" % (gemspec_lower, self.name.lower()))
+                    run_shell_cmd("gem build %s -o %s.gem" % (gemspec_lower, self.name.lower()))
                     self.ext_src = "%s.gem" % self.name.lower()
                 else:
                     raise EasyBuildError("No gem_file specified and no"
@@ -126,9 +126,13 @@ class RubyGem(ExtensionEasyBlock):
         if not self.is_extension or self.master.name != 'Ruby':
             env.setvar('GEM_HOME', self.installdir)
 
-        bindir = os.path.join(self.installdir, 'bin')
-        cmd = "%s gem install --bindir %s --local %s" % (self.cfg['preinstallopts'], bindir, self.ext_src)
-        run_cmd(cmd)
+        cmd = ' '.join([
+            self.cfg['preinstallopts'],
+            'gem install',
+            '--bindir ' + os.path.join(self.installdir, 'bin'),
+            '--local ' + self.ext_src,
+        ])
+        run_shell_cmd(cmd)
 
     def make_module_extra(self):
         """Extend $GEM_PATH in module file."""

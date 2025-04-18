@@ -38,7 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, get_cpu_family, get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
@@ -70,11 +70,11 @@ class EB_binutils(ConfigureMake):
         compiler_cmd = os.environ.get('CC', 'gcc')
 
         # determine library search paths for GCC
-        stdout, ec = run_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler_cmd, simple=False, log_all=True)
-        if ec:
+        res = run_shell_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler_cmd)
+        if res.exit_code:
             raise EasyBuildError("Failed to determine library search dirs from compiler %s", compiler_cmd)
 
-        m = re.search('^libraries: *=(.*)$', stdout, re.M)
+        m = re.search('^libraries: *=(.*)$', res.output, re.M)
         paths = nub(os.path.abspath(p) for p in m.group(1).split(os.pathsep))
         self.log.debug('Unique library search paths from compiler %s: %s', compiler_cmd, paths)
 
@@ -268,14 +268,14 @@ class EB_binutils(ConfigureMake):
         if any(dep['name'] == 'zlib' for dep in build_deps):
             for binary in binaries:
                 bin_path = os.path.join(self.installdir, 'bin', binary)
-                out, _ = run_cmd("file %s" % bin_path, simple=False)
-                if re.search(r'statically linked', out):
+                res = run_shell_cmd("file %s" % bin_path)
+                if re.search(r'statically linked', res.output):
                     # binary is fully statically linked, so no chance for dynamically linked libz
                     continue
 
                 # check whether libz is linked dynamically, it shouldn't be
-                out, _ = run_cmd("ldd %s" % bin_path, simple=False)
-                if re.search(r'libz\.%s' % shlib_ext, out):
-                    raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, out)
+                res = run_shell_cmd("ldd %s" % bin_path)
+                if re.search(r'libz\.%s' % shlib_ext, res.output):
+                    raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, res.output)
 
         super(EB_binutils, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -41,7 +41,7 @@ from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.filetools import remove_dir, which
 
 
@@ -107,7 +107,7 @@ class EB_Amber(CMakeMake):
             # he or she selects "latest". (Note: "latest" is not
             # recommended for this reason and others.)
             for _ in range(self.cfg['patchruns']):
-                run_cmd(cmd, log_all=True)
+                run_shell_cmd(cmd)
         else:
             for (tree, patch_level) in zip(['AmberTools', 'Amber'], self.cfg['patchlevels']):
                 if patch_level == 0:
@@ -116,7 +116,7 @@ class EB_Amber(CMakeMake):
                 # Run as many times as specified. It is the responsibility
                 # of the easyconfig author to get this right.
                 for _ in range(self.cfg['patchruns']):
-                    run_cmd(cmd, log_all=True)
+                    run_shell_cmd(cmd)
 
         super(EB_Amber, self).patch_step(*args, **kwargs)
 
@@ -304,7 +304,7 @@ class EB_Amber(CMakeMake):
         for flag, testrule in build_targets:
             # configure
             cmd = "%s ./configure %s" % (self.cfg['preconfigopts'], ' '.join(common_configopts + [flag, comp_str]))
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            run_shell_cmd(cmd)
 
             # build in situ using 'make install'
             # note: not 'build'
@@ -312,10 +312,10 @@ class EB_Amber(CMakeMake):
 
             # test
             if self.cfg['runtest']:
-                run_cmd("make %s" % testrule, log_all=True, simple=False)
+                run_shell_cmd("make %s" % testrule)
 
             # clean, overruling the normal 'build'
-            run_cmd("make clean")
+            run_shell_cmd("make clean")
 
     def install_step(self):
         """Install procedure for Amber."""
@@ -332,24 +332,24 @@ class EB_Amber(CMakeMake):
             pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, self.builddir)
 
             # serial tests
-            run_cmd("%s && make test.serial" % pretestcommands, log_all=True, simple=True)
+            run_shell_cmd("%s && make test.serial" % pretestcommands)
             if self.with_cuda:
-                (out, ec) = run_cmd("%s && make test.cuda_serial" % pretestcommands, log_all=True, simple=False)
-                if ec > 0:
+                res = run_shell_cmd("%s && make test.cuda_serial" % pretestcommands)
+                if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
-                (out, ec) = run_cmd("%s && make test.parallel" % pretestcommands, log_all=True, simple=False)
-                if ec > 0:
+                res = run_shell_cmd("%s && make test.parallel" % pretestcommands)
+                if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
             if self.with_mpi and self.with_cuda:
                 # Hard-code CUDA parallel tests to use 2 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 2))
-                (out, ec) = run_cmd("%s && make test.cuda_parallel" % pretestcommands, log_all=True, simple=False)
-                if ec > 0:
+                res = run_shell_cmd("%s && make test.cuda_parallel" % pretestcommands)
+                if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda_parallel tests for possible failures")
 
     def sanity_check_step(self):
@@ -381,7 +381,5 @@ class EB_Amber(CMakeMake):
         txt = super(EB_Amber, self).make_module_extra()
 
         txt += self.module_generator.set_environment('AMBERHOME', self.installdir)
-        if self.pylibdir:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
 
         return txt
