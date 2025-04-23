@@ -31,7 +31,7 @@ environment flags for the current toolchain
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.tools.config import build_option, update_build_option
+from easybuild.tools.filetools import copy_dir
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
@@ -44,18 +44,22 @@ class BuildEnv(Bundle):
         """
         Custom prepare step for buildenv: export rpath wrappers if they are being used
         """
-        # We export the rpath wrappers under special conditions
-        # (the wrappers are needed if LD_LIBRARY_PATH is being filtered)
-        filtered_env_vars = build_option('filter_env_vars') or []
-        if build_option('rpath') and 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
-            # re-create installation dir (deletes old installation),
-            self.make_installdir()
-            # then set keeppreviousinstall to True (to avoid deleting wrappers we create)
-            self.cfg['keeppreviousinstall'] = True
-            # export our RPATH wrappers during the prepare step
-            update_build_option('rpath_wrappers_dir', os.path.join(self.installdir, 'bin'))
+        # passed to toolchain.prepare to specify location for RPATH wrapper scripts (if RPATH linking is enabled)
+        self.rpath_wrappers_dir = self.builddir
 
         super(BuildEnv, self).prepare_step(*args, **kwargs)
+
+    def install_step(self, *args, **kwargs):
+        """
+        Custom install step for buildenv: copy RPATH wrapper scripts to install dir, if desired
+        """
+        super(BuildEnv, self).install_step(*args, **kwargs)
+
+        # copy RPATH wrapper scripts to install directory (if they exist)
+        wrappers_dir = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
+        if os.path.exists(wrappers_dir):
+            self.rpath_wrappers_dir = os.path.join(self.installdir, 'bin')
+            copy_dir(wrappers_dir, os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR))
 
     def make_module_extra(self):
         """Add all the build environment variables."""
@@ -66,18 +70,13 @@ class BuildEnv(Bundle):
             for key, val in sorted(self.toolchain.vars.items()):
                 txt += self.module_generator.set_environment(key, val)
 
-        self.log.debug("make_module_extra added this: %s" % txt)
+        self.log.debug(f"make_module_extra added this: {txt}")
         return txt
 
     def make_module_step(self, fake=False):
         """Specify correct bin directories for buildenv installation."""
-        filtered_env_vars = build_option('filter_env_vars') or []
-        if build_option('rpath') and 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
-            # Final location of wrappers includes a subdirectory
-            wrappers_dir = os.path.join(self.installdir, 'bin', RPATH_WRAPPERS_SUBDIR)
-            if os.path.exists(wrappers_dir):
-                wrappers_dir_subdirs = [os.path.join(wrappers_dir, dir) for dir in os.listdir(wrappers_dir)]
-                if wrappers_dir_subdirs:
-                    self.module_load_environment.PATH = wrappers_dir_subdirs
+        wrappers_dir = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
+        if os.path.exists(wrappers_dir):
+            self.module_load_environment.PATH = [os.path.join(wrappers_dir, d) for d in os.listdir(wrappers_dir)]
 
         return super(BuildEnv, self).make_module_step(fake=fake)
