@@ -672,6 +672,9 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts = {}
         self._configure_general_build()
         self._configure_final_build()
+        # Update runtime CMake arguments, as they might have
+        # changed when configuring the final build arguments
+        self._add_cmake_runtime_args()
         if self.full_llvm:
             self._cmakeopts.update(remove_gcc_dependency_opts)
 
