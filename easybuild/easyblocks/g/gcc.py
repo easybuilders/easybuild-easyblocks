@@ -47,8 +47,8 @@ from easybuild.easyblocks.clang import DEFAULT_TARGETS_MAP as LLVM_ARCH_MAP
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file
+from easybuild.tools.config import build_option, IGNORE
+from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file, search_file
 from easybuild.tools.filetools import mkdir, move_file, read_file, symlink, which, write_file
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.run import run_shell_cmd
@@ -677,10 +677,24 @@ class EB_GCC(ConfigureMake):
         # enable plugin support
         self.configopts += " --enable-plugins "
 
+        # Determine if ld.gold is available, as being slowly faded out with binutils 2.44 and newer.
+        # If binutils is loaded, check for ld.gold inside of that installation.
+        # If not loaded, check in $PATH, as binutils might have been filtered.
+        binutils_has_ld_gold = False
+        binutils_root = get_software_root('binutils')
+        if binutils_root:
+            _, hits = search_file([binutils_root], 'ld.gold')
+            if hits:
+                binutils_has_ld_gold = True
+        elif which('ld.gold', on_error=IGNORE):
+            binutils_has_ld_gold = True
+
         # use GOLD as default linker, except on RISC-V (since it's not supported there)
         if get_cpu_family() == RISCV:
             self.configopts += " --disable-gold --enable-ld=default"
         elif self.cfg['use_gold_linker']:
+            if not binutils_has_ld_gold:
+                raise EasyBuildError("Tried to set ld.gold as default linker, but ld.gold is not available.")
             self.configopts += " --enable-gold=default --enable-ld --with-plugin-ld=ld.gold"
         else:
             self.configopts += " --enable-gold --enable-ld=default"
