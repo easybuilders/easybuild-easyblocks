@@ -49,7 +49,7 @@ from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
-from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, which
+from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, symlink, which, write_file
 from easybuild.tools.modules import ModEnvVarType, get_software_root
 from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
 from easybuild.tools.utilities import nub
@@ -776,15 +776,10 @@ class PythonPackage(ExtensionEasyBlock):
                 finaltxt = finaltxt.replace('SITECFGINCDIR', repl)
 
             self.log.debug("Using %s: %s" % (self.sitecfgfn, finaltxt))
-            try:
-                if os.path.exists(self.sitecfgfn):
-                    txt = open(self.sitecfgfn).read()
-                    self.log.debug("Found %s: %s" % (self.sitecfgfn, txt))
-                config = open(self.sitecfgfn, 'w')
-                config.write(finaltxt)
-                config.close()
-            except IOError:
-                raise EasyBuildError("Creating %s failed", self.sitecfgfn)
+            if os.path.exists(self.sitecfgfn):
+                txt = read_file(self.sitecfgfn)
+                self.log.debug("Found %s: %s" % (self.sitecfgfn, txt))
+            write_file(self.sitecfgfn, finaltxt)
 
         # conservatively auto-enable checking of $LDSHARED if it is not explicitely enabled or disabled
         # only do this for sufficiently recent Python versions (>= 3.7 or Python 2.x >= 2.7.15)
@@ -940,7 +935,7 @@ class PythonPackage(ExtensionEasyBlock):
         abs_bindir = os.path.join(actual_installdir, 'bin')
 
         # set PYTHONPATH and PATH as expected
-        old_values = dict()
+        old_values = {}
         for name, new_values in (('PYTHONPATH', abs_pylibdirs), ('PATH', [abs_bindir])):
             old_value = os.getenv(name)
             old_values[name] = old_value
