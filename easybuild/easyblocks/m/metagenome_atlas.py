@@ -39,6 +39,11 @@ class EB_Metagenome_Atlas(PythonPackage):
     Support for building/installing Metagenome-Atlas.
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.cfg.get('options').get('modulename'):
+            self.options['modulename'] = 'atlas'
+
     def post_processing_step(self):
         """Create snakemake config files"""
 

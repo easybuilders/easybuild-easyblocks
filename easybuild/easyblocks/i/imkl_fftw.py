@@ -59,12 +59,7 @@ class EB_imkl_minus_FFTW(EB_imkl):
         Custom paths of imkl are unnecessary as imkl-FFTW only ships libraries under the 'lib' subdir
         Use generic make_module_step skipping imkl
         """
-        return super().make_module_step(*args, **kwargs)
-
-    def make_module_extra(self):
-        """Custom extra variables to set in module file"""
-        # bypass extra module variables for imkl
-        return super().make_module_extra()
+        return super(EB_imkl, self).make_module_step(*args, **kwargs)
 
     def post_processing_step(self):
         """Custom post install step for imkl-FFTW"""
@@ -77,4 +72,5 @@ class EB_imkl_minus_FFTW(EB_imkl):
             'files': [os.path.join(self.installdir, 'lib', x) for x in self.get_mkl_fftw_interface_libs()],
             'dirs': [],
         }
-        super().sanity_check_step(custom_paths=custom_paths)
+        # Skip imkl sanity check
+        super(EB_imkl, self).sanity_check_step(custom_paths=custom_paths)

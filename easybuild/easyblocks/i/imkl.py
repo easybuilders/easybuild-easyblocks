@@ -431,7 +431,6 @@ class EB_imkl(IntelBase):
             'files': mklfiles,
             'dirs': mkldirs,
         }
-
         super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_step(self, *args, **kwargs):

@@ -133,4 +133,5 @@ class EB_Tkinter(EB_Python):
             'files': [os.path.join(det_pylibdir(), self.tkinter_so_basename)],
             'dirs': ['lib']
         }
-        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        # Skip the sanity check of the Python easyblock
+        super(EB_Python, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
