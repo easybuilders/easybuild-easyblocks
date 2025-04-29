@@ -87,7 +87,7 @@ class EB_Mathematica(Binary):
             qa_install_path = os.path.join('/usr', 'local', 'Wolfram', self.name, shortver)
             if LooseVersion(self.version) >= LooseVersion("14.1"):
                 qa_install_path = os.path.join('/usr', 'local', 'Wolfram', 'Wolfram', shortver)
-                
+
             qa = [
                 (r"Enter the installation directory, or press ENTER to select[\s\n]*%s:[\s\n]*>" % qa_install_path,
                  self.installdir),
