@@ -411,17 +411,19 @@ class EB_LLVM(CMakeMake):
         self.amdgpu_target_cond = (BUILD_TARGET_AMDGPU in build_targets) or all_target_cond
 
         self.build_targets = build_targets or []
-    
+
         # Enable offload targets for LLVM >= 18
         if LooseVersion(self.version) >= LooseVersion('18'):
             if self.nvptx_target_cond:
                 self.cuda_cc = []
                 if LooseVersion(self.version) < LooseVersion('20'):
                     if not cuda_cc_list:
-                        raise EasyBuildError(f"LLVM < 20 requires 'cuda-compute-capabilities' to build with {BUILD_TARGET_NVPTX}")
+                        raise EasyBuildError(
+                            f"LLVM < 20 requires 'cuda-compute-capabilities' to build with {BUILD_TARGET_NVPTX}"
+                        )
                     self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc_list]
                 self.offload_targets += ['cuda']
-                self.log.debug(f"Enabling cuda offload target")
+                self.log.debug("Enabling cuda offload target")
             if self.amdgpu_target_cond:
                 self.amd_gfx = []
                 if LooseVersion(self.version) < LooseVersion('20'):
@@ -429,11 +431,9 @@ class EB_LLVM(CMakeMake):
                         raise EasyBuildError(f"LLVM < 20 requires 'amd_gfx_list' to build with {BUILD_TARGET_AMDGPU}")
                     self.amd_gfx = amd_gfx_list
                 self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
-                self.log.debug(f"Enabling amdgpu offload target")
-
+                self.log.debug("Enabling amdgpu offload target")
 
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
-
         general_opts['LLVM_TARGETS_TO_BUILD'] = '"%s"' % ';'.join(build_targets)
 
         self._cmakeopts = {}
@@ -840,7 +840,6 @@ class EB_LLVM(CMakeMake):
             # Observed in 20.1.0, the build of the offloading tools can fail due to 'cstdint' file not found
             # But will succeed if executed again with -j 1 (possible missing dependency in the CMake logic?)
             # See https://github.com/llvm/llvm-project/issues/130783
-            # 
             if res.exit_code != EasyBuildExit.SUCCESS:
                 self.log.error("Build failed, attempting again with parallel ON")
                 res = run_shell_cmd(cmd, fail_on_error=False)
