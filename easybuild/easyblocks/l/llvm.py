@@ -47,7 +47,7 @@ from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file
 from easybuild.tools.filetools import mkdir, remove_file, symlink, which, write_file
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
-from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.run import run_shell_cmd, EasyBuildExit
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64, POWER_LE
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_family, get_shared_lib_ext
 
@@ -58,11 +58,11 @@ BUILD_TARGET_NVPTX = 'NVPTX'
 
 LLVM_TARGETS = [
     'AArch64', BUILD_TARGET_AMDGPU, 'ARM', 'AVR', 'BPF', 'Hexagon', 'Lanai', 'LoongArch', 'Mips', 'MSP430',
-    BUILD_TARGET_NVPTX, 'PowerPC', 'RISCV', 'Sparc', 'SystemZ', 'VE', 'WebAssembly', 'X86', 'XCore',
+    BUILD_TARGET_NVPTX, 'PowerPC', 'RISCV', 'Sparc', 'SPIRV', 'SystemZ', 'VE', 'WebAssembly', 'X86', 'XCore',
     'all'
 ]
 LLVM_EXPERIMENTAL_TARGETS = [
-    'ARC', 'CSKY', 'DirectX', 'M68k', 'SPIRV', 'Xtensa',
+    'ARC', 'CSKY', 'DirectX', 'M68k', 'Xtensa',
 ]
 ALL_TARGETS = LLVM_TARGETS + LLVM_EXPERIMENTAL_TARGETS
 
@@ -373,13 +373,12 @@ class EB_LLVM(CMakeMake):
             # If CUDA is included as a dep, add NVPTX as a target
             # There are (old) toolchains with CUDA as part of the toolchain
             cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
-            if 'cuda' in self.deps or cuda_toolchain or cuda_cc_list:
-                if LooseVersion(self.version) < LooseVersion('18'):
-                    self.log.info(f"Not auto-enabling {BUILD_TARGET_NVPTX} offload target, only done for LLVM >= 18")
-                else:
-                    build_targets.append(BUILD_TARGET_NVPTX)
-                    self.offload_targets += ['cuda']  # Used for LLVM >= 19
-                    self.log.debug(f"{BUILD_TARGET_NVPTX} enabled by CUDA dependency/cuda_compute_capabilities")
+            if 'cuda' in self.deps or cuda_toolchain:
+                self.log.info("CUDA dependency detected, adding NVPTX as a target")
+                build_targets.append(BUILD_TARGET_NVPTX)
+            elif cuda_cc_list:
+                self.log.info("CUDA compute capabilities specified, adding NVPTX as a target")
+                build_targets.append(BUILD_TARGET_NVPTX)
 
             # For AMDGPU support during runtime we need ROCR-Runtime and ROCT-Thunk-Interface. While split into
             # separate packages pre ROCm 6.2, it is now combined into ROCR-Runtime. As ROCR-Thunk-Interface was a
@@ -388,13 +387,12 @@ class EB_LLVM(CMakeMake):
             # an offload-capable compiler runtime, and will try to dlopen the required libraries at runtime.
             # Therefore, also allow the build without ROCR-Runtime, with only the desired architecture list being set.
             # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
-            if 'rocr-runtime' in self.deps or amd_gfx_list:
-                if LooseVersion(self.version) < LooseVersion('18'):
-                    self.log.info(f"Not auto-enabling {BUILD_TARGET_AMDGPU} offload target, only done for LLVM >= 18")
-                else:
-                    build_targets.append(BUILD_TARGET_AMDGPU)
-                    self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
-                    self.log.debug(f"{BUILD_TARGET_AMDGPU} enabled by rocr-runtime dependency/amd_gfx_list")
+            if 'rocr-runtime' in self.deps:
+                self.log.info("ROCR-Runtime dependency detected, adding AMDGPU as a target")
+                build_targets.append(BUILD_TARGET_AMDGPU)
+            elif amd_gfx_list:
+                self.log.info("AMD GPU list specified, adding AMDGPU as a target")
+                build_targets.append(BUILD_TARGET_AMDGPU)
 
             self.cfg['build_targets'] = build_targets
             self.log.debug("Using %s as default build targets for CPU architecture %s.", build_targets, arch)
@@ -408,28 +406,45 @@ class EB_LLVM(CMakeMake):
         if exp_targets:
             self.log.warning("Experimental targets %s are being used.", ', '.join(exp_targets))
 
+        all_target_cond = 'all' in build_targets
+        self.nvptx_target_cond = (BUILD_TARGET_NVPTX in build_targets) or all_target_cond
+        self.amdgpu_target_cond = (BUILD_TARGET_AMDGPU in build_targets) or all_target_cond
+
         self.build_targets = build_targets or []
+    
+        # Enable offload targets for LLVM >= 18
+        if LooseVersion(self.version) >= LooseVersion('18'):
+            if self.nvptx_target_cond:
+                self.cuda_cc = []
+                if LooseVersion(self.version) < LooseVersion('20'):
+                    if not cuda_cc_list:
+                        raise EasyBuildError(f"LLVM < 20 requires 'cuda-compute-capabilities' to build with {BUILD_TARGET_NVPTX}")
+                    self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc_list]
+                self.offload_targets += ['cuda']
+                self.log.debug(f"Enabling cuda offload target")
+            if self.amdgpu_target_cond:
+                self.amd_gfx = []
+                if LooseVersion(self.version) < LooseVersion('20'):
+                    if not amd_gfx_list:
+                        raise EasyBuildError(f"LLVM < 20 requires 'amd_gfx_list' to build with {BUILD_TARGET_AMDGPU}")
+                    self.amd_gfx = amd_gfx_list
+                self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
+                self.log.debug(f"Enabling amdgpu offload target")
 
-        self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc_list]
-        if BUILD_TARGET_NVPTX in self.build_targets and not self.cuda_cc:
-            raise EasyBuildError("Can't build Clang with CUDA support without specifying 'cuda-compute-capabilities'")
-        if self.cuda_cc and BUILD_TARGET_NVPTX not in self.build_targets:
-            print_warning("CUDA compute capabilities specified, but NVPTX not in manually specified build targets.")
-
-        self.amd_gfx = amd_gfx_list
-        if BUILD_TARGET_AMDGPU in self.build_targets and not self.amd_gfx:
-            raise EasyBuildError("Can't build Clang with AMDGPU support without specifying 'amd_gfx_list'")
-        if self.amd_gfx and BUILD_TARGET_AMDGPU not in self.build_targets:
-            print_warning("'amd_gfx' specified, but AMDGPU not in manually specified build targets.")
 
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
-        general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
 
         general_opts['LLVM_TARGETS_TO_BUILD'] = '"%s"' % ';'.join(build_targets)
 
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
-        self.llvm_src_dir = os.path.join(self.builddir, 'llvm-project-%s.src' % self.version)
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare step, modified to ensure install dir is deleted before building"""
+        super(EB_LLVM, self).prepare_step(*args, **kwargs)
+        # re-create installation dir (deletes old installation),
+        # Needed to unsure hardcoded rpath do not point to old installation during runtime builds and testing
+        self.make_installdir()
 
     def _add_cmake_runtime_args(self):
         """Generate the value for 'RUNTIMES_CMAKE_ARGS' and add it to the cmake options."""
@@ -562,6 +577,14 @@ class EB_LLVM(CMakeMake):
         self.make_parallel_opts = ""
         if self.cfg.parallel:
             self.make_parallel_opts = f"-j {self.cfg.parallel}"
+
+        # Moved here from the __init__ to ensure this easyblock can be used as a Bundle component
+        # https://github.com/easybuilders/easybuild-easyblocks/issues/3680
+        general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
+        if LooseVersion(self.version) < LooseVersion('20.1.2'):
+            self.llvm_src_dir = os.path.join(self.builddir, 'llvm-project-%s.src' % self.version)
+        else:
+            self.llvm_src_dir = os.path.join(self.builddir, 'llvm-project-llvmorg-%s' % self.version)
 
         # Bootstrap
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
@@ -813,7 +836,18 @@ class EB_LLVM(CMakeMake):
 
             self.log.debug("Building %s", stage_dir)
             cmd = f"make {self.make_parallel_opts} VERBOSE=1"
-            run_shell_cmd(cmd)
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            # Observed in 20.1.0, the build of the offloading tools can fail due to 'cstdint' file not found
+            # But will succeed if executed again with -j 1 (possible missing dependency in the CMake logic?)
+            # See https://github.com/llvm/llvm-project/issues/130783
+            # 
+            if res.exit_code != EasyBuildExit.SUCCESS:
+                self.log.error("Build failed, attempting again with parallel ON")
+                res = run_shell_cmd(cmd, fail_on_error=False)
+            if res.exit_code != EasyBuildExit.SUCCESS:
+                self.log.error("Build failed, attempting again with parallel OFF")
+                cmd = "make -j 1 VERBOSE=1"
+                res = run_shell_cmd(cmd)
 
         change_dir(curdir)
 
@@ -861,28 +895,13 @@ class EB_LLVM(CMakeMake):
             lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
             lib_path = os.path.join(basedir, lib_dir_runtime)
 
-        # When rpath is enabled, the easybuild rpath wrapper will be used for compiling the tests
-        # A combination of -Werror and the wrapper translating LD_LIBRARY_PATH to -Wl,... flags will results in failing
-        # tests due to -Wunused-command-line-argument
-        # This has shown to be a problem in builds for 18.1.8, but seems it was not necessary for LLVM >= 19
-        # needs more digging into the CMake logic
-        old_cflags = os.getenv('CFLAGS', '')
-        old_cxxflags = os.getenv('CXXFLAGS', '')
-        # TODO: Find a better way to either force the test to use the non wrapped compiler or to pass the flags
-        if build_option('rpath'):
-            setvar('CFLAGS', "%s %s" % (old_cflags, '-Wno-unused-command-line-argument'))
-            setvar('CXXFLAGS', "%s %s" % (old_cxxflags, '-Wno-unused-command-line-argument'))
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
             cmd = f"make -j {parallel} check-all"
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
             self.log.debug(out)
 
-        # Reset the CFLAGS and CXXFLAGS
-        setvar('CFLAGS', old_cflags)
-        setvar('CXXFLAGS', old_cxxflags)
-
-        ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
+        ignore_patterns = self.ignore_patterns
         ignored_pattern_matches = 0
         failed_pattern_matches = 0
         if ignore_patterns:
@@ -933,24 +952,23 @@ class EB_LLVM(CMakeMake):
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
                 self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
+
+            self.ignore_patterns = ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
+            nvptx_cond = self.nvptx_target_cond
+            amdgpu_cond = self.amdgpu_target_cond
+
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
             pxtas_path = which('ptxas', on_error=IGNORE)
-            if not pxtas_path:
-                self.cfg['test_suite_ignore_patterns'] = \
-                    (self.cfg['test_suite_ignore_patterns'] or []) + \
-                    ["nvptx64-nvidia-cuda", "nvptx64-nvidia-cuda-LTO"]
+            if nvptx_cond and not pxtas_path:
+                ignore_patterns += ['nvptx64-nvidia-cuda', 'nvptx64-nvidia-cuda-LTO']
+                self.log.warning("PTXAS not found in PATH, ignoring failing tests for NVPTX target")
             # If the AMDGPU target is built, tests will be run if libhsa-runtime64.so is found.
             # However, this can cause issues if the system libraries are used, due to other loaded modules.
             # Therefore, ignore failing tests if ROCr-Runtime is not in the dependencies and
             # warn about this in the logs.
-            if ((BUILD_TARGET_AMDGPU in self.cfg['build_targets'] or
-                 'all' in self.cfg['build_targets']) and
-                    'rocr-runtime' not in self.deps):
-                self.cfg['test_suite_ignore_patterns'] = \
-                    (self.cfg['test_suite_ignore_patterns'] or []) + \
-                    ['amdgcn-amd-amdhsa']
-                self.log.warning("ROCr-Runtime not in dependencies, "
-                                 "ignoring failing tests for AMDGPU target.")
+            if amdgpu_cond and 'rocr-runtime' not in self.deps:
+                ignore_patterns += ['amdgcn-amd-amdhsa']
+                self.log.warning("ROCr-Runtime not in dependencies, ignoring failing tests for AMDGPU target.")
 
             max_failed = self.cfg['test_suite_max_failed']
             num_failed = self._para_test_step(parallel=1)
@@ -982,10 +1000,6 @@ class EB_LLVM(CMakeMake):
             self.cfg.update('preinstallopts', f'LD_LIBRARY_PATH={lib_path}')
 
         super().install_step()
-
-    def post_processing_step(self):
-        """Install python bindings."""
-        super().post_processing_step()
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
@@ -1173,7 +1187,7 @@ class EB_LLVM(CMakeMake):
         if 'polly' in self.final_projects:
             check_lib_files += ['libPolly.a', 'libPollyISL.a']
             if self.build_shared:
-                check_lib_files += ['libPolly.so']
+                check_lib_files += ['LLVMPolly.so']
             check_dirs += ['lib/cmake/polly', 'include/polly']
             custom_commands += [
                 ' | '.join([
@@ -1194,14 +1208,14 @@ class EB_LLVM(CMakeMake):
                 omp_lib_files += ['libomptarget.so']
                 if LooseVersion(self.version) < LooseVersion('19'):
                     omp_lib_files += ['libomptarget.rtl.%s.so' % arch]
-                if BUILD_TARGET_NVPTX in self.cfg['build_targets'] or 'all' in self.cfg['build_targets']:
+                if self.nvptx_target_cond:
                     if LooseVersion(self.version) < LooseVersion('19'):
                         omp_lib_files += ['libomptarget.rtl.cuda.so']
                     if LooseVersion(self.version) < LooseVersion('20'):
                         omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
                     else:
                         omp_lib_files += ['libomptarget-nvptx.bc']
-                if BUILD_TARGET_AMDGPU in self.cfg['build_targets'] or 'all' in self.cfg['build_targets']:
+                if self.amdgpu_target_cond:
                     if LooseVersion(self.version) < LooseVersion('19'):
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
                     if LooseVersion(self.version) < LooseVersion('20'):
@@ -1231,16 +1245,18 @@ class EB_LLVM(CMakeMake):
             custom_commands += ["python -c 'import clang'"]
             custom_commands += ["python -c 'import mlir'"]
 
-        for libso in filter(lambda x: x.endswith('.so'), check_lib_files):
-            libext = libso.replace('.so', shlib_ext)
-            if libext not in check_lib_files:
-                check_lib_files.append(libext)
-            check_lib_files.remove(libso)
-
         check_files += [os.path.join('bin', x) for x in check_bin_files]
         check_files += [os.path.join('lib', x) for x in check_lib_files]
         check_files += [os.path.join(lib_dir_runtime, x) for x in check_librt_files]
         check_files += [os.path.join('include', x) for x in check_inc_files]
+
+        for libso in check_files:
+            if not libso.endswith('.so'):
+                continue
+            libext = libso.replace('.so', shlib_ext)
+            if libext not in check_files:
+                check_files.remove(libso)
+                check_files.append(libext)
 
         custom_paths = {
             'files': check_files,
