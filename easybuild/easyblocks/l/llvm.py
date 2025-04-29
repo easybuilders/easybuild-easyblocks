@@ -42,7 +42,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
-from easybuild.tools.config import ERROR, SEARCH_PATH_LIB_DIRS, build_option
+from easybuild.tools.config import ERROR, IGNORE, SEARCH_PATH_LIB_DIRS, build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file
 from easybuild.tools.filetools import mkdir, remove_file, symlink, which, write_file
@@ -73,12 +73,6 @@ DEFAULT_TARGETS_MAP = {
     RISCV64: ['RISCV'],
     X86_64: ['X86'],
 }
-
-AMDGPU_GFX_SUPPORT = [
-    'gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900', 'gfx902', 'gfx906', 'gfx908', 'gfx90a', 'gfx90c',
-    'gfx940', 'gfx941', 'gfx942', 'gfx1010', 'gfx1030', 'gfx1031', 'gfx1032', 'gfx1033', 'gfx1034',
-    'gfx1035', 'gfx1036', 'gfx1100', 'gfx1101', 'gfx1102', 'gfx1103', 'gfx1150', 'gfx1151'
-]
 
 remove_gcc_dependency_opts = {
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
@@ -203,8 +197,7 @@ class EB_LLVM(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'amd_gfx_list': [None, "List of AMDGPU targets to build for. Possible values: " +
-                             ', '.join(AMDGPU_GFX_SUPPORT), CUSTOM],
+            'amd_gfx_list': [None, "List of AMDGPU targets to build for.", CUSTOM],
             'assertions': [False, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'bootstrap': [True, "Build LLVM-Clang using itself", CUSTOM],
             'build_bolt': [False, "Build the LLVM bolt binary optimizer", CUSTOM],
@@ -365,11 +358,13 @@ class EB_LLVM(CMakeMake):
         cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities'] or []
         amd_gfx_list = self.cfg['amd_gfx_list'] or []
 
+        # List of (lower-case) dependencies
+        self.deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
+
         # Build targets
         build_targets = self.cfg['build_targets'] or []
         if not build_targets:
             self.log.debug("No build targets specified, using default detection")
-            deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
             arch = get_cpu_architecture()
             if arch not in DEFAULT_TARGETS_MAP:
                 raise EasyBuildError("No default build targets defined for CPU architecture %s.", arch)
@@ -378,7 +373,7 @@ class EB_LLVM(CMakeMake):
             # If CUDA is included as a dep, add NVPTX as a target
             # There are (old) toolchains with CUDA as part of the toolchain
             cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
-            if 'cuda' in deps or cuda_toolchain or cuda_cc_list:
+            if 'cuda' in self.deps or cuda_toolchain or cuda_cc_list:
                 if LooseVersion(self.version) < LooseVersion('18'):
                     self.log.info(f"Not auto-enabling {BUILD_TARGET_NVPTX} offload target, only done for LLVM >= 18")
                 else:
@@ -386,11 +381,14 @@ class EB_LLVM(CMakeMake):
                     self.offload_targets += ['cuda']  # Used for LLVM >= 19
                     self.log.debug(f"{BUILD_TARGET_NVPTX} enabled by CUDA dependency/cuda_compute_capabilities")
 
-            # For AMDGPU support we need ROCR-Runtime and
-            # ROCT-Thunk-Interface, however, since ROCT is a dependency of
-            # ROCR we only check for the ROCR-Runtime here
+            # For AMDGPU support during runtime we need ROCR-Runtime and ROCT-Thunk-Interface. While split into
+            # separate packages pre ROCm 6.2, it is now combined into ROCR-Runtime. As ROCR-Thunk-Interface was a
+            # dependency for ROCR-Runtime before, checking for ROCR-Runtime as a dependency is sufficient.
+            # Generally, ROCR-Runtime is not a hard dependency for LLVM. If not found, LLVM can still build
+            # an offload-capable compiler runtime, and will try to dlopen the required libraries at runtime.
+            # Therefore, also allow the build without ROCR-Runtime, with only the desired architecture list being set.
             # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
-            if 'rocr-runtime' in deps or amd_gfx_list:
+            if 'rocr-runtime' in self.deps or amd_gfx_list:
                 if LooseVersion(self.version) < LooseVersion('18'):
                     self.log.info(f"Not auto-enabling {BUILD_TARGET_AMDGPU} offload target, only done for LLVM >= 18")
                 else:
@@ -467,7 +465,7 @@ class EB_LLVM(CMakeMake):
 
         if 'openmp' in self.final_projects:
             if LooseVersion(self.version) >= LooseVersion('19') and self.cfg['build_openmp_offload']:
-                self._cmakeopts['LIBOMPTARGET_PLUGINS_TO_BUILD'] = ';'.join(self.offload_targets)
+                self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
             if not self.cfg['build_openmp_tools']:
@@ -635,12 +633,12 @@ class EB_LLVM(CMakeMake):
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
-        if 'openmp' in self.final_projects:
+        if 'openmp' in self.final_projects and LooseVersion('19') <= LooseVersion(self.version) < LooseVersion('20'):
             gpu_archs = []
             gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
             gpu_archs += self.amd_gfx
             if gpu_archs:
-                general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '"%s"' % ';'.join(gpu_archs)
+                self.runtimes_cmake_args['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '%s' % '|'.join(gpu_archs)
 
         self._configure_general_build()
         self.add_cmake_opts()
@@ -674,6 +672,9 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts = {}
         self._configure_general_build()
         self._configure_final_build()
+        # Update runtime CMake arguments, as they might have
+        # changed when configuring the final build arguments
+        self._add_cmake_runtime_args()
         if self.full_llvm:
             self._cmakeopts.update(remove_gcc_dependency_opts)
 
@@ -932,6 +933,25 @@ class EB_LLVM(CMakeMake):
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
                 self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
+            # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
+            pxtas_path = which('ptxas', on_error=IGNORE)
+            if not pxtas_path:
+                self.cfg['test_suite_ignore_patterns'] = \
+                    (self.cfg['test_suite_ignore_patterns'] or []) + \
+                    ["nvptx64-nvidia-cuda", "nvptx64-nvidia-cuda-LTO"]
+            # If the AMDGPU target is built, tests will be run if libhsa-runtime64.so is found.
+            # However, this can cause issues if the system libraries are used, due to other loaded modules.
+            # Therefore, ignore failing tests if ROCr-Runtime is not in the dependencies and
+            # warn about this in the logs.
+            if ((BUILD_TARGET_AMDGPU in self.cfg['build_targets'] or
+                 'all' in self.cfg['build_targets']) and
+                    'rocr-runtime' not in self.deps):
+                self.cfg['test_suite_ignore_patterns'] = \
+                    (self.cfg['test_suite_ignore_patterns'] or []) + \
+                    ['amdgcn-amd-amdhsa']
+                self.log.warning("ROCr-Runtime not in dependencies, "
+                                 "ignoring failing tests for AMDGPU target.")
+
             max_failed = self.cfg['test_suite_max_failed']
             num_failed = self._para_test_step(parallel=1)
             if num_failed is None:
@@ -1174,14 +1194,20 @@ class EB_LLVM(CMakeMake):
                 omp_lib_files += ['libomptarget.so']
                 if LooseVersion(self.version) < LooseVersion('19'):
                     omp_lib_files += ['libomptarget.rtl.%s.so' % arch]
-                if 'NVPTX' in self.cfg['build_targets']:
+                if BUILD_TARGET_NVPTX in self.cfg['build_targets'] or 'all' in self.cfg['build_targets']:
                     if LooseVersion(self.version) < LooseVersion('19'):
                         omp_lib_files += ['libomptarget.rtl.cuda.so']
-                    omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
-                if 'AMDGPU' in self.cfg['build_targets']:
+                    if LooseVersion(self.version) < LooseVersion('20'):
+                        omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
+                    else:
+                        omp_lib_files += ['libomptarget-nvptx.bc']
+                if BUILD_TARGET_AMDGPU in self.cfg['build_targets'] or 'all' in self.cfg['build_targets']:
                     if LooseVersion(self.version) < LooseVersion('19'):
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
-                    omp_lib_files += ['llibomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+                    if LooseVersion(self.version) < LooseVersion('20'):
+                        omp_lib_files += ['libomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+                    else:
+                        omp_lib_files += ['libomptarget-amdgpu.bc']
 
                 if LooseVersion(self.version) < LooseVersion('19'):
                     # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
@@ -1189,7 +1215,11 @@ class EB_LLVM(CMakeMake):
                 else:
                     # Starting from LLVM 19, omp related libraries are installed the runtime library directory
                     check_librt_files += omp_lib_files
-                    check_bin_files += ['llvm-omp-kernel-replay', 'llvm-omp-device-info']
+                    check_bin_files += ['llvm-omp-kernel-replay']
+                    if LooseVersion(self.version) < LooseVersion('20'):
+                        check_bin_files += ['llvm-omp-device-info']
+                    else:
+                        check_bin_files += ['llvm-offload-device-info']
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
