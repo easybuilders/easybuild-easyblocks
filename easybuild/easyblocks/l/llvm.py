@@ -411,11 +411,15 @@ class EB_LLVM(CMakeMake):
         self.amdgpu_target_cond = (BUILD_TARGET_AMDGPU in build_targets) or all_target_cond
 
         if ('cuda' in self.deps or cuda_toolchain) and not self.nvptx_target_cond:
-            raise EasyBuildError("CUDA dependency detected, but NVPTX not in manually specified build targets") 
+            raise EasyBuildError("CUDA dependency detected, but NVPTX not in manually specified build targets")
         if cuda_cc_list and not self.nvptx_target_cond:
-            raise EasyBuildError("CUDA compute capabilities specified, but NVPTX not in manually specified build targets")
+            raise EasyBuildError(
+                "CUDA compute capabilities specified, but NVPTX not in manually specified build targets"
+            )
         if 'rocr-runtime' in self.deps and not self.amdgpu_target_cond:
-            raise EasyBuildError("ROCR-Runtime dependency detected, but AMDGPU not in manually specified build targets")
+            raise EasyBuildError(
+                "ROCR-Runtime dependency detected, but AMDGPU not in manually specified build targets"
+            )
         if amd_gfx_list and not self.amdgpu_target_cond:
             raise EasyBuildError("AMD GPU list specified, but AMDGPU not in manually specified build targets")
 
