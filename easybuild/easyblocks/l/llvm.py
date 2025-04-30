@@ -42,7 +42,7 @@ import stat
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion
-from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
+from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import ERROR, IGNORE, SEARCH_PATH_LIB_DIRS, build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, adjust_permissions
@@ -694,7 +694,6 @@ class EB_LLVM(CMakeMake):
                 raise EasyBuildError("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
             else:
                 self.log.warning("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
-
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
