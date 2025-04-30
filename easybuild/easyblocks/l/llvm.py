@@ -686,7 +686,7 @@ class EB_LLVM(CMakeMake):
 
         # Get the LLVM HOST TRIPLE (e.g. x86_64-unknown-linux-gnu) from the output
         for line in output.splitlines():
-            if 'LLVM_HOST_TRIPLE' in line:
+            if 'llvm host triple' in line.lower():
                 self.host_triple = line.split(':')[1].strip()
                 break
         else:
