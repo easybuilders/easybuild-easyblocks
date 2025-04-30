@@ -428,7 +428,7 @@ class EB_LLVM(CMakeMake):
         self.build_targets = build_targets or []
 
         # Enable offload targets for LLVM >= 18
-        if LooseVersion(self.version) >= LooseVersion('18'):
+        if self.cfg['build_openmp_offload'] and LooseVersion(self.version) >= LooseVersion('18'):
             if self.nvptx_target_cond:
                 self.cuda_cc = []
                 if LooseVersion(self.version) < LooseVersion('20'):
