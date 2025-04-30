@@ -841,10 +841,10 @@ class EB_LLVM(CMakeMake):
             # But will succeed if executed again with -j 1 (possible missing dependency in the CMake logic?)
             # See https://github.com/llvm/llvm-project/issues/130783
             if res.exit_code != EasyBuildExit.SUCCESS:
-                self.log.error("Build failed, attempting again with parallel ON")
+                self.log.warning("Build failed, attempting again with parallel ON")
                 res = run_shell_cmd(cmd, fail_on_error=False)
             if res.exit_code != EasyBuildExit.SUCCESS:
-                self.log.error("Build failed, attempting again with parallel OFF")
+                self.log.warning("Build failed, attempting again with parallel OFF")
                 cmd = "make -j 1 VERBOSE=1"
                 res = run_shell_cmd(cmd)
 
