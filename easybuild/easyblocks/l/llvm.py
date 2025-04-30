@@ -42,11 +42,12 @@ import stat
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion
+from easybuild.tools.utilities import trace_msg
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import ERROR, IGNORE, SEARCH_PATH_LIB_DIRS, build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, adjust_permissions
-from easybuild.tools.filetools import mkdir, remove_file, symlink, which, write_file
+from easybuild.tools.filetools import mkdir, remove_file, symlink, which, write_file, remove_dir
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd, EasyBuildExit
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64, POWER_LE
@@ -695,6 +696,15 @@ class EB_LLVM(CMakeMake):
             else:
                 self.log.warning("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
 
+        if not self.cfg['bootstrap'] and build_option('rpath') and self._cmakeopts['LLVM_ENABLE_RUNTIMES'] != '""':
+            # Ensure RPATH wrappers are used for the runtimes also at the first stage
+            # Call configure again now that the host triple is known from the previous configure call
+            remove_dir(self.llvm_obj_dir_stage1)
+            self._prepare_runtimes_rpath_wrappers(self.llvm_obj_dir_stage1)
+            self.add_cmake_opts()
+            trace_msg("Reconfiguring LLVM to use the RPATH wrappers for the runtimes")
+            super(EB_LLVM, self).configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
         cmakelists_tests = os.path.join(self.llvm_src_dir, 'compiler-rt', 'test', 'CMakeLists.txt')
@@ -883,7 +893,7 @@ class EB_LLVM(CMakeMake):
         # curdir = os.getcwd()
         # bin_dir = os.path.join(prev_dir, 'bin')
         # TODO: need a way to find what lib_dir_runtime will be before the build
-        lib_dir_runtime = ...
+        lib_dir_runtime = self.get_runtime_lib_path(stage_dir, fail_ok=True)
 
         # Give priority to the libraries in the current stage if compiled to avoid failures due to undefined symbols
         # e.g. when calling the compiled clang-ast-dump for stage 3
@@ -906,6 +916,7 @@ class EB_LLVM(CMakeMake):
         # and than pass the rpath-wrapped binary to the runtimes build as the compiler.
         #################################################
         bin_dir_new = os.path.join(stage_dir, 'bin')
+        mkdir(bin_dir_new, parents=True)
         with _wrap_env(bin_dir_new, lib_path):
             nxt_clang = os.path.join(bin_dir_new, 'clang')
             nxt_clangxx = os.path.join(bin_dir_new, 'clang++')
@@ -916,7 +927,7 @@ class EB_LLVM(CMakeMake):
             with open(nxt_clangxx, 'w', encoding='utf-8') as f:
                 f.write("#!/bin/bash\n")
                 f.write("echo 'MOCK clangxx'\n")
-            adjust_permissions(nxt_clang, stat.S_IXUSR)
+            adjust_permissions(nxt_clangxx, stat.S_IXUSR)
 
             tmp_toolchain = Clang(name='Clang', version='1')
             # Don't need stage dir here as LD_LIBRARY_PATH is set during build, this is only needed for
@@ -937,6 +948,8 @@ class EB_LLVM(CMakeMake):
 
             self.runtimes_cmake_args['CMAKE_C_COMPILER'] = [clang_mock]
             self.runtimes_cmake_args['CMAKE_CXX_COMPILER'] = [clangxx_mock]
+
+        self._add_cmake_runtime_args()
 
     def build_step(self, *args, **kwargs):
         """Build LLVM, and optionally build it using itself."""
