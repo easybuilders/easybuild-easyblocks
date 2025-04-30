@@ -191,7 +191,7 @@ class EB_FFTW(ConfigureMake):
                 if self.sve:
                     # SVE (ARM) only for single precision and double precision (on AARCH64 if sve feature is present)
                     if prec == 'single' or prec == 'double':
-                        prec_configopts.append('--enable-fma --enable-sve --enable-armv8-cntvct-el0')
+                        prec_configopts.append('--enable-fma --enable-armv8-cntvct-el0')
                 elif self.asimd or self.neon:
                     # NEON (ARM) only for single precision and double precision (on AARCH64)
                     if prec == 'single' or (prec == 'double' and self.asimd):

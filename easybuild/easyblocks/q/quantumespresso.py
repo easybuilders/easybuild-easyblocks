@@ -1038,7 +1038,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             thr = self.cfg.get('test_suite_threshold', 0.9)
             stot = 0
             spass = 0
-            parallel = min(4, self.cfg.get('parallel', 1))
+            parallel = min(4, self.cfg.parallel)
             test_dir = os.path.join(self.start_dir, self.TEST_SUITE_DIR)
 
             pseudo_loc = "https://pseudopotentials.quantum-espresso.org/upf_files/"
