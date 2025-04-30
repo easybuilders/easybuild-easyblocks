@@ -358,6 +358,7 @@ class EB_LLVM(CMakeMake):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
         # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
         cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities'] or []
+        cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         amd_gfx_list = self.cfg['amd_gfx_list'] or []
 
         # List of (lower-case) dependencies
@@ -374,7 +375,6 @@ class EB_LLVM(CMakeMake):
 
             # If CUDA is included as a dep, add NVPTX as a target
             # There are (old) toolchains with CUDA as part of the toolchain
-            cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
             if 'cuda' in self.deps or cuda_toolchain:
                 self.log.info("CUDA dependency detected, adding NVPTX as a target")
                 build_targets.append(BUILD_TARGET_NVPTX)
