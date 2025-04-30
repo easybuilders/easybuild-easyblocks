@@ -37,6 +37,7 @@ import contextlib
 import glob
 import os
 import re
+import stat
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
@@ -44,7 +45,7 @@ from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
 from easybuild.tools.config import ERROR, IGNORE, SEARCH_PATH_LIB_DIRS, build_option
 from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, adjust_permissions
 from easybuild.tools.filetools import mkdir, remove_file, symlink, which, write_file
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd, EasyBuildExit
@@ -253,6 +254,7 @@ class EB_LLVM(CMakeMake):
             }
         self.offload_targets = ['host']
         # self._added_librt = None
+        self.host_triple = None
 
         # Shared
         off_opts, on_opts = [], []
@@ -680,7 +682,19 @@ class EB_LLVM(CMakeMake):
         self.add_cmake_opts()
 
         src_dir = os.path.join(self.llvm_src_dir, 'llvm')
-        super().configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+        output = super().configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+
+        # Get the LLVM HOST TRIPLE (e.g. x86_64-unknown-linux-gnu) from the output
+        for line in output.splitlines():
+            if 'LLVM_HOST_TRIPLE' in line:
+                self.host_triple = line.split(':')[1].strip()
+                break
+        else:
+            if self.cfg['build_runtimes'] or self.cfg['bootstrap']:
+                raise EasyBuildError("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
+            else:
+                self.log.warning("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
+
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
@@ -727,7 +741,7 @@ class EB_LLVM(CMakeMake):
         curdir = os.getcwd()
 
         bin_dir = os.path.join(prev_dir, 'bin')
-        lib_dir_runtime = self.get_runtime_lib_path(prev_dir, fail_ok=False)
+        lib_dir_runtime = self.get_runtime_lib_path(prev_dir)
 
         # Give priority to the libraries in the current stage if compiled to avoid failures due to undefined symbols
         # e.g. when calling the compiled clang-ast-dump for stage 3
@@ -736,51 +750,53 @@ class EB_LLVM(CMakeMake):
             os.path.join(prev_dir, lib_dir_runtime),
         ]))
 
-        #######################################################
-        # PROBLEM!!!:
-        # Binaries and libraries produced during runtimes make use of the newly built Clang compiler which is not
-        # rpath-wrapped. This causes the executable to be produced without rpath (if required) and with
-        # runpath set to $ORIGIN. This causes 2 problems:
-        #  - Binaries produced for the runtimes will fail the sanity check
-        #  - Runtimes libraries that link to libLLVM.so like 'libomptarget.so' need LD_LIBRARY_PATH to work.
-        #    This is because even if an executable compiled with the new llvm has rpath pointing to $EBROOTLLVM/lib,
-        #    it will not be resolved with the executable's rpath, but the library's runpath
-        #    (rpath is ignored if runpath is set).
-        #    Even if libLLVM.so is a direct dependency of the executable, it needs to be resolved both for the
-        #    executable and the library.
-        #
-        # Here we create a mock binary for the current stage by copying the previous one, rpath-wrapping it and
-        # and than pass the rpath-wrapped binary to the runtimes build as the compiler.
-        #################################################
-        bin_dir_new = os.path.join(stage_dir, 'bin')
-        with _wrap_env(bin_dir_new, lib_path):
-            if build_option('rpath'):
-                prev_clang = os.path.join(bin_dir, 'clang')
-                prev_clangxx = os.path.join(bin_dir, 'clang++')
-                nxt_clang = os.path.join(bin_dir_new, 'clang')
-                nxt_clangxx = os.path.join(bin_dir_new, 'clang++')
-                copy_file(prev_clang, nxt_clang)
-                copy_file(prev_clangxx, nxt_clangxx)
+        # #######################################################
+        # # PROBLEM!!!:
+        # # Binaries and libraries produced during runtimes make use of the newly built Clang compiler which is not
+        # # rpath-wrapped. This causes the executable to be produced without rpath (if required) and with
+        # # runpath set to $ORIGIN. This causes 2 problems:
+        # #  - Binaries produced for the runtimes will fail the sanity check
+        # #  - Runtimes libraries that link to libLLVM.so like 'libomptarget.so' need LD_LIBRARY_PATH to work.
+        # #    This is because even if an executable compiled with the new llvm has rpath pointing to $EBROOTLLVM/lib,
+        # #    it will not be resolved with the executable's rpath, but the library's runpath
+        # #    (rpath is ignored if runpath is set).
+        # #    Even if libLLVM.so is a direct dependency of the executable, it needs to be resolved both for the
+        # #    executable and the library.
+        # #
+        # # Here we create a mock binary for the current stage by copying the previous one, rpath-wrapping it and
+        # # and than pass the rpath-wrapped binary to the runtimes build as the compiler.
+        # #################################################
+        # bin_dir_new = os.path.join(stage_dir, 'bin')
+        # with _wrap_env(bin_dir_new, lib_path):
+        #     if build_option('rpath'):
+        #         prev_clang = os.path.join(bin_dir, 'clang')
+        #         prev_clangxx = os.path.join(bin_dir, 'clang++')
+        #         nxt_clang = os.path.join(bin_dir_new, 'clang')
+        #         nxt_clangxx = os.path.join(bin_dir_new, 'clang++')
+        #         copy_file(prev_clang, nxt_clang)
+        #         copy_file(prev_clangxx, nxt_clangxx)
 
-                tmp_toolchain = Clang(name='Clang', version='1')
-                # Don't need stage dir here as LD_LIBRARY_PATH is set during build, this is only needed for
-                # installed binaries with rpath
-                lib_dirs = [os.path.join(self.installdir, x) for x in SEARCH_PATH_LIB_DIRS + [lib_dir_runtime]]
-                tmp_toolchain.prepare_rpath_wrappers(rpath_include_dirs=lib_dirs)
-                remove_file(nxt_clang)
-                remove_file(nxt_clangxx)
-                msg = "Prepared MOCK rpath wrappers needed to rpath-wrap also the new compilers produced "
-                msg += "by the project build and than used for the runtimes build"
-                self.log.info(msg)
-                clang_mock = which('clang')
-                clangxx_mock = which('clang++')
+        #         tmp_toolchain = Clang(name='Clang', version='1')
+        #         # Don't need stage dir here as LD_LIBRARY_PATH is set during build, this is only needed for
+        #         # installed binaries with rpath
+        #         lib_dirs = [os.path.join(self.installdir, x) for x in SEARCH_PATH_LIB_DIRS + [lib_dir_runtime]]
+        #         tmp_toolchain.prepare_rpath_wrappers(rpath_include_dirs=lib_dirs)
+        #         remove_file(nxt_clang)
+        #         remove_file(nxt_clangxx)
+        #         msg = "Prepared MOCK rpath wrappers needed to rpath-wrap also the new compilers produced "
+        #         msg += "by the project build and than used for the runtimes build"
+        #         self.log.info(msg)
+        #         clang_mock = which('clang')
+        #         clangxx_mock = which('clang++')
 
-                clang_mock_wrapper_dir = os.path.dirname(clang_mock)
+        #         clang_mock_wrapper_dir = os.path.dirname(clang_mock)
 
-                symlink(os.path.join(stage_dir, 'opt'), os.path.join(clang_mock_wrapper_dir, 'opt'))
+        #         symlink(os.path.join(stage_dir, 'opt'), os.path.join(clang_mock_wrapper_dir, 'opt'))
 
-                self.runtimes_cmake_args['CMAKE_C_COMPILER'] = [clang_mock]
-                self.runtimes_cmake_args['CMAKE_CXX_COMPILER'] = [clangxx_mock]
+        #         self.runtimes_cmake_args['CMAKE_C_COMPILER'] = [clang_mock]
+        #         self.runtimes_cmake_args['CMAKE_CXX_COMPILER'] = [clangxx_mock]
+        if build_option('rpath'):
+            self._prepare_runtimes_rpath_wrappers(stage_dir)
 
         # Needed for passing the variables to the build command
         with _wrap_env(bin_dir, lib_path):
@@ -863,6 +879,66 @@ class EB_LLVM(CMakeMake):
 
         change_dir(curdir)
 
+    def _prepare_runtimes_rpath_wrappers(self, stage_dir):
+        """Run the build command also ensuring proper rpathing for the Runtime build."""
+        # curdir = os.getcwd()
+        # bin_dir = os.path.join(prev_dir, 'bin')
+        # TODO: need a way to find what lib_dir_runtime will be before the build
+        lib_dir_runtime = ...
+
+        # Give priority to the libraries in the current stage if compiled to avoid failures due to undefined symbols
+        # e.g. when calling the compiled clang-ast-dump for stage 3
+        lib_path = os.path.join(stage_dir, lib_dir_runtime)
+
+        #######################################################
+        # PROBLEM!!!:
+        # Binaries and libraries produced during runtimes make use of the newly built Clang compiler which is not
+        # rpath-wrapped. This causes the executable to be produced without rpath (if required) and with
+        # runpath set to $ORIGIN. This causes 2 problems:
+        #  - Binaries produced for the runtimes will fail the sanity check
+        #  - Runtimes libraries that link to libLLVM.so like 'libomptarget.so' need LD_LIBRARY_PATH to work.
+        #    This is because even if an executable compiled with the new llvm has rpath pointing to $EBROOTLLVM/lib,
+        #    it will not be resolved with the executable's rpath, but the library's runpath
+        #    (rpath is ignored if runpath is set).
+        #    Even if libLLVM.so is a direct dependency of the executable, it needs to be resolved both for the
+        #    executable and the library.
+        #
+        # Here we create a mock binary for the current stage by copying the previous one, rpath-wrapping it and
+        # and than pass the rpath-wrapped binary to the runtimes build as the compiler.
+        #################################################
+        bin_dir_new = os.path.join(stage_dir, 'bin')
+        with _wrap_env(bin_dir_new, lib_path):
+            nxt_clang = os.path.join(bin_dir_new, 'clang')
+            nxt_clangxx = os.path.join(bin_dir_new, 'clang++')
+            with open(nxt_clang, 'w', encoding='utf-8') as f:
+                f.write("#!/bin/bash\n")
+                f.write("echo 'MOCK clang'\n")
+            adjust_permissions(nxt_clang, stat.S_IXUSR)
+            with open(nxt_clangxx, 'w', encoding='utf-8') as f:
+                f.write("#!/bin/bash\n")
+                f.write("echo 'MOCK clangxx'\n")
+            adjust_permissions(nxt_clang, stat.S_IXUSR)
+
+            tmp_toolchain = Clang(name='Clang', version='1')
+            # Don't need stage dir here as LD_LIBRARY_PATH is set during build, this is only needed for
+            # installed binaries with rpath
+            lib_dirs = [os.path.join(self.installdir, x) for x in SEARCH_PATH_LIB_DIRS + [lib_dir_runtime]]
+            tmp_toolchain.prepare_rpath_wrappers(rpath_include_dirs=lib_dirs)
+            remove_file(nxt_clang)
+            remove_file(nxt_clangxx)
+            msg = "Prepared MOCK rpath wrappers needed to rpath-wrap also the new compilers produced "
+            msg += "by the project build and than used for the runtimes build"
+            self.log.info(msg)
+            clang_mock = which('clang')
+            clangxx_mock = which('clang++')
+
+            clang_mock_wrapper_dir = os.path.dirname(clang_mock)
+
+            symlink(os.path.join(stage_dir, 'opt'), os.path.join(clang_mock_wrapper_dir, 'opt'))
+
+            self.runtimes_cmake_args['CMAKE_C_COMPILER'] = [clang_mock]
+            self.runtimes_cmake_args['CMAKE_CXX_COMPILER'] = [clangxx_mock]
+
     def build_step(self, *args, **kwargs):
         """Build LLVM, and optionally build it using itself."""
         if self.cfg['bootstrap']:
@@ -904,7 +980,7 @@ class EB_LLVM(CMakeMake):
         change_dir(basedir)
         lib_path = ''
         if self.cfg['build_runtimes']:
-            lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
+            lib_dir_runtime = self.get_runtime_lib_path(basedir)
             lib_path = os.path.join(basedir, lib_dir_runtime)
 
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
@@ -951,7 +1027,7 @@ class EB_LLVM(CMakeMake):
             msg += f"number identified va line-by-line pattern matching: {failed_pattern_matches}"
             self.log.warning(msg)
 
-        if ignored_pattern_matches:
+        if num_failed is not None and ignored_pattern_matches:
             self.log.info("Ignored %s failed tests due to ignore patterns", ignored_pattern_matches)
             num_failed -= ignored_pattern_matches
 
@@ -1002,7 +1078,7 @@ class EB_LLVM(CMakeMake):
 
         if self.cfg['build_runtimes']:
             orig_ld_library_path = os.getenv('LD_LIBRARY_PATH')
-            lib_dir_runtime = self.get_runtime_lib_path(basedir, fail_ok=False)
+            lib_dir_runtime = self.get_runtime_lib_path(basedir)
 
             lib_path = ':'.join([
                 os.path.join(basedir, lib_dir_runtime),
@@ -1043,19 +1119,27 @@ class EB_LLVM(CMakeMake):
                     self.log.info(msg)
                     symlink(src, dst)
 
-    def get_runtime_lib_path(self, base_dir, fail_ok=True):
+    def get_runtime_lib_path(self, base_dir, fail_ok=False):
         """Return the path to the runtime libraries."""
-        arch = get_arch_prefix()
-        glob_pattern = os.path.join(base_dir, 'lib', f'{arch}-*')
-        matches = glob.glob(glob_pattern)
-        if matches:
-            directory = os.path.basename(matches[0])
-            res = os.path.join("lib", directory)
-        else:
-            if not fail_ok:
-                raise EasyBuildError("Could not find runtime library directory")
-            print_warning("Could not find runtime library directory")
-            res = 'lib'
+        # arch = get_arch_prefix()
+        # glob_pattern = os.path.join(base_dir, 'lib', f'{arch}-*')
+        # matches = glob.glob(glob_pattern)
+        # if matches:
+        #     directory = os.path.basename(matches[0])
+        #     res = os.path.join("lib", directory)
+        # else:
+        #     if not fail_ok:
+        #         raise EasyBuildError("Could not find runtime library directory")
+        #     print_warning("Could not find runtime library directory")
+        #     res = 'lib'
+        if self.host_triple is None:
+            raise EasyBuildError("Could not find runtime library directory")
+        res = os.path.join('lib', self.host_triple)
+
+        if not fail_ok:
+            path = os.path.join(base_dir, res)
+            if not os.path.exists(path):
+                raise EasyBuildError("Could not find runtime library directory '%s'", path)
 
         return res
 
@@ -1091,7 +1175,7 @@ class EB_LLVM(CMakeMake):
         """Perform sanity checks on the installed LLVM."""
         lib_dir_runtime = None
         if self.cfg['build_runtimes']:
-            lib_dir_runtime = self.get_runtime_lib_path(self.installdir, fail_ok=False)
+            lib_dir_runtime = self.get_runtime_lib_path(self.installdir)
         shlib_ext = '.' + get_shared_lib_ext()
 
         resdir_version = self.version.split('.')[0]
@@ -1296,7 +1380,7 @@ class EB_LLVM(CMakeMake):
 
         lib_dirs = SEARCH_PATH_LIB_DIRS[:]
         if self.cfg['build_runtimes']:
-            runtime_lib_path = self.get_runtime_lib_path(self.installdir, fail_ok=False)
+            runtime_lib_path = self.get_runtime_lib_path(self.installdir)
             lib_dirs.append(runtime_lib_path)
 
         self.log.debug(f"List of subdirectories for libraries to add to $LD_LIBRARY_PATH + $LIBRARY_PATH: {lib_dirs}")
