@@ -410,6 +410,15 @@ class EB_LLVM(CMakeMake):
         self.nvptx_target_cond = (BUILD_TARGET_NVPTX in build_targets) or all_target_cond
         self.amdgpu_target_cond = (BUILD_TARGET_AMDGPU in build_targets) or all_target_cond
 
+        if ('cuda' in self.deps or cuda_toolchain) and not self.nvptx_target_cond:
+            raise EasyBuildError("CUDA dependency detected, but NVPTX not in manually specified build targets") 
+        if cuda_cc_list and not self.nvptx_target_cond:
+            raise EasyBuildError("CUDA compute capabilities specified, but NVPTX not in manually specified build targets")
+        if 'rocr-runtime' in self.deps and not self.amdgpu_target_cond:
+            raise EasyBuildError("ROCR-Runtime dependency detected, but AMDGPU not in manually specified build targets")
+        if amd_gfx_list and not self.amdgpu_target_cond:
+            raise EasyBuildError("AMD GPU list specified, but AMDGPU not in manually specified build targets")
+
         self.build_targets = build_targets or []
 
         # Enable offload targets for LLVM >= 18
@@ -423,7 +432,7 @@ class EB_LLVM(CMakeMake):
                         )
                     self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc_list]
                 self.offload_targets += ['cuda']
-                self.log.debug("Enabling cuda offload target")
+                self.log.debug("Enabling `cuda` offload target")
             if self.amdgpu_target_cond:
                 self.amd_gfx = []
                 if LooseVersion(self.version) < LooseVersion('20'):
@@ -431,7 +440,7 @@ class EB_LLVM(CMakeMake):
                         raise EasyBuildError(f"LLVM < 20 requires 'amd_gfx_list' to build with {BUILD_TARGET_AMDGPU}")
                     self.amd_gfx = amd_gfx_list
                 self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
-                self.log.debug("Enabling amdgpu offload target")
+                self.log.debug("Enabling `amdgpu` offload target")
 
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         general_opts['LLVM_TARGETS_TO_BUILD'] = '"%s"' % ';'.join(build_targets)
