@@ -61,6 +61,11 @@ class EB_imkl_minus_FFTW(EB_imkl):
         """
         return super(EB_imkl, self).make_module_step(*args, **kwargs)
 
+    def make_module_extra(self):
+        """Custom extra variables to set in module file"""
+        # bypass extra module variables for imkl
+        return super(EB_imkl, self).make_module_extra()
+
     def post_processing_step(self):
         """Custom post install step for imkl-FFTW"""
         # bypass post_processing_step of imkl easyblock
