@@ -1190,4 +1190,4 @@ class PythonPackage(ExtensionEasyBlock):
                 if os.path.exists(fullpath) and os.listdir(fullpath):
                     txt += self.module_generator.prepend_paths(PYTHONPATH, path)
 
-        return super().make_module_extra(txt, *args, **kwargs)
+        return super().make_module_extra(*args, **kwargs) + txt
