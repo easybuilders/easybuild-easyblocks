@@ -697,7 +697,12 @@ class EB_GCC(ConfigureMake):
                 raise EasyBuildError("Tried to set ld.gold as default linker, but ld.gold is not available.")
             self.configopts += " --enable-gold=default --enable-ld --with-plugin-ld=ld.gold"
         else:
-            self.configopts += " --enable-gold --enable-ld=default"
+            if binutils_has_ld_gold:
+                self.log.debug("Disabling ld.gold, as is was not found")
+                self.configopts += " --disable-gold"
+            else:
+                self.configopts += " --enable-gold"
+            self.configopts += " --enable-ld=default"
 
         # enable bootstrap build for self-containment (unless for staged build)
         if not self.stagedbuild:
