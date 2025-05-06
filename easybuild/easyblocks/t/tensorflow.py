@@ -595,11 +595,12 @@ class EB_TensorFlow(PythonPackage):
             print_warning('Jemalloc is not supported in TensorFlow %s, the EC option with_jemalloc has no effect',
                           self.version)
         # Disable support of some features via config switch introduced in 1.12.1
-        if LooseVersion(self.version) >= LooseVersion('1.12.1'):
-            self.target_opts += ['--config=noaws', '--config=nogcp', '--config=nohdfs']
-            # Removed in 2.1
-            if LooseVersion(self.version) < LooseVersion('2.1'):
-                self.target_opts.append('--config=nokafka')
+        if LooseVersion(self.version) >= LooseVersion("1.12.1"):
+            self.target_opts += ["--config=nogcp"]
+            if LooseVersion(self.version) < LooseVersion("2.18"):
+                self.target_opts += ["--config=noaws", "--config=nohdfs"]  # works in 2.17.1 not in 2.18.1
+            if LooseVersion(self.version) < LooseVersion("2.1"):
+                self.target_opts.append("--config=nokafka")  # removed in 2.1
         # MPI support removed in 2.1
         if LooseVersion(self.version) < LooseVersion('2.1'):
             config_env_vars['TF_NEED_MPI'] = ('0', '1')[bool(use_mpi)]
@@ -1139,11 +1140,17 @@ class EB_TensorFlow(PythonPackage):
         if "-rc" in self.version:
             whl_version = self.version.replace("-rc", "rc")
         else:
-            whl_version = self.version
-
-        whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
-        if not whl_paths:
-            whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-*.whl'))
+            whl_version = self.version            
+        if LooseVersion(self.version) < LooseVersion('2.16'):
+            whl_paths = glob.glob(os.path.join(self.builddir, f"tensorflow-{whl_version}-*.whl"))
+            if not whl_paths:
+                whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-*.whl'))
+        else:
+            whl_paths = glob.glob(os.path.join(
+                self.builddir,
+                f'TensorFlow/tensorflow-{self.version}/bazel-bin/tensorflow/tools/pip_package/wheel_house',
+                f"tensorflow-{whl_version}-*.whl"
+            ))
         if len(whl_paths) == 1:
             # --ignore-installed is required to ensure *this* wheel is installed
             cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])
