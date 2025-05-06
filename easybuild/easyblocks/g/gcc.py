@@ -698,10 +698,10 @@ class EB_GCC(ConfigureMake):
             self.configopts += " --enable-gold=default --enable-ld --with-plugin-ld=ld.gold"
         else:
             if binutils_has_ld_gold:
+                self.configopts += " --enable-gold"
+            else:
                 self.log.debug("Disabling ld.gold, as is was not found")
                 self.configopts += " --disable-gold"
-            else:
-                self.configopts += " --enable-gold"
             self.configopts += " --enable-ld=default"
 
         # enable bootstrap build for self-containment (unless for staged build)
@@ -808,6 +808,10 @@ class EB_GCC(ConfigureMake):
                     if lib == "gmp":
                         cmd = "./configure --prefix=%s " % stage2prefix
                         cmd += "--with-pic --disable-shared --enable-cxx "
+                        # Force C99 during configure to avoid newer C standard
+                        # being used. This avoids inconsistencies between the configure
+                        # result and the build, where we force C99 via a patch.
+                        cmd += "CFLAGS=-std=c99 "
 
                         # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
                         # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
