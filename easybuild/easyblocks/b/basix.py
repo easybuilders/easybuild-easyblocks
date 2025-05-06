@@ -1,10 +1,10 @@
 import os
 
 from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
-from easybuild.easyblocks.generic.pythonpackage import PIP_INSTALL_CMD
 from easybuild.tools.run import run_cmd
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_dir
+
 
 class EB_Basix(CMakePythonPackage):
     """Custom easyblock for Basix"""
