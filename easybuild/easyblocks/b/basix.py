@@ -1,9 +1,10 @@
 import os
 
 from easybuild.easyblocks.generic.cmakepythonpackage import CMakePythonPackage
+from easybuild.easyblocks.generic.pythonpackage import PIP_INSTALL_CMD
 from easybuild.tools.run import run_cmd
 from easybuild.tools.build_log import EasyBuildError
-
+from easybuild.tools.filetools import copy_dir
 
 class EB_Basix(CMakePythonPackage):
     """Custom easyblock for Basix"""
@@ -29,7 +30,7 @@ class EB_Basix(CMakePythonPackage):
         self.log.info('Resetting "installopts" in basix.py')
 
         # step 1: Installing the C++ shared lib
-        self.install_cmd = 'cmake --install %s/easybuild_obj' % self.builddir
+        self.install_cmd = 'cmake --install %s' % self.start_dir
         self.log.info('Installing lib64/libbasix.so')
 
         # step 2: Installing the Python interface using PDM
@@ -45,12 +46,13 @@ class EB_Basix(CMakePythonPackage):
         # step 3: Copy out the new lib folder to the installation folder
         _loc_venv_dir = os.path.join(_loc_basix_dir, '.venv')
         _loc_venv_lib_dir = os.path.join(_loc_venv_dir, 'lib')
-        _cp_cmd = 'cp -r %s %s' % (_loc_venv_lib_dir, self.installdir)
-        out, err = run_cmd(_cp_cmd, simple=False, log_ok=True, log_all=True, trace=True)
-        if err:
-            raise EasyBuildError('Error copying from "%s" to "%s"' % (_loc_venv_lib_dir, self.installdir))
-        else:
-            self.log.info('Copying "%s" to "%s" succeeded' % (_loc_venv_lib_dir, self.installdir))
+#        _cp_cmd = 'cp -r %s %s' % (_loc_venv_lib_dir, self.installdir)
+#        out, err = run_cmd(_cp_cmd, simple=False, log_ok=True, log_all=True, trace=True)
+#        if err:
+#            raise EasyBuildError('Error copying from "%s" to "%s"' % (_loc_venv_lib_dir, self.installdir))
+#        else:
+#            self.log.info('Copying "%s" to "%s" succeeded' % (_loc_venv_lib_dir, self.installdir))
+        copy_dir(_loc_venv_lib_dir, self.installdir, dirs_exist_ok=True)
 
         # self.install_cmd = _pip_cmd
         _pythonpath = os.environ.get('PYTHONPATH', '')
@@ -58,3 +60,4 @@ class EB_Basix(CMakePythonPackage):
         self.log.info('Extending PYTHONPATH to: "%s"' % os.environ['PYTHONPATH'])
 
         super(EB_Basix, self).install_step()
+
