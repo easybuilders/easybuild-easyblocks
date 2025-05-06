@@ -60,8 +60,11 @@ class EB_binutils(ConfigureMake):
         """Easyblock constructor"""
         super(EB_binutils, self).__init__(*args, **kwargs)
 
-        # ld.gold linker is not supported on RISC-V
-        self.use_gold = get_cpu_family() != RISCV
+        if LooseVersion(self.version) >= LooseVersion('2.44') or get_cpu_family() == RISCV:
+            # ld.gold linker is not supported on RISC-V, and is being phased out starting from v2.44
+            self.use_gold = False
+        else:
+            self.use_gold = True
 
     def determine_used_library_paths(self):
         """Check which paths are used to search for libraries"""
