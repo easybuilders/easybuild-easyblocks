@@ -1140,7 +1140,7 @@ class EB_TensorFlow(PythonPackage):
         if "-rc" in self.version:
             whl_version = self.version.replace("-rc", "rc")
         else:
-            whl_version = self.version            
+            whl_version = self.version
         if LooseVersion(self.version) < LooseVersion('2.16'):
             whl_paths = glob.glob(os.path.join(self.builddir, f"tensorflow-{whl_version}-*.whl"))
             if not whl_paths:
