@@ -147,6 +147,7 @@ class EB_GCC(ConfigureMake):
             'pplwatchdog': [False, "Enable PPL watchdog", CUSTOM],
             'prefer_lib_subdir': [False, "Configure GCC to prefer 'lib' subdirs over 'lib64' when linking", CUSTOM],
             'profiled': [False, "Bootstrap GCC with profile-guided optimizations", CUSTOM],
+            'set_library_path': [False, "Set LIBRARY_PATH in final module file", CUSTOM],
             'use_gold_linker': [None, "Configure GCC to use GOLD as default linker "
                                       "(default: enable automatically for GCC < 11.3.0, except on RISC-V)", CUSTOM],
             'withcloog': [False, "Build GCC with CLooG support", CUSTOM],
@@ -195,7 +196,7 @@ class EB_GCC(ConfigureMake):
         # unset some environment variables that are known to may cause nasty build errors when bootstrapping
         self.cfg.update('unwanted_env_vars', ['CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'OBJC_INCLUDE_PATH'])
         # ubuntu needs the LIBRARY_PATH env var to work apparently (#363)
-        if get_os_name() not in ['ubuntu', 'debian']:
+        if get_os_name() not in ['ubuntu', 'debian'] and not self.cfg['set_library_path']:
             self.cfg.update('unwanted_env_vars', ['LIBRARY_PATH'])
 
         # disable NVPTX on RISC-V
