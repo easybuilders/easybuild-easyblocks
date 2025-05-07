@@ -595,12 +595,12 @@ class EB_TensorFlow(PythonPackage):
             print_warning('Jemalloc is not supported in TensorFlow %s, the EC option with_jemalloc has no effect',
                           self.version)
         # Disable support of some features via config switch introduced in 1.12.1
-        if LooseVersion(self.version) >= LooseVersion("1.12.1"):
-            self.target_opts += ["--config=nogcp"]
-            if LooseVersion(self.version) < LooseVersion("2.18"):
+        if LooseVersion(self.version) >= LooseVersion('1.12.1'):
+            self.target_opts += ['--config=nogcp']
+            if LooseVersion(self.version) < LooseVersion('2.18'):
                 self.target_opts += ['--config=noaws', '--config=nohdfs']  # Removed in 2.18
             if LooseVersion(self.version) < LooseVersion("2.1"):
-                self.target_opts.append("--config=nokafka")  # removed in 2.1
+                self.target_opts += ['--config=nokafka']  # removed in 2.1
         # MPI support removed in 2.1
         if LooseVersion(self.version) < LooseVersion('2.1'):
             config_env_vars['TF_NEED_MPI'] = ('0', '1')[bool(use_mpi)]
