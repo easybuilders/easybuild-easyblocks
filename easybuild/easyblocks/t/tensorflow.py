@@ -1140,13 +1140,13 @@ class EB_TensorFlow(PythonPackage):
         if "-rc" in self.version:
             whl_version = self.version.replace("-rc", "rc")
         else:
-            whl_version = self.version 
+            whl_version = self.version
         whl_dir = self.builddir if LooseVersion(self.version) < '2.16' else (
             f"{self.builddir}/TensorFlow/tensorflow-{self.version}/bazel-bin/tensorflow/tools/pip_package/wheel_house"
         )
         whl_paths = glob.glob(os.path.join(whl_dir, f"tensorflow-{whl_version}-*.whl"))
         if not whl_paths:
-                whl_paths = glob.glob(os.path.join(whl_dir, 'tensorflow-*.whl'))
+            whl_paths = glob.glob(os.path.join(whl_dir, 'tensorflow-*.whl'))
         if len(whl_paths) == 1:
             # --ignore-installed is required to ensure *this* wheel is installed
             cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])
