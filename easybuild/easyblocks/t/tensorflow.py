@@ -1141,9 +1141,10 @@ class EB_TensorFlow(PythonPackage):
             whl_version = self.version.replace("-rc", "rc")
         else:
             whl_version = self.version
-        whl_dir = self.builddir if LooseVersion(self.version) < '2.16' else (
-            f"{self.builddir}/TensorFlow/tensorflow-{self.version}/bazel-bin/tensorflow/tools/pip_package/wheel_house"
-        )
+        if LooseVersion(self.version) < '2.16':
+            whl_dir = self.builddir
+        else:
+            whl_dir = os.path.join(self.start_dir, 'bazel-bin/tensorflow/tools/pip_package/wheel_house')
         whl_paths = glob.glob(os.path.join(whl_dir, f"tensorflow-{whl_version}-*.whl"))
         if not whl_paths:
             whl_paths = glob.glob(os.path.join(whl_dir, 'tensorflow-*.whl'))
