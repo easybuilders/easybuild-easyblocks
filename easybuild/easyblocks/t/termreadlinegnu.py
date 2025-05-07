@@ -31,6 +31,7 @@ EasyBuild support for installing Term::ReadLine::Gnu.
 from easybuild.easyblocks.generic.perlmodule import PerlModule
 from easybuild.tools.modules import get_software_root
 
+
 class EB_Term_colon__colon_ReadLine_colon__colon_Gnu(PerlModule):
     """Support for installing the Term::ReadLine::Gnu Perl module."""
 
