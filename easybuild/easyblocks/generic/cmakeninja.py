@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2022 Ghent University
+# Copyright 2019-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,9 +38,13 @@ class CMakeNinja(CMakeMake, MesonNinja):
 
     @staticmethod
     def extra_options(extra_vars=None):
-        """Define extra easyconfig parameters specific to CMakeMake."""
+        """Define extra easyconfig parameters specific to CMakeNinja."""
         extra_vars = CMakeMake.extra_options(extra_vars)
         extra_vars['generator'][0] = 'Ninja'
+        extra_vars.update({
+            key: value for key, value in MesonNinja.extra_options().items()
+            if key.startswith('build_') or key.startswith('install_')
+        })
         return extra_vars
 
     def configure_step(self, *args, **kwargs):

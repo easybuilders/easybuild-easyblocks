@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,11 +52,6 @@ class CMakePythonPackage(CMakeMake, PythonPackage):
         # Disable runtest again (set to True by PythonPackage which is not understood by CMakeMake.test_step)
         extra_vars['runtest'][0] = None
         return extra_vars
-
-    def __init__(self, *args, **kwargs):
-        """Initialize with PythonPackage."""
-        PythonPackage.__init__(self, *args, **kwargs)
-        self._lib_ext = None  # From CMakeMake.__init__
 
     def configure_step(self, *args, **kwargs):
         """Main configuration using cmake"""

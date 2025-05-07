@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2022 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,7 +29,7 @@ EasyBuild support for building and installing PSI, implemented as an easyblock
 @author: Ward Poelmans (Ghent University)
 """
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 import shutil
@@ -41,7 +41,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_PSI(CMakeMake):
@@ -218,13 +218,10 @@ class EB_PSI(CMakeMake):
             if self.cfg['runtest']:
                 paracmd = ''
                 # Run ctest parallel, but limit to maximum 4 jobs (in case of slow disks)
-                if self.cfg['parallel']:
-                    if self.cfg['parallel'] > 4:
-                        paracmd = '-j 4'
-                    else:
-                        paracmd = "-j %s" % self.cfg['parallel']
+                if self.cfg.parallel > 1:
+                    paracmd = f"-j {min(4, self.cfg.parallel)}"
                 cmd = "ctest %s %s" % (paracmd, self.cfg['runtest'])
-                run_cmd(cmd, log_all=True, simple=False)
+                run_shell_cmd(cmd)
         else:
             super(EB_PSI, self).test_step()
 

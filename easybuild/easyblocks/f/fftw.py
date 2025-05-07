@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,7 +27,7 @@ EasyBuild support for building and installing FFTW, implemented as an easyblock
 
 @author: Kenneth Hoste (HPC-UGent)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -37,7 +37,7 @@ from easybuild.toolchains.compiler.fujitsu import TC_CONSTANT_FUJITSU
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
+from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV32, RISCV64, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
@@ -141,7 +141,7 @@ class EB_FFTW(ConfigureMake):
                     setattr(self, flag, True)
 
         # Auto-disable quad-precision on ARM and POWER, as it is unsupported
-        if self.cfg['with_quad_prec'] and cpu_arch in [AARCH32, AARCH64, POWER]:
+        if self.cfg['with_quad_prec'] and cpu_arch in [AARCH32, AARCH64, POWER, RISCV32, RISCV64]:
             self.cfg['with_quad_prec'] = False
             self.log.debug("Quad-precision automatically disabled; not supported on %s.", cpu_arch)
 
@@ -191,7 +191,7 @@ class EB_FFTW(ConfigureMake):
                 if self.sve:
                     # SVE (ARM) only for single precision and double precision (on AARCH64 if sve feature is present)
                     if prec == 'single' or prec == 'double':
-                        prec_configopts.append('--enable-fma --enable-sve --enable-armv8-cntvct-el0')
+                        prec_configopts.append('--enable-fma --enable-armv8-cntvct-el0')
                 elif self.asimd or self.neon:
                     # NEON (ARM) only for single precision and double precision (on AARCH64)
                     if prec == 'single' or (prec == 'double' and self.asimd):
@@ -203,8 +203,9 @@ class EB_FFTW(ConfigureMake):
                 comp_fam = self.toolchain.comp_family()
                 fftw_ver = LooseVersion(self.version)
                 if cpu_arch == POWER and comp_fam == TC_CONSTANT_GCC:
-                    # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5.x - 10.x
-                    if prec == 'single' and fftw_ver <= LooseVersion('3.3.9'):
+                    # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5 and above
+                    # Upper bound of 3.4 (as of yet unreleased) in hope there will eventually be a fix.
+                    if prec == 'single' and fftw_ver < LooseVersion('3.4'):
                         self.log.info("Disabling altivec for single precision on POWER with GCC for FFTW/%s"
                                       % self.version)
                         prec_configopts.append('--disable-altivec')

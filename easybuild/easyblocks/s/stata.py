@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,7 +33,7 @@ import re
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.filetools import change_dir
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Stata(PackedBinary):
@@ -45,18 +45,18 @@ class EB_Stata(PackedBinary):
         change_dir(self.installdir)
 
         cmd = os.path.join(self.cfg['start_dir'], 'install')
-        std_qa = {
-            r"Do you wish to continue\?\s*\(y/n or q to quit\)": 'y',
-            r"Are you sure you want to install into .*\?\s*\(y/n or q\)": 'y',
-            r"Okay to proceed\s*\(y/n or q to quit\)": 'y',
-        }
+        qa = [
+            (r"Do you wish to continue\?\s*\(y/n or q to quit\)", 'y'),
+            (r"Are you sure you want to install into .*\?\s*\(y/n or q\)", 'y'),
+            (r"Okay to proceed\s*\(y/n or q to quit\)", 'y'),
+        ]
         no_qa = [
             "About to proceed with installation:",
             "uncompressing files",
             "extracting files",
             "setting permissions",
         ]
-        run_cmd_qa(cmd, {}, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa)
 
         print_msg("Note: you need to manually run ./stinit in %s to initialise the license for Stata!",
                   self.installdir)
@@ -71,13 +71,7 @@ class EB_Stata(PackedBinary):
 
         # make sure required libpng library is there for Stata
         # Stata depends on a very old version of libpng, so we need to provide it
-        out, _ = run_cmd("ldd %s" % os.path.join(self.installdir, 'stata'), simple=False)
+        res = run_shell_cmd("ldd %s" % os.path.join(self.installdir, 'stata'))
         regex = re.compile('libpng.*not found', re.M)
-        if regex.search(out):
+        if regex.search(res.output):
             raise EasyBuildError("Required libpng library for 'stata' is not available")
-
-    def make_module_req_guess(self):
-        """Add top install directory to $PATH for Stata"""
-        guesses = super(EB_Stata, self).make_module_req_guess()
-        guesses['PATH'] = ['']
-        return guesses

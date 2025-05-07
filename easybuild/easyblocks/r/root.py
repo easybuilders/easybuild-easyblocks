@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,16 +28,17 @@ EasyBuild support for ROOT, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-from distutils.version import LooseVersion
 import os
 
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import find_glob_pattern
-from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ROOT(CMakeMake):
@@ -53,6 +54,21 @@ class EB_ROOT(CMakeMake):
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
+
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor."""
+        super(EB_ROOT, self).__init__(*args, **kwargs)
+
+        # additional subdirectories specific to ROOT
+        self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join('lib', 'root'))
+        self.module_load_environment.LIBRARY_PATH.append(os.path.join('lib', 'root'))
+        self.module_load_environment.PYTHONPATH = [
+            'lib',
+            os.path.join('lib', 'root'),
+            os.path.join('lib', 'root', 'python'),
+        ]
+        for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
+            cpp_header.append(os.path.join('include', 'root'))
 
     def configure_step(self):
         """Custom configuration for ROOT, add configure options."""
@@ -104,6 +120,10 @@ class EB_ROOT(CMakeMake):
             if get_software_root('X11'):
                 self.cfg.update('configopts', '-Dx11=ON')
 
+            sysroot = build_option('sysroot')
+            if sysroot:
+                self.cfg.update('configopts', '-DDEFAULT_SYSROOT=%s' % sysroot)
+
             CMakeMake.configure_step(self)
         else:
             if self.cfg['arch'] is None:
@@ -116,7 +136,7 @@ class EB_ROOT(CMakeMake):
                                                         self.installdir,
                                                         self.cfg['configopts'])
 
-            run_cmd(cmd, log_all=True, log_ok=True, simple=True)
+            run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for ROOT."""
@@ -138,14 +158,3 @@ class EB_ROOT(CMakeMake):
         txt = super(EB_ROOT, self).make_module_extra()
         txt += self.module_generator.set_environment('ROOTSYS', self.installdir)
         return txt
-
-    def make_module_req_guess(self):
-        """Additional subdirectories specific to ROOT to consider for $CPATH, $(LD_)LIBRARY_PATH, $PYTHONPATH"""
-        guesses = super(EB_ROOT, self).make_module_req_guess()
-
-        guesses['CPATH'].append('include/root')
-        guesses['LD_LIBRARY_PATH'].append('lib/root')
-        guesses['LIBRARY_PATH'].append('lib/root')
-        guesses.setdefault('PYTHONPATH', []).extend(['lib', 'lib/root', 'lib/root/python'])
-
-        return guesses

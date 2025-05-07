@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,14 +38,13 @@ import os
 import re
 import shutil
 import stat
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, read_file, write_file
-from easybuild.tools.py2vs3 import string_type
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_MCR(PackedBinary):
@@ -81,11 +80,16 @@ class EB_MCR(PackedBinary):
             config = regdest.sub("destinationFolder=%s" % self.installdir, config)
             config = regagree.sub("agreeToLicense=Yes", config)
             config = regmode.sub("mode=silent", config)
-        else:
+        elif LooseVersion(self.version) < LooseVersion('R2024a'):
             config = '\n'.join([
                 "destinationFolder=%s" % self.installdir,
                 "agreeToLicense=Yes",
                 "mode=silent",
+            ])
+        else:
+            config = '\n'.join([
+                "destinationFolder=%s" % self.installdir,
+                "agreeToLicense=yes",
             ])
 
         write_file(configfile, config)
@@ -111,12 +115,12 @@ class EB_MCR(PackedBinary):
 
         configfile = "%s/%s" % (self.builddir, self.configfilename)
         cmd = "%s ./install -v -inputFile %s %s" % (self.cfg['preinstallopts'], configfile, self.cfg['installopts'])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for MCR."""
         self.set_subdir()
-        if not isinstance(self.subdir, string_type):
+        if not isinstance(self.subdir, str):
             raise EasyBuildError("Could not identify which subdirectory to pick: %s" % self.subdir)
 
         custom_paths = {
@@ -140,7 +144,7 @@ class EB_MCR(PackedBinary):
         self.set_subdir()
         # if no subdir was selected, set it to NOTFOUND
         # this is done to enable the use of --module-only without having an actual MCR installation
-        if not isinstance(self.subdir, string_type):
+        if not isinstance(self.subdir, str):
             self.subdir = 'NOTFOUND'
 
         xapplresdir = os.path.join(self.installdir, self.subdir, 'X11', 'app-defaults')
@@ -158,8 +162,13 @@ class EB_MCR(PackedBinary):
         """Determine subdirectory in installation directory"""
         # no-op is self.subdir is already set
         if self.subdir is None:
-            # determine subdirectory (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
-            subdirs = glob.glob(os.path.join(self.installdir, 'v[0-9][0-9]*'))
+            # determine subdirectory
+            if LooseVersion(self.version) < LooseVersion('R2022b'):
+                # (e.g. v84 (2014a, 2014b), v85 (2015a), ...)
+                subdirs = glob.glob(os.path.join(self.installdir, 'v[0-9][0-9]*'))
+            else:
+                # (e.g. R2023a, R2023b, ...)
+                subdirs = glob.glob(os.path.join(self.installdir, 'R[0-9][0-9][0-9][0-9]*'))
             if len(subdirs) == 1:
                 self.subdir = os.path.basename(subdirs[0])
             else:

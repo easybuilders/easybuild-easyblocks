@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2022 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2025 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -19,7 +19,7 @@ EasyBuild support for building and installing Eigen, implemented as an easyblock
 
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.filetools import copy_dir, copy_file, mkdir, apply_regex_substitutions
@@ -98,12 +98,3 @@ class EB_Eigen(CMakeMake):
                                    % os.path.join(self.installdir, cmake_config_dir))
 
         super(EB_Eigen, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """
-        A dictionary of possible directories to look for.
-        Include CPLUS_INCLUDE_PATH as an addition to default ones
-        """
-        guesses = super(EB_Eigen, self).make_module_req_guess()
-        guesses.update({'CPLUS_INCLUDE_PATH': ['include']})
-        return guesses

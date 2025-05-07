@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,20 +29,20 @@ EasyBuild support for building and installing NWChem, implemented as an easybloc
 """
 import os
 import re
-import shutil
 import stat
 import tempfile
 
 import easybuild.tools.config as config
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, change_dir, mkdir, remove_file, symlink, write_file
+from easybuild.tools.filetools import (adjust_permissions, change_dir, copy_dir, copy_file, mkdir, remove_file,
+                                       remove_dir, symlink, write_file)
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_NWChem(ConfigureMake):
@@ -262,11 +262,11 @@ class EB_NWChem(ConfigureMake):
         env.setvar('LIB_DEFINES', self.cfg['lib_defines'])
 
         # clean first (why not)
-        run_cmd("make clean", simple=True, log_all=True, log_ok=True)
+        run_shell_cmd("make clean")
 
         # configure build
         cmd = "make %s nwchem_config" % self.cfg['buildopts']
-        run_cmd(cmd, simple=True, log_all=True, log_ok=True, log_output=True)
+        run_shell_cmd(cmd)
 
     def build_step(self):
         """Custom build procedure for NWChem."""
@@ -276,9 +276,9 @@ class EB_NWChem(ConfigureMake):
 
         # check whether 64-bit integers should be used, and act on it
         if not self.toolchain.options['i8']:
-            if self.cfg['parallel']:
-                self.cfg.update('buildopts', '-j %s' % self.cfg['parallel'])
-            run_cmd("make %s 64_to_32" % self.cfg['buildopts'], simple=True, log_all=True, log_ok=True, log_output=True)
+            if self.parallel_flag:
+                self.cfg.update('buildopts', self.parallel_flag)
+            run_shell_cmd("make %s 64_to_32" % self.cfg['buildopts'])
 
             self.setvar_env_makeopt('USE_64TO32', "y")
 
@@ -299,11 +299,11 @@ class EB_NWChem(ConfigureMake):
             cwd = os.getcwd()
             change_dir(os.path.join(self.cfg['start_dir'], 'src', 'util'))
 
-            run_cmd("make version", simple=True, log_all=True, log_ok=True, log_output=True)
-            run_cmd("make", simple=True, log_all=True, log_ok=True, log_output=True)
+            run_shell_cmd("make version")
+            run_shell_cmd("make")
 
             change_dir(os.path.join(self.cfg['start_dir'], 'src'))
-            run_cmd("make link", simple=True, log_all=True, log_ok=True, log_output=True)
+            run_shell_cmd("make link")
 
             change_dir(cwd)
 
@@ -315,7 +315,7 @@ class EB_NWChem(ConfigureMake):
         # this recompiles the appropriate files and relinks
         if 'DDFLT_TOT_MEM' not in self.cfg['lib_defines']:
             change_dir(os.path.join(self.cfg['start_dir'], 'contrib'))
-            run_cmd("./getmem.nwchem", simple=True, log_all=True, log_ok=True, log_output=True)
+            run_shell_cmd("./getmem.nwchem")
             change_dir(self.cfg['start_dir'])
 
     def install_step(self):
@@ -325,16 +325,19 @@ class EB_NWChem(ConfigureMake):
             # binary
             bindir = os.path.join(self.installdir, 'bin')
             mkdir(bindir)
-            shutil.copy(os.path.join(self.cfg['start_dir'], 'bin', self.cfg['target'], 'nwchem'),
-                        bindir)
+            copy_file(os.path.join(self.cfg['start_dir'], 'bin', self.cfg['target'], 'nwchem'),
+                      os.path.join(bindir, 'nwchem'))
 
             # data
-            shutil.copytree(os.path.join(self.cfg['start_dir'], 'src', 'data'),
-                            os.path.join(self.installdir, 'data'))
-            shutil.copytree(os.path.join(self.cfg['start_dir'], 'src', 'basis', 'libraries'),
-                            os.path.join(self.installdir, 'data', 'libraries'))
-            shutil.copytree(os.path.join(self.cfg['start_dir'], 'src', 'nwpw', 'libraryps'),
-                            os.path.join(self.installdir, 'data', 'libraryps'))
+            copy_dir(os.path.join(self.cfg['start_dir'], 'src', 'data'),
+                     os.path.join(self.installdir, 'data'))
+            copy_dir(os.path.join(self.cfg['start_dir'], 'src', 'basis', 'libraries'),
+                     os.path.join(self.installdir, 'data', 'libraries'))
+            copy_dir(os.path.join(self.cfg['start_dir'], 'src', 'nwpw', 'libraryps'),
+                     os.path.join(self.installdir, 'data', 'libraryps'))
+            # examples (needed for the test_cases_step)
+            copy_dir(os.path.join(self.cfg['start_dir'], 'examples'),
+                     os.path.join(self.installdir, 'examples'))
 
         except OSError as err:
             raise EasyBuildError("Failed to install NWChem: %s", err)
@@ -388,23 +391,6 @@ class EB_NWChem(ConfigureMake):
 
         return txt
 
-    def cleanup_step(self):
-        """Copy stuff from build directory we still need, if any."""
-
-        try:
-            exs_dir = os.path.join(self.cfg['start_dir'], 'examples')
-
-            self.examples_dir = os.path.join(tempfile.mkdtemp(), 'examples')
-
-            shutil.copytree(exs_dir, self.examples_dir)
-
-            self.log.info("Copied %s to %s." % (exs_dir, self.examples_dir))
-
-        except OSError as err:
-            raise EasyBuildError("Failed to copy examples: %s", err)
-
-        super(EB_NWChem, self).cleanup_step()
-
     def test_cases_step(self):
         """Run provided list of test cases, or provided examples is no test cases were specified."""
 
@@ -438,7 +424,7 @@ class EB_NWChem(ConfigureMake):
                 ('md/benzene', ['benzene.nw'])
             ]
 
-            self.cfg['tests'] = [(os.path.join(self.examples_dir, d), l) for (d, l) in examples]
+            self.cfg['tests'] = [(os.path.join(self.installdir, 'examples', d), l) for (d, l) in examples]
             self.log.info("List of examples to be run as test cases: %s" % self.cfg['tests'])
 
         try:
@@ -452,7 +438,7 @@ class EB_NWChem(ConfigureMake):
                 local_nwchemrc_dir = os.path.dirname(self.local_nwchemrc)
                 if not os.path.exists(local_nwchemrc_dir):
                     os.makedirs(local_nwchemrc_dir)
-                shutil.copy2(default_nwchemrc, self.local_nwchemrc)
+                copy_file(default_nwchemrc, self.local_nwchemrc)
 
                 # only try to create symlink if it's not there yet
                 # we've verified earlier that the symlink is what we expect it to be if it's there
@@ -483,40 +469,42 @@ class EB_NWChem(ConfigureMake):
                     test_file = os.path.join(testdir, item)
                     if os.path.isfile(test_file):
                         self.log.debug("Copying %s to %s" % (test_file, tmpdir))
-                        shutil.copy2(test_file, tmpdir)
+                        copy_file(test_file, tmpdir)
 
                 # run tests
                 for testx in tests:
-                    cmd = "nwchem %s" % testx
+                    # some test cases hang with more than 1 MPI rank on some architectures
+                    n_mpi_ranks = 1
+                    cmd = '%s %s' % (self.toolchain.mpi_cmd_for('nwchem', n_mpi_ranks), testx)
                     msg = "Running test '%s' (from %s) in %s..." % (cmd, testdir, tmpdir)
                     self.log.info(msg)
                     test_cases_log.write("\n%s\n" % msg)
-                    (out, ec) = run_cmd(cmd, simple=False, log_all=False, log_ok=False, log_output=True)
+                    res = run_shell_cmd(cmd, fail_on_error=False)
 
                     # check exit code and output
-                    if ec:
-                        msg = "Test %s failed (exit code: %s)!" % (testx, ec)
+                    if res.exit_code:
+                        msg = "Test %s failed (exit code: %s)!" % (testx, res.exit_code)
                         self.log.warning(msg)
                         test_cases_log.write('FAIL: %s' % msg)
                         fail += 1
                     else:
-                        if success_regexp.search(out):
+                        if success_regexp.search(res.output):
                             msg = "Test %s successful!" % testx
                             self.log.info(msg)
                             test_cases_log.write('SUCCESS: %s' % msg)
                         else:
-                            msg = "No 'Total times' found for test %s (but exit code is %s)!" % (testx, ec)
+                            msg = "No 'Total times' found for test %s (but exit code is %s)!" % (testx, res.exit_code)
                             self.log.warning(msg)
                             test_cases_log.write('FAIL: %s' % msg)
                             fail += 1
 
-                    test_cases_log.write("\nOUTPUT:\n\n%s\n\n" % out)
+                    test_cases_log.write("\nOUTPUT:\n\n%s\n\n" % res.output)
 
                     tot += 1
 
                 # go back
                 change_dir(cwd)
-                shutil.rmtree(tmpdir)
+                remove_dir(tmpdir)
 
             fail_ratio = fail / tot
             fail_pcnt = fail_ratio * 100
@@ -534,8 +522,7 @@ class EB_NWChem(ConfigureMake):
 
             # cleanup
             try:
-                shutil.rmtree(self.examples_dir)
-                shutil.rmtree(local_nwchemrc_dir)
+                remove_dir(local_nwchemrc_dir)
             except OSError as err:
                 raise EasyBuildError("Cleanup failed: %s", err)
 

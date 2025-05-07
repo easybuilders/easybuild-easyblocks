@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ EasyBuild support for building and installing Ferret, implemented as an easybloc
 
 
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
@@ -172,6 +172,14 @@ class EB_Ferret(ConfigureMake):
             regex_subs.append((r"^(\s*%s\s*)=.*" % key, r"\1 = %s" % os.getenv(value)))
 
         if LooseVersion(self.version) >= LooseVersion("7.3"):
+            flag_vars = {
+                "CFLAGS": "CFLAGS",
+                "FFLAGS": "FFLAGS",
+                "PPLUS_FFLAGS": "FFLAGS",
+            }
+            for key, value in flag_vars.items():
+                regex_subs.append((r"^(\s*%s\s*=).*-m64 (.*)" % key, r"\1%s \2" % os.getenv(value)))
+
             regex_subs.extend([
                 (r"^(\s*LDFLAGS\s*=).*", r"\1 -fPIC %s -lnetcdff -lnetcdf -lhdf5_hl -lhdf5" % os.getenv("LDFLAGS")),
                 (r"^(\s*)CDFLIB", r"\1NONEED"),
@@ -182,8 +190,6 @@ class EB_Ferret(ConfigureMake):
             for x in ["CFLAGS", "FFLAGS"]:
                 regex_subs.append((r"^(\s*%s\s*=\s*\$\(CPP_FLAGS\)).*\\" % x, r"\1 %s \\" % os.getenv(x)))
             if LooseVersion(self.version) >= LooseVersion("7.3"):
-                for x in ["CFLAGS", "FFLAGS"]:
-                    regex_subs.append((r"^(\s*%s\s*=).*-m64 (.*)" % x, r"\1%s \2" % os.getenv(x)))
                 regex_subs.extend(sorted(gfort2ifort.items()))
 
                 regex_subs.append((r"^(\s*MYDEFINES\s*=.*)\\", r"\1-DF90_SYSTEM_ERROR_CALLS \\"))
@@ -208,6 +214,9 @@ class EB_Ferret(ConfigureMake):
         """Custom sanity check for Ferret."""
 
         major_minor_version = '.'.join(self.version.split('.')[:2])
+        if LooseVersion(self.version) >= LooseVersion("7.6"):
+            major_minor_version += self.version.split('.')[2]
+
         custom_paths = {
             'files': ["bin/ferret_v%s" % major_minor_version],
             'dirs': [],

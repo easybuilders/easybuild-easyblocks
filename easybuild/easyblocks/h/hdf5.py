@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -77,10 +77,16 @@ class EB_HDF5(ConfigureMake):
         self.cfg.update('configopts', "--with-pic --with-pthread --enable-shared")
         self.cfg.update('configopts', "--enable-cxx --enable-fortran %s" % fcomp)
 
+        # make C API thread safe (C++ / FORTRAN APIs are unaffected)
+        self.cfg.update('configopts', "--enable-threadsafe")
+
+        # --enable-unsupported is needed to allow --enable-threadsafe to be used together with --enable-cxx
+        self.cfg.update('configopts', "--enable-unsupported")
+
         # MPI and C++ support enabled requires --enable-unsupported, because this is untested by HDF5
         # also returns False if MPI is not supported by this toolchain
         if self.toolchain.options.get('usempi', None):
-            self.cfg.update('configopts', "--enable-unsupported --enable-parallel")
+            self.cfg.update('configopts', "--enable-parallel")
             mpich_mpi_families = [toolchain.INTELMPI, toolchain.MPICH, toolchain.MPICH2, toolchain.MVAPICH2]
             if self.toolchain.mpi_family() in mpich_mpi_families:
                 self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -DMPICH_IGNORE_CXX_SEEK"')
@@ -136,13 +142,6 @@ class EB_HDF5(ConfigureMake):
             'dirs': ['include'],
         }
         super(EB_HDF5, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Specify pkgconfig path for HDF5."""
-        guesses = super(EB_HDF5, self).make_module_req_guess()
-        guesses.update({'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig')]})
-
-        return guesses
 
     def make_module_extra(self):
         """Also define $HDF5_DIR to installation directory."""

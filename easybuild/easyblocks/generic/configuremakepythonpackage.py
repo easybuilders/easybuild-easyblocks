@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2022 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,14 +31,15 @@ implemented as an easyblock
 """
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class ConfigureMakePythonPackage(ConfigureMake, PythonPackage):
     """
-    Build a Python package and module with 'python configure/make/make install'.
+    Build a Python package and module with ``python configure``/``make``/``make install``.
 
     Implemented by using:
+
     - a custom implementation of configure_step
     - using the build_step and install_step from ConfigureMake
     - using the sanity_check_step and make_module_extra from PythonPackage
@@ -54,13 +55,13 @@ class ConfigureMakePythonPackage(ConfigureMake, PythonPackage):
         PythonPackage.__init__(self, *args, **kwargs)
 
     def configure_step(self, *args, **kwargs):
-        """Configure build using 'python configure'."""
+        """Configure build using ``python configure``."""
         PythonPackage.configure_step(self, *args, **kwargs)
         cmd = ' '.join([self.cfg['preconfigopts'], self.python_cmd, self.cfg['configopts']])
-        run_cmd(cmd, log_all=True)
+        run_shell_cmd(cmd)
 
     def build_step(self, *args, **kwargs):
-        """Build Python package with 'make'."""
+        """Build Python package with ``make``."""
         return ConfigureMake.build_step(self, *args, **kwargs)
 
     def test_step(self, *args, **kwargs):
@@ -68,7 +69,7 @@ class ConfigureMakePythonPackage(ConfigureMake, PythonPackage):
         PythonPackage.test_step(self, *args, **kwargs)
 
     def install_step(self, *args, **kargs):
-        """Install with 'make install'."""
+        """Install with ``make install``."""
         return ConfigureMake.install_step(self, *args, **kargs)
 
     def sanity_check_step(self, *args, **kwargs):

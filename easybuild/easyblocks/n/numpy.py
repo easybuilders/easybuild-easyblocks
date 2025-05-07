@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,8 +44,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
-from distutils.version import LooseVersion
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools import LooseVersion
 
 
 class EB_numpy(FortranPythonPackage):
@@ -79,7 +79,11 @@ class EB_numpy(FortranPythonPackage):
             "search_static_first=True",
         ])
 
-        if get_software_root("imkl"):
+        # If both FlexiBLAS and MKL are found, we assume that FlexiBLAS has a dependency on MKL.
+        # In this case we want to link to FlexiBLAS and not directly to MKL.
+        imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
+
+        if imkl_direct:
 
             if self.toolchain.comp_family() == toolchain.GCC:
                 # see https://software.intel.com/en-us/articles/numpyscipy-with-intel-mkl,
@@ -112,7 +116,7 @@ class EB_numpy(FortranPythonPackage):
         lapack = None
         fft = None
 
-        if get_software_root("imkl"):
+        if imkl_direct:
             # with IMKL, no spaces and use '-Wl:'
             # redefine 'Wl,' to 'Wl:' so that the patch file can do its job
             def get_libs_for_mkl(varname):
@@ -179,23 +183,17 @@ class EB_numpy(FortranPythonPackage):
 
         suitesparseroot = get_software_root('SuiteSparse')
         if suitesparseroot:
-            amddir = os.path.join(suitesparseroot, 'AMD')
-            umfpackdir = os.path.join(suitesparseroot, 'UMFPACK')
 
-            if not os.path.exists(amddir) or not os.path.exists(umfpackdir):
-                raise EasyBuildError("Expected SuiteSparse subdirectories are not both there: %s, %s",
-                                     amddir, umfpackdir)
-            else:
-                extrasiteconfig += '\n'.join([
-                    "[amd]",
-                    "library_dirs = %s" % os.path.join(amddir, 'Lib'),
-                    "include_dirs = %s" % os.path.join(amddir, 'Include'),
-                    "amd_libs = amd",
-                    "[umfpack]",
-                    "library_dirs = %s" % os.path.join(umfpackdir, 'Lib'),
-                    "include_dirs = %s" % os.path.join(umfpackdir, 'Include'),
-                    "umfpack_libs = umfpack",
-                ])
+            extrasiteconfig += '\n'.join([
+                "[amd]",
+                "library_dirs = %s" % os.path.join(suitesparseroot, 'lib'),
+                "include_dirs = %s" % os.path.join(suitesparseroot, 'include'),
+                "amd_libs = amd",
+                "[umfpack]",
+                "library_dirs = %s" % os.path.join(suitesparseroot, 'lib'),
+                "include_dirs = %s" % os.path.join(suitesparseroot, 'include'),
+                "umfpack_libs = umfpack",
+            ])
 
         self.sitecfg = '\n'.join([self.sitecfg, extrasiteconfig])
 
@@ -206,12 +204,46 @@ class EB_numpy(FortranPythonPackage):
             'includes': includes,
         }
 
+        if LooseVersion(self.version) < LooseVersion('1.26'):
+            # NumPy detects the required math by trying to link a minimal code containing a call to `log(0.)`.
+            # The first try is without any libraries, which works with `gcc -fno-math-errno` (our optimization default)
+            # because the call gets removed due to not having any effect. So it concludes that `-lm` is not required.
+            # This then fails to detect availability of functions such as `acosh` which do not get removed in the same
+            # way and so less exact replacements are used instead which e.g. fail the tests on PPC.
+            # This variable makes it try `-lm` first and is supported until the Meson backend is used in 1.26+.
+            env.setvar('MATHLIB', 'm')
+
         super(EB_numpy, self).configure_step()
 
         if LooseVersion(self.version) < LooseVersion('1.21'):
             # check configuration (for debugging purposes)
             cmd = "%s setup.py config" % self.python_cmd
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
+
+        if LooseVersion(self.version) >= LooseVersion('1.26'):
+            # control BLAS/LAPACK library being used
+            # see https://github.com/numpy/numpy/blob/v1.26.2/doc/source/release/1.26.1-notes.rst#build-system-changes
+            # and 'blas-order' in https://github.com/numpy/numpy/blob/v1.26.2/meson_options.txt
+            blas_lapack_names = {
+                toolchain.BLIS: 'blis',
+                toolchain.FLEXIBLAS: 'flexiblas',
+                toolchain.LAPACK: 'lapack',
+                toolchain.INTELMKL: 'mkl',
+                toolchain.OPENBLAS: 'openblas',
+            }
+            blas_family = self.toolchain.blas_family()
+            if blas_family in blas_lapack_names:
+                self.cfg.update('installopts', "-Csetup-args=-Dblas=" + blas_lapack_names[blas_family])
+            else:
+                raise EasyBuildError("Unknown BLAS library for numpy %s: %s", self.version, blas_family)
+
+            lapack_family = self.toolchain.lapack_family()
+            if lapack_family in blas_lapack_names:
+                self.cfg.update('installopts', "-Csetup-args=-Dlapack=" + blas_lapack_names[lapack_family])
+            else:
+                raise EasyBuildError("Unknown LAPACK library for numpy %s: %s", self.version, lapack_family)
+
+            self.cfg.update('installopts', "-Csetup-args=-Dallow-noblas=false")
 
     def test_step(self):
         """Run available numpy unit tests, and more."""
@@ -244,7 +276,7 @@ class EB_numpy(FortranPythonPackage):
             mkdir(pylibdir, parents=True)
         pythonpath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
         cmd = self.compose_install_command(tmpdir, extrapath=pythonpath)
-        run_cmd(cmd, log_all=True, simple=True, verbose=False)
+        run_shell_cmd(cmd)
 
         try:
             pwd = os.getcwd()
@@ -260,20 +292,20 @@ class EB_numpy(FortranPythonPackage):
             '-s "import numpy; x = numpy.random.random((%(size)d, %(size)d))"' % {'size': size},
             '"numpy.dot(x, x.T)"',
         ])
-        (out, ec) = run_cmd(cmd, simple=False)
-        self.log.debug("Test output: %s" % out)
+        res = run_shell_cmd(cmd)
+        self.log.debug("Test output: %s" % res.output)
 
         # fetch result
         time_msec = None
         msec_re = re.compile(r"\d+ loops, best of \d+: (?P<time>[0-9.]+) msec per loop")
-        res = msec_re.search(out)
-        if res:
-            time_msec = float(res.group('time'))
+        msec = msec_re.search(res.output)
+        if msec:
+            time_msec = float(msec.group('time'))
         else:
             sec_re = re.compile(r"\d+ loops, best of \d+: (?P<time>[0-9.]+) sec per loop")
-            res = sec_re.search(out)
-            if res:
-                time_msec = 1000 * float(res.group('time'))
+            sec = sec_re.search(res.output)
+            if sec:
+                time_msec = 1000 * float(sec.group('time'))
             elif self.dry_run:
                 # use fake value during dry run
                 time_msec = 123
@@ -310,9 +342,9 @@ class EB_numpy(FortranPythonPackage):
         except OSError as err:
             raise EasyBuildError("Failed to clean up numpy build dir %s: %s", builddir, err)
 
-    def run(self):
+    def install_extension(self):
         """Install numpy as an extension"""
-        super(EB_numpy, self).run()
+        super(EB_numpy, self).install_extension()
 
         return self.make_module_extra_numpy_include()
 
@@ -328,7 +360,30 @@ class EB_numpy(FortranPythonPackage):
 
         custom_commands = []
 
-        if LooseVersion(self.version) >= LooseVersion("1.10"):
+        if LooseVersion(self.version) >= LooseVersion('1.26'):
+            # make sure BLAS library was found
+            blas_check_pytxt = '; '.join([
+                "import numpy",
+                "numpy_config = numpy.show_config(mode='dicts')",
+                "numpy_build_deps = numpy_config['Build Dependencies']",
+                "blas_found = numpy_build_deps['blas']['found']",
+                "assert blas_found",
+            ])
+            custom_commands.append('python -c "%s"' % blas_check_pytxt)
+
+            # if FlexiBLAS is used, make sure we are linking to it
+            # (rather than directly to a backend library like OpenBLAS or Intel MKL)
+            if self.toolchain.blas_family() == toolchain.FLEXIBLAS:
+                blas_check_pytxt = '; '.join([
+                    "import numpy",
+                    "numpy_config = numpy.show_config(mode='dicts')",
+                    "numpy_build_deps = numpy_config['Build Dependencies']",
+                    "blas_name = numpy_build_deps['blas']['name']",
+                    "assert blas_name == 'flexiblas', 'BLAS library should be flexiblas, found %s' % blas_name",
+                ])
+                custom_commands.append('python -c "%s"' % blas_check_pytxt)
+
+        elif LooseVersion(self.version) >= LooseVersion('1.10'):
             # generic check to see whether numpy v1.10.x and up was built against a CBLAS-enabled library
             # cfr. https://github.com/numpy/numpy/issues/6675#issuecomment-162601149
             blas_check_pytxt = '; '.join([
