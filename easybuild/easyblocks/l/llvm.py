@@ -429,9 +429,10 @@ class EB_LLVM(CMakeMake):
         self.build_targets = build_targets or []
 
         # Enable offload targets for LLVM >= 18
+        self.cuda_cc = []
+        self.amd_gfx = []
         if self.cfg['build_openmp_offload'] and LooseVersion(self.version) >= LooseVersion('18'):
             if self.nvptx_target_cond:
-                self.cuda_cc = []
                 if LooseVersion(self.version) < LooseVersion('20'):
                     if not cuda_cc_list:
                         raise EasyBuildError(
@@ -441,7 +442,6 @@ class EB_LLVM(CMakeMake):
                 self.offload_targets += ['cuda']
                 self.log.debug("Enabling `cuda` offload target")
             if self.amdgpu_target_cond:
-                self.amd_gfx = []
                 if LooseVersion(self.version) < LooseVersion('20'):
                     if not amd_gfx_list:
                         raise EasyBuildError(f"LLVM < 20 requires 'amd_gfx_list' to build with {BUILD_TARGET_AMDGPU}")
@@ -672,7 +672,7 @@ class EB_LLVM(CMakeMake):
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
-        if 'openmp' in self.final_projects and LooseVersion('19') <= LooseVersion(self.version) < LooseVersion('20'):
+        if self.cfg['build_openmp_offload'] and LooseVersion('19') <= LooseVersion(self.version) < LooseVersion('20'):
             gpu_archs = []
             gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
             gpu_archs += self.amd_gfx
