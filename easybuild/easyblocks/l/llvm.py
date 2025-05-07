@@ -1133,21 +1133,19 @@ class EB_LLVM(CMakeMake):
 
     def get_runtime_lib_path(self, base_dir, fail_ok=False):
         """Return the path to the runtime libraries."""
-        # arch = get_arch_prefix()
-        # glob_pattern = os.path.join(base_dir, 'lib', f'{arch}-*')
-        # matches = glob.glob(glob_pattern)
-        # if matches:
-        #     directory = os.path.basename(matches[0])
-        #     res = os.path.join("lib", directory)
-        # else:
-        #     if not fail_ok:
-        #         raise EasyBuildError("Could not find runtime library directory")
-        #     print_warning("Could not find runtime library directory")
-        #     res = 'lib'
         if self.host_triple is None:
-            raise EasyBuildError("Could not find runtime library directory")
-        res = os.path.join('lib', self.host_triple)
+            # Attempt using the glob based detection of the runtime library directory for runs of
+            # --sanity-check-only/--module-only where the configure step is not used
+            arch = get_arch_prefix()
+            glob_pattern = os.path.join(base_dir, 'lib', f'{arch}-*')
+            matches = glob.glob(glob_pattern)
+            if matches:
+                self.host_triple = os.path.basename(matches[0])
+                res = os.path.join("lib", self.host_triple)
+            else:
+                raise EasyBuildError("Could not find runtime library directory")
 
+        res = os.path.join('lib', self.host_triple)
         if not fail_ok:
             path = os.path.join(base_dir, res)
             if not os.path.exists(path):
