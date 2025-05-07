@@ -598,7 +598,7 @@ class EB_TensorFlow(PythonPackage):
         if LooseVersion(self.version) >= LooseVersion("1.12.1"):
             self.target_opts += ["--config=nogcp"]
             if LooseVersion(self.version) < LooseVersion("2.18"):
-                self.target_opts += ["--config=noaws", "--config=nohdfs"]  # works in 2.17.1 not in 2.18.1
+                self.target_opts += ['--config=noaws', '--config=nohdfs']  # Removed in 2.18
             if LooseVersion(self.version) < LooseVersion("2.1"):
                 self.target_opts.append("--config=nokafka")  # removed in 2.1
         # MPI support removed in 2.1
