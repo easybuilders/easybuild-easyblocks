@@ -597,10 +597,7 @@ class EB_LLVM(CMakeMake):
         # Moved here from the __init__ to ensure this easyblock can be used as a Bundle component
         # https://github.com/easybuilders/easybuild-easyblocks/issues/3680
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
-        if LooseVersion(self.version) < LooseVersion('20.1.2'):
-            self.llvm_src_dir = os.path.join(self.builddir, 'llvm-project-%s.src' % self.version)
-        else:
-            self.llvm_src_dir = os.path.join(self.builddir, 'llvm-project-llvmorg-%s' % self.version)
+        self.llvm_src_dir = os.path.join(self.builddir, 'llvm-project-%s.src' % self.version)
 
         # Bootstrap
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
