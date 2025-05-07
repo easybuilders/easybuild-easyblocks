@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for building and installing binutils, implemented as an easybl
 import glob
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -38,8 +38,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
-from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.systemtools import RISCV, get_cpu_family, get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
 
@@ -56,6 +56,16 @@ class EB_binutils(ConfigureMake):
         })
         return extra_vars
 
+    def __init__(self, *args, **kwargs):
+        """Easyblock constructor"""
+        super(EB_binutils, self).__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) >= LooseVersion('2.44') or get_cpu_family() == RISCV:
+            # ld.gold linker is not supported on RISC-V, and is being phased out starting from v2.44
+            self.use_gold = False
+        else:
+            self.use_gold = True
+
     def determine_used_library_paths(self):
         """Check which paths are used to search for libraries"""
 
@@ -63,11 +73,11 @@ class EB_binutils(ConfigureMake):
         compiler_cmd = os.environ.get('CC', 'gcc')
 
         # determine library search paths for GCC
-        stdout, ec = run_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler_cmd, simple=False, log_all=True)
-        if ec:
+        res = run_shell_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler_cmd)
+        if res.exit_code:
             raise EasyBuildError("Failed to determine library search dirs from compiler %s", compiler_cmd)
 
-        m = re.search('^libraries: *=(.*)$', stdout, re.M)
+        m = re.search('^libraries: *=(.*)$', res.output, re.M)
         paths = nub(os.path.abspath(p) for p in m.group(1).split(os.pathsep))
         self.log.debug('Unique library search paths from compiler %s: %s', compiler_cmd, paths)
 
@@ -141,6 +151,15 @@ class EB_binutils(ConfigureMake):
                 else:
                     libs.append(libz_path)
 
+        msgpackroot = get_software_root('msgpack-c')
+        if LooseVersion(self.version) >= LooseVersion('2.39'):
+            if msgpackroot:
+                self.cfg.update('configopts', '--with-msgpack')
+            else:
+                self.cfg.update('configopts', '--without-msgpack')
+        elif msgpackroot:
+            raise EasyBuildError('msgpack is only supported since binutils 2.39. Remove the dependency!')
+
         env.setvar('LIBS', ' '.join(libs))
 
         # explicitly configure binutils to use / as sysroot
@@ -158,7 +177,9 @@ class EB_binutils(ConfigureMake):
 
         # enable gold linker with plugin support, use ld as default linker (for recent versions of binutils)
         if LooseVersion(self.version) > LooseVersion('2.24'):
-            self.cfg.update('configopts', "--enable-gold --enable-plugins --enable-ld=default")
+            self.cfg.update('configopts', "--enable-plugins --enable-ld=default")
+            if self.use_gold:
+                self.cfg.update('configopts', '--enable-gold')
 
         if LooseVersion(self.version) >= LooseVersion('2.34'):
             if self.cfg['use_debuginfod']:
@@ -221,8 +242,9 @@ class EB_binutils(ConfigureMake):
         shlib_ext = get_shared_lib_ext()
 
         if LooseVersion(self.version) > LooseVersion('2.24'):
-            binaries.append('ld.gold')
             lib_exts.append(shlib_ext)
+            if self.use_gold:
+                binaries.append('ld.gold')
 
         bin_paths = [os.path.join('bin', b) for b in binaries]
         inc_paths = [os.path.join('include', h) for h in headers]
@@ -249,14 +271,14 @@ class EB_binutils(ConfigureMake):
         if any(dep['name'] == 'zlib' for dep in build_deps):
             for binary in binaries:
                 bin_path = os.path.join(self.installdir, 'bin', binary)
-                out, _ = run_cmd("file %s" % bin_path, simple=False)
-                if re.search(r'statically linked', out):
+                res = run_shell_cmd("file %s" % bin_path)
+                if re.search(r'statically linked', res.output):
                     # binary is fully statically linked, so no chance for dynamically linked libz
                     continue
 
                 # check whether libz is linked dynamically, it shouldn't be
-                out, _ = run_cmd("ldd %s" % bin_path, simple=False)
-                if re.search(r'libz\.%s' % shlib_ext, out):
-                    raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, out)
+                res = run_shell_cmd("ldd %s" % bin_path)
+                if re.search(r'libz\.%s' % shlib_ext, res.output):
+                    raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, res.output)
 
         super(EB_binutils, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

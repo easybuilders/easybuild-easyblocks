@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,13 +33,13 @@ module to use Tcl/Tk.
 import glob
 import os
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.python import EB_Python
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy, move_file, remove_dir
+from easybuild.tools.filetools import move_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -75,27 +75,33 @@ class EB_Tkinter(EB_Python):
         env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
         self.log.info("Using %s as pip cache directory", os.environ['XDG_CACHE_HOME'])
 
+        # Use a temporary install directory, as we only want the Tkinter part of the full install.
+        self.orig_installdir = self.installdir
+        self.installdir = tempfile.mkdtemp(dir=self.builddir)
         super(EB_Tkinter, self).configure_step()
 
     def install_step(self):
         """Install python but only keep the bits we need"""
         super(EB_Tkinter, self).install_step()
 
-        tmpdir = tempfile.mkdtemp(dir=self.builddir)
+        if LooseVersion(self.version) >= LooseVersion('3'):
+            tklibdir = "tkinter"
+        else:
+            tklibdir = "lib-tk"
 
         self.tkinter_so_basename = self.get_tkinter_so_basename(False)
-        if LooseVersion(self.version) >= LooseVersion('3'):
-            tkparts = ["tkinter", os.path.join("lib-dynload", self.tkinter_so_basename)]
-        else:
-            tkparts = ["lib-tk", os.path.join("lib-dynload", self.tkinter_so_basename)]
+        source_pylibdir = os.path.dirname(os.path.join(self.installdir, det_pylibdir()))
 
-        pylibdir = os.path.join(self.installdir, det_pylibdir())
-        copy([os.path.join(os.path.dirname(pylibdir), x) for x in tkparts], tmpdir)
-
+        # Reset the install directory and remove it if it already exists. It will not have been removed automatically
+        # at the start of the install step, as self.installdir pointed at the temporary install directory.
+        self.installdir = self.orig_installdir
         remove_dir(self.installdir)
 
-        move_file(os.path.join(tmpdir, tkparts[0]), os.path.join(pylibdir, tkparts[0]))
-        move_file(os.path.join(tmpdir, self.tkinter_so_basename), os.path.join(pylibdir, self.tkinter_so_basename))
+        dest_pylibdir = os.path.join(self.installdir, det_pylibdir())
+
+        move_file(os.path.join(source_pylibdir, tklibdir), os.path.join(dest_pylibdir, tklibdir))
+        move_file(os.path.join(source_pylibdir, "lib-dynload", self.tkinter_so_basename),
+                  os.path.join(dest_pylibdir, self.tkinter_so_basename))
 
     def get_tkinter_so_basename(self, in_final_dir):
         pylibdir = os.path.join(self.installdir, det_pylibdir())
@@ -128,10 +134,3 @@ class EB_Tkinter(EB_Python):
             'dirs': ['lib']
         }
         super(EB_Python, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
-
-    def make_module_extra(self):
-        """Set PYTHONPATH"""
-        txt = super(EB_Tkinter, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
-
-        return txt

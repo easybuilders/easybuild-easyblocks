@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -59,14 +59,16 @@ class EB_FFTW_period_MPI(EB_FFTW):
         if not fftw_root:
             raise EasyBuildError("Required FFTW dependency is missing!")
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Custom post install step for FFTW.MPI"""
 
         # remove everything except include files that are already in non-MPI FFTW dependency.
-        remove(glob.glob(os.path.join(self.installdir, 'lib', 'libfftw.*')) +
-               glob.glob(os.path.join(self.installdir, 'lib', 'libfftw[lf].*')) +
-               [os.path.join(self.installdir, p) for p in ['bin', 'lib/pkgconfig', 'lib/cmake', 'share']])
-        super(EB_FFTW_period_MPI, self).post_install_step()
+        remove(glob.glob(os.path.join(self.installdir, 'lib*', 'libfftw.*')) +
+               glob.glob(os.path.join(self.installdir, 'lib*', 'libfftw[lf].*')) +
+               glob.glob(os.path.join(self.installdir, 'lib*/pkgconfig')) +
+               glob.glob(os.path.join(self.installdir, 'lib*/cmake')) +
+               [os.path.join(self.installdir, p) for p in ['bin', 'share']])
+        super(EB_FFTW_period_MPI, self).post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for FFTW.MPI: check if all libraries/headers for MPI interfaces are there."""

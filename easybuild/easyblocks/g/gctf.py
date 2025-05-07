@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2022 Ghent University
+# Copyright 2019-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (https://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir
 from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.modules import get_software_root
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 
 class EB_Gctf(EasyBlock):

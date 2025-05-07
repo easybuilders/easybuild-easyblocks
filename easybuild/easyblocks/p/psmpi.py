@@ -1,5 +1,5 @@
 ##
-# Copyright 2016-2022 Ghent University, Forschungszentrum Juelich
+# Copyright 2016-2025 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,9 +28,10 @@ EasyBuild support for building and installing the ParaStationMPI library, implem
 @author: Damian Alvarez (Forschungszentrum Juelich)
 """
 
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.mpich import EB_MPICH
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
@@ -58,6 +59,9 @@ class EB_psmpi(EB_MPICH):
             'mpich_opts': [None, "Optional options to configure MPICH", CUSTOM],
             'threaded': [False, "Enable multithreaded build (which is slower)", CUSTOM],
             'pscom_allin_path': [None, "Enable pscom integration by giving its source path", CUSTOM],
+            'cuda': [False, "Enable CUDA awareness", CUSTOM],
+            'msa': [False, "Enable MSA awareness", CUSTOM],
+            'pmix': [None, "Enable PMIx support", CUSTOM],
         })
         return extra_vars
 
@@ -72,9 +76,26 @@ class EB_psmpi(EB_MPICH):
         comp_opts = {
             toolchain.GCC: 'gcc',
             toolchain.INTELCOMP: 'intel',
-            # TODO: Include PGI as soon as it is available as toolchain
-            # toolchain.PGI: 'pgi',
+            toolchain.PGI: 'pgi',
+            toolchain.NVHPC: 'nvhpc',
         }
+
+        # ParaStationMPI defines its environment through confsets. So these should be unset
+        env_vars = ['CFLAGS', 'CPPFLAGS', 'CXXFLAGS', 'FCFLAGS', 'FFLAGS', 'LDFLAGS', 'LIBS']
+        env.unset_env_vars(env_vars)
+        self.log.info("Unsetting the following variables: " + ' '.join(env_vars))
+
+        # Enable CUDA
+        if self.cfg['cuda']:
+            self.log.info("Enabling CUDA-Awareness...")
+            self.cfg.update('configopts', ' --with-cuda')
+
+        if self.cfg['msa']:
+            self.log.info("Enabling MSA-Awareness...")
+            if LooseVersion(self.version) >= LooseVersion('5.10.0-1'):
+                self.cfg.update('configopts', ' --enable-msa-awareness')
+            else:
+                self.cfg.update('configopts', ' --with-msa-awareness')
 
         # Set confset
         comp_fam = self.toolchain.comp_family()
@@ -86,11 +107,26 @@ class EB_psmpi(EB_MPICH):
 
         # Enable threading, if necessary
         if self.cfg['threaded']:
-            self.cfg.update('configopts', ' --with-threading')
+            if LooseVersion(self.version) >= LooseVersion('5.10.0-1'):
+                self.cfg.update('configopts', ' --enable-threading')
+            else:
+                self.cfg.update('configopts', ' --with-threading')
 
         # Add extra mpich options, if any
         if self.cfg['mpich_opts'] is not None:
             self.cfg.update('configopts', ' --with-mpichconf="%s"' % self.cfg['mpich_opts'])
+
+        # Add PMIx support
+        pmix_path = get_software_root('PMIx')
+        # No specific value passed to the option, so automatically determine it judging the dependencies
+        if self.cfg['pmix'] is None and pmix_path:
+            self.cfg.update('configopts', ' --with-pmix="%s"' % pmix_path)
+        # A particular value was added, so act accordingly
+        elif self.cfg['pmix']:
+            if pmix_path:
+                self.cfg.update('configopts', ' --with-pmix="%s"' % pmix_path)
+            else:
+                self.cfg.update('configopts', ' --with-pmix')
 
         # Lastly, set pscom related variables
         if self.cfg['pscom_allin_path'] is None:
@@ -99,7 +135,8 @@ class EB_psmpi(EB_MPICH):
             pscom_path = self.cfg['pscom_allin_path'].strip()
             self.cfg.update('configopts', ' --with-pscom-allin="%s"' % pscom_path)
 
-        pscom_flags = 'PSCOM_LDFLAGS=-L{0}/lib PSCOM_CPPFLAGS=-I{0}/include'.format(pscom_path)
+        pscom_flags = 'export PSCOM_LDFLAGS="-L{0}/lib $PSCOM_LDFLAGS" &&'.format(pscom_path)
+        pscom_flags += ' export PSCOM_CPPFLAGS="-I{0}/include $PSCOM_CPPFLAGS" &&'.format(pscom_path)
         self.cfg.update('preconfigopts', pscom_flags)
 
         super(EB_psmpi, self).configure_step(add_mpich_configopts=False)
@@ -117,4 +154,6 @@ class EB_psmpi(EB_MPICH):
         # ParaStationMPI < 5.1.1-1 is based on MPICH < 3.1.1.
         use_new_libnames = LooseVersion(self.version) >= LooseVersion('5.1.1-1')
 
-        super(EB_psmpi, self).sanity_check_step(use_new_libnames=use_new_libnames, check_launchers=False)
+        super(EB_psmpi, self).sanity_check_step(use_new_libnames=use_new_libnames,
+                                                check_launchers=False,
+                                                check_static_libs=False)

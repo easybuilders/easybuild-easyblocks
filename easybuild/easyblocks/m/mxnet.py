@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2022 Free University of Brussels (VUB)
+# Copyright 2018-2025 Free University of Brussels (VUB)
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,8 +30,9 @@ EasyBuild support for MXNet, implemented as an easyblock
 import glob
 import os
 import shutil
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.easyblocks.generic.rpackage import RPackage
@@ -39,7 +40,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 # the namespace file for the R extension
@@ -63,11 +64,15 @@ class EB_MXNet(MakeCp):
     """Easyblock to build and install MXNet"""
 
     @staticmethod
-    def extra_options(extra_vars=None):
+    def extra_options():
         """Change default values of options"""
-        extra = MakeCp.extra_options()
+        extra_vars = {
+            'install_r_ext': [None, "Enable installation of R extensions", CUSTOM],
+        }
+        extra = MakeCp.extra_options(extra_vars)
         # files_to_copy is not mandatory here
         extra['files_to_copy'][2] = CUSTOM
+
         return extra
 
     def __init__(self, *args, **kwargs):
@@ -79,6 +84,13 @@ class EB_MXNet(MakeCp):
         self.py_ext.module_generator = self.module_generator
         self.r_ext = RPackage(self, {'name': self.name, 'version': self.version})
         self.r_ext.module_generator = self.module_generator
+        # auto-enable building of R extensions only for old versions of MXNet (< 1.0),
+        # since for newer versions is broken
+        if self.cfg['install_r_ext'] is None:
+            if LooseVersion(self.version) < LooseVersion('1.0'):
+                self.cfg['install_r_ext'] = True
+            else:
+                self.cfg['install_r_ext'] = False
 
     def extract_step(self):
         """
@@ -97,20 +109,36 @@ class EB_MXNet(MakeCp):
 
         for srcdir in [d for d in os.listdir(self.builddir) if d != os.path.basename(self.mxnet_src_dir)]:
             submodule, _, _ = srcdir.rpartition('-')
-            newdir = os.path.join(self.mxnet_src_dir, submodule)
-            olddir = os.path.join(self.builddir, srcdir)
+
+            if LooseVersion(self.version) >= LooseVersion('1.0'):
+                # if newdir starts with 'oneDNN-', we rename it to mkldnn:
+                if submodule == 'oneDNN':
+                    submodule = 'mkldnn'
+                    # rename the file to 'mkldnn':
+                    old_srcdir = srcdir
+                    srcdir = srcdir.replace('oneDNN', 'mkldnn')
+                    os.rename(os.path.join(self.builddir, old_srcdir), os.path.join(self.builddir, srcdir))
+
+                olddir = os.path.join(self.builddir, srcdir)
+                newdir = os.path.join(self.mxnet_src_dir, '3rdparty', submodule)
+            else:
+                olddir = os.path.join(self.builddir, srcdir)
+                newdir = os.path.join(self.mxnet_src_dir, submodule)
+
             # first remove empty existing directory
             remove_dir(newdir)
+
             try:
                 shutil.move(olddir, newdir)
             except IOError as err:
                 raise EasyBuildError("Failed to move %s to %s: %s", olddir, newdir, err)
 
-        # the nnvm submodules has dmlc-core as a submodule too. Let's put a symlink in place.
-        newdir = os.path.join(self.mxnet_src_dir, "nnvm", "dmlc-core")
-        olddir = os.path.join(self.mxnet_src_dir, "dmlc-core")
-        remove_dir(newdir)
-        symlink(olddir, newdir)
+            if LooseVersion(self.version) < LooseVersion('1.0'):
+                # the nnvm submodules has dmlc-core as a submodule too. Let's put a symlink in place.
+                newdir = os.path.join(self.mxnet_src_dir, "nnvm", "dmlc-core")
+                olddir = os.path.join(self.mxnet_src_dir, "dmlc-core")
+                remove_dir(newdir)
+                symlink(olddir, newdir)
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for building and installing MXNet."""
@@ -133,6 +161,9 @@ class EB_MXNet(MakeCp):
             blas = "atlas"
         elif toolchain_blas == 'OpenBLAS':
             blas = "openblas"
+        elif toolchain_blas == 'FlexiBLAS':
+            blas = "flexiblas"
+            env.setvar('CFLAGS', "%s -lflexiblas" % os.getenv('CFLAGS'))
         elif toolchain_blas is None:
             raise EasyBuildError("No BLAS library found in the toolchain")
 
@@ -145,8 +176,9 @@ class EB_MXNet(MakeCp):
 
     def install_step(self):
         """Specify list of files to copy"""
-        self.cfg['files_to_copy'] = ['bin', 'include', 'lib',
-                                     (['dmlc-core/include/dmlc', 'nnvm/include/nnvm'], 'include')]
+        self.cfg['files_to_copy'] = ['bin', 'include', 'lib']
+        if LooseVersion(self.version) < LooseVersion('1.0'):
+            self.cfg.update('files_to_copy', [(['dmlc-core/include/dmlc', 'nnvm/include/nnvm'], 'include')])
         super(EB_MXNet, self).install_step()
 
     def extensions_step(self):
@@ -155,10 +187,21 @@ class EB_MXNet(MakeCp):
         self.py_ext.src = os.path.join(self.mxnet_src_dir, "python")
         change_dir(self.py_ext.src)
 
-        self.py_ext.prerun()
-        self.py_ext.run(unpack_src=False)
-        self.py_ext.postrun()
+        self.py_ext.pre_install_extension()
+        self.py_ext.install_extension(unpack_src=False)
+        self.py_ext.post_install_extension()
 
+        if self.cfg['install_r_ext']:
+            # This is off by default, because it's been working in the old version of MXNet and now it's not.
+            # Also, from the website of MXNet, Python bindings seem to be the preferred ones so we'll focus on that.
+            self.install_r_ext()
+        else:
+            self.log.info("Skipping R extension installation")
+
+    def install_r_ext(self):
+        """
+        Also install R extension for MXNet.
+        """
         # next up, the R bindings
         self.r_ext.src = os.path.join(self.mxnet_src_dir, "R-package")
         change_dir(self.r_ext.src)
@@ -169,17 +212,18 @@ class EB_MXNet(MakeCp):
         # MXNet doesn't provide a list of its R dependencies by default
         write_file("NAMESPACE", R_NAMESPACE)
         change_dir(self.mxnet_src_dir)
-        self.r_ext.prerun()
+        self.r_ext.pre_install_extension()
         # MXNet is just weird. To install the R extension, we have to:
         # - First install the extension like it is
         # - Let R export the extension again. By doing this, all the dependencies get
         #   correctly filled and some mappings are done
         # - Reinstal the exported version
-        self.r_ext.run()
-        run_cmd("R_LIBS=%s Rscript -e \"require(mxnet); mxnet:::mxnet.export(\\\"R-package\\\")\"" % self.installdir)
+        self.r_ext.install_extension()
+        cmd = "R_LIBS=%s Rscript -e \"require(mxnet); mxnet:::mxnet.export(\\\"R-package\\\")\""
+        run_shell_cmd(cmd % self.installdir)
         change_dir(self.r_ext.src)
-        self.r_ext.run()
-        self.r_ext.postrun()
+        self.r_ext.install_extension()
+        self.r_ext.post_install_extension()
 
     def sanity_check_step(self):
         """Check for main library files for MXNet"""
@@ -207,12 +251,6 @@ class EB_MXNet(MakeCp):
     def make_module_extra(self, *args, **kwargs):
         """Custom variables for MXNet module."""
         txt = super(EB_MXNet, self).make_module_extra(*args, **kwargs)
-
-        for path in self.py_ext.all_pylibdirs:
-            fullpath = os.path.join(self.installdir, path)
-            # only extend $PYTHONPATH with existing, non-empty directories
-            if os.path.exists(fullpath) and os.listdir(fullpath):
-                txt += self.module_generator.prepend_paths('PYTHONPATH', path)
 
         txt += self.module_generator.prepend_paths("R_LIBS", [''])  # prepend R_LIBS with install path
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2022 NVIDIA
+# Copyright 2020-2025 NVIDIA
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -28,13 +28,14 @@
 """
 EasyBuild support for XALT, implemented as an easyblock
 @author: Scott McMillan (NVIDIA)
+@author: Kenneth Hoste (HPC-UGent)
 """
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -56,6 +57,20 @@ class EB_XALT(ConfigureMake):
             'file_prefix': [None, "XALT record files prefix", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """Initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        self.module_load_environment.COMPILER_PATH = 'bin'
+        self.module_load_environment.PATH = 'bin'
+
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
+        mod_env_libs = ['LD_LIBRARY_PATH', 'LIBRARY_PATH']
+        mod_env_cmake = ['CMAKE_LIBRARY_PATH', 'CMAKE_PREFIX_PATH']
+        for disallowed_var in mod_env_headers + mod_env_libs + mod_env_cmake:
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def configure_step(self):
         """Custom configuration step for XALT."""
@@ -162,11 +177,6 @@ class EB_XALT(ConfigureMake):
                                                    'lib64/libxalt_init.%s' % get_shared_lib_ext())
 
         return txt
-
-    def make_module_req_guess(self):
-        """Custom guesses for environment variables"""
-        return {'COMPILER_PATH': 'bin',
-                'PATH': 'bin'}
 
     def sanity_check_step(self):
         """Custom sanity check"""

@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2022 the Cyprus Institute
+# Copyright 2013-2025 the Cyprus Institute
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -26,6 +26,7 @@
 @author: George Tsouloupas (The Cyprus Institute)
 @author: Fotis Georgatos (Uni.Lu, NTUA)
 @author: Kenneth Hoste (Ghent University)
+@author: Maxime Boissonneault (Digital Research Alliance of Canada, Universite Laval)
 """
 import os
 import glob
@@ -34,7 +35,6 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, copy_dir, copy_file, mkdir
-from easybuild.tools.py2vs3 import string_type
 
 
 class MakeCp(ConfigureMake):
@@ -70,16 +70,20 @@ class MakeCp(ConfigureMake):
 
         files_to_copy = self.cfg.get('files_to_copy') or []
         self.log.debug("Starting install_step with files_to_copy: %s", files_to_copy)
+
+        # if this is an iterative build directories will be copied multiple times
+        dirs_exist_ok = True if self.iter_opts else False
+
         for fil in files_to_copy:
             if isinstance(fil, tuple):
                 # ([src1, src2], targetdir)
-                if len(fil) == 2 and isinstance(fil[0], list) and isinstance(fil[1], string_type):
+                if len(fil) == 2 and isinstance(fil[0], list) and isinstance(fil[1], str):
                     files_specs = fil[0]
                     target = os.path.join(self.installdir, fil[1])
                 else:
                     raise EasyBuildError("Only tuples of format '([<source files>], <target dir>)' supported.")
             # 'src_file' or 'src_dir'
-            elif isinstance(fil, string_type):
+            elif isinstance(fil, str):
                 files_specs = [fil]
                 target = self.installdir
             else:
@@ -128,6 +132,6 @@ class MakeCp(ConfigureMake):
                     elif os.path.isdir(filepath):
                         self.log.debug("Copying directory %s to %s", filepath, target)
                         fulltarget = os.path.join(target, os.path.basename(filepath))
-                        copy_dir(filepath, fulltarget, symlinks=self.cfg['keepsymlinks'])
+                        copy_dir(filepath, fulltarget, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=dirs_exist_ok)
                     else:
                         raise EasyBuildError("Can't copy non-existing path %s to %s", filepath, target)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2022 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,6 +30,7 @@ EasyBuild support for installing a software-specific .modulerc file
 import os
 
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.easyconfig import ActiveMNS
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import install_path
@@ -40,6 +41,16 @@ class ModuleRC(EasyBlock):
     """
     Generic easyblock to create a software-specific .modulerc file
     """
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Define extra easyconfig parameters specific to ModuleRC"""
+        if extra_vars is None:
+            extra_vars = {}
+        extra_vars.update({
+            'check_version': [True, "Check version is prefix of dependency", CUSTOM],
+        })
+        return EasyBlock.extra_options(extra_vars)
 
     def configure_step(self):
         """Do nothing."""
@@ -67,7 +78,8 @@ class ModuleRC(EasyBlock):
             raise EasyBuildError("Name does not match dependency name: %s vs %s", self.name, deps[0]['name'])
 
         # ensure version to alias to is a prefix of the version of the dependency
-        if not deps[0]['version'].startswith(self.version) and not self.version == "default":
+        if self.cfg['check_version'] and \
+           not deps[0]['version'].startswith(self.version) and not self.version == "default":
             raise EasyBuildError("Version is not 'default' and not a prefix of dependency version: %s vs %s",
                                  self.version, deps[0]['version'])
 
@@ -85,7 +97,7 @@ class ModuleRC(EasyBlock):
 
         module_version_specs = {
             'modname': alias_modname,
-            'sym_version': self.version,
+            'sym_version': self.version + self.cfg['versionsuffix'],
             'version': deps[0]['version'],
         }
         self.module_generator.modulerc(module_version=module_version_specs, filepath=modulerc)

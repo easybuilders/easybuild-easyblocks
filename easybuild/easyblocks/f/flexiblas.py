@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2022 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,8 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 IMKL_CONF_TEMPLATE = """[IMKL]
@@ -85,6 +86,9 @@ class EB_FlexiBLAS(CMakeMake):
 
         self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')
 
+        # custom CPATH to FlexiBLAS headers
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, [os.path.join('include', 'flexiblas')])
+
     def configure_step(self):
         """Custom configuration for FlexiBLAS, based on which BLAS libraries are included as dependencies."""
 
@@ -94,7 +98,7 @@ class EB_FlexiBLAS(CMakeMake):
             'FLEXIBLAS_DEFAULT': self.cfg['flexiblas_default'] or self.blas_libs[0],
         }
 
-        supported_blas_libs = ['BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
+        supported_blas_libs = ['AOCL-BLAS', 'BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
 
         # make sure that default backend is a supported library
         flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
@@ -105,7 +109,11 @@ class EB_FlexiBLAS(CMakeMake):
         unsupported_libs = [x for x in self.blas_libs if x not in supported_blas_libs]
         if unsupported_libs:
             raise EasyBuildError("One or more unsupported libraries used: %s", ', '.join(unsupported_libs))
-
+        # need to use CMake naming convention
+        if 'AOCL-BLAS' in self.blas_libs:
+            self.blas_libs[self.blas_libs.index('AOCL-BLAS')] = 'AOCL_mt'
+        if configopts['FLEXIBLAS_DEFAULT'] == 'AOCL-BLAS':
+            configopts['FLEXIBLAS_DEFAULT'] = 'AOCL_mt'
         # list of BLAS libraries to use is specified via -DEXTRA=...
         configopts['EXTRA'] = ';'.join(self.blas_libs)
 
@@ -131,6 +139,8 @@ class EB_FlexiBLAS(CMakeMake):
                     configopts[key] = mkl_compiler_mapping[comp_family]
                 except KeyError:
                     raise EasyBuildError("Compiler family not supported yet: %s", comp_family)
+            elif blas_lib == 'AOCL_mt':
+                configopts[key] = 'blis-mt'
             else:
                 configopts[key] = blas_lib.lower()
 
@@ -138,7 +148,7 @@ class EB_FlexiBLAS(CMakeMake):
         # to allow easyconfig to override specifies settings
         for key, value in sorted(configopts.items()):
             opt = '-D%s=' % key
-            if key not in self.cfg['configopts']:
+            if opt not in self.cfg['configopts']:
                 self.cfg.update('configopts', opt + "'%s'" % value)
 
         # specify compiler commands with absolute paths, to ensure that RPATH wrapper scripts are used
@@ -182,7 +192,7 @@ class EB_FlexiBLAS(CMakeMake):
             "make test",
             self.cfg['testopts'],
         ])
-        run_cmd(test_cmd)
+        run_shell_cmd(test_cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for FlexiBLAS."""
@@ -223,12 +233,3 @@ class EB_FlexiBLAS(CMakeMake):
             custom_commands.append("flexiblas list | grep %s" % blas_lib.upper())
 
         super(EB_FlexiBLAS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Customize CPATH for FlexiBLAS."""
-
-        guesses = super(EB_FlexiBLAS, self).make_module_req_guess()
-
-        guesses.update({'CPATH': [os.path.join('include', 'flexiblas')]})
-
-        return guesses

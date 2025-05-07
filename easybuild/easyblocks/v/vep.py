@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,10 +30,11 @@ import os
 import easybuild.tools.environment as env
 from easybuild.easyblocks.perl import get_major_perl_version
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_version, get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_VEP(EasyBlock):
@@ -47,6 +48,15 @@ class EB_VEP(EasyBlock):
         self.cfg['unpack_options'] = "--strip-components=1"
 
         self.api_mods_subdir = os.path.join('modules', 'api')
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Extra easyconfig parameters specific to VEP easyblock."""
+        extra_vars = EasyBlock.extra_options(extra_vars)
+        extra_vars.update({
+            'species': ['all', "Comma-separated list of species to pass to INSTALL.pl", CUSTOM],
+        })
+        return extra_vars
 
     def configure_step(self):
         """No custom configuration procedure for VEP."""
@@ -97,15 +107,15 @@ class EB_VEP(EasyBlock):
             # l: Bio::DB::HTS, should be provided via EasyBuild
             # p: plugins
             '--AUTO af',
-            # install all species
-            '--SPECIES all',
+            # install selected species
+            '--SPECIES %s' % self.cfg['species'],
             # don't update VEP during installation
             '--NO_UPDATE',
             # location to install Perl API modules into
             '--DESTDIR ' + api_mods_dir,
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for VEP."""
@@ -137,7 +147,7 @@ class EB_VEP(EasyBlock):
 
         super(EB_VEP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """Custom guesses for environment variables (PATH, ...) for VEP."""
         perl_majver = get_major_perl_version()
 
@@ -146,9 +156,7 @@ class EB_VEP(EasyBlock):
             perl_ver = get_software_version('Perl')
             perl_libpath.extend([os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)])
 
-        guesses = super(EB_VEP, self).make_module_req_guess()
-        guesses = {
-            'PATH': '',
-            'PERL%sLIB' % perl_majver: perl_libpath,
-        }
-        return guesses
+        self.module_load_environment.PATH = ''
+        setattr(self.module_load_environment, f'PERL{perl_majver}LIB', perl_libpath)
+
+        return super(EB_VEP, self).make_module_step(*args, **kwargs)

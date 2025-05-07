@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2019 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, find_glob_pattern
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_STAR_minus_CCM_plus_(EasyBlock):
@@ -65,7 +65,8 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
         # depending of the target filesystem the check for available disk space may fail, so disable it;
         # note that this makes the installer exit with non-zero exit code...
-        # env.setvar('CHECK_DISK_SPACE', 'OFF')
+        env.setvar('CHECK_DISK_SPACE', 'OFF')
+
         env.setvar('IATEMPDIR', tempfile.mkdtemp())
 
         cmd = ' '.join([
@@ -77,7 +78,10 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
             "-DADDSYSTEMPATH=false",
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+
+        # ignore exit code of command, since there's always a non-zero exit if $CHECK_DISK_SPACE is set to OFF;
+        # rely on sanity check to catch problems with the installation
+        run_shell_cmd(cmd, fail_on_error=False)
 
     def find_starccm_subdirs(self):
         """Determine subdirectory of install directory in which STAR-CCM+ was installed."""

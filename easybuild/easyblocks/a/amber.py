@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2022 Ghent University
-# Copyright 2015-2022 Stanford University
+# Copyright 2009-2025 Ghent University
+# Copyright 2015-2025 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ Modified by Stephane Thiell (Stanford University) for Amber14
 Enhanced/cleaned up by Kenneth Hoste (HPC-UGent)
 CMake support (Amber 20) added by James Carpenter and Simon Branford (University of Birmingham)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 import easybuild.tools.environment as env
@@ -41,7 +41,7 @@ from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.filetools import remove_dir, which
 
 
@@ -107,7 +107,7 @@ class EB_Amber(CMakeMake):
             # he or she selects "latest". (Note: "latest" is not
             # recommended for this reason and others.)
             for _ in range(self.cfg['patchruns']):
-                run_cmd(cmd, log_all=True)
+                run_shell_cmd(cmd)
         else:
             for (tree, patch_level) in zip(['AmberTools', 'Amber'], self.cfg['patchlevels']):
                 if patch_level == 0:
@@ -116,7 +116,7 @@ class EB_Amber(CMakeMake):
                 # Run as many times as specified. It is the responsibility
                 # of the easyconfig author to get this right.
                 for _ in range(self.cfg['patchruns']):
-                    run_cmd(cmd, log_all=True)
+                    run_shell_cmd(cmd)
 
         super(EB_Amber, self).patch_step(*args, **kwargs)
 
@@ -140,6 +140,17 @@ class EB_Amber(CMakeMake):
 
         if self.toolchain.options.get('openmp', None):
             self.cfg.update('configopts', '-DOPENMP=TRUE')
+
+        # note: for Amber 20, a patch is required to fix the CMake scripts so they're aware of FlexiBLAS:
+        # - cmake/patched-cmake-modules/FindBLASFixed.cmake
+        # - cmake/patched-cmake-modules/FindLAPACKFixed.cmake
+        flexiblas_root = get_software_root('FlexiBLAS')
+        if flexiblas_root:
+            self.cfg.update('configopts', '-DBLA_VENDOR=FlexiBLAS')
+        else:
+            openblas_root = get_software_root('OpenBLAS')
+            if openblas_root:
+                self.cfg.update('configopts', '-DBLA_VENDOR=OpenBLAS')
 
         cudaroot = get_software_root('CUDA')
         if cudaroot:
@@ -213,13 +224,14 @@ class EB_Amber(CMakeMake):
 
         # define environment variables for MPI, BLAS/LAPACK & dependencies
         mklroot = get_software_root('imkl')
-        openblasroot = get_software_root('OpenBLAS')
+        flexiblas_root = get_software_root('FlexiBLAS')
+        openblas_root = get_software_root('OpenBLAS')
         if mklroot:
             env.setvar('MKL_HOME', os.getenv('MKLROOT'))
-        elif openblasroot:
+        elif flexiblas_root or openblas_root:
             lapack = os.getenv('LIBLAPACK')
             if lapack is None:
-                raise EasyBuildError("LIBLAPACK (from OpenBLAS) not found in environment.")
+                raise EasyBuildError("$LIBLAPACK for OpenBLAS or FlexiBLAS not defined in build environment!")
             else:
                 env.setvar('GOTO', lapack)
 
@@ -292,7 +304,7 @@ class EB_Amber(CMakeMake):
         for flag, testrule in build_targets:
             # configure
             cmd = "%s ./configure %s" % (self.cfg['preconfigopts'], ' '.join(common_configopts + [flag, comp_str]))
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            run_shell_cmd(cmd)
 
             # build in situ using 'make install'
             # note: not 'build'
@@ -300,10 +312,10 @@ class EB_Amber(CMakeMake):
 
             # test
             if self.cfg['runtest']:
-                run_cmd("make %s" % testrule, log_all=True, simple=False)
+                run_shell_cmd("make %s" % testrule)
 
             # clean, overruling the normal 'build'
-            run_cmd("make clean")
+            run_shell_cmd("make clean")
 
     def install_step(self):
         """Install procedure for Amber."""
@@ -317,27 +329,27 @@ class EB_Amber(CMakeMake):
 
         # Run the tests located in the build directory
         if self.cfg['runtest']:
-            pretestcommands = 'source %s/amber.sh && cd %s/test' % (self.installdir, self.builddir)
+            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, self.builddir)
 
             # serial tests
-            run_cmd("%s && make test" % pretestcommands, log_all=True, simple=True)
+            run_shell_cmd("%s && make test.serial" % pretestcommands)
             if self.with_cuda:
-                (out, ec) = run_cmd("%s && make test.cuda.serial" % pretestcommands, log_all=True, simple=False)
-                if ec > 0:
+                res = run_shell_cmd("%s && make test.cuda_serial" % pretestcommands)
+                if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
-                (out, ec) = run_cmd("%s && make test.parallel" % pretestcommands, log_all=True, simple=False)
-                if ec > 0:
+                res = run_shell_cmd("%s && make test.parallel" % pretestcommands)
+                if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
             if self.with_mpi and self.with_cuda:
                 # Hard-code CUDA parallel tests to use 2 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 2))
-                (out, ec) = run_cmd("%s && make test.cuda_parallel" % pretestcommands, log_all=True, simple=False)
-                if ec > 0:
+                res = run_shell_cmd("%s && make test.cuda_parallel" % pretestcommands)
+                if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda_parallel tests for possible failures")
 
     def sanity_check_step(self):
@@ -369,7 +381,5 @@ class EB_Amber(CMakeMake):
         txt = super(EB_Amber, self).make_module_extra()
 
         txt += self.module_generator.set_environment('AMBERHOME', self.installdir)
-        if self.pylibdir:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
 
         return txt

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,11 +33,11 @@ EasyBuild support for building and installing HPL, implemented as an easyblock
 """
 
 import os
-import shutil
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.filetools import change_dir, copy_file, mkdir, remove_file, symlink
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_HPL(ConfigureMake):
@@ -61,26 +61,22 @@ class EB_HPL(ConfigureMake):
             makeincfile = os.path.join(basedir, 'Make.UNKNOWN')
             setupdir = os.path.join(basedir, 'setup')
 
-        try:
-            os.chdir(setupdir)
-        except OSError as err:
-            raise EasyBuildError("Failed to change to to dir %s: %s", setupdir, err)
+        change_dir(setupdir)
 
         cmd = "/bin/bash make_generic"
 
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
-        try:
-            os.symlink(os.path.join(setupdir, 'Make.UNKNOWN'), os.path.join(makeincfile))
-        except OSError as err:
-            raise EasyBuildError("Failed to symlink Make.UNKNOWN from %s to %s: %s", setupdir, makeincfile, err)
+        remove_file(makeincfile)
+        symlink(os.path.join(setupdir, 'Make.UNKNOWN'), makeincfile)
 
         # go back
-        os.chdir(self.cfg['start_dir'])
+        change_dir(self.cfg['start_dir'])
 
-    def build_step(self):
+    def build_step(self, topdir=None):
         """
         Build with make and correct make options
+        - provide topdir argument so this can be reused in HPCC easyblock
         """
 
         for envvar in ['MPICC', 'LIBLAPACK_MT', 'CPPFLAGS', 'LDFLAGS', 'CFLAGS']:
@@ -89,7 +85,9 @@ class EB_HPL(ConfigureMake):
                 raise EasyBuildError("Required environment variable %s not found (no toolchain used?).", envvar)
 
         # build dir
-        extra_makeopts = 'TOPdir="%s" ' % self.cfg['start_dir']
+        if not topdir:
+            topdir = self.cfg['start_dir']
+        extra_makeopts = 'TOPdir="%s" ' % topdir
 
         # compilers
         extra_makeopts += 'CC="%(mpicc)s" MPICC="%(mpicc)s" LINKER="%(mpicc)s" ' % {'mpicc': os.getenv('MPICC')}
@@ -116,14 +114,10 @@ class EB_HPL(ConfigureMake):
         """
         srcdir = os.path.join(self.cfg['start_dir'], 'bin', 'UNKNOWN')
         destdir = os.path.join(self.installdir, 'bin')
-        srcfile = None
-        try:
-            os.makedirs(destdir)
-            for filename in ["xhpl", "HPL.dat"]:
-                srcfile = os.path.join(srcdir, filename)
-                shutil.copy2(srcfile, destdir)
-        except OSError as err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
+        mkdir(destdir)
+        for filename in ["xhpl", "HPL.dat"]:
+            srcfile = os.path.join(srcdir, filename)
+            copy_file(srcfile, destdir)
 
     def sanity_check_step(self):
         """

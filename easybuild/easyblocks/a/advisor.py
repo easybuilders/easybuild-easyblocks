@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,33 +30,40 @@ EasyBuild support for installing the Intel Advisor XE, implemented as an easyblo
 @author: Josef Dvoracek (Institute of Physics, Czech Academy of Sciences)
 """
 
-from distutils.version import LooseVersion
+import os
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
+from easybuild.tools.build_log import EasyBuildError
 
 
 class EB_Advisor(IntelBase):
     """
     Support for installing Intel Advisor XE
+    - minimum version suported: 2020.x
     """
 
     def __init__(self, *args, **kwargs):
         """Constructor, initialize class variables."""
         super(EB_Advisor, self).__init__(*args, **kwargs)
-        if LooseVersion(self.version) < LooseVersion('2017'):
-            self.subdir = 'advisor_xe'
-        else:
+
+        if LooseVersion(self.version) < LooseVersion('2020'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+            )
+
+        if LooseVersion(self.version) < LooseVersion('2021'):
             self.subdir = 'advisor'
+        else:
+            self.subdir = os.path.join('advisor', 'latest')
+
+        # prepare module load environment
+        self.prepare_intel_tools_env()
 
     def prepare_step(self, *args, **kwargs):
         """Since 2019u3 there is no license required."""
-        if LooseVersion(self.version) >= LooseVersion('2019_update3'):
-            kwargs['requires_runtime_license'] = False
+        kwargs['requires_runtime_license'] = False
         super(EB_Advisor, self).prepare_step(*args, **kwargs)
-
-    def make_module_req_guess(self):
-        """Find reasonable paths for Advisor"""
-        return self.get_guesses_tools()
 
     def sanity_check_step(self):
         """Custom sanity check paths for Advisor"""

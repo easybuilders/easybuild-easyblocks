@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2022 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2025 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -19,7 +19,7 @@ EasyBuild support for building SAMtools (SAM - Sequence Alignment/Map), implemen
 @author: Fotis Georgatos (Uni.Lu)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 import stat

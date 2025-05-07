@@ -1,7 +1,7 @@
 ##
 # This is an easyblock for EasyBuild, see https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2015-2022 Juelich Supercomputing Centre, Germany
+# Copyright:: Copyright 2015-2025 Juelich Supercomputing Centre, Germany
 # Authors::   Bernd Mohr <b.mohr@fz-juelich.de>
 #             Markus Geimer <m.geimer@fz-juelich.de>
 # License::   3-clause BSD
@@ -98,8 +98,8 @@ class EB_PDT(ConfigureMake):
     def install_step(self):
         """Create symlinks into arch-specific directories"""
 
-        if self.cfg['parallel']:
-            self.cfg.update('installopts', '-j %s' % self.cfg['parallel'])
+        if self.parallel_flag:
+            self.cfg.update('installopts', self.parallel_flag)
 
         super(EB_PDT, self).install_step()
 

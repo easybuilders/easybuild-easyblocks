@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2022 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,7 +33,7 @@ EasyBlock for installing jaxlib, implemented as an easyblock
 import os
 import tempfile
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
@@ -51,7 +51,6 @@ class EB_jaxlib(PythonPackage):
         """Custom easyconfig parameters specific to jaxlib."""
         extra_vars = PythonPackage.extra_options()
 
-        extra_vars['use_pip'][0] = True
         # Run custom build script and install the generated whl file
         extra_vars['buildcmd'][0] = '%(python)s build/build.py'
         extra_vars['install_src'][0] = 'dist/*.whl'
@@ -89,7 +88,7 @@ class EB_jaxlib(PythonPackage):
 
         # Passed to the build command of bazel
         bazel_options = [
-            '--jobs=%s' % self.cfg['parallel'],
+            f'--jobs={self.cfg.parallel}',
             '--subcommands',
             '--action_env=PYTHONPATH',
             '--action_env=EBPYTHONPREFIXES',

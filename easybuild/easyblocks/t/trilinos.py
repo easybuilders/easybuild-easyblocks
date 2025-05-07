@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2022 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,16 +31,16 @@ import os
 import random
 import re
 
-from distutils.version import LooseVersion
+from string import ascii_letters
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
 from easybuild.tools.filetools import mkdir, remove_dir, symlink
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import ascii_letters
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -54,6 +54,8 @@ class EB_Trilinos(CMakeMake):
         extra_vars = {
             'shared_libs': [None, "Deprecated. Use build_shared_libs", CUSTOM],
             'openmp': [True, "Enable OpenMP support", CUSTOM],
+            'forward_deps': [True, "Enable all forward dependencies", CUSTOM],
+            'build_tests': [True, "Enable building tests/examples", CUSTOM],
             'all_exts': [True, "Enable all Trilinos packages", CUSTOM],
             'skip_exts': [[], "List of Trilinos packages to skip", CUSTOM],
             'verbose': [False, "Configure for verbose output", CUSTOM],
@@ -106,9 +108,11 @@ class EB_Trilinos(CMakeMake):
         if self.toolchain.options.get('usempi', None):
             self.cfg.update('configopts', "-DTPL_ENABLE_MPI:BOOL=ON")
 
-        # enable full testing
-        self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
-        self.cfg.update('configopts', "-DTrilinos_ENABLE_ALL_FORWARD_DEP_PACKAGES:BOOL=ON")
+        if self.cfg['build_tests']:
+            # enable full testing
+            self.cfg.update('configopts', "-DTrilinos_ENABLE_TESTS:BOOL=ON")
+        if self.cfg['forward_deps']:
+            self.cfg.update('configopts', "-DTrilinos_ENABLE_ALL_FORWARD_DEP_PACKAGES:BOOL=ON")
 
         lib_re = re.compile("^lib(.*).a$")
 
@@ -140,14 +144,12 @@ class EB_Trilinos(CMakeMake):
         if suitesparse:
             self.cfg.update('configopts', "-DTPL_ENABLE_UMFPACK:BOOL=ON")
             self.cfg.update('configopts', "-DTPL_ENABLE_Cholmod:BOOL=ON")
-            incdirs, libdirs, libnames = [], [], []
-            for lib in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "CCOLAMD", "CAMD"]:
-                incdirs.append(os.path.join(suitesparse, lib, "Include"))
-                libdirs.append(os.path.join(suitesparse, lib, "Lib"))
-                libnames.append(lib.lower())
+            incdir = os.path.join(suitesparse, "include")
+            libdir = os.path.join(suitesparse, "lib")
+            libs = ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "CCOLAMD", "CAMD"]
+            libnames = [lib.lower() for lib in libs]
 
             # add SuiteSparse config lib, it is in recent versions of suitesparse
-            libdirs.append(os.path.join(suitesparse, 'SuiteSparse_config'))
             libnames.append('suitesparseconfig')
             # because of "SuiteSparse_config.c:function SuiteSparse_tic: error: undefined reference to 'clock_gettime'"
             libnames.append('rt')
@@ -158,11 +160,11 @@ class EB_Trilinos(CMakeMake):
             # see https://answers.launchpad.net/dorsal/+question/223167
             libnames.append('libmetis.a')
 
-            self.cfg.update('configopts', '-DUMFPACK_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
-            self.cfg.update('configopts', '-DUMFPACK_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
+            self.cfg.update('configopts', '-DUMFPACK_INCLUDE_DIRS:PATH="%s"' % incdir)
+            self.cfg.update('configopts', '-DUMFPACK_LIBRARY_DIRS:PATH="%s"' % libdir)
             self.cfg.update('configopts', '-DUMFPACK_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
-            self.cfg.update('configopts', '-DCholmod_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
-            self.cfg.update('configopts', '-DCholmod_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
+            self.cfg.update('configopts', '-DCholmod_INCLUDE_DIRS:PATH="%s"' % incdir)
+            self.cfg.update('configopts', '-DCholmod_LIBRARY_DIRS:PATH="%s"' % libdir)
             self.cfg.update('configopts', '-DCholmod_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
 
         # BLACS
@@ -284,6 +286,15 @@ class EB_Trilinos(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('12.6'):
             libs.remove('Galeri')
             libs.extend(['galeri-epetra', 'galeri-xpetra'])
+
+        # Mesquite and MOOCHO packages gone in 12.18:
+        if LooseVersion(self.version) >= LooseVersion('12.18'):
+            libs.remove('Mesquite')
+            libs.remove('MOOCHO')
+
+        # GlobiPack package gone in 13.0:
+        if LooseVersion(self.version) >= LooseVersion('13.0'):
+            libs.remove('GlobiPack')
 
         # Get the library extension
         if self.cfg['build_shared_libs']:

@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2022 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for building and installing Lua, implemented as an easyblock
 @author: Ruben Di Battista (Ecole Polytechnique)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake

@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2022 Alexander Grund
+# Copyright 2020-2025 Alexander Grund
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,7 +29,9 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_root, get_software_libdir
 import easybuild.tools.environment as env
 from easybuild.tools.filetools import symlink
@@ -47,6 +49,39 @@ class EB_CMake(ConfigureMake):
             'use_openssl': [True, "Use openSSL (if building CURL in CMake)", CUSTOM],
         })
         return extra_vars
+
+    def patch_step(self):
+        """
+        Apply patch files, and do runtime patching (if needed).
+
+        Tweak UnixPaths.cmake if EasyBuild is configured with --sysroot.
+        """
+        super(EB_CMake, self).patch_step()
+
+        sysroot = build_option('sysroot')
+        if sysroot:
+            # prepend custom sysroot to all hardcoded paths like /lib and /usr
+            # see also patch applied by Gentoo:
+            # https://gitweb.gentoo.org/repo/gentoo.git/tree/dev-util/cmake/files/cmake-3.14.0_rc3-prefix-dirs.patch
+            srcdir = os.path.join(self.builddir, 'cmake-%s' % self.version)
+            unixpaths_cmake = os.path.join(srcdir, 'Modules', 'Platform', 'UnixPaths.cmake')
+            self.log.info("Patching %s to take into account --sysroot=%s", unixpaths_cmake, sysroot)
+
+            sysroot_lib_dirs = [os.path.join(sysroot, x) for x in ['/usr/lib64', '/usr/lib', '/lib64', '/lib']]
+            if os.path.exists(unixpaths_cmake):
+                regex_subs = [
+                    # add <sysroot>/usr/lib* and <sysroot>/lib* paths to CMAKE_SYSTEM_LIBRARY_PATH
+                    (r'(APPEND CMAKE_SYSTEM_LIBRARY_PATH)', r'\1 %s' % ' '.join(sysroot_lib_dirs)),
+                    # replace all hardcoded paths like /usr with <sysroot>/usr
+                    (r' /([a-z])', r' %s/\1' % sysroot),
+                    # also replace hardcoded '/' (root path)
+                    (r' / ', r' %s ' % sysroot),
+                    # also replace just '/' appearing at the end of a line
+                    (r' /$', r' %s' % sysroot),
+                ]
+                apply_regex_substitutions(unixpaths_cmake, regex_subs)
+            else:
+                raise EasyBuildError("File to patch %s not found", unixpaths_cmake)
 
     def configure_step(self):
         """
@@ -90,13 +125,6 @@ class EB_CMake(ConfigureMake):
             # Do not add this option if --system-<lib> or --no-system-<lib> is passed to configure
             if dep_name_upper in available_system_options and '-system-' + dep_name.lower() not in configure_opts:
                 add_cmake_opts['CMAKE_USE_SYSTEM_' + dep_name_upper] = 'ON'
-
-        sysroot = build_option('sysroot')
-        if sysroot:
-            self.log.info("Found sysroot '%s', adding it to $CMAKE_PREFIX_PATH and $CMAKE_LIBRARY_PATH", sysroot)
-            cmake_prefix_path.append(sysroot)
-            cmake_library_path.append(os.path.join(sysroot, 'usr', 'lib'))
-            cmake_include_path.append(os.path.join(sysroot, 'usr', 'include'))
 
         cmake_path_env_vars = {
             'CMAKE_PREFIX_PATH': cmake_prefix_path,

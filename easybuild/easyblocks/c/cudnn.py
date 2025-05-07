@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2022 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for cuDNN, implemented as an easyblock
 @author: Simon Branford (University of Birmingham)
 @author: Robert Mijakovic (LuxProvide)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.tarball import Tarball
 from easybuild.tools.build_log import EasyBuildError
@@ -68,3 +68,13 @@ class EB_cuDNN(Tarball):
         self.cfg['keepsymlinks'] = True
         self.cfg.template_values['cudnnarch'] = cudnnarch
         self.cfg.generate_template_values()
+
+    def fetch_step(self, *args, **kwargs):
+        """Check for EULA acceptance prior to getting sources."""
+        # EULA for cuDNN must be accepted via --accept-eula-for EasyBuild configuration option,
+        # or via 'accept_eula = True' in easyconfig file
+        self.check_accepted_eula(
+            name='cuDNN',
+            more_info='https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html'
+        )
+        return super(EB_cuDNN, self).fetch_step(*args, **kwargs)
