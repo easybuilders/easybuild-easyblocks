@@ -42,7 +42,6 @@ class EB_OpenBLAS(ConfigureMake):
 
         return ConfigureMake.extra_options(extra_vars)
 
-
     def __init__(self, *args, **kwargs):
         """ Ensure iterative build if also building with 64-bit integer support """
         super(EB_OpenBLAS, self).__init__(*args, **kwargs)
@@ -61,7 +60,6 @@ class EB_OpenBLAS(ConfigureMake):
             'testopts': '',
             'installopts': '',
         }
-
 
     def configure_step(self):
         """ set up some options - but no configure command to run"""
