@@ -1008,21 +1008,19 @@ class EB_LLVM(CMakeMake):
                 self._set_gcc_prefix()
                 self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
 
-            self.ignore_patterns = ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
-            nvptx_cond = self.nvptx_target_cond
-            amdgpu_cond = self.amdgpu_target_cond
+            self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
 
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
             pxtas_path = which('ptxas', on_error=IGNORE)
-            if nvptx_cond and not pxtas_path:
-                ignore_patterns += ['nvptx64-nvidia-cuda', 'nvptx64-nvidia-cuda-LTO']
+            if self.nvptx_target_cond and not pxtas_path:
+                self.ignore_patterns += ['nvptx64-nvidia-cuda', 'nvptx64-nvidia-cuda-LTO']
                 self.log.warning("PTXAS not found in PATH, ignoring failing tests for NVPTX target")
             # If the AMDGPU target is built, tests will be run if libhsa-runtime64.so is found.
             # However, this can cause issues if the system libraries are used, due to other loaded modules.
             # Therefore, ignore failing tests if ROCr-Runtime is not in the dependencies and
             # warn about this in the logs.
-            if amdgpu_cond and 'rocr-runtime' not in self.deps:
-                ignore_patterns += ['amdgcn-amd-amdhsa']
+            if self.amdgpu_target_cond and 'rocr-runtime' not in self.deps:
+                self.ignore_patterns += ['amdgcn-amd-amdhsa']
                 self.log.warning("ROCr-Runtime not in dependencies, ignoring failing tests for AMDGPU target.")
 
             max_failed = self.cfg['test_suite_max_failed']
