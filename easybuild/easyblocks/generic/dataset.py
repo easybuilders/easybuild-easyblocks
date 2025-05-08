@@ -80,8 +80,8 @@ class Dataset(Binary):
 
         for datafile in datafiles:
             cks = compute_checksum(datafile, checksum_type='sha256')
-            print(datafile, cks)
-            objstor_file = os.path.join(object_storage, cks[0], cks[1], cks[2], cks[3], cks[4:])
+            objstor_file = os.path.join(
+                object_storage, cks[0], cks[1], cks[2], cks[3], cks[4], cks[5], cks[6], cks[7], cks[8:])
             mkdir(os.path.dirname(objstor_file), parents=True)
             if is_readable(objstor_file):
                 remove_file(datafile)
