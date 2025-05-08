@@ -13,6 +13,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -164,6 +165,18 @@ class EB_OpenBLAS(ConfigureMake):
 
         cmd = ' '.join([self.cfg['prebuildopts'], makecmd, ' '.join(build_parts), self.cfg['buildopts']])
         run_shell_cmd(cmd)
+
+    def install_step(self):
+        """Fix libsuffix in openblas64.pc if it exists"""
+        super(EB_OpenBLAS, self).install_step()
+        if self.iter_idx > 0 and self.cfg['enable_ilp64'] and self.cfg['ilp64_lib_suffix']:
+            filepath = os.path.join(self.installdir, 'lib', 'pkgconfig', 'openblas64.pc')
+            if os.path.exists(filepath):
+                regex_subs = [
+                    (r'^libsuffix=.*$', f"libsuffix={self.cfg['ilp64_lib_suffix']}"),
+                    (r'^Name: openblas$', 'Name: openblas64'),
+                ]
+                apply_regex_substitutions(filepath, regex_subs, backup=False)
 
     def check_lapack_test_results(self, test_output):
         """Check output of OpenBLAS' LAPACK test suite ('make lapack-test')."""
