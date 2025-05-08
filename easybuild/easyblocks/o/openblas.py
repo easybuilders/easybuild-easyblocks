@@ -74,7 +74,7 @@ class EB_OpenBLAS(ConfigureMake):
 
         ilp64_lib_opts = {
             'INTERFACE64': '1',
-            'LIBNAMESUFFIX': self.cfg['ilp64_lib_suffix'],
+            'LIBPREFIX': f"libopenblas{self.cfg['ilp64_lib_suffix']}",
         }
         ilp64_symbol_opts = {
             'INTERFACE64': '1',
