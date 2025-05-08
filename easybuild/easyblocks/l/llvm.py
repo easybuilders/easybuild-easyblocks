@@ -845,8 +845,22 @@ class EB_LLVM(CMakeMake):
         change_dir(curdir)
 
     def _prepare_runtimes_rpath_wrappers(self, stage_dir):
-        """Run the build command also ensuring proper rpathing for the Runtime build."""
-        # TODO: need a way to find what lib_dir_runtime will be before the build
+        """Run the build command also ensuring proper rpath-ing for the Runtime build.
+
+        Binaries and libraries produced during runtimes make use of the newly built Clang compiler which is not
+        rpath-wrapped. This causes the executable to be produced without rpath (if required) and with
+        runpath set to $ORIGIN. This causes 2 problems:
+         - Binaries produced for the runtimes will fail the sanity check
+         - Runtimes libraries that link to libLLVM.so like 'libomptarget.so' need LD_LIBRARY_PATH to work.
+           This is because even if an executable compiled with the new llvm has rpath pointing to $EBROOTLLVM/lib,
+           it will not be resolved with the executable's rpath, but the library's runpath
+           (rpath is ignored if runpath is set).
+           Even if libLLVM.so is a direct dependency of the executable, it needs to be resolved both for the
+           executable and the library.
+
+        Here we create a mock binary for the current stage, rpath-wrap it and than pass the rpath-wrapped binary
+        to the runtimes build as the compiler through RUNTIMES_CMAKE_ARGS.
+        """
         lib_dir_runtime = self.get_runtime_lib_path(stage_dir, fail_ok=True)
 
         # Give priority to the libraries in the current stage if compiled to avoid failures due to undefined symbols
@@ -855,19 +869,6 @@ class EB_LLVM(CMakeMake):
 
         #######################################################
         # PROBLEM!!!:
-        # Binaries and libraries produced during runtimes make use of the newly built Clang compiler which is not
-        # rpath-wrapped. This causes the executable to be produced without rpath (if required) and with
-        # runpath set to $ORIGIN. This causes 2 problems:
-        #  - Binaries produced for the runtimes will fail the sanity check
-        #  - Runtimes libraries that link to libLLVM.so like 'libomptarget.so' need LD_LIBRARY_PATH to work.
-        #    This is because even if an executable compiled with the new llvm has rpath pointing to $EBROOTLLVM/lib,
-        #    it will not be resolved with the executable's rpath, but the library's runpath
-        #    (rpath is ignored if runpath is set).
-        #    Even if libLLVM.so is a direct dependency of the executable, it needs to be resolved both for the
-        #    executable and the library.
-        #
-        # Here we create a mock binary for the current stage by copying the previous one, rpath-wrapping it and
-        # and than pass the rpath-wrapped binary to the runtimes build as the compiler.
         #################################################
         bin_dir_new = os.path.join(stage_dir, 'bin')
         mkdir(bin_dir_new, parents=True)
