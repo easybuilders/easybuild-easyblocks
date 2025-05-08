@@ -29,8 +29,8 @@ class EB_OpenBLAS(ConfigureMake):
     def extra_options():
         """Custom easyconfig parameters for OpenBLAS easyblock."""
         extra_vars = {
-            'build_ilp64': [True, "Also build OpenBLAS with 64-bit integer support", CUSTOM],
-            'ilp64_lib_suffix': ['ilp64', "Library name suffix to use when building with 64-bit integers", CUSTOM],
+            'enable_ilp64': [True, "Also build OpenBLAS with 64-bit integer support", CUSTOM],
+            'ilp64_lib_suffix': ['64', "Library name suffix to use when building with 64-bit integers", CUSTOM],
             'ilp64_symbol_suffix': ['64_', "Symbol suffix to use when building with 64-bit integers", CUSTOM],
             'max_failing_lapack_tests_num_errors': [0, "Maximum number of LAPACK tests failing "
                                                     "due to numerical errors", CUSTOM],
@@ -46,16 +46,16 @@ class EB_OpenBLAS(ConfigureMake):
         """ Ensure iterative build if also building with 64-bit integer support """
         super(EB_OpenBLAS, self).__init__(*args, **kwargs)
 
-        if self.cfg['build_ilp64']:
-            if not type(self.cfg['buildopts']) is list:
+        if self.cfg['enable_ilp64']:
+            if not isinstance(self.cfg['buildopts'], list):
                 niter = 1 + sum([bool(self.cfg[x]) for x in ['ilp64_lib_suffix', 'ilp64_symbol_suffix']])
-                # ensure iterative build
+                # ensure iterative build by duplicating buildopts
                 self.cfg['buildopts'] = [self.cfg['buildopts']] * niter
             else:
-                print_warning("buildopts cannot be a list when 'build_ilp64' is enabled; ignoring 'build_ilp64'")
-                self.cfg['build_ilp64'] = False
+                print_warning("buildopts cannot be a list when 'enable_ilp64' is enabled; ignoring 'enable_ilp64'")
+                self.cfg['enable_ilp64'] = False
 
-        self.baseopts = {
+        self.orig_opts = {
             'buildopts': '',
             'testopts': '',
             'installopts': '',
@@ -82,15 +82,15 @@ class EB_OpenBLAS(ConfigureMake):
         }
 
         # ensure build/test/install options don't persist between iterations
-        if self.cfg['build_ilp64']:
+        if self.cfg['enable_ilp64']:
             if self.iter_idx > 0:
-                # reset to original options
-                for k in self.baseopts.keys():
-                    self.cfg[k] = self.baseopts[k]
+                # reset to original build/test/install options
+                for key in self.orig_opts.keys():
+                    self.cfg[key] = self.orig_opts[key]
             else:
                 # store original options
-                for k in self.baseopts.keys():
-                    self.baseopts[k] = self.cfg[k]
+                for key in self.orig_opts.keys():
+                    self.orig_opts[key] = self.cfg[key]
 
         if '%s=' % TARGET in self.cfg['buildopts']:
             # Add any TARGET in buildopts to default_opts, so it is passed to testopts and installopts
@@ -121,7 +121,8 @@ class EB_OpenBLAS(ConfigureMake):
                 env.setvar('CFLAGS', cflags)
 
         all_opts = default_opts.copy()
-        if self.iter_idx > 0 and self.cfg['build_ilp64']:
+        if self.iter_idx > 0 and self.cfg['enable_ilp64']:
+            # update build/test/install options for ILP64
             if self.cfg['ilp64_lib_suffix'] and self.cfg['ilp64_symbol_suffix']:
                 if self.iter_idx == 1:
                     all_opts.update(ilp64_lib_opts)
@@ -134,8 +135,8 @@ class EB_OpenBLAS(ConfigureMake):
 
         for key in sorted(all_opts.keys()):
             for opts_key in ['buildopts', 'testopts', 'installopts']:
-                if '%s=' % key not in self.cfg[opts_key]:
-                    self.cfg.update(opts_key, "%s='%s'" % (key, all_opts[key]))
+                if f'{key}=' not in self.cfg[opts_key]:
+                    self.cfg.update(opts_key, f"{key}='{all_opts[key]}'")
 
         self.cfg.update('installopts', 'PREFIX=%s' % self.installdir)
 
@@ -155,9 +156,9 @@ class EB_OpenBLAS(ConfigureMake):
         # Pass CFLAGS through command line to avoid redefinitions (issue xianyi/OpenBLAS#818)
         cflags = 'CFLAGS'
         if os.environ[cflags]:
-            self.cfg.update('buildopts', "%s='%s'" % (cflags, os.environ[cflags]))
+            self.cfg.update('buildopts', f"{cflags}='{os.environ[cflags]}'")
             del os.environ[cflags]
-            self.log.info("Environment variable %s unset and passed through command line" % cflags)
+            self.log.info(f"Environment variable {cflags} unset and passed through command line")
 
         makecmd = f'make {self.parallel_flag}'
 
@@ -209,7 +210,7 @@ class EB_OpenBLAS(ConfigureMake):
             run_tests += [self.cfg['runtest']]
 
         for runtest in run_tests:
-            cmd = "%s make %s %s" % (self.cfg['pretestopts'], runtest, self.cfg['testopts'])
+            cmd = f"{self.cfg['pretestopts']} make {runtest} {self.cfg['testopts']}"
             res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed
@@ -224,18 +225,19 @@ class EB_OpenBLAS(ConfigureMake):
 
     def sanity_check_step(self):
         """ Custom sanity check for OpenBLAS """
+        shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': ['include/cblas.h', 'include/f77blas.h', 'include/lapacke_config.h', 'include/lapacke.h',
                       'include/lapacke_mangling.h', 'include/lapacke_utils.h', 'include/openblas_config.h',
-                      'lib/libopenblas.a', 'lib/libopenblas.%s' % get_shared_lib_ext()],
+                      'lib/libopenblas.a', f'lib/libopenblas.{shlib_ext}'],
             'dirs': [],
         }
-        if self.cfg['build_ilp64']:
+        if self.cfg['enable_ilp64']:
             if self.cfg['ilp64_lib_suffix']:
-                custom_paths['files'].extend('lib/libopenblas_%s.%s' % (self.cfg['ilp64_lib_suffix'], x)
-                                             for x in ['a', get_shared_lib_ext()])
+                custom_paths['files'].extend(f"lib/libopenblas{self.cfg['ilp64_lib_suffix']}.{ext}"
+                                             for ext in ['a', shlib_ext])
             if self.cfg['ilp64_symbol_suffix']:
-                custom_paths['files'].extend('lib/libopenblas%s.%s' % (self.cfg['ilp64_symbol_suffix'], x)
-                                             for x in ['a', get_shared_lib_ext()])
+                custom_paths['files'].extend(f"lib/libopenblas{self.cfg['ilp64_symbol_suffix']}.{ext}"
+                                             for ext in ['a', shlib_ext])
 
         super(EB_OpenBLAS, self).sanity_check_step(custom_paths=custom_paths)
