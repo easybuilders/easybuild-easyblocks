@@ -233,11 +233,10 @@ class EB_OpenBLAS(ConfigureMake):
             'dirs': [],
         }
         if self.cfg['enable_ilp64']:
-            if self.cfg['ilp64_lib_suffix']:
-                custom_paths['files'].extend(f"lib/libopenblas{self.cfg['ilp64_lib_suffix']}.{ext}"
-                                             for ext in ['a', shlib_ext])
-            if self.cfg['ilp64_symbol_suffix']:
-                custom_paths['files'].extend(f"lib/libopenblas{self.cfg['ilp64_symbol_suffix']}.{ext}"
-                                             for ext in ['a', shlib_ext])
+            for suffixtype in 'lib', 'symbol':
+                filename_suffix = self.cfg[f'ilp64_{suffixtype}_suffix']
+                if filename_suffix:
+                    custom_paths['files'].extend(f"lib/libopenblas{filename_suffix}.{ext}"
+                                                 for ext in ['a', shlib_ext])
 
         super(EB_OpenBLAS, self).sanity_check_step(custom_paths=custom_paths)
