@@ -28,6 +28,7 @@ EasyBuild support for installing Gurobi, implemented as an easyblock
 
 @author: Bob Dröge (University of Groningen)
 @author: Samuel Moors (Vrije Universiteit Brussel)
+@author: Sven Hansen (RWTH Aachen University)
 """
 import os
 
@@ -77,6 +78,12 @@ class EB_Gurobi(Tarball):
 
         if get_software_root('Python') and LooseVersion(self.version) < LooseVersion('11'):
             run_shell_cmd("python setup.py install --prefix=%s" % self.installdir)
+
+        # Build C++ ABI with the chosen compiler
+        libbuilddir = os.path.join(self.installdir, "src", "build")
+        run_shell_cmd("make", work_dir=libbuilddir)
+        copy_file(os.path.join(libbuilddir, "libgurobi_c++.a"), os.path.join(self.installdir, "lib"))
+        run_shell_cmd("make clean", work_dir=libbuilddir)
 
     def sanity_check_step(self):
         """Custom sanity check for Gurobi."""
