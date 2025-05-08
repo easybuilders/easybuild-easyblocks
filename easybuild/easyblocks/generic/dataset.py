@@ -54,7 +54,7 @@ class Dataset(Binary):
 
     def __init__(self, *args, **kwargs):
         """Initialize Dataset-specific variables."""
-        super(Dataset, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.cfg['sources']:
             raise EasyBuildError(
@@ -70,31 +70,31 @@ class Dataset(Binary):
         """No install step, datasets are extracted directly into installdir"""
         pass
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Add files to object_storage, remove duplicates, add symlinks"""
         trace_msg('adding files to object_storage...')
 
         # creating object storage at root of software name to reuse identical files in different versions
         object_storage = os.path.join(os.pardir, 'object_storage')
-        mkdir(object_storage)
         datafiles = create_index(os.curdir)
 
         for datafile in datafiles:
-            checksum = compute_checksum(datafile, checksum_type='sha256')
-            print(datafile, checksum)
-            objstor_file = os.path.join(object_storage, checksum)
+            cks = compute_checksum(datafile, checksum_type='sha256')
+            print(datafile, cks)
+            objstor_file = os.path.join(object_storage, cks[0], cks[1], cks[2], cks[3], cks[4:])
+            mkdir(os.path.dirname(objstor_file), parents=True)
             if is_readable(objstor_file):
                 remove_file(datafile)
             else:
                 move_file(datafile, objstor_file)
             # use relative paths for symlinks to easily relocate data installations later on if needed
             symlink(objstor_file, datafile, use_abspath_source=False)
-            self.log.debug("Created symlink %s to %s" % (datafile, objstor_file))
+            self.log.debug(f"Created symlink {datafile} to {objstor_file}")
 
     def cleanup_step(self):
         """Cleanup sources after installation"""
         if self.cfg['cleanup_data_sources']:
             for src in self.src:
-                self.log.info("Removing data source %s" % src['name'])
+                self.log.info(f"Removing data source {src['name']}")
                 remove_file(src['path'])
-        super(Dataset, self).cleanup_step()
+        super().cleanup_step()
