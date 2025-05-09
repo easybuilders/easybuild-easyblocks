@@ -13,6 +13,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -74,7 +75,7 @@ class EB_OpenBLAS(ConfigureMake):
 
         ilp64_lib_opts = {
             'INTERFACE64': '1',
-            'LIBNAMESUFFIX': self.cfg['ilp64_lib_suffix'],
+            'LIBPREFIX': f"libopenblas{self.cfg['ilp64_lib_suffix']}",
         }
         ilp64_symbol_opts = {
             'INTERFACE64': '1',
@@ -165,6 +166,18 @@ class EB_OpenBLAS(ConfigureMake):
         cmd = ' '.join([self.cfg['prebuildopts'], makecmd, ' '.join(build_parts), self.cfg['buildopts']])
         run_shell_cmd(cmd)
 
+    def install_step(self):
+        """Fix libsuffix in openblas64.pc if it exists"""
+        super(EB_OpenBLAS, self).install_step()
+        if self.iter_idx > 0 and self.cfg['enable_ilp64'] and self.cfg['ilp64_lib_suffix']:
+            filepath = os.path.join(self.installdir, 'lib', 'pkgconfig', 'openblas64.pc')
+            if os.path.exists(filepath):
+                regex_subs = [
+                    (r'^libsuffix=.*$', f"libsuffix={self.cfg['ilp64_lib_suffix']}"),
+                    (r'^Name: openblas$', 'Name: openblas64'),
+                ]
+                apply_regex_substitutions(filepath, regex_subs, backup=False)
+
     def check_lapack_test_results(self, test_output):
         """Check output of OpenBLAS' LAPACK test suite ('make lapack-test')."""
 
@@ -233,11 +246,10 @@ class EB_OpenBLAS(ConfigureMake):
             'dirs': [],
         }
         if self.cfg['enable_ilp64']:
-            if self.cfg['ilp64_lib_suffix']:
-                custom_paths['files'].extend(f"lib/libopenblas{self.cfg['ilp64_lib_suffix']}.{ext}"
-                                             for ext in ['a', shlib_ext])
-            if self.cfg['ilp64_symbol_suffix']:
-                custom_paths['files'].extend(f"lib/libopenblas{self.cfg['ilp64_symbol_suffix']}.{ext}"
-                                             for ext in ['a', shlib_ext])
+            for suffixtype in 'lib', 'symbol':
+                filename_suffix = self.cfg[f'ilp64_{suffixtype}_suffix']
+                if filename_suffix:
+                    custom_paths['files'].extend(f"lib/libopenblas{filename_suffix}.{ext}"
+                                                 for ext in ['a', shlib_ext])
 
         super(EB_OpenBLAS, self).sanity_check_step(custom_paths=custom_paths)
