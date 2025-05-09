@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -80,8 +80,11 @@ class Dataset(Binary):
 
         for datafile in datafiles:
             cks = compute_checksum(datafile, checksum_type='sha256')
-            objstor_file = os.path.join(
-                object_storage, cks[0], cks[1], cks[2], cks[3], cks[4], cks[5], cks[6], cks[7], cks[8:])
+            # using puppet-style object store, for example this checksum:
+            # 00b68cbca8fe75a121e857359191f481d2e1262ce7c9998e9980fdb35c144733
+            # is stored at:
+            # 0/0/b/6/8/c/b/c/00b68cbca8fe75a121e857359191f481d2e1262ce7c9998e9980fdb35c144733
+            objstor_file = os.path.join(object_storage, os.sep.join(list(cks[:8])), cks)
             mkdir(os.path.dirname(objstor_file), parents=True)
             if is_readable(objstor_file):
                 remove_file(datafile)
