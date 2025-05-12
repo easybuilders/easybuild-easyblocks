@@ -71,4 +71,4 @@ class EB_libQGLViewer(ConfigureMake):
             'dirs': ['include/QGLViewer'],
         }
 
-        super(EB_libQGLViewer, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

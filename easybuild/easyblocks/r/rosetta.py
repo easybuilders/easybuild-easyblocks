@@ -51,14 +51,14 @@ class EB_Rosetta(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to Rosetta."""
-        super(EB_Rosetta, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.srcdir = None
         self.cxx = None
 
     def extract_step(self):
         """Extract sources, if they haven't been already."""
-        super(EB_Rosetta, self).extract_step()
+        super().extract_step()
         # locate sources, and unpack if necessary
         # old 'bundles' tarballs contain a gzipped tarball for source, recent ones contain unpacked source
         try:
@@ -260,7 +260,7 @@ class EB_Rosetta(EasyBlock):
 
     def make_module_extra(self):
         """Define extra environment variables specific to Rosetta."""
-        txt = super(EB_Rosetta, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('ROSETTA3_DB', os.path.join(self.installdir, 'database'))
         return txt
 
@@ -282,4 +282,4 @@ class EB_Rosetta(EasyBlock):
             'files': ["bin/%s.%slinux%srelease" % (x, infix, self.cxx) for x in binaries],
             'dirs': [],
         }
-        super(EB_Rosetta, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

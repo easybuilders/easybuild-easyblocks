@@ -53,7 +53,7 @@ class EB_Gurobi(Tarball):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor, define custom class variables specific to Gurobi."""
-        super(EB_Gurobi, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # make sure license file is available
         self.orig_license_file = self.cfg['license_file']
@@ -67,7 +67,7 @@ class EB_Gurobi(Tarball):
 
     def install_step(self):
         """Install Gurobi and license file."""
-        super(EB_Gurobi, self).install_step()
+        super().install_step()
 
         if self.cfg['copy_license_file']:
             if self.orig_license_file is None or not os.path.exists(self.orig_license_file):
@@ -93,11 +93,11 @@ class EB_Gurobi(Tarball):
         if get_software_root('Python'):
             custom_commands.append("python -c 'import gurobipy'")
 
-        super(EB_Gurobi, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom extra module file entries for Gurobi."""
-        txt = super(EB_Gurobi, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('GUROBI_HOME', self.installdir)
         txt += self.module_generator.set_environment('GRB_LICENSE_FILE', self.license_file)
         txt += self.module_generator.prepend_paths('MATLABPATH', 'matlab')

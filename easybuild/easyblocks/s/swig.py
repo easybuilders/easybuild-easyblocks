@@ -49,7 +49,7 @@ class EB_SWIG(ConfigureMake):
         else:
             self.cfg.update('configopts', '--without-python')
 
-        super(EB_SWIG, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for SWIG."""
@@ -58,4 +58,4 @@ class EB_SWIG(ConfigureMake):
             'files': ['bin/ccache-swig', 'bin/swig'],
             'dirs': [],
         }
-        super(EB_SWIG, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

@@ -57,7 +57,7 @@ class EB_WIEN2k(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Enable building in install dir."""
-        super(EB_WIEN2k, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.build_in_installdir = True
 
     @staticmethod
@@ -81,7 +81,7 @@ class EB_WIEN2k(EasyBlock):
 
     def extract_step(self):
         """Unpack WIEN2k sources using gunzip and provided expand_lapw script."""
-        super(EB_WIEN2k, self).extract_step()
+        super().extract_step()
 
         run_shell_cmd("gunzip *gz")
 
@@ -582,12 +582,12 @@ class EB_WIEN2k(EasyBlock):
             'dirs': [],
         }
 
-        super(EB_WIEN2k, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set WIENROOT environment variable, and correctly prepend PATH."""
 
-        txt = super(EB_WIEN2k, self).make_module_extra()
+        txt = super().make_module_extra()
 
         txt += self.module_generator.set_environment("WIENROOT", self.installdir)
         txt += self.module_generator.prepend_paths("PATH", [""])

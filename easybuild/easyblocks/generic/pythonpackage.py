@@ -459,7 +459,7 @@ class PythonPackage(ExtensionEasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
-        super(PythonPackage, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
@@ -741,16 +741,16 @@ class PythonPackage(ExtensionEasyBlock):
     def extract_step(self):
         """Unpack source files, unless instructed otherwise."""
         if self._should_unpack_source():
-            super(PythonPackage, self).extract_step()
+            super().extract_step()
 
     def pre_install_extension(self):
         """Prepare for installing Python package."""
-        super(PythonPackage, self).pre_install_extension()
+        super().pre_install_extension()
         self.prepare_python()
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for building and installing this Python package."""
-        super(PythonPackage, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         self.prepare_python()
 
     def configure_step(self):
@@ -973,7 +973,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         # we unpack unless explicitly told otherwise
         kwargs.setdefault('unpack_src', self._should_unpack_source())
-        super(PythonPackage, self).install_extension(*args, **kwargs)
+        super().install_extension(*args, **kwargs)
 
         # configure, build, test, install
         # See EasyBlock.get_steps
@@ -1001,7 +1001,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
         Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
 
-        super(PythonPackage, self).load_module(*args, **kwargs)
+        super().load_module(*args, **kwargs)
 
         # don't add user site directory to sys.path (equivalent to python -s),
         # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check;
@@ -1155,7 +1155,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.clean_up_fake_module(self.fake_mod_data)
             self.sanity_check_module_loaded = False
 
-        parent_success, parent_fail_msg = super(PythonPackage, self).sanity_check_step(*args, **kwargs)
+        parent_success, parent_fail_msg = super().sanity_check_step(*args, **kwargs)
 
         if parent_fail_msg:
             parent_fail_msg += ', '
@@ -1190,4 +1190,4 @@ class PythonPackage(ExtensionEasyBlock):
                 if os.path.exists(fullpath) and os.listdir(fullpath):
                     txt += self.module_generator.prepend_paths(PYTHONPATH, path)
 
-        return super(PythonPackage, self).make_module_extra(txt, *args, **kwargs)
+        return super().make_module_extra(*args, **kwargs) + txt

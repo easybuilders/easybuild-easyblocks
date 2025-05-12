@@ -189,4 +189,4 @@ class EB_Score_minus_P(ConfigureMake):
                     pass
                 self.cfg.update('configopts', configure_opt)
 
-        super(EB_Score_minus_P, self).configure_step(*args, **kwargs)
+        super().configure_step(*args, **kwargs)

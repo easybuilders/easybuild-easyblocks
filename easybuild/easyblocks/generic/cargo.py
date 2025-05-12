@@ -210,7 +210,7 @@ class Cargo(ExtensionEasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Constructor for Cargo easyblock."""
-        super(Cargo, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
         self.set_cargo_vars()
 
@@ -263,7 +263,7 @@ class Cargo(ExtensionEasyBlock):
         Required here to ensure the variables are defined for stand-alone installations and extensions,
         because the environment is reset to the initial environment right before loading the module.
         """
-        super(Cargo, self).load_module(*args, **kwargs)
+        super().load_module(*args, **kwargs)
         self.set_cargo_vars()
 
     def extract_step(self):

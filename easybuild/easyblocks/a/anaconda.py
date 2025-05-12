@@ -77,4 +77,4 @@ class EB_Anaconda(Binary):
             'files': [os.path.join('bin', x) for x in ['2to3', 'conda', 'pydoc', 'python', 'sqlite3']],
             'dirs': ['bin', 'etc', 'lib', 'pkgs'],
         }
-        super(EB_Anaconda, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

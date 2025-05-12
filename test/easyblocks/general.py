@@ -85,13 +85,13 @@ class GeneralEasyblockTest(TestCase):
 
     def setUp(self):
         """Test setup."""
-        super(GeneralEasyblockTest, self).setUp()
+        super().setUp()
         self.tmpdir = tempfile.mkdtemp()
         self.cwd = os.getcwd()
 
     def tearDown(self):
         """Test cleanup."""
-        super(GeneralEasyblockTest, self).tearDown()
+        super().tearDown()
         os.chdir(self.cwd)
         shutil.rmtree(self.tmpdir)
 

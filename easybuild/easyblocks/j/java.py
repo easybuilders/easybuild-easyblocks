@@ -61,7 +61,7 @@ class EB_Java(PackedBinary):
         else:
             raise EasyBuildError("Architecture %s is not supported for Java on EasyBuild", myarch)
 
-        super(EB_Java, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg.template_values['jdkarch'] = jdkarch
         self.cfg.generate_template_values()
@@ -92,7 +92,7 @@ class EB_Java(PackedBinary):
         Custom post-installation step:
         - ensure correct glibc is used when installing into custom sysroot and using RPATH
         """
-        super(EB_Java, self).post_processing_step()
+        super().post_processing_step()
 
         # patch binaries and libraries when using alternate sysroot in combination with RPATH
         sysroot = build_option('sysroot')
@@ -205,12 +205,12 @@ class EB_Java(PackedBinary):
             "javac -help",
         ]
 
-        super(EB_Java, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """
         Set $JAVA_HOME to installation directory
         """
-        txt = PackedBinary.make_module_extra(self)
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('JAVA_HOME', self.installdir)
         return txt

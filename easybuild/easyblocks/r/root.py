@@ -57,7 +57,7 @@ class EB_ROOT(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_ROOT, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # additional subdirectories specific to ROOT
         self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join('lib', 'root'))
@@ -151,10 +151,10 @@ class EB_ROOT(CMakeMake):
         if get_software_root('Python'):
             custom_commands.append("python -c 'import ROOT'")
 
-        super(EB_ROOT, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom extra module file entries for ROOT."""
-        txt = super(EB_ROOT, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('ROOTSYS', self.installdir)
         return txt

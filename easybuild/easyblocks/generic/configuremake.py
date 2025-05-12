@@ -206,7 +206,7 @@ class ConfigureMake(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialize easyblock."""
-        super(ConfigureMake, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.config_guess = None
 
@@ -233,7 +233,7 @@ class ConfigureMake(EasyBlock):
 
     def fetch_step(self, *args, **kwargs):
         """Custom fetch step for ConfigureMake so we use an updated config.guess."""
-        super(ConfigureMake, self).fetch_step(*args, **kwargs)
+        super().fetch_step(*args, **kwargs)
 
         # Use an updated config.guess from a global location (if possible)
         self.config_guess = self.obtain_config_guess()

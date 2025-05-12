@@ -52,4 +52,4 @@ class EB_XML(RPackage):
         else:
             raise EasyBuildError("zlib module not loaded (required)")
 
-        return super(EB_XML, self).install_R_package(*args, **kwargs)
+        return super().install_R_package(*args, **kwargs)

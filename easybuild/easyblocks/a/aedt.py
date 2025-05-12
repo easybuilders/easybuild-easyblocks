@@ -43,7 +43,7 @@ class EB_AEDT(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Initialize Ansys Electronics Desktop specific variables."""
-        super(EB_AEDT, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.subdir = None
 
     def _set_subdir(self):
@@ -120,7 +120,7 @@ class EB_AEDT(PackedBinary):
     def make_module_extra(self):
         """Extra module entries for Ansys Electronics Desktop."""
 
-        txt = super(EB_AEDT, self).make_module_extra()
+        txt = super().make_module_extra()
         ver = LooseVersion(self.version)
         short_ver = self.version[2:].replace('R', '')
 
@@ -160,4 +160,4 @@ class EB_AEDT(PackedBinary):
             inpfile = os.path.join(tempdir, 'sm-1.aedt')
             custom_commands = ['ansysedt -ng -batchsolve -Distributed -monitor %s' % inpfile]
 
-            super(EB_AEDT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

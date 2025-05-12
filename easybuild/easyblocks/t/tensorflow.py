@@ -251,7 +251,7 @@ class EB_TensorFlow(PythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Initialize TensorFlow easyblock."""
-        super(EB_TensorFlow, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         with self.cfg.disable_templating():
             self.cfg['exts_defaultclass'] = 'PythonPackage'
@@ -1195,7 +1195,7 @@ class EB_TensorFlow(PythonPackage):
             # tf_should_use importsweakref.finalize, which requires backports.weakref for Python < 3.4
             "%s -c 'from tensorflow.python.util import tf_should_use'" % self.python_cmd,
         ]
-        res = super(EB_TensorFlow, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        res = super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
         # test installation using MNIST tutorial examples
         if self.cfg['runtest']:

@@ -48,7 +48,7 @@ class EB_EasyBuildMeta(PythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
-        super(EB_EasyBuildMeta, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.real_initial_environ = copy.deepcopy(self.initial_environ)
 
@@ -86,7 +86,7 @@ class EB_EasyBuildMeta(PythonPackage):
         else:
             self.log.debug("Not unsetting $%s since it's not set" % env_var_name)
 
-        super(EB_EasyBuildMeta, self).check_readiness_step()
+        super().check_readiness_step()
 
     def build_step(self):
         """No building for EasyBuild packages."""
@@ -131,7 +131,7 @@ class EB_EasyBuildMeta(PythonPackage):
                     if pkg == 'easybuild-easyconfigs':
                         self.fix_easyconfigs_setup_py_setuptools61()
 
-                    super(EB_EasyBuildMeta, self).install_step()
+                    super().install_step()
 
         except OSError as err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
@@ -139,7 +139,7 @@ class EB_EasyBuildMeta(PythonPackage):
     def post_processing_step(self):
         """Remove setuptools.pth file that hard includes a system-wide (site-packages) path, if it is there."""
 
-        super(EB_EasyBuildMeta, self).post_processing_step()
+        super().post_processing_step()
 
         setuptools_pth = os.path.join(self.installdir, self.pylibdir, 'setuptools.pth')
         if os.path.exists(setuptools_pth):
@@ -258,20 +258,20 @@ class EB_EasyBuildMeta(PythonPackage):
             val = self.initial_environ.pop(key)
             self.log.info("$%s found in environment, unset for running sanity check (was: %s)", key, val)
 
-        super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """
         Set $EB_INSTALLPYTHON to ensure that this EasyBuild installation uses the same Python executable it was
         installed with (which can still be overridden by the user with $EB_PYTHON).
         """
-        txt = super(EB_EasyBuildMeta, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('EB_INSTALLPYTHON', self.python_cmd)
         return txt
 
     def make_module_step(self, fake=False):
         """Create module file, before copy of original environment that was tampered with is restored."""
-        modpath = super(EB_EasyBuildMeta, self).make_module_step(fake=fake)
+        modpath = super().make_module_step(fake=fake)
 
         if not fake:
             # restore copy of original environment

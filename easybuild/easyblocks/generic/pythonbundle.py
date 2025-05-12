@@ -56,7 +56,7 @@ class PythonBundle(Bundle):
 
     def __init__(self, *args, **kwargs):
         """Initialize PythonBundle easyblock."""
-        super(PythonBundle, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg['exts_defaultclass'] = 'PythonPackage'
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
@@ -96,14 +96,14 @@ class PythonBundle(Bundle):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for installing bundle of Python packages."""
-        super(Bundle, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         self.prepare_python()
 
     def extensions_step(self, *args, **kwargs):
         """Install extensions (usually PythonPackages)"""
         # don't add user site directory to sys.path (equivalent to python -s)
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        super(PythonBundle, self).extensions_step(*args, **kwargs)
+        super().extensions_step(*args, **kwargs)
 
     def test_step(self):
         """No global test step for bundle of Python packages."""
@@ -112,7 +112,7 @@ class PythonBundle(Bundle):
 
     def make_module_extra(self, *args, **kwargs):
         """Extra statements to include in module file: update $PYTHONPATH."""
-        txt = super(Bundle, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
 
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
         # if this Python package was installed for multiple Python versions, or if we prefer it
@@ -152,7 +152,7 @@ class PythonBundle(Bundle):
         """
         Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
 
-        super(PythonBundle, self).load_module(*args, **kwargs)
+        super().load_module(*args, **kwargs)
 
         # Don't add user site directory to sys.path (equivalent to python -s),
         # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check.
@@ -172,4 +172,4 @@ class PythonBundle(Bundle):
                 'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
             }
 
-        super(Bundle, self).sanity_check_step(*args, **kwargs)
+        super().sanity_check_step(*args, **kwargs)

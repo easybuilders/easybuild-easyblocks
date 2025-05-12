@@ -99,7 +99,7 @@ class EB_NVHPC(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor, define custom class variables specific to NVHPC."""
-        super(EB_NVHPC, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # Ideally we should be using something like `easybuild.tools.systemtools.get_cpu_architecture` here, however,
         # on `ppc64le` systems this function returns `POWER` instead of `ppc64le`. Since this path needs to reflect
@@ -278,11 +278,11 @@ class EB_NVHPC(PackedBinary):
                 minimal_compiler_cmd = f"cd {tmpdir} && nvc++ -std=c++20 minimal.cpp -o minimal"
                 custom_commands.append(minimal_compiler_cmd)
 
-        super(EB_NVHPC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Add environment variable for NVHPC location"""
-        txt = super(EB_NVHPC, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('NVHPC', self.installdir)
         if LooseVersion(self.version) >= LooseVersion('22.7'):
             # NVHPC 22.7+ requires the variable NVHPC_CUDA_HOME for external CUDA. CUDA_HOME has been deprecated.

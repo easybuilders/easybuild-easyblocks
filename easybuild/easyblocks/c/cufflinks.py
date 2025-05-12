@@ -40,7 +40,7 @@ class EB_Cufflinks(ConfigureMake):
             if not get_software_root(dep):
                 raise EasyBuildError("Dependency module %s not loaded?", dep)
 
-        super(EB_Cufflinks, self).configure_step()
+        super().configure_step()
 
     def patch_step(self):
         """
@@ -60,4 +60,4 @@ class EB_Cufflinks(ConfigureMake):
             line = re.sub(r'#include \<boost\/for\_each.hpp\>', '#include <boost/foreach.hpp>', line, count=0)
             sys.stdout.write(line)
 
-        super(EB_Cufflinks, self).patch_step()
+        super().patch_step()

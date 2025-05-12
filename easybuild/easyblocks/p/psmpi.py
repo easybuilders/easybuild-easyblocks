@@ -139,7 +139,7 @@ class EB_psmpi(EB_MPICH):
         pscom_flags += ' export PSCOM_CPPFLAGS="-I{0}/include $PSCOM_CPPFLAGS" &&'.format(pscom_path)
         self.cfg.update('preconfigopts', pscom_flags)
 
-        super(EB_psmpi, self).configure_step(add_mpich_configopts=False)
+        super().configure_step(add_mpich_configopts=False)
 
     # make and make install are default
 
@@ -154,6 +154,6 @@ class EB_psmpi(EB_MPICH):
         # ParaStationMPI < 5.1.1-1 is based on MPICH < 3.1.1.
         use_new_libnames = LooseVersion(self.version) >= LooseVersion('5.1.1-1')
 
-        super(EB_psmpi, self).sanity_check_step(use_new_libnames=use_new_libnames,
-                                                check_launchers=False,
-                                                check_static_libs=False)
+        super().sanity_check_step(use_new_libnames=use_new_libnames,
+                                  check_launchers=False,
+                                  check_static_libs=False)

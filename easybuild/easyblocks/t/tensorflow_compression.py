@@ -157,4 +157,4 @@ class EB_tensorflow_minus_compression(PythonPackage):
         if len(whl_paths) == 1:
             self.cfg['install_src'] = whl_paths[0]
 
-        super(EB_tensorflow_minus_compression, self).install_step()
+        super().install_step()

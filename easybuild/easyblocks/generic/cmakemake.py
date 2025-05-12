@@ -163,7 +163,7 @@ class CMakeMake(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Constructor for CMakeMake easyblock"""
-        super(CMakeMake, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._lib_ext = None
         self._cmake_version = None
         self.separate_build_dir = None
@@ -466,4 +466,4 @@ class CMakeMake(ConfigureMake):
             self.log.debug("`runtest = True` found, using '%s' as test_cmd", test_cmd)
             self.cfg['test_cmd'] = test_cmd
 
-        super(CMakeMake, self).test_step()
+        super().test_step()

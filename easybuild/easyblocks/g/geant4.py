@@ -69,7 +69,7 @@ class EB_Geant4(CMakeMake):
         shortver = self.version.replace('.0', '.').replace('.p0', '.')
         datadst = os.path.join(self.installdir, 'share', '%s-%s' % (self.name, shortver), 'data')
 
-        txt = super(EB_Geant4, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('G4INSTALL', self.installdir)
         # no longer needed in > 9.5, but leave it there for now.
         txt += self.module_generator.set_environment('G4VERSION', g4version)
@@ -118,4 +118,4 @@ class EB_Geant4(CMakeMake):
             'dirs': [include_dir],
         }
 
-        super(EB_Geant4, self).sanity_check_step(custom_paths)
+        super().sanity_check_step(custom_paths)

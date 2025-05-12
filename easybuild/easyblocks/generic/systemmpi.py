@@ -82,7 +82,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
     def __init__(self, *args, **kwargs):
         """Extra initialization: keep track of values that may change due to modifications to the version."""
-        super(SystemMPI, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # Keep track of original values of vars that are subject to change, for restoring later.
         # The version is determined/matched from the installation and the installdir is determined from the system
@@ -288,7 +288,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         self.cfg['version'] = self.orig_version
 
         # Retrieve module path extensions
-        res = super(SystemMPI, self).make_module_extend_modpath()
+        res = super().make_module_extend_modpath()
 
         # Reset to actual MPI version (e.g., "2.0.2")
         self.cfg['version'] = self.mpi_version
@@ -308,7 +308,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 extras += self.module_generator.set_environment(key, val)
             self.log.debug("make_module_extra added this: %s" % extras)
         else:
-            extras = super(SystemMPI, self).make_module_extra(*args, **kwargs)
+            extras = super().make_module_extra(*args, **kwargs)
         return extras
 
     def cleanup_step(self):
