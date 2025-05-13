@@ -1130,7 +1130,7 @@ class EB_LLVM(CMakeMake):
                 raise EasyBuildError("Failed to extract GCC installation path from output of '%s': %s", cmd, out)
             check_prefix = mch.group(1)
             if check_prefix != gcc_prefix:
-                error_msg = "GCC installation path '{check_prefix}' does not match expected path '{gcc_prefix}'"
+                error_msg = f"GCC installation path '{check_prefix}' does not match expected path '{gcc_prefix}'"
                 raise EasyBuildError(error_msg)
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
