@@ -422,7 +422,7 @@ class EB_OpenSSL_wrapper(Bundle):
             return None, None
 
         cmd = "%s version" % bin_path
-        res = run_shell_cmd(cmd, fail_on_error=False, hidden=True)
+        res = run_shell_cmd(cmd, fail_on_error=False, hidden=True, in_dry_run=True)
 
         try:
             bin_version = res.output.split(' ')[1]
