@@ -903,9 +903,11 @@ class EB_TensorFlow(PythonPackage):
         action_env['PYTHONNOUSERSITE'] = '1'
 
         # TF 2 (final) sets this in configure
-        if LooseVersion(self.version) < LooseVersion('2.0'):
-            if self._with_cuda:
-                self.target_opts.append('--config=cuda')
+        if (LooseVersion(self.version) < LooseVersion('2.0')) and self._with_cuda:
+            self.target_opts.append('--config=cuda')
+        # TF 2.18 with CUDA needs to set cuda_wheel to config
+        if (LooseVersion(self.version) >= LooseVersion('2.18')) and self._with_cuda:
+            self.target_opts.append('--config=cuda_wheel')
 
         # note: using --config=mkl results in a significantly different build, with a different
         # threading model (which may lead to thread oversubscription and significant performance loss,
