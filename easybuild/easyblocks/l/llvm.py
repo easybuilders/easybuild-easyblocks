@@ -592,7 +592,8 @@ class EB_LLVM(CMakeMake):
         if self.cfg.parallel:
             self.make_parallel_opts = f"-j {self.cfg.parallel}"
 
-        # Moved here from the __init__ to ensure this easyblock can be used as a Bundle component
+        # CMAKE_INSTALL_PREFIX and LLVM start directory are set here instead of in __init__ to 
+        # ensure this easyblock can be used as a Bundle component, see
         # https://github.com/easybuilders/easybuild-easyblocks/issues/3680
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
         start_dir = self.cfg['start_dir']
@@ -686,7 +687,7 @@ class EB_LLVM(CMakeMake):
         src_dir = os.path.join(self.llvm_src_dir, 'llvm')
         output = super().configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
 
-        # Get the LLVM HOST TRIPLE (e.g. x86_64-unknown-linux-gnu) from the output
+        # Get LLVM_HOST_TRIPLE (e.g. x86_64-unknown-linux-gnu) from the output
         for line in output.splitlines():
             if 'llvm host triple' in line.lower():
                 self.host_triple = line.split(':')[1].strip()
@@ -901,6 +902,7 @@ class EB_LLVM(CMakeMake):
 
             symlink(os.path.join(stage_dir, 'opt'), os.path.join(clang_mock_wrapper_dir, 'opt'))
 
+            # Use mocked rpath wrappers
             self.runtimes_cmake_args['CMAKE_C_COMPILER'] = [clang_mock]
             self.runtimes_cmake_args['CMAKE_CXX_COMPILER'] = [clangxx_mock]
 
