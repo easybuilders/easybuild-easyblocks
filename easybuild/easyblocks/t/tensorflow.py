@@ -663,7 +663,7 @@ class EB_TensorFlow(PythonPackage):
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(cuda_cc),
                 'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
-            
+
             # from v2.18 TF with CUDA needs this envs be set
             if LooseVersion(self.version) >= LooseVersion('2.18'):
                 config_env_vars.update({
