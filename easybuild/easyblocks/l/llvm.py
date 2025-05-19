@@ -592,7 +592,7 @@ class EB_LLVM(CMakeMake):
         if self.cfg.parallel:
             self.make_parallel_opts = f"-j {self.cfg.parallel}"
 
-        # CMAKE_INSTALL_PREFIX and LLVM start directory are set here instead of in __init__ to 
+        # CMAKE_INSTALL_PREFIX and LLVM start directory are set here instead of in __init__ to
         # ensure this easyblock can be used as a Bundle component, see
         # https://github.com/easybuilders/easybuild-easyblocks/issues/3680
         general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
@@ -693,8 +693,10 @@ class EB_LLVM(CMakeMake):
                 self.host_triple = line.split(':')[1].strip()
                 break
         else:
+            # LLVM_HOST_TRIPLE needs to be set when building runtimes or bootstrapping.
             if self.cfg['build_runtimes'] or self.cfg['bootstrap']:
                 raise EasyBuildError("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
+            # Otherwise it can be inferred a posteriori from the install directory
             else:
                 self.log.warning("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
 
@@ -868,9 +870,6 @@ class EB_LLVM(CMakeMake):
         # e.g. when calling the compiled clang-ast-dump for stage 3
         lib_path = os.path.join(stage_dir, lib_dir_runtime)
 
-        #######################################################
-        # PROBLEM!!!:
-        #################################################
         bin_dir_new = os.path.join(stage_dir, 'bin')
         mkdir(bin_dir_new, parents=True)
         with _wrap_env(bin_dir_new, lib_path):
