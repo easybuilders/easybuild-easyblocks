@@ -457,7 +457,7 @@ class EB_LLVM(CMakeMake):
         """Prepare step, modified to ensure install dir is deleted before building"""
         super(EB_LLVM, self).prepare_step(*args, **kwargs)
         # re-create installation dir (deletes old installation),
-        # Needed to unsure hardcoded rpath do not point to old installation during runtime builds and testing
+        # Needed to ensure hardcoded rpath do not point to old installation during runtime builds and testing
         self.make_installdir()
 
     def _add_cmake_runtime_args(self):
