@@ -106,8 +106,8 @@ def find_failed_test_names(tests_out):
     # FAILED [0.0623s] dynamo/test_dynamic_shapes.py::DynamicShapesExportTests::test_predispatch -  [snip]
     regex = r"^(FAILED) (?:\[.*?\] )?(?:\w|/)+\.py.*::(test_.*?) - "
     failed_test_cases.extend(re.findall(regex, tests_out, re.M))
-    return FailedTestNames(error=sorted(set(m[1] for m in failed_test_cases if m[0] == 'ERROR')),
-                           fail=sorted(set(m[1] for m in failed_test_cases if m[0] != 'ERROR')))
+    return FailedTestNames(error=sorted({m[1] for m in failed_test_cases if m[0] == 'ERROR'}),
+                           fail=sorted({m[1] for m in failed_test_cases if m[0] != 'ERROR'}))
 
 
 def parse_test_log(tests_out):
@@ -448,7 +448,7 @@ class EB_PyTorch(PythonPackage):
             raise EasyBuildError("Did not find a supported BLAS in dependencies. Don't know which BLAS lib to use")
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
-        dependency_names = set(dep['name'] for dep in self.cfg.dependencies())
+        dependency_names = {dep['name'] for dep in self.cfg.dependencies()}
         not_used_dep_names = []
         for enable_opt, dep_name in available_dependency_options:
             if dep_name is None:
@@ -678,7 +678,7 @@ class EB_PyTorch(PythonPackage):
         # Use a list of messages we can later join together
         failure_msgs = ['\t%s (%s)' % (suite.name, suite.summary) for suite in parsed_test_result.failed_suites]
         # These were accounted for
-        failed_test_suites = set(suite.name for suite in parsed_test_result.failed_suites)
+        failed_test_suites = {suite.name for suite in parsed_test_result.failed_suites}
         # Those are all that failed according to the summary output
         all_failed_test_suites = parsed_test_result.all_failed_suites
         # We should have determined all failed test suites and only those.
@@ -811,18 +811,20 @@ class TestSuite:
 
     def __init__(self, name: str, errors: int, failures: int, skipped: int, test_cases: Dict[str, TestCase]):
         num_per_state = Counter(test_case.state for test_case in test_cases.values())
-        if skipped != num_per_state[TestState.SKIPPED]:
-            raise ValueError(f'Expected {skipped} skipped tests but found {num_per_state[TestState.SKIPPED]}')
-        if failures != num_per_state[TestState.FAILURE]:
-            raise ValueError(f'Expected {failures} failed tests but found {num_per_state[TestState.FAILURE]}')
-        if errors != num_per_state[TestState.ERROR]:
-            raise ValueError(f'Expected {errors} errored tests but found {num_per_state[TestState.ERROR]}')
+        # Make sure dictionary contains one entry for each state
+        for state in TestState:
+            num_per_state.setdefault(state, 0)
+        # Note that those are lower bounds of reported values, as we ignore repeated elements per <testcase>
+        if num_per_state[TestState.SKIPPED] > skipped:
+            raise ValueError(f'Expected at most {skipped} skipped tests but found {num_per_state[TestState.SKIPPED]}')
+        if num_per_state[TestState.FAILURE] > failures:
+            raise ValueError(f'Expected at most {failures} failed tests but found {num_per_state[TestState.FAILURE]}')
+        if num_per_state[TestState.ERROR] > errors:
+            raise ValueError(f'Expected at most {errors} errored tests but found {num_per_state[TestState.ERROR]}')
 
         self.name = name
-        self.errors = errors
-        self.failures = failures
-        self.skipped = skipped
         self.test_cases = test_cases
+        self._num_per_state = num_per_state
 
     def __getitem__(self, name: str) -> TestCase:
         """Return testcase by name"""
@@ -830,14 +832,9 @@ class TestSuite:
 
     def _adjust_count(self, state: TestState, val: int):
         """Adjust the relevant state count"""
-        if state == TestState.FAILURE:
-            self.failures += val
-        elif state == TestState.SKIPPED:
-            self.skipped += val
-        elif state == TestState.ERROR:
-            self.errors += val
-        elif state != TestState.SUCCESS:
+        if state not in TestState:
             raise ValueError(f'Invalid state {state}')
+        self._num_per_state[state] += val
 
     @property
     def num_tests(self) -> int:
@@ -845,9 +842,24 @@ class TestSuite:
         return len(self.test_cases)
 
     @property
+    def failures(self) -> int:
+        """Return the number of failed tests"""
+        return self._num_per_state[TestState.FAILURE]
+
+    @property
+    def skipped(self) -> int:
+        """Return the number of skipped tests"""
+        return self._num_per_state[TestState.SKIPPED]
+
+    @property
+    def errors(self) -> int:
+        """Return the number of errored tests"""
+        return self._num_per_state[TestState.ERROR]
+
+    @property
     def summary(self) -> str:
         """Return a textual sumary"""
-        num_passed = len(self.test_cases) - self.errors - self.failures - self.skipped
+        num_passed = self._num_per_state[TestState.SUCCESS]
         return f'{self.failures} failed, {num_passed} passed, {self.skipped} skipped, {self.errors} errors'
 
     def get_tests(self) -> Iterable[TestCase]:
@@ -882,6 +894,8 @@ def parse_test_cases(test_suite_el: ET.Element) -> List[TestCase]:
     for testcase in test_suite_el.iterfind("testcase"):
         classname = testcase.attrib["classname"]
         test_name = f'{classname}.{testcase.attrib["name"]}'
+        # Note: It is possible that a test has (the same?) element multiple times, likely when using variants.
+        # Ignore that and only check if it has one of the failure tags at least once.
         failed, errored, skipped = [testcase.find(tag) is not None for tag in ("failure", "error", "skipped")]
         num_reruns = len(testcase.findall("rerun"))
 
@@ -972,51 +986,56 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
     :param file_path: Path to an XML file storing test results.
     :return: A list of TestSuite objects representing the parsed structure.
     """
-    root = ET.parse(xml_file).getroot()
+    try:
+        root = ET.parse(xml_file).getroot()
 
-    # Normalize root to be a list of test suite elements
-    if root.tag == "testsuites":
-        test_suite_xml: List[ET.Element] = root.findall("testsuite")
-    elif root.tag == "testsuite":
-        test_suite_xml = [root]
-    else:
-        raise ValueError("Root element must be <testsuites> or <testsuite>.")
+        # Normalize root to be a list of test suite elements
+        if root.tag == "testsuites":
+            test_suite_xml: List[ET.Element] = root.findall("testsuite")
+        elif root.tag == "testsuite":
+            test_suite_xml = [root]
+        else:
+            raise ValueError("Root element must be <testsuites> or <testsuite>.")
 
-    # Suite name to correctly deduplicate tests and match against run_test.py output
-    suite_name = determine_suite_name(xml_file, test_suite_xml)
+        # Suite name to correctly deduplicate tests and match against run_test.py output
+        suite_name = determine_suite_name(xml_file, test_suite_xml)
 
-    test_suites: List[TestSuite] = []
+        test_suites: List[TestSuite] = []
 
-    for test_suite in test_suite_xml:
-        errors = int(test_suite.attrib["errors"])
-        failures = int(test_suite.attrib["failures"])
-        skipped = int(test_suite.attrib["skipped"])
-        num_tests = int(test_suite.attrib["tests"])
-        if num_tests < failures + skipped + errors:
-            raise ValueError(f"Invalid test count: "
-                             f"{num_tests} tests, {failures} failures, {skipped} skipped, {errors} errors")
+        for test_suite in test_suite_xml:
+            # Those are based on the number of the corresponding elements in all <testcase>-elements.
+            # This means e.g. that a test with multiple <skipped> will be counted as multiple skipped tests.
+            errors = int(test_suite.attrib["errors"])
+            failures = int(test_suite.attrib["failures"])
+            skipped = int(test_suite.attrib["skipped"])
+            # Note: There might be less <testcase>-elements than reported by this attribute
+            # when unittest's `subTest` is used: https://github.com/xmlrunner/unittest-xml-reporting/issues/292
+            num_tests = int(test_suite.attrib["tests"])
+            # But it needs to be at least consistent with the "non-passing" test numbers
+            if num_tests < failures + skipped + errors:
+                raise ValueError(f"Invalid test count: "
+                                 f"{num_tests} tests, {failures} failures, {skipped} skipped, {errors} errors")
 
-        parsed_test_cases = parse_test_cases(test_suite)
-        if not parsed_test_cases:
-            # No data about the test cases or even the name of the suite, so ignore it
-            if num_tests > 0:
-                raise ValueError("Testsuite contains no test cases, but reports tests.")
-            continue
+            parsed_test_cases = parse_test_cases(test_suite)
+            if not parsed_test_cases:
+                # No data about the test cases or even the name of the suite, so ignore it
+                if num_tests > 0:
+                    raise ValueError("Testsuite contains no test cases, but reports tests.")
+                continue
 
-        test_cases: Dict[str, TestCase] = {}
-        for test_case in parsed_test_cases:
-            if test_case.name in test_cases:
-                raise ValueError(f"Duplicate test case '{test_case}' in test suite {suite_name}")
-            test_cases[test_case.name] = test_case
+            test_cases: Dict[str, TestCase] = {}
+            for test_case in parsed_test_cases:
+                if test_case.name in test_cases:
+                    raise ValueError(f"Duplicate test case '{test_case}' in test suite {suite_name}")
+                test_cases[test_case.name] = test_case
 
-        if len(test_cases) != num_tests:
-            raise ValueError(f"Number of test cases does not match the total number of tests: "
-                             f"{len(test_cases)} vs. {num_tests}")
-        test_suites.append(
-            TestSuite(name=suite_name, test_cases=test_cases,
-                      errors=errors, failures=failures, skipped=skipped,
-                      )
-        )
+            test_suites.append(
+                TestSuite(name=suite_name, test_cases=test_cases,
+                          errors=errors, failures=failures, skipped=skipped,
+                          )
+            )
+    except Exception as e:
+        raise ValueError(f"Failed to parse test result file '{xml_file}': {e}")
     return test_suites
 
 
