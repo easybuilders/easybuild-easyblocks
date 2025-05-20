@@ -435,7 +435,7 @@ class EB_LLVM(CMakeMake):
             if self.nvptx_target_cond:
                 if LooseVersion(self.version) < LooseVersion('20') and not cuda_cc_list:
                     raise EasyBuildError(
-                        f"LLVM < 20 requires 'cuda-compute-capabilities' to build with {BUILD_TARGET_NVPTX}"
+                        f"LLVM < 20 requires 'cuda_compute_capabilities' to build with {BUILD_TARGET_NVPTX}"
                     )
                 self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc_list]
                 self.offload_targets += ['cuda']
