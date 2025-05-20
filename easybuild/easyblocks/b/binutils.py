@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, get_cpu_family, get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
@@ -58,10 +58,13 @@ class EB_binutils(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor"""
-        super(EB_binutils, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
-        # ld.gold linker is not supported on RISC-V
-        self.use_gold = get_cpu_family() != RISCV
+        if LooseVersion(self.version) >= LooseVersion('2.44') or get_cpu_family() == RISCV:
+            # ld.gold linker is not supported on RISC-V, and is being phased out starting from v2.44
+            self.use_gold = False
+        else:
+            self.use_gold = True
 
     def determine_used_library_paths(self):
         """Check which paths are used to search for libraries"""
@@ -70,11 +73,11 @@ class EB_binutils(ConfigureMake):
         compiler_cmd = os.environ.get('CC', 'gcc')
 
         # determine library search paths for GCC
-        stdout, ec = run_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler_cmd, simple=False, log_all=True)
-        if ec:
+        res = run_shell_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler_cmd)
+        if res.exit_code:
             raise EasyBuildError("Failed to determine library search dirs from compiler %s", compiler_cmd)
 
-        m = re.search('^libraries: *=(.*)$', stdout, re.M)
+        m = re.search('^libraries: *=(.*)$', res.output, re.M)
         paths = nub(os.path.abspath(p) for p in m.group(1).split(os.pathsep))
         self.log.debug('Unique library search paths from compiler %s: %s', compiler_cmd, paths)
 
@@ -185,7 +188,7 @@ class EB_binutils(ConfigureMake):
                 self.cfg.update('configopts', '--without-debuginfod')
 
         # complete configuration with configure_method of parent
-        super(EB_binutils, self).configure_step()
+        super().configure_step()
 
         if self.cfg['install_libiberty']:
             cflags = os.getenv('CFLAGS')
@@ -198,7 +201,7 @@ class EB_binutils(ConfigureMake):
 
     def install_step(self):
         """Install using 'make install', also install libiberty if desired."""
-        super(EB_binutils, self).install_step()
+        super().install_step()
 
         # only install libiberty files if if they're not there yet;
         # libiberty.a is installed by default for old binutils versions
@@ -268,14 +271,14 @@ class EB_binutils(ConfigureMake):
         if any(dep['name'] == 'zlib' for dep in build_deps):
             for binary in binaries:
                 bin_path = os.path.join(self.installdir, 'bin', binary)
-                out, _ = run_cmd("file %s" % bin_path, simple=False)
-                if re.search(r'statically linked', out):
+                res = run_shell_cmd("file %s" % bin_path)
+                if re.search(r'statically linked', res.output):
                     # binary is fully statically linked, so no chance for dynamically linked libz
                     continue
 
                 # check whether libz is linked dynamically, it shouldn't be
-                out, _ = run_cmd("ldd %s" % bin_path, simple=False)
-                if re.search(r'libz\.%s' % shlib_ext, out):
-                    raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, out)
+                res = run_shell_cmd("ldd %s" % bin_path)
+                if re.search(r'libz\.%s' % shlib_ext, res.output):
+                    raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, res.output)
 
-        super(EB_binutils, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

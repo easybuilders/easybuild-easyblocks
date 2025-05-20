@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2024 Ghent University
-# Copyright 2019-2024 Micael Oliveira
+# Copyright 2009-2025 Ghent University
+# Copyright 2019-2025 Micael Oliveira
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -77,7 +77,7 @@ class EB_ELPA(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for ELPA."""
-        super(EB_ELPA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         for flag in ELPA_CPU_FEATURE_FLAGS:
             # fail-safe: make sure we're not overwriting an existing attribute (could lead to weird bugs if we do)
@@ -178,7 +178,7 @@ class EB_ELPA(ConfigureMake):
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
-        return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
+        return super().run_all_steps(*args, **kwargs)
 
     def configure_step(self):
         """Configure step for ELPA"""
@@ -223,11 +223,11 @@ class EB_ELPA(ConfigureMake):
                                  'current compiler family (%s). Please add the correct preprocessor '
                                  'for this compiler family to cpp_dict in the ELPA EasyBlock', comp_fam)
 
-        super(EB_ELPA, self).configure_step()
+        super().configure_step()
 
     def patch_step(self, *args, **kwargs):
         """Patch manual_cpp script to avoid using hardcoded /usr/bin/python."""
-        super(EB_ELPA, self).patch_step(*args, **kwargs)
+        super().patch_step(*args, **kwargs)
 
         # avoid that manual_cpp script uses hardcoded /usr/bin/python
         manual_cpp = 'manual_cpp'
@@ -268,4 +268,4 @@ class EB_ELPA(ConfigureMake):
 
         custom_paths['files'] = extra_files
 
-        super(EB_ELPA, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

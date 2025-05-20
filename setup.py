@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2024 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,7 +40,7 @@ from distutils.core import setup
 sys.path.append('easybuild')
 from easyblocks import VERSION  # noqa
 
-FRAMEWORK_MAJVER = str(VERSION).split('.')[0]
+FRAMEWORK_MAJVER = VERSION.split('.')[0]
 
 # log levels: 0=WARN (default), 1=INFO, 2=DEBUG
 log.set_verbosity(1)
@@ -55,7 +55,7 @@ log.info("Installing version %s (required versions: API >= %s)" % (VERSION, FRAM
 
 setup(
     name="easybuild-easyblocks",
-    version=str(VERSION),
+    version=VERSION,
     author="EasyBuild community",
     author_email="easybuild@lists.ugent.be",
     description="""Python modules which implement support for installing particular \
@@ -73,14 +73,14 @@ setup(
         "Intended Audience :: System Administrators",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: POSIX :: Linux",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Software Development :: Build Tools",
     ],
     platforms="Linux",

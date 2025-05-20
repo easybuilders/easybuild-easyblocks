@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2024 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -65,7 +65,7 @@ class EB_NCCL(ConfigureMake):
         # Set PREFIX to correctly generate nccl.pc
         self.cfg.update('buildopts', "PREFIX=%s" % self.installdir)
 
-        super(EB_NCCL, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """Install NCCL"""
@@ -73,7 +73,7 @@ class EB_NCCL(ConfigureMake):
 
         copy_file(os.path.join(self.cfg['start_dir'], 'LICENSE.txt'), os.path.join(self.installdir, 'LICENSE.txt'))
 
-        super(EB_NCCL, self).install_step()
+        super().install_step()
 
     def sanity_check_step(self):
         """Custom sanity check paths for NCCL"""
@@ -83,4 +83,4 @@ class EB_NCCL(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_NCCL, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

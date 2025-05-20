@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 the Cyprus Institute
+# Copyright 2009-2025 the Cyprus Institute
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,4 +48,4 @@ class EB_BLAT(MakeCp):
         bindir = os.path.join(os.getcwd(), "bin")
         self.cfg.update('buildopts', "BINDIR=%s" % bindir)
 
-        return super(EB_BLAT, self).build_step(verbose=verbose)
+        return super().build_step(verbose=verbose)

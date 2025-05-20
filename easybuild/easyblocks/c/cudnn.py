@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2024 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,7 +42,7 @@ class EB_cuDNN(Tarball):
         """ Init the cuDNN easyblock adding a new cudnnarch template var """
 
         # Need to call super's init first, so we can use self.version
-        super(EB_cuDNN, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # Generate cudnnarch template value for this system
         cudnnarch = False
@@ -77,4 +77,4 @@ class EB_cuDNN(Tarball):
             name='cuDNN',
             more_info='https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html'
         )
-        return super(EB_cuDNN, self).fetch_step(*args, **kwargs)
+        return super().fetch_step(*args, **kwargs)

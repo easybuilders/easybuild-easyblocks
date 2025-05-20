@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -84,7 +84,7 @@ class EB_Extrae(ConfigureMake):
         if get_cpu_architecture() == RISCV64:
             self.cfg.update('configopts', "--enable-posix-clock")
 
-        super(EB_Extrae, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Extrae."""
@@ -92,4 +92,4 @@ class EB_Extrae(ConfigureMake):
             'files': ['bin/mpi2prv', 'include/extrae_user_events.h', ('lib/libmpitrace.a', 'lib64/libmpitrace.a')],
             'dirs': [],
         }
-        super(EB_Extrae, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

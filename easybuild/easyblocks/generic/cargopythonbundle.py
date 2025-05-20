@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2024 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,7 +51,7 @@ class CargoPythonBundle(PythonBundle, Cargo):  # PythonBundle must come first to
     def __init__(self, *args, **kwargs):
         """Constructor for CargoPythonBundle easyblock."""
         self.check_for_sources = False  # make Bundle allow sources (as crates are treated as sources)
-        super(CargoPythonBundle, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # Cargo inherits from ExtensionEasyBlock, thus EB treats the software itself as an extension
         # Setting modulename to False to ensure that sanity checks are performed on the extensions only

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ import os
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools.filetools import apply_regex_substitutions, copy_dir, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_SEPP(PythonPackage):
@@ -38,10 +38,10 @@ class EB_SEPP(PythonPackage):
 
     def configure_step(self, *args, **kwargs):
         """Configure SEPP using setup.py."""
-        super(EB_SEPP, self).configure_step(*args, **kwargs)
+        super().configure_step(*args, **kwargs)
 
         # Configure sepp
-        run_cmd("python setup.py config -c")
+        run_shell_cmd("python setup.py config -c")
 
     def install_step(self, *args, **kwargs):
         """
@@ -49,7 +49,7 @@ class EB_SEPP(PythonPackage):
         home.path - file specifying path to SEPP config dir (.sepp)
         main.config - SEPP configuration file
         """
-        super(EB_SEPP, self).install_step(*args, **kwargs)
+        super().install_step(*args, **kwargs)
 
         python_site_packages_dir = os.path.join(self.installdir, self.pylibdir)
 
@@ -86,4 +86,4 @@ class EB_SEPP(PythonPackage):
         }
         custom_commands = ["%s --help" % s for s in scripts]
 
-        super(EB_SEPP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -132,12 +132,6 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=N
         re.compile(r"log\.error\("),
         re.compile(r"log\.exception\("),
         re.compile(r"log\.raiseException\("),
-        # check for use of 'basestring', which is Python 2.x only (should use string_type from tools.py2vs3 instead)
-        re.compile(r"[^\w]basestring([^\w]|$)"),
-        # check for use of '.iteritems()', which is Python 2.x only (should use .items instead)
-        re.compile(r"\.iteritems\(\)"),
-        # sys.maxint is no longer there in Python 3
-        re.compile(r"sys\.maxint"),
     ]
     for regexp in regexps:
         self.assertFalse(regexp.search(txt), "No match for '%s' in %s" % (regexp.pattern, easyblock))
@@ -189,6 +183,14 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=N
             if hasattr(mod, fn):
                 tup = (fn, app.__module__, globals()[fn].__module__)
                 self.assertTrue(getattr(mod, fn) is globals()[fn], "%s in %s is imported from %s" % tup)
+
+        # check whether easyblock instance is still using run_cmd or run_cmd_qa
+        for fn in ('run_cmd', 'run_cmd_qa'):
+            error_msg = "%s easyblock is still using %s" % (app.__module__, fn)
+            error_msg += ", should be using run_shell_cmd instead"
+            self.assertFalse(hasattr(mod, fn), error_msg)
+
+        # check whether easyblock instance is using functions that have been renamed
         renamed_functions = [
             ('source_paths', 'source_path'),
             ('get_avail_core_count', 'get_core_count'),
@@ -226,6 +228,13 @@ def suite():
         elif easyblock_fn == 'systemmpi.py':
             # use OpenMPI as name when testing SystemMPI easyblock
             innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
+        elif easyblock_fn in ['advisor.py', 'icc.py', 'iccifort.py', 'ifort.py', 'imkl.py', 'imkl_fftw.py',
+                              'inspector.py', 'itac.py', 'tbb.py', 'vtune.py']:
+            # family of IntelBase easyblocks have a minimum version support based on currently supported toolchains
+            innertest = make_inner_test(easyblock, version='9999.9')
+        elif easyblock_fn == 'aocc.py':
+            # custom easyblock for AOCC expects a version it can map to a Clang version
+            innertest = make_inner_test(easyblock, version='4.2.0')
         elif easyblock_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
@@ -235,6 +244,15 @@ def suite():
         elif easyblock_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, version='1.1')
+        elif easyblock_fn == 'paraver.py':
+            # custom easyblock for Paraver requires version >= 4.7
+            innertest = make_inner_test(easyblock, version='4.8')
+        elif easyblock_fn == 'petsc.py':
+            # custom easyblock for PETSc has a minimum version requirement
+            innertest = make_inner_test(easyblock, version='99.9')
+        elif easyblock_fn in ['python.py', 'tkinter.py']:
+            # custom easyblock for Python (ensurepip) requires version >= 3.4.0
+            innertest = make_inner_test(easyblock, version='3.4.0')
         elif easyblock_fn == 'torchvision.py':
             # torchvision easyblock requires that PyTorch is listed as dependency
             innertest = make_inner_test(easyblock, name='torchvision', deps=[('PyTorch', '1.12.1')])

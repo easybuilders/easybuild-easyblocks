@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,7 +29,7 @@ EasyBuild support for software that uses the Waf build system.
 """
 
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class Waf(EasyBlock):
@@ -48,9 +48,9 @@ class Waf(EasyBlock):
             '--prefix=%s' % self.installdir,
             self.cfg['configopts'],
         ])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        res = run_shell_cmd(cmd)
 
-        return out
+        return res.output
 
     def build_step(self, verbose=False, path=None):
         """
@@ -62,9 +62,9 @@ class Waf(EasyBlock):
             'build',
             self.cfg['buildopts'],
         ])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        res = run_shell_cmd(cmd)
 
-        return out
+        return res.output
 
     def install_step(self, verbose=False, path=None):
         """
@@ -76,6 +76,6 @@ class Waf(EasyBlock):
             'install',
             self.cfg['installopts'],
         ])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
+        res = run_shell_cmd(cmd)
 
-        return out
+        return res.output

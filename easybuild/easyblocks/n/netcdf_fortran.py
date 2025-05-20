@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -55,7 +55,7 @@ class EB_netCDF_minus_Fortran(ConfigureMake):
         if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             env.setvar('CPPFLAGS', "%s -DgFortran" % os.getenv('CPPFLAGS'))
 
-        super(EB_netCDF_minus_Fortran, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """
@@ -67,4 +67,4 @@ class EB_netCDF_minus_Fortran(ConfigureMake):
             ["include/%s" % x for x in ["netcdf.inc", "netcdf.mod", "typesizes.mod"]],
             'dirs': [],
         }
-        super(EB_netCDF_minus_Fortran, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
