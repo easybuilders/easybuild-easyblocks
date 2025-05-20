@@ -306,8 +306,8 @@ class EB_ABAQUS(Binary):
                     qa = [
                         (r"Enter selection \(default: Next\):", ''),
                         (r"Choose the .*installation directory.*\n.*\n\n.*:", os.path.join(self.installdir, 'cae')),
-                        (r"Actions:",''),
-                        (r"Choose an action:",'1'),
+                        (r"Actions:", ''),
+                        (r"Choose an action:", '1'),
                         (r"Enter selection \(default: Install\):", ''),
                         (r"The Abaqus commands directory.*:\n.*\n+Actions:\n.*\n_+\n\nPlease.*:", '1'),
                         (r"Enter selection \(default: Close\):", ''),
