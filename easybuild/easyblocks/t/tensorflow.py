@@ -596,10 +596,11 @@ class EB_TensorFlow(PythonPackage):
                           self.version)
         # Disable support of some features via config switch introduced in 1.12.1
         if LooseVersion(self.version) >= LooseVersion('1.12.1'):
-            self.target_opts += ['--config=noaws', '--config=nogcp', '--config=nohdfs']
-            # Removed in 2.1
-            if LooseVersion(self.version) < LooseVersion('2.1'):
-                self.target_opts.append('--config=nokafka')
+            self.target_opts += ['--config=nogcp']
+            if LooseVersion(self.version) < LooseVersion('2.18'):
+                self.target_opts += ['--config=noaws', '--config=nohdfs']  # Removed in 2.18
+            if LooseVersion(self.version) < LooseVersion("2.1"):
+                self.target_opts += ['--config=nokafka']  # removed in 2.1
         # MPI support removed in 2.1
         if LooseVersion(self.version) < LooseVersion('2.1'):
             config_env_vars['TF_NEED_MPI'] = ('0', '1')[bool(use_mpi)]
@@ -662,6 +663,13 @@ class EB_TensorFlow(PythonPackage):
                 'TF_CUDA_COMPUTE_CAPABILITIES': ','.join(cuda_cc),
                 'TF_CUDA_VERSION': cuda_maj_min_ver,
             })
+
+            # from v2.18 TF with CUDA needs this envs be set
+            if LooseVersion(self.version) >= LooseVersion('2.18'):
+                config_env_vars.update({
+                    'CUDA_NVCC': '1',
+                    'HERMETIC_CUDA_COMPUTE_CAPABILITIES': ','.join(cuda_cc),
+                })
 
             # for recent TensorFlow versions, $TF_CUDA_PATHS and $TF_CUBLAS_VERSION must also be set
             if LooseVersion(self.version) >= LooseVersion('1.14'):
@@ -902,9 +910,11 @@ class EB_TensorFlow(PythonPackage):
         action_env['PYTHONNOUSERSITE'] = '1'
 
         # TF 2 (final) sets this in configure
-        if LooseVersion(self.version) < LooseVersion('2.0'):
-            if self._with_cuda:
-                self.target_opts.append('--config=cuda')
+        if (LooseVersion(self.version) < LooseVersion('2.0')) and self._with_cuda:
+            self.target_opts.append('--config=cuda')
+        # TF 2.18 with CUDA needs to set cuda_wheel to config
+        if (LooseVersion(self.version) >= LooseVersion('2.18')) and self._with_cuda:
+            self.target_opts.append('--config=cuda_wheel')
 
         # note: using --config=mkl results in a significantly different build, with a different
         # threading model (which may lead to thread oversubscription and significant performance loss,
@@ -961,16 +971,20 @@ class EB_TensorFlow(PythonPackage):
             + ['build']
             + self.target_opts
             + [self.cfg['buildopts']]
-            # specify target of the build command as last argument
-            + ['//tensorflow/tools/pip_package:build_pip_package']
         )
+        if LooseVersion(self.version) < LooseVersion('2.16'):
+            cmd += ['//tensorflow/tools/pip_package:build_pip_package']
+        elif LooseVersion(self.version) < LooseVersion('2.17'):  # for v2.16.x
+            cmd += ['//tensorflow/tools/pip_package:v2/wheel --repo_env=WHEEL_NAME=tensorflow']
+        else:
+            cmd += ['//tensorflow/tools/pip_package:wheel --repo_env=WHEEL_NAME=tensorflow']
 
         with self.set_tmp_dir():
             run_shell_cmd(' '.join(cmd))
-
-            # run generated 'build_pip_package' script to build the .whl
-            cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
-            run_shell_cmd(cmd)
+            if LooseVersion(self.version) < LooseVersion('2.16'):
+                # run generated 'build_pip_package' script to build the .whl
+                cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
+                run_shell_cmd(cmd)
 
     def test_step(self):
         """Run TensorFlow unit tests"""
@@ -1136,10 +1150,13 @@ class EB_TensorFlow(PythonPackage):
             whl_version = self.version.replace("-rc", "rc")
         else:
             whl_version = self.version
-
-        whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-%s-*.whl' % whl_version))
+        if LooseVersion(self.version) < '2.16':
+            whl_dir = self.builddir
+        else:
+            whl_dir = os.path.join(self.start_dir, 'bazel-bin/tensorflow/tools/pip_package/wheel_house')
+        whl_paths = glob.glob(os.path.join(whl_dir, f"tensorflow-{whl_version}-*.whl"))
         if not whl_paths:
-            whl_paths = glob.glob(os.path.join(self.builddir, 'tensorflow-*.whl'))
+            whl_paths = glob.glob(os.path.join(whl_dir, 'tensorflow-*.whl'))
         if len(whl_paths) == 1:
             # --ignore-installed is required to ensure *this* wheel is installed
             cmd = "pip install --ignore-installed --prefix=%s %s" % (self.installdir, whl_paths[0])
