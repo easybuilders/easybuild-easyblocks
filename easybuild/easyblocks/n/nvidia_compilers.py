@@ -23,41 +23,35 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for installing NVIDIA HPC SDK as a full toolchain
+EasyBuild support for installing NVIDIA HPC SDK compilers
 
 @author: Alex Domingo (Vrije Universiteit Brussel)
 """
 from easybuild.easyblocks.generic.nvidiabase import NvidiaBase
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_version
 
 
-class EB_NVHPC(NvidiaBase):
+class EB_nvidia_minus_compilers(NvidiaBase):
     """
-    Support for installing the NVIDIA HPC SDK (NVHPC)
-    Including compilers, MPI and math libraries
+    Support for installing the NVIDIA HPC SDK (NVHPC) compilers
+    i.e. nvc, nvcc, nvfortran
+
+    Support for MPI or numeric libraries is disabled.
     """
 
     def prepare_step(self, *args, **kwargs):
         """Prepare environment for installation."""
         super().prepare_step(*args, **kwargs)
 
-        # Mandatory options for NVHPC with nvidia-compilers
-        nvcomp_dependency_version = get_software_version('nvidia-compilers')
-        if nvcomp_dependency_version:
-            if nvcomp_dependency_version != self.version:
-                error_msg = "Version of NVHPC does not match version of nvidia-compilers in dependency list"
-                raise EasyBuildError(error_msg)
-
-            nvhpc_options = [
-                'module_nvhpc_own_mpi',
-                'module_add_nccl',
-                'module_add_nvshmem',
-                'module_add_math_libs',
-            ]
-            for opt in nvhpc_options:
-                if not self.cfg[opt]:
-                    self.log.debug(f"Option '{opt}' forced enabled in {self.name}-{self.version} with nvidia-compilers")
-                self.cfg[opt] = True
+        # Unsupported NVHPC options in nvidia-compilers are forced disabled
+        disabled_nvhpc_options = [
+            'module_byo_compilers',
+            'module_nvhpc_own_mpi',
+            'module_add_nccl',
+            'module_add_math_libs',
+        ]
+        for nvhpc_opt in disabled_nvhpc_options:
+            if self.cfg[nvhpc_opt]:
+                self.log.warning(f"Option '{nvhpc_opt}' forced to disabled in {self.name}-{self.version}")
+            self.cfg[nvhpc_opt] = False
 
         self._update_nvhpc_environment()
