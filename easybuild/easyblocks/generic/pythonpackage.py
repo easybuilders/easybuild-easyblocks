@@ -398,20 +398,34 @@ def symlink_dist_site_packages(install_dir, pylibdirs):
             symlink(dist_pkgs, site_pkgs_path, use_abspath_source=False)
 
 
-def det_installed_python_packages(log, names_only=True, python_cmd=None):
-    """Return list of Python packages that are installed
-
-    When names_only is True then only the names are returned, else the full info from `pip list`.
-    Note that the names are reported by pip and might be different to the name that need to be used to import it
+def det_installed_python_packages(names_only=True, python_cmd=None):
     """
-    # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
-    cmd_list = [python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
-                '--format', 'json']
-    full_cmd = ' '.join(cmd_list)
-    res = run_shell_cmd(full_cmd, fail_on_error=False)
+    Return list of Python packages that are installed
+
+    Note that the names are reported by pip and might be different to the name that need to be used to import it.
+
+    :param names_only: boolean indicating whether only names or full info from `pip list` should be returned
+    :param python_cmd: Python command to use (if None, 'python' is used)
+    """
+    log = fancylogger.getLogger('det_installed_python_packages', fname=False)
+
+    if python_cmd is None:
+        python_cmd = 'python'
+
+    # Check installed Python packages
+    cmd = ' '.join([
+        python_cmd, '-m', 'pip',
+        'list',
+        '--isolated',
+        '--disable-pip-version-check',
+        '--format', 'json',
+    ])
+    res = run_shell_cmd(cmd, fail_on_error=False, hidden=True)
     if res.exit_code:
         raise EasyBuildError(f'Failed to determine installed python packages: {res.output}')
-    log.info(f'Got installed Python packages: {res.output}')
+
+    # only check stdout, not stderr which might contain user facing warnings
+    log.info(f'Got list of installed Python packages: {res.output}')
     pkgs = json.loads(res.output.strip())
     return [pkg['name'] for pkg in pkgs] if names_only else pkgs
 
@@ -444,7 +458,7 @@ def run_pip_check(log, python_cmd, unversioned_packages):
     # by using setup.py as the installation method for a package which is released as a generic wheel
     # named name-version-py2.py3-none-any.whl. `tox` creates those from version controlled source code
     # so it will contain a version, but the raw tar.gz does not.
-    pkgs = det_installed_python_packages(log, names_only=False, python_cmd=python_cmd)
+    pkgs = det_installed_python_packages(names_only=False, python_cmd=python_cmd)
     faulty_version = '0.0.0'
     faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
 
@@ -693,7 +707,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
         if python_cmd is None:
             python_cmd = self.python_cmd
-        return det_installed_python_packages(self.log, names_only, python_cmd)
+        return det_installed_python_packages(names_only=names_only, python_cmd=python_cmd)
 
     def using_pip_install(self):
         """

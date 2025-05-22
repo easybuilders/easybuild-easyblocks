@@ -29,6 +29,7 @@ Unit tests for specific easyblocks.
 """
 import copy
 import os
+import re
 import stat
 import sys
 import tempfile
@@ -265,6 +266,29 @@ class EasyBlockSpecificTest(TestCase):
         echo "cmake version 1.2.3-rc4"
         """))
         self.assertEqual(det_cmake_version(), '1.2.3-rc4')
+
+    def test_det_installed_python_packages(self):
+        """
+        Test det_installed_python_packages function providyed by PythonPackage easyblock
+        """
+        pkg1 = None
+        # we can't make too much assumptions on which installed Python packages are found
+        res = pythonpackage.det_installed_python_packages(python_cmd=sys.executable)
+        self.assertTrue(isinstance(res, list))
+        if res:
+            pkg1_name = res[0]
+            self.assertTrue(isinstance(pkg1_name, str))
+
+        res_detailed = pythonpackage.det_installed_python_packages(python_cmd=sys.executable, names_only=False)
+        self.assertTrue(isinstance(res_detailed, list))
+        if res_detailed:
+            pkg1 = res_detailed[0]
+            self.assertTrue(isinstance(pkg1, dict))
+            self.assertTrue(sorted(pkg1.keys()), ['name', 'version'])
+            self.assertEqual(pkg1['name'], pkg1_name)
+            regex = re.compile('^[0-9].*')
+            ver = pkg1['version']
+            self.assertTrue(regex.match(ver), f"Pattern {regex.pattern} matches for pkg version: {ver}")
 
     def test_det_py_install_scheme(self):
         """Test det_py_install_scheme function provided by PythonPackage easyblock."""
