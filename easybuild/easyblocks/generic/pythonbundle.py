@@ -202,12 +202,12 @@ class PythonBundle(Bundle):
                 all_unversioned_packages.update(ext.cfg['unversioned_packages'])
 
         if has_sanity_pip_check_mismatch:
-            self.log.deprecated('For bundles of PythonPackage the sanity_pip_check option '
-                                'in the main EasyConfig must be used', '5.0')
+            self.log.deprecated("For bundles of PythonPackage extensions the sanity_pip_check parameter "
+                                "must be set at the top level, outside of exts_list", '6.0')
             sanity_pip_check = True  # Either the main set it or any extension enabled it
         if all_unversioned_packages != unversioned_packages:
-            self.log.deprecated('For bundles of PythonPackage the unversioned_packages option '
-                                'in the main EasyConfig must be used', '5.0')
+            self.log.deprecated("For bundles of PythonPackage extensions the unversioned_packages parameter "
+                                "must be set at the top level, outside of exts_list", '6.0')
 
         if sanity_pip_check:
-            run_pip_check(self.log, self.python_cmd, all_unversioned_packages)
+            run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)

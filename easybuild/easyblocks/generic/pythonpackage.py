@@ -430,29 +430,36 @@ def det_installed_python_packages(names_only=True, python_cmd=None):
     return [pkg['name'] for pkg in pkgs] if names_only else pkgs
 
 
-def run_pip_check(log, python_cmd, unversioned_packages):
-    """Check installed Python packages using pip
-
-    log - Logger
-    python_cmd - Python command
-    unversioned_packages - Python packages to exclude in the version existance check
+def run_pip_check(python_cmd=None, unversioned_packages=None):
     """
-    pip_check_command = "%s -m pip check" % python_cmd
+    Check installed Python packages using 'pip check'
+
+    :param unversioned_packages: list of Python packages to exclude in the version existence check
+    :param python_cmd: Python command to use (if None, 'python' is used)
+    """
+    log = fancylogger.getLogger('det_installed_python_packages', fname=False)
+
+    if python_cmd is None:
+        python_cmd = 'python'
+    if unversioned_packages is None:
+        unversioned_packages = []
+
+    pip_check_cmd = f"{python_cmd} -m pip check"
+
     pip_version = det_pip_version(python_cmd=python_cmd)
     if not pip_version:
         raise EasyBuildError("Failed to determine pip version!")
     min_pip_version = LooseVersion('9.0.0')
     if LooseVersion(pip_version) < min_pip_version:
-        raise EasyBuildError("pip >= %s is required for running '%s', found %s",
-                             min_pip_version, pip_check_command, pip_version)
+        raise EasyBuildError(f"pip >= {min_pip_version} is required for '{pip_check_cmd}', found {pip_version}")
 
     pip_check_errors = []
 
-    res = run_shell_cmd(pip_check_command, fail_on_error=False)
+    res = run_shell_cmd(pip_check_cmd, fail_on_error=False)
     if res.exit_code:
-        pip_check_errors.append(f'`{pip_check_command}` failed:\n{res.output}')
+        pip_check_errors.append(f"`{pip_check_cmd}` failed:\n{res.output}")
     else:
-        log.info('`%s` completed successfully' % pip_check_command)
+        log.info(f"`{pip_check_cmd}` passed successfully")
 
     # Also check for a common issue where the package version shows up as 0.0.0 often caused
     # by using setup.py as the installation method for a package which is released as a generic wheel
@@ -465,29 +472,28 @@ def run_pip_check(log, python_cmd, unversioned_packages):
     for unversioned_package in unversioned_packages:
         try:
             faulty_pkg_names.remove(unversioned_package)
-            log.debug('Excluding unversioned package %s from check', unversioned_package)
+            log.debug(f"Excluding unversioned package '{unversioned_package}' from check")
         except ValueError:
             try:
                 version = next(pkg['version'] for pkg in pkgs if pkg['name'] == unversioned_package)
             except StopIteration:
-                msg = ('Package %s in unversioned_packages was not found in the installed packages. '
-                       'Check that the name from `python -m pip list` is used which may be different '
-                       'than the module name.' % unversioned_package)
+                msg = f"Package '{unversioned_package}' in unversioned_packages was not found in "
+                msg += "the installed packages. Check that the name from `python -m pip list` is used "
+                msg += "which may be different than the module name."
             else:
-                msg = ('Package %s in unversioned_packages has a version of %s which is valid. '
-                       'Please remove it from unversioned_packages.' % (unversioned_package, version))
+                msg = f"Package '{unversioned_package}' in unversioned_packages has a version of {version} "
+                msg += "which is valid. Please remove it from unversioned_packages."
             pip_check_errors.append(msg)
 
-    log.info('Found %s invalid packages out of %s packages', len(faulty_pkg_names), len(pkgs))
+    log.info("Found %s invalid packages out of %s packages", len(faulty_pkg_names), len(pkgs))
     if faulty_pkg_names:
-        msg = (
-            "The following Python packages were likely not installed correctly because they show a "
-            "version of '%s':\n%s\n"
-            "This may be solved by using a *-none-any.whl file as the source instead. "
-            "See e.g. the SOURCE*_WHL templates.\n"
-            "Otherwise you could check if the package provides a version at all or if e.g. poetry is "
-            "required (check the source for a pyproject.toml and see PEP517 for details on that)."
-            ) % (faulty_version, '\n'.join(faulty_pkg_names))
+        faulty_pkg_names_str = '\n'.join(faulty_pkg_names)
+        msg = "The following Python packages were likely not installed correctly because they show a "
+        msg += f"version of '{faulty_version}':\n{faulty_pkg_names_str}\n"
+        msg += "This may be solved by using a *-none-any.whl file as the source instead. "
+        msg += "See e.g. the SOURCE*_WHL templates.\n"
+        msg += "Otherwise you could check if the package provides a version at all or if e.g. poetry is "
+        msg += "required (check the source for a pyproject.toml and see PEP517 for details on that)."
         pip_check_errors.append(msg)
 
     if pip_check_errors:
@@ -1161,6 +1167,9 @@ class PythonPackage(ExtensionEasyBlock):
                 # If the main easyblock (e.g. PythonBundle) defines the variable
                 # we trust it does the pip check if requested and checks for mismatches
                 sanity_pip_check = False
+                msg = "Sanity 'pip check' disabled for {self.name} extension, "
+                msg += "assuming that parent will take care of it"
+                self.log.info(msg)
 
         if sanity_pip_check:
             if not self.is_extension:
@@ -1173,7 +1182,9 @@ class PythonPackage(ExtensionEasyBlock):
                     self.log.debug("Currently loaded modules: %s", loaded_modules)
                     raise EasyBuildError("%s module is not loaded, this should never happen...",
                                          self.short_mod_name)
-            run_pip_check(self.log, python_cmd, self.cfg.get('unversioned_packages', []))
+
+            unversioned_packages = self.cfg.get('unversioned_packages', [])
+            run_pip_check(python_cmd=python_cmd, unversioned_packages=unversioned_packages)
 
         # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
         # and let ExtensionEasyBlock do its job
