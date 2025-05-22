@@ -36,9 +36,17 @@ from collections import OrderedDict
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file, write_file
 from easybuild.tools.modules import get_software_root_env_var_name
 from easybuild.tools.utilities import flatten
+
+
+EGGINFO = """Metadata-Version: 2.1
+Name: easybuild
+Version: %s
+Summary: %s
+Platform: UNKNOWN
+"""
 
 
 # note: we can't use EB_EasyBuild as easyblock name, as that would require an easyblock named 'easybuild.py',
@@ -132,6 +140,9 @@ class EB_EasyBuildMeta(PythonPackage):
                         self.fix_easyconfigs_setup_py_setuptools61()
 
                     super().install_step()
+
+            egginfo = os.path.join(self.installdir, self.pylibdir, f'easybuild-{self.version}.egg-info')
+            write_file(egginfo, EGGINFO % (self.version, ''.join(self.cfg['description'].splitlines())))
 
         except OSError as err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
