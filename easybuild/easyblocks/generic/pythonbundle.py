@@ -30,12 +30,11 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES, run_pip_check
+from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES, run_pip_check, set_py_env_vars
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd_from_ec
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
-import easybuild.tools.environment as env
 
 
 class PythonBundle(Bundle):
@@ -101,8 +100,7 @@ class PythonBundle(Bundle):
 
     def extensions_step(self, *args, **kwargs):
         """Install extensions (usually PythonPackages)"""
-        # don't add user site directory to sys.path (equivalent to python -s)
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        set_py_env_vars(self.log)
         super().extensions_step(*args, **kwargs)
 
     def test_step(self):
@@ -149,16 +147,16 @@ class PythonBundle(Bundle):
         return txt
 
     def load_module(self, *args, **kwargs):
+        """(Re)set environment variables after loading module file.
+
+        Required here to ensure the variables are also defined for stand-alone installations,
+        because the environment is reset to the initial environment right before loading the module.
         """
-        Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
 
         super().load_module(*args, **kwargs)
-
-        # Don't add user site directory to sys.path (equivalent to python -s),
-        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check.
         # Required here to ensure that it is defined for sanity check commands of the bundle
         # because the environment is reset to the initial environment right before loading the module
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        set_py_env_vars(self.log)
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Python package."""
