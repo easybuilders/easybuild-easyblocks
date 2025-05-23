@@ -40,7 +40,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import RISCV, get_cpu_family, get_shared_lib_ext
+from easybuild.tools.systemtools import RISCV, get_cpu_family, get_gcc_version, get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
 
