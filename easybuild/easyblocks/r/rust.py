@@ -100,6 +100,12 @@ class EB_Rust(ConfigureMake):
         # old llvm builds from CI get deleted after a certain time
         self.cfg.update('configopts', "--set=llvm.download-ci-llvm=false")
 
+        # set channel to "stable", otherwise Rust will be built with nightly channel,
+        # see also https://rust-lang.github.io/rustup/concepts/channels.html;
+        # for recent version of Rust, this would also result in using rust-lld instead of the default linker,
+        # see https://blog.rust-lang.org/2024/05/17/enabling-rust-lld-on-linux.html
+        self.cfg.update('configopts', "--set=rust.channel=stable")
+
         # don't use Ninja if it is not listed as a build dependency;
         # may be because Ninja requires Python, and Rust is a build dependency for cryptography
         # which may be included as an extension with Python
