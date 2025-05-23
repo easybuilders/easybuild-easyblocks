@@ -66,7 +66,7 @@ class EB_EasyBuildMeta(PythonPackage):
             # consider setuptools first, in case it is listed as a sources
             self.easybuild_pkgs.insert(0, 'setuptools')
         elif (LooseVersion(self.version) >= LooseVersion('5.0') and
-                  any(f'easybuild-{self.version}' in source['filename'] for source in self.cfg['sources'])):
+              any(f'easybuild-{self.version}' in source['filename'] for source in self.cfg['sources'])):
             # use easybuild-base for easybuild to avoid matching all easybuild-* directories during install
             self.easybuild_pkgs.append('easybuild-base')
 
