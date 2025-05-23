@@ -53,6 +53,7 @@ from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkd
 from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.utilities import trace_msg
 import easybuild.tools.toolchain as toolchain
 
 
@@ -188,10 +189,13 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
 
     pip_check_errors = []
 
-    res = run_shell_cmd(pip_check_cmd, fail_on_error=False)
+    res = run_shell_cmd(pip_check_cmd, fail_on_error=False, hidden=True)
+    msg = "Check on requirements for installed Python packages with 'pip check': "
     if res.exit_code:
+        trace_msg(msg + 'FAIL')
         pip_check_errors.append(f"`{pip_check_cmd}` failed:\n{res.output}")
     else:
+        trace_msg(msg + 'OK')
         log.info(f"`{pip_check_cmd}` passed successfully")
 
     # Also check for a common issue where the package version shows up as 0.0.0 often caused
