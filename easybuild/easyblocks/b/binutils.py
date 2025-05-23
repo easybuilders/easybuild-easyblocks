@@ -33,6 +33,7 @@ import re
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
@@ -198,6 +199,18 @@ class EB_binutils(ConfigureMake):
                 # if $CFLAGS is not defined, make sure we retain "-g -O2",
                 # since not specifying any optimization level implies -O0...
                 self.cfg.update('buildopts', 'CFLAGS="-g -O2 -fPIC"')
+
+            if (
+                LooseVersion(self.version) >= LooseVersion('2.42')
+                and self.toolchain.comp_family() == toolchain.SYSTEM
+            ):
+                res = run_shell_cmd('g++ --version')
+                gxx_version = res.output.strip().split(' ')[2]
+                if (
+                    LooseVersion(gxx_version) >= LooseVersion('4.8.1')
+                    and LooseVersion(gxx_version) < LooseVersion('6.1.0')
+                ):
+                    self.cfg.update('buildopts', 'CXXFLAGS="-std=c++11"')
 
     def install_step(self):
         """Install using 'make install', also install libiberty if desired."""
