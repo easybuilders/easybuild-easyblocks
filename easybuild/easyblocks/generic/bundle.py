@@ -335,8 +335,7 @@ class Bundle(EasyBlock):
                 # - once bundle installation is complete, this is handled by the generated module as usual
                 for mod_envar, mod_paths in comp.module_load_environment.items():
                     # expand glob patterns in module load environment to existing absolute paths
-                    mod_expand = [x for p in mod_paths for x in comp.expand_module_search_path(p, False)]
-                    mod_expand = nub(mod_expand)
+                    mod_expand = mod_paths.expand_paths(self.installdir)
                     mod_expand = [os.path.join(self.installdir, path) for path in mod_expand]
                     # prepend to current environment variable if new stuff added to installation
                     curr_env = os.getenv(mod_envar, '')

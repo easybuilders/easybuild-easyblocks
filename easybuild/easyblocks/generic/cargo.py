@@ -114,16 +114,19 @@ def get_workspace_members(crate_dir):
         if line.startswith('#'):
             continue  # Skip comments
         if re.match(r'\[\w+\]', line):
-            break
+            break  # New section
         if member_str is None:
             m = re.match(r'members\s+=\s+\[', line)
             if m:
                 member_str = line[m.end():]
-        elif line.endswith(']'):
-            member_str += line[:-1].strip()
-            break
         else:
             member_str += line
+        # Stop if we reach the end of the list
+        if member_str is not None and member_str.endswith(']'):
+            member_str = member_str[:-1]
+            break
+    if member_str is None:
+        raise EasyBuildError('Failed to find members in %s', cargo_toml)
     # Split at commas after removing possibly trailing ones and remove the quotes
     members = [member.strip().strip('"') for member in member_str.rstrip(',').split(',')]
     # Sanity check that we didn't pick up anything unexpected

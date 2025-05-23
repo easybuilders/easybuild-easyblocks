@@ -32,7 +32,6 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Alexander Grund (TU Dresden)
 """
-import json
 import os
 import re
 import sys
@@ -43,15 +42,16 @@ from sysconfig import get_config_vars
 import easybuild.tools.environment as env
 from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
+from easybuild.easyblocks.python import det_installed_python_packages, det_pip_version, run_pip_check
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
-from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, which
+from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, symlink, which, write_file
 from easybuild.tools.modules import ModEnvVarType, get_software_root
-from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.utilities import nub
 from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
 
@@ -295,27 +295,6 @@ def get_pylibdirs(python_cmd):
     return all_pylibdirs
 
 
-def det_pip_version(python_cmd='python'):
-    """Determine version of currently active 'pip' module."""
-
-    pip_version = None
-    log = fancylogger.getLogger('det_pip_version', fname=False)
-    log.info("Determining pip version...")
-
-    res = run_shell_cmd("%s -m pip --version" % python_cmd, hidden=True)
-    out = res.output
-
-    pip_version_regex = re.compile('^pip ([0-9.]+)')
-    res = pip_version_regex.search(out)
-    if res:
-        pip_version = res.group(1)
-        log.info("Found pip version: %s", pip_version)
-    else:
-        log.warning("Failed to determine pip version from '%s' using pattern '%s'", out, pip_version_regex.pattern)
-
-    return pip_version
-
-
 def det_py_install_scheme(python_cmd='python'):
     """
     Try to determine active installation scheme used by Python.
@@ -412,7 +391,9 @@ class PythonPackage(ExtensionEasyBlock):
                                "Otherwise it will be used as-is. A value of None then skips the build step. "
                                "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
-            'download_dep_fail': [True, "Fail if downloaded dependencies are detected", CUSTOM],
+            'download_dep_fail': [None, "Fail if downloaded dependencies are detected. "
+                                  "Defaults to True unless 'use_pip_for_deps' or 'use_pip_requirement' is True.",
+                                  CUSTOM],
             'fix_python_shebang_for': [['bin/*'], "List of files for which Python shebang should be fixed "
                                                   "to '#!/usr/bin/env python' (glob patterns supported) "
                                                   "(default: ['bin/*'])", CUSTOM],
@@ -487,13 +468,18 @@ class PythonPackage(ExtensionEasyBlock):
             self.log.info("Using default value for expected module name (lowercase software name): '%s'",
                           self.options['modulename'])
 
-        # only for Python packages installed as extensions:
-        # inherit setting for detection of downloaded dependencies from parent,
-        # if 'download_dep_fail' was left unspecified
-        if self.is_extension and self.cfg.get('download_dep_fail') is None:
-            self.cfg['download_dep_fail'] = self.master.cfg['exts_download_dep_fail']
-            self.log.info("Inherited setting for detection of downloaded dependencies from parent: %s",
-                          self.cfg['download_dep_fail'])
+        # Set default if 'download_dep_fail' was left unspecified
+        if self.cfg.get('download_dep_fail') is None:
+            if self.cfg.get('use_pip_for_deps') or self.cfg.get('use_pip_requirement'):
+                self.cfg['download_dep_fail'] = False  # Those 2 options will always download dependencies
+            elif self.is_extension:
+                # only for Python packages installed as extensions:
+                # inherit setting for detection of downloaded dependencies from parent,
+                self.cfg['download_dep_fail'] = self.master.cfg['exts_download_dep_fail']
+                self.log.info("Inherited setting for detection of downloaded dependencies from parent: %s",
+                              self.cfg['download_dep_fail'])
+            else:
+                self.cfg['download_dep_fail'] = True
 
         # figure out whether this Python package is being installed for multiple Python versions
         self.multi_python = 'Python' in self.cfg['multi_deps']
@@ -611,25 +597,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
         if python_cmd is None:
             python_cmd = self.python_cmd
-        # Check installed python packages but only check stdout, not stderr which might contain user facing warnings
-        cmd_list = [python_cmd, '-m', 'pip', 'list', '--isolated', '--disable-pip-version-check',
-                    '--format', 'json']
-        full_cmd = ' '.join(cmd_list)
-        self.log.info("Running command '%s'" % full_cmd)
-        proc = subprocess_popen_text(cmd_list, env=os.environ)
-        (stdout, stderr) = proc.communicate()
-        ec = proc.returncode
-        msg = "Command '%s' returned with %s: stdout: %s; stderr: %s" % (full_cmd, ec, stdout, stderr)
-        if ec:
-            self.log.info(msg)
-            raise EasyBuildError('Failed to determine installed python packages: %s', stderr)
-
-        self.log.debug(msg)
-        pkgs = json.loads(stdout.strip())
-        if names_only:
-            return [pkg['name'] for pkg in pkgs]
-        else:
-            return pkgs
+        return det_installed_python_packages(names_only=names_only, python_cmd=python_cmd)
 
     def using_pip_install(self):
         """
@@ -776,15 +744,10 @@ class PythonPackage(ExtensionEasyBlock):
                 finaltxt = finaltxt.replace('SITECFGINCDIR', repl)
 
             self.log.debug("Using %s: %s" % (self.sitecfgfn, finaltxt))
-            try:
-                if os.path.exists(self.sitecfgfn):
-                    txt = open(self.sitecfgfn).read()
-                    self.log.debug("Found %s: %s" % (self.sitecfgfn, txt))
-                config = open(self.sitecfgfn, 'w')
-                config.write(finaltxt)
-                config.close()
-            except IOError:
-                raise EasyBuildError("Creating %s failed", self.sitecfgfn)
+            if os.path.exists(self.sitecfgfn):
+                txt = read_file(self.sitecfgfn)
+                self.log.debug("Found %s: %s" % (self.sitecfgfn, txt))
+            write_file(self.sitecfgfn, finaltxt)
 
         # conservatively auto-enable checking of $LDSHARED if it is not explicitely enabled or disabled
         # only do this for sufficiently recent Python versions (>= 3.7 or Python 2.x >= 2.7.15)
@@ -940,7 +903,7 @@ class PythonPackage(ExtensionEasyBlock):
         abs_bindir = os.path.join(actual_installdir, 'bin')
 
         # set PYTHONPATH and PATH as expected
-        old_values = dict()
+        old_values = {}
         for name, new_values in (('PYTHONPATH', abs_pylibdirs), ('PATH', [abs_bindir])):
             old_value = os.getenv(name)
             old_values[name] = old_value
@@ -1019,10 +982,10 @@ class PythonPackage(ExtensionEasyBlock):
         # load module early ourselves rather than letting parent sanity_check_step method do so,
         # since custom actions taken below require that environment is set up properly already
         # (especially when using --sanity-check-only)
-        if hasattr(self, 'sanity_check_module_loaded') and not self.sanity_check_module_loaded:
+        if not self.sanity_check_module_loaded:
             extension = self.is_extension or kwargs.get('extension', False)
             extra_modules = kwargs.get('extra_modules', None)
-            self.fake_mod_data = self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
+            self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
 
         # don't add user site directory to sys.path (equivalent to python -s)
         # see https://www.python.org/dev/peps/pep-0370/;
@@ -1076,78 +1039,31 @@ class PythonPackage(ExtensionEasyBlock):
                 exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
                 kwargs.update({'exts_filter': exts_filter})
 
-        if self.cfg.get('sanity_pip_check', True):
-            pip_version = det_pip_version(python_cmd=python_cmd)
+        sanity_pip_check = self.cfg.get('sanity_pip_check', True)
+        if self.is_extension:
+            sanity_pip_check_main = self.master.cfg.get('sanity_pip_check')
+            if sanity_pip_check_main is not None:
+                # If the main easyblock (e.g. PythonBundle) defines the variable
+                # we trust it does the pip check if requested and checks for mismatches
+                sanity_pip_check = False
+                msg = "Sanity 'pip check' disabled for {self.name} extension, "
+                msg += "assuming that parent will take care of it"
+                self.log.info(msg)
 
-            if pip_version:
-                pip_check_command = "%s -m pip check" % python_cmd
+        if sanity_pip_check:
+            if not self.is_extension:
+                # for stand-alone Python package installations (not part of a bundle of extensions),
+                # the (fake or real) module file must be loaded at this point,
+                # otherwise the Python package being installed is not "in view",
+                # and we will overlook missing dependencies...
+                loaded_modules = [x['mod_name'] for x in self.modules_tool.list()]
+                if self.short_mod_name not in loaded_modules:
+                    self.log.debug("Currently loaded modules: %s", loaded_modules)
+                    raise EasyBuildError("%s module is not loaded, this should never happen...",
+                                         self.short_mod_name)
 
-                if LooseVersion(pip_version) >= LooseVersion('9.0.0'):
-
-                    if not self.is_extension:
-                        # for stand-alone Python package installations (not part of a bundle of extensions),
-                        # the (fake or real) module file must be loaded at this point,
-                        # otherwise the Python package being installed is not "in view",
-                        # and we will overlook missing dependencies...
-                        loaded_modules = [x['mod_name'] for x in self.modules_tool.list()]
-                        if self.short_mod_name not in loaded_modules:
-                            self.log.debug("Currently loaded modules: %s", loaded_modules)
-                            raise EasyBuildError("%s module is not loaded, this should never happen...",
-                                                 self.short_mod_name)
-
-                    pip_check_errors = []
-
-                    res = run_shell_cmd(pip_check_command, fail_on_error=False)
-                    pip_check_msg = res.output
-                    if res.exit_code:
-                        pip_check_errors.append('`%s` failed:\n%s' % (pip_check_command, pip_check_msg))
-                    else:
-                        self.log.info('`%s` completed successfully' % pip_check_command)
-
-                    # Also check for a common issue where the package version shows up as 0.0.0 often caused
-                    # by using setup.py as the installation method for a package which is released as a generic wheel
-                    # named name-version-py2.py3-none-any.whl. `tox` creates those from version controlled source code
-                    # so it will contain a version, but the raw tar.gz does not.
-                    pkgs = self.get_installed_python_packages(names_only=False, python_cmd=python_cmd)
-                    faulty_version = '0.0.0'
-                    faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
-
-                    for unversioned_package in self.cfg.get('unversioned_packages', []):
-                        try:
-                            faulty_pkg_names.remove(unversioned_package)
-                            self.log.debug('Excluding unversioned package %s from check', unversioned_package)
-                        except ValueError:
-                            try:
-                                version = next(pkg['version'] for pkg in pkgs if pkg['name'] == unversioned_package)
-                            except StopIteration:
-                                msg = ('Package %s in unversioned_packages was not found in the installed packages. '
-                                       'Check that the name from `python -m pip list` is used which may be different '
-                                       'than the module name.' % unversioned_package)
-                            else:
-                                msg = ('Package %s in unversioned_packages has a version of %s which is valid. '
-                                       'Please remove it from unversioned_packages.' % (unversioned_package, version))
-                            pip_check_errors.append(msg)
-
-                    self.log.info('Found %s invalid packages out of %s packages', len(faulty_pkg_names), len(pkgs))
-                    if faulty_pkg_names:
-                        msg = (
-                            "The following Python packages were likely not installed correctly because they show a "
-                            "version of '%s':\n%s\n"
-                            "This may be solved by using a *-none-any.whl file as the source instead. "
-                            "See e.g. the SOURCE*_WHL templates.\n"
-                            "Otherwise you could check if the package provides a version at all or if e.g. poetry is "
-                            "required (check the source for a pyproject.toml and see PEP517 for details on that)."
-                         ) % (faulty_version, '\n'.join(faulty_pkg_names))
-                        pip_check_errors.append(msg)
-
-                    if pip_check_errors:
-                        raise EasyBuildError('\n'.join(pip_check_errors))
-                else:
-                    raise EasyBuildError("pip >= 9.0.0 is required for running '%s', found %s",
-                                         pip_check_command,
-                                         pip_version)
-            else:
-                raise EasyBuildError("Failed to determine pip version!")
+            unversioned_packages = self.cfg.get('unversioned_packages', [])
+            run_pip_check(python_cmd=python_cmd, unversioned_packages=unversioned_packages)
 
         # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
         # and let ExtensionEasyBlock do its job

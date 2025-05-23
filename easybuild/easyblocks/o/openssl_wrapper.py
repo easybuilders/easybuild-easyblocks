@@ -261,7 +261,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # Check system include paths for OpenSSL headers
         cmd = "LC_ALL=C gcc -E -Wp,-v -xc /dev/null"
-        res = run_shell_cmd(cmd, hidden=True)
+        res = run_shell_cmd(cmd, hidden=True, in_dry_run=True)
 
         sys_include_dirs = []
         for match in re.finditer(r'^\s(/[^\0\n]*)+', res.output, re.MULTILINE):
@@ -422,7 +422,7 @@ class EB_OpenSSL_wrapper(Bundle):
             return None, None
 
         cmd = "%s version" % bin_path
-        res = run_shell_cmd(cmd, fail_on_error=False, hidden=True)
+        res = run_shell_cmd(cmd, fail_on_error=False, hidden=True, in_dry_run=True)
 
         try:
             bin_version = res.output.split(' ')[1]
