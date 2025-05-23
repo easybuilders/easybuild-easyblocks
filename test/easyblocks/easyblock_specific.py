@@ -29,6 +29,7 @@ Unit tests for specific easyblocks.
 """
 import copy
 import os
+import re
 import stat
 import sys
 import tempfile
@@ -51,6 +52,7 @@ from easybuild.tools.environment import modify_env
 from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, remove_dir, symlink, write_file
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
+from easybuild.tools.run import RunShellCmdResult
 
 
 class EasyBlockSpecificTest(TestCase):
@@ -76,6 +78,7 @@ class EasyBlockSpecificTest(TestCase):
         self.orig_sys_stdout = sys.stdout
         self.orig_sys_stderr = sys.stderr
         self.orig_environ = copy.deepcopy(os.environ)
+        self.orig_pythonpackage_run_shell_cmd = pythonpackage.run_shell_cmd
 
     def tearDown(self):
         """Test cleanup."""
@@ -83,6 +86,7 @@ class EasyBlockSpecificTest(TestCase):
 
         sys.stdout = self.orig_sys_stdout
         sys.stderr = self.orig_sys_stderr
+        pythonpackage.run_shell_cmd = self.orig_pythonpackage_run_shell_cmd
 
         # restore original environment
         modify_env(os.environ, self.orig_environ, verbose=False)
@@ -266,6 +270,29 @@ class EasyBlockSpecificTest(TestCase):
         """))
         self.assertEqual(det_cmake_version(), '1.2.3-rc4')
 
+    def test_det_installed_python_packages(self):
+        """
+        Test det_installed_python_packages function providyed by PythonPackage easyblock
+        """
+        pkg1 = None
+        # we can't make too much assumptions on which installed Python packages are found
+        res = pythonpackage.det_installed_python_packages(python_cmd=sys.executable)
+        self.assertTrue(isinstance(res, list))
+        if res:
+            pkg1_name = res[0]
+            self.assertTrue(isinstance(pkg1_name, str))
+
+        res_detailed = pythonpackage.det_installed_python_packages(python_cmd=sys.executable, names_only=False)
+        self.assertTrue(isinstance(res_detailed, list))
+        if res_detailed:
+            pkg1 = res_detailed[0]
+            self.assertTrue(isinstance(pkg1, dict))
+            self.assertTrue(sorted(pkg1.keys()), ['name', 'version'])
+            self.assertEqual(pkg1['name'], pkg1_name)
+            regex = re.compile('^[0-9].*')
+            ver = pkg1['version']
+            self.assertTrue(regex.match(ver), f"Pattern {regex.pattern} matches for pkg version: {ver}")
+
     def test_det_py_install_scheme(self):
         """Test det_py_install_scheme function provided by PythonPackage easyblock."""
         res = pythonpackage.det_py_install_scheme(sys.executable)
@@ -313,6 +340,65 @@ class EasyBlockSpecificTest(TestCase):
         self.assertTrue(os.path.exists(os.path.join(bindir, 'test')))
         local_test_py = os.path.join(libdir, 'python' + pyshortver, 'site-packages', 'test.py')
         self.assertTrue(os.path.exists(local_test_py))
+
+    def test_run_pip_check(self):
+        """Test run_pip_check function provided by PythonPackage easyblock."""
+
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip check" in cmd:
+                output = "No broken requirements found."
+            elif "pip list" in cmd:
+                output = '[{"name": "example", "version": "1.2.3"}]'
+            elif "pip --version" in cmd:
+                output = "pip 20.0"
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        pythonpackage.run_shell_cmd = mocked_run_shell_cmd_pip
+        pythonpackage.run_pip_check(python_cmd=sys.executable)
+
+        # inject all possible errors
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip check" in cmd:
+                output = "foo-1.2.3 requires bar-4.5.6, which is not installed."
+                exit_code = 1
+            elif "pip list" in cmd:
+                output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong", "version": "0.0.0"}]'
+                exit_code = 0
+            elif "pip --version" in cmd:
+                output = "pip 20.0"
+                exit_code = 0
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=exit_code, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        pythonpackage.run_shell_cmd = mocked_run_shell_cmd_pip
+        error_pattern = '\n'.join([
+            "pip check.*failed.*",
+            "foo.*requires.*bar.*not installed.*",
+            r"Package 'example'.*version of 1\.2\.3 which is valid.*",
+            "Package 'nosuchpkg' in unversioned_packages was not found in the installed packages.*",
+            r".*not installed correctly.*version of '0\.0\.0':",
+            "wrong",
+        ])
+        self.assertErrorRegex(EasyBuildError, error_pattern, pythonpackage.run_pip_check,
+                              python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
+
+        # invalid pip version
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            return RunShellCmdResult(cmd=cmd, exit_code=0, output="1.2.3", stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        pythonpackage.run_shell_cmd = mocked_run_shell_cmd_pip
+        error_pattern = "Failed to determine pip version!"
+        self.assertErrorRegex(EasyBuildError, error_pattern, pythonpackage.run_pip_check, python_cmd=sys.executable)
 
     def test_symlink_dist_site_packages(self):
         """Test symlink_dist_site_packages provided by PythonPackage easyblock."""
