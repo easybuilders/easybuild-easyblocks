@@ -185,7 +185,7 @@ class PythonBundle(Bundle):
 
     def _sanity_check_step_extensions(self):
         """Run the pip check for extensions if enabled"""
-        super(PythonBundle, self)._sanity_check_step_extensions()
+        super()._sanity_check_step_extensions()
 
         sanity_pip_check = self.cfg['sanity_pip_check']
         unversioned_packages = set(self.cfg['unversioned_packages'])
