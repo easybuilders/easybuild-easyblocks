@@ -40,6 +40,7 @@ from test.easyblocks.module import cleanup
 
 import easybuild.tools.options as eboptions
 import easybuild.easyblocks.generic.pythonpackage as pythonpackage
+import easybuild.easyblocks.p.python as python
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
@@ -275,8 +276,8 @@ class EasyBlockSpecificTest(TestCase):
         Test det_installed_python_packages function providyed by PythonPackage easyblock
         """
         pkg1 = None
-        # we can't make too much assumptions on which installed Python packages are found
         res = pythonpackage.det_installed_python_packages(python_cmd=sys.executable)
+        # we can't make too much assumptions on which installed Python packages are found
         self.assertTrue(isinstance(res, list))
         if res:
             pkg1_name = res[0]
@@ -358,8 +359,9 @@ class EasyBlockSpecificTest(TestCase):
             return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
                                      out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
 
-        pythonpackage.run_shell_cmd = mocked_run_shell_cmd_pip
-        pythonpackage.run_pip_check(python_cmd=sys.executable)
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        with self.mocked_stdout_stderr():
+            python.run_pip_check(python_cmd=sys.executable)
 
         # inject all possible errors
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
@@ -379,7 +381,7 @@ class EasyBlockSpecificTest(TestCase):
             return RunShellCmdResult(cmd=cmd, exit_code=exit_code, output=output, stderr=None, work_dir=None,
                                      out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
 
-        pythonpackage.run_shell_cmd = mocked_run_shell_cmd_pip
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
         error_pattern = '\n'.join([
             "pip check.*failed.*",
             "foo.*requires.*bar.*not installed.*",
@@ -388,17 +390,18 @@ class EasyBlockSpecificTest(TestCase):
             r".*not installed correctly.*version of '0\.0\.0':",
             "wrong",
         ])
-        self.assertErrorRegex(EasyBuildError, error_pattern, pythonpackage.run_pip_check,
-                              python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
+        with self.mocked_stdout_stderr():
+            self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_check,
+                                  python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
 
         # invalid pip version
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
             return RunShellCmdResult(cmd=cmd, exit_code=0, output="1.2.3", stderr=None, work_dir=None,
                                      out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
 
-        pythonpackage.run_shell_cmd = mocked_run_shell_cmd_pip
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
         error_pattern = "Failed to determine pip version!"
-        self.assertErrorRegex(EasyBuildError, error_pattern, pythonpackage.run_pip_check, python_cmd=sys.executable)
+        self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_check, python_cmd=sys.executable)
 
     def test_symlink_dist_site_packages(self):
         """Test symlink_dist_site_packages provided by PythonPackage easyblock."""

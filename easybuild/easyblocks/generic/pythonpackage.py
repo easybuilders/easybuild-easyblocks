@@ -32,7 +32,6 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Alexander Grund (TU Dresden)
 """
-import json
 import os
 import re
 import sys
@@ -43,6 +42,7 @@ from sysconfig import get_config_vars
 import easybuild.tools.environment as env
 from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES
+from easybuild.easyblocks.python import det_installed_python_packages, det_pip_version, run_pip_check
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
@@ -295,27 +295,6 @@ def get_pylibdirs(python_cmd):
     return all_pylibdirs
 
 
-def det_pip_version(python_cmd='python'):
-    """Determine version of currently active 'pip' module."""
-
-    pip_version = None
-    log = fancylogger.getLogger('det_pip_version', fname=False)
-    log.info("Determining pip version...")
-
-    res = run_shell_cmd("%s -m pip --version" % python_cmd, hidden=True)
-    out = res.output
-
-    pip_version_regex = re.compile('^pip ([0-9.]+)')
-    res = pip_version_regex.search(out)
-    if res:
-        pip_version = res.group(1)
-        log.info("Found pip version: %s", pip_version)
-    else:
-        log.warning("Failed to determine pip version from '%s' using pattern '%s'", out, pip_version_regex.pattern)
-
-    return pip_version
-
-
 def det_py_install_scheme(python_cmd='python'):
     """
     Try to determine active installation scheme used by Python.
@@ -396,108 +375,6 @@ def symlink_dist_site_packages(install_dir, pylibdirs):
 
         if os.path.exists(dist_pkgs_path) and not os.path.exists(site_pkgs_path):
             symlink(dist_pkgs, site_pkgs_path, use_abspath_source=False)
-
-
-def det_installed_python_packages(names_only=True, python_cmd=None):
-    """
-    Return list of Python packages that are installed
-
-    Note that the names are reported by pip and might be different to the name that need to be used to import it.
-
-    :param names_only: boolean indicating whether only names or full info from `pip list` should be returned
-    :param python_cmd: Python command to use (if None, 'python' is used)
-    """
-    log = fancylogger.getLogger('det_installed_python_packages', fname=False)
-
-    if python_cmd is None:
-        python_cmd = 'python'
-
-    # Check installed Python packages
-    cmd = ' '.join([
-        python_cmd, '-m', 'pip',
-        'list',
-        '--isolated',
-        '--disable-pip-version-check',
-        '--format', 'json',
-    ])
-    res = run_shell_cmd(cmd, fail_on_error=False, hidden=True)
-    if res.exit_code:
-        raise EasyBuildError(f'Failed to determine installed python packages: {res.output}')
-
-    # only check stdout, not stderr which might contain user facing warnings
-    log.info(f'Got list of installed Python packages: {res.output}')
-    pkgs = json.loads(res.output.strip())
-    return [pkg['name'] for pkg in pkgs] if names_only else pkgs
-
-
-def run_pip_check(python_cmd=None, unversioned_packages=None):
-    """
-    Check installed Python packages using 'pip check'
-
-    :param unversioned_packages: list of Python packages to exclude in the version existence check
-    :param python_cmd: Python command to use (if None, 'python' is used)
-    """
-    log = fancylogger.getLogger('det_installed_python_packages', fname=False)
-
-    if python_cmd is None:
-        python_cmd = 'python'
-    if unversioned_packages is None:
-        unversioned_packages = []
-
-    pip_check_cmd = f"{python_cmd} -m pip check"
-
-    pip_version = det_pip_version(python_cmd=python_cmd)
-    if not pip_version:
-        raise EasyBuildError("Failed to determine pip version!")
-    min_pip_version = LooseVersion('9.0.0')
-    if LooseVersion(pip_version) < min_pip_version:
-        raise EasyBuildError(f"pip >= {min_pip_version} is required for '{pip_check_cmd}', found {pip_version}")
-
-    pip_check_errors = []
-
-    res = run_shell_cmd(pip_check_cmd, fail_on_error=False)
-    if res.exit_code:
-        pip_check_errors.append(f"`{pip_check_cmd}` failed:\n{res.output}")
-    else:
-        log.info(f"`{pip_check_cmd}` passed successfully")
-
-    # Also check for a common issue where the package version shows up as 0.0.0 often caused
-    # by using setup.py as the installation method for a package which is released as a generic wheel
-    # named name-version-py2.py3-none-any.whl. `tox` creates those from version controlled source code
-    # so it will contain a version, but the raw tar.gz does not.
-    pkgs = det_installed_python_packages(names_only=False, python_cmd=python_cmd)
-    faulty_version = '0.0.0'
-    faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
-
-    for unversioned_package in unversioned_packages:
-        try:
-            faulty_pkg_names.remove(unversioned_package)
-            log.debug(f"Excluding unversioned package '{unversioned_package}' from check")
-        except ValueError:
-            try:
-                version = next(pkg['version'] for pkg in pkgs if pkg['name'] == unversioned_package)
-            except StopIteration:
-                msg = f"Package '{unversioned_package}' in unversioned_packages was not found in "
-                msg += "the installed packages. Check that the name from `python -m pip list` is used "
-                msg += "which may be different than the module name."
-            else:
-                msg = f"Package '{unversioned_package}' in unversioned_packages has a version of {version} "
-                msg += "which is valid. Please remove it from unversioned_packages."
-            pip_check_errors.append(msg)
-
-    log.info("Found %s invalid packages out of %s packages", len(faulty_pkg_names), len(pkgs))
-    if faulty_pkg_names:
-        faulty_pkg_names_str = '\n'.join(faulty_pkg_names)
-        msg = "The following Python packages were likely not installed correctly because they show a "
-        msg += f"version of '{faulty_version}':\n{faulty_pkg_names_str}\n"
-        msg += "This may be solved by using a *-none-any.whl file as the source instead. "
-        msg += "See e.g. the SOURCE*_WHL templates.\n"
-        msg += "Otherwise you could check if the package provides a version at all or if e.g. poetry is "
-        msg += "required (check the source for a pyproject.toml and see PEP517 for details on that)."
-        pip_check_errors.append(msg)
-
-    if pip_check_errors:
-        raise EasyBuildError('\n'.join(pip_check_errors))
 
 
 class PythonPackage(ExtensionEasyBlock):
