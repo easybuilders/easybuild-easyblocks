@@ -145,8 +145,9 @@ class EB_EasyBuildMeta(PythonPackage):
 
                     super().install_step()
 
-            egginfo = os.path.join(self.installdir, self.pylibdir, f'easybuild-{self.version}.egg-info')
-            write_file(egginfo, EGGINFO % (self.version, ''.join(self.cfg['description'].splitlines())))
+            if not any(f'easybuild-{self.version}' in source['filename'] for source in self.cfg['sources']):
+                egginfo = os.path.join(self.installdir, self.pylibdir, f'easybuild-{self.version}.egg-info')
+                write_file(egginfo, EGGINFO % (self.version, ''.join(self.cfg['description'].splitlines())))
 
         except OSError as err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
