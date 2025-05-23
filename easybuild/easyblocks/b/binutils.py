@@ -209,7 +209,8 @@ class EB_binutils(ConfigureMake):
                     LooseVersion(gcc_version) >= LooseVersion('4.8.1')
                     and LooseVersion(gcc_version) < LooseVersion('6.1.0')
                 ):
-                    self.cfg.update('buildopts', 'CXXFLAGS="-std=c++11"')
+                    # append "-std=c++11" to $CXXFLAGS, not overriding
+                    self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -std=c++11"')
 
     def install_step(self):
         """Install using 'make install', also install libiberty if desired."""
