@@ -152,11 +152,12 @@ def det_installed_python_packages(names_only=True, python_cmd=None):
         '--disable-pip-version-check',
         '--format', 'json',
     ])
-    res = run_shell_cmd(cmd, fail_on_error=False, hidden=True)
+    # only check stdout, not stderr which might contain user facing warnings
+    # (on deprecation of Python 2.7, for example)
+    res = run_shell_cmd(cmd, split_stderr=True, fail_on_error=False, hidden=True)
     if res.exit_code:
         raise EasyBuildError(f'Failed to determine installed python packages: {res.output}')
 
-    # only check stdout, not stderr which might contain user facing warnings
     log.info(f'Got list of installed Python packages: {res.output}')
     pkgs = json.loads(res.output.strip())
     return [pkg['name'] for pkg in pkgs] if names_only else pkgs
