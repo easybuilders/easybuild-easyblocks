@@ -64,7 +64,7 @@ class EB_bzip2(ConfigureMake):
         """Install in non-standard path by passing PREFIX variable to make install."""
 
         self.cfg.update('installopts', "PREFIX=%s" % self.installdir)
-        super(EB_bzip2, self).install_step()
+        super().install_step()
 
         # also build & install shared libraries, if desired
         if self.cfg['with_shared_libs']:
@@ -107,4 +107,4 @@ class EB_bzip2(ConfigureMake):
             ['include/bzlib.h'] + libs,
             'dirs': [],
         }
-        super(EB_bzip2, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

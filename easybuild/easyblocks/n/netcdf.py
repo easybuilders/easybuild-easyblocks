@@ -146,7 +146,7 @@ class EB_netCDF(CMakeMake):
             "ncgen -h" if LooseVersion(self.version) > LooseVersion("4.6.1") else "ncgen -H",
         ]
 
-        super(EB_netCDF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
 
 def set_netcdf_env_vars(log):

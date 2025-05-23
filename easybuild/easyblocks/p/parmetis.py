@@ -49,7 +49,7 @@ class EB_ParMETIS(EasyBlock):
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
 
-        super(EB_ParMETIS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.config_shared = False
         self.config_static = False
@@ -213,4 +213,4 @@ class EB_ParMETIS(EasyBlock):
             'dirs': ['Lib']
         }
 
-        super(EB_ParMETIS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

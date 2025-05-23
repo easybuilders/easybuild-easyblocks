@@ -165,11 +165,11 @@ class EB_wxPython(PythonPackage):
             # also test importing wx.lib.wxcairo
             custom_commands = [(self.python_cmd, '-c "import wx.lib.wxcairo"')]
 
-        return super(EB_wxPython, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom update for $PYTHONPATH for wxPython."""
-        txt = super(EB_wxPython, self).make_module_extra()
+        txt = super().make_module_extra()
 
         if LooseVersion(self.version) < LooseVersion("4"):
             # make sure that correct subdir is also included to $PYTHONPATH

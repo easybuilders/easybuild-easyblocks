@@ -65,7 +65,7 @@ class EB_AOMP(Binary):
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables for Clang."""
-        super(EB_AOMP, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.cfg['extract_sources'] = True
         self.cfg['dontcreateinstalldir'] = True
         # Bypass the .mod file check for GCCcore installs
@@ -130,7 +130,7 @@ class EB_AOMP(Binary):
         self.cfg['installopts'] = 'select ' + ' '.join(components)
 
     def post_processing_step(self):
-        super(EB_AOMP, self).post_processing_step()
+        super().post_processing_step()
         # The install script will create a symbolic link as the install
         # directory, this creates problems for EB as it won't remove the
         # symlink. To remedy this we remove the link here and rename the actual
@@ -190,4 +190,4 @@ class EB_AOMP(Binary):
             'aompcc --help', 'clang --help', 'clang++ --help', 'flang --help',
             'llvm-config --cxxflags',
         ]
-        super(EB_AOMP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

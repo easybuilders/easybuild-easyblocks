@@ -63,7 +63,7 @@ class BuildEnv(Bundle):
 
     def make_module_extra(self):
         """Add all the build environment variables."""
-        txt = super(BuildEnv, self).make_module_extra()
+        txt = super().make_module_extra()
 
         # include environment variables defined for (non-system) toolchain
         if not self.toolchain.is_system_toolchain():

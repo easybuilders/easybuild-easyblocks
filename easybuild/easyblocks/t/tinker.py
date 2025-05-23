@@ -47,7 +47,7 @@ class EB_TINKER(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Custom easyblock constructor for TINKER: initialise class variables."""
-        super(EB_TINKER, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.build_subdir = None
         self.build_in_installdir = True
@@ -150,4 +150,4 @@ class EB_TINKER(EasyBlock):
             'files': ['tinker/source/libtinker.a'],
             'dirs': ['tinker/bin'],
         }
-        super(EB_TINKER, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

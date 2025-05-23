@@ -83,7 +83,7 @@ class RPackage(ExtensionEasyBlock):
     def __init__(self, *args, **kwargs):
         """Initliaze RPackage-specific class variables."""
 
-        super(RPackage, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.configurevars = []
         self.configureargs = []
@@ -295,7 +295,7 @@ class RPackage(ExtensionEasyBlock):
             mkdir(lib_install_prefix, parents=True)
 
         if self.src:
-            super(RPackage, self).install_extension(unpack_src=True)
+            super().install_extension(unpack_src=True)
             self.ext_src = self.src
             self.update_config_guess(self.ext_dir)
             self.log.debug("Installing R package %s version %s." % (self.name, self.version))
@@ -332,7 +332,7 @@ class RPackage(ExtensionEasyBlock):
 
         :return: True if command completed, False otherwise
         """
-        done = super(RPackage, self).async_cmd_check()
+        done = super().async_cmd_check()
         if done:
             self.check_install_output(self.async_cmd_output)
 
@@ -342,10 +342,10 @@ class RPackage(ExtensionEasyBlock):
         """
         Custom sanity check for R packages
         """
-        return super(RPackage, self).sanity_check_step(EXTS_FILTER_R_PACKAGES, *args, **kwargs)
+        return super().sanity_check_step(EXTS_FILTER_R_PACKAGES, *args, **kwargs)
 
-    def make_module_extra(self):
+    def make_module_extra(self, *args, **kwargs):
         """Add install path to R_LIBS_SITE"""
         # prepend R_LIBS_SITE with install path
         extra = self.module_generator.prepend_paths("R_LIBS_SITE", [self.cfg['exts_subdir']])
-        return super(RPackage, self).make_module_extra(extra)
+        return super().make_module_extra(*args, **kwargs) + extra

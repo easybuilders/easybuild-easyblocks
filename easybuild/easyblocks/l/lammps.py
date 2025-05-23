@@ -188,7 +188,7 @@ class EB_LAMMPS(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """LAMMPS easyblock constructor: determine whether we should build with CUDA support enabled."""
-        super(EB_LAMMPS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         cuda_dep = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()]
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
@@ -247,7 +247,7 @@ class EB_LAMMPS(CMakeMake):
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for LAMMPS."""
-        super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and self.cuda:
@@ -459,11 +459,11 @@ class EB_LAMMPS(CMakeMake):
         else:
             raise EasyBuildError("Expected to find a Python dependency as sanity check commands rely on it!")
 
-        return super(EB_LAMMPS, self).configure_step()
+        return super().configure_step()
 
     def install_step(self):
         """Install LAMMPS and examples/potentials."""
-        super(EB_LAMMPS, self).install_step()
+        super().install_step()
         # Copy over the examples so we can repeat the sanity check
         # (some symlinks may be broken)
         examples_dir = os.path.join(self.start_dir, 'examples')
@@ -555,7 +555,7 @@ class EB_LAMMPS(CMakeMake):
             pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
             custom_paths['dirs'].append(pythonpath)
 
-        return super(EB_LAMMPS, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        return super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
 
 def get_cuda_gpu_arch(cuda_cc):

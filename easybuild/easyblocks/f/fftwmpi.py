@@ -53,7 +53,7 @@ class EB_FFTW_period_MPI(EB_FFTW):
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step: make sure FFTW is available as dependency."""
-        super(EB_FFTW_period_MPI, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         fftw_root = get_software_root('FFTW')
         if not fftw_root:
@@ -68,8 +68,8 @@ class EB_FFTW_period_MPI(EB_FFTW):
                glob.glob(os.path.join(self.installdir, 'lib*/pkgconfig')) +
                glob.glob(os.path.join(self.installdir, 'lib*/cmake')) +
                [os.path.join(self.installdir, p) for p in ['bin', 'share']])
-        super(EB_FFTW_period_MPI, self).post_processing_step()
+        super().post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for FFTW.MPI: check if all libraries/headers for MPI interfaces are there."""
-        super(EB_FFTW_period_MPI, self).sanity_check_step(mpionly=True)
+        super().sanity_check_step(mpionly=True)

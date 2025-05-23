@@ -71,7 +71,7 @@ class EB_OpenFOAM(EasyBlock):
     def __init__(self, *args, **kwargs):
         """Specify that OpenFOAM should be built in install dir."""
 
-        super(EB_OpenFOAM, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.build_in_installdir = True
 
@@ -124,7 +124,7 @@ class EB_OpenFOAM(EasyBlock):
 
     def extract_step(self):
         """Extract sources as expected by the OpenFOAM(-Extend) build scripts."""
-        super(EB_OpenFOAM, self).extract_step()
+        super().extract_step()
         # make sure that the expected subdir is really there after extracting
         # if not, the build scripts (e.g., the etc/bashrc being sourced) will likely fail
         openfoam_installdir = os.path.join(self.installdir, self.openfoamdir)
@@ -153,7 +153,7 @@ class EB_OpenFOAM(EasyBlock):
     def patch_step(self, beginpath=None):
         """Adjust start directory and start path for patching to correct directory."""
         self.cfg['start_dir'] = os.path.join(self.installdir, self.openfoamdir)
-        super(EB_OpenFOAM, self).patch_step(beginpath=self.cfg['start_dir'])
+        super().patch_step(beginpath=self.cfg['start_dir'])
 
     def configure_step(self):
         """Configure OpenFOAM build by setting appropriate environment variables."""
@@ -614,12 +614,12 @@ class EB_OpenFOAM(EasyBlock):
             # because sourcing $FOAM_BASH sets up environment
             custom_commands.append(' && '.join(cmds))
 
-        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self, altroot=None, altversion=None):
         """Define extra environment variables required by OpenFOAM"""
 
-        txt = super(EB_OpenFOAM, self).make_module_extra()
+        txt = super().make_module_extra()
 
         env_vars = [
             # Set WM_COMPILE_OPTION in the module file

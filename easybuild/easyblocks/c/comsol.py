@@ -46,12 +46,12 @@ class EB_COMSOL(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to COMSOL."""
-        super(EB_COMSOL, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.configfile = os.path.join(self.builddir, 'my_setupconfig.ini')
 
     def extract_step(self):
         """Need to adjust the permissions on the top dir, the DVD has 0444."""
-        super(EB_COMSOL, self).extract_step()
+        super().extract_step()
 
         # The tar file comes from the DVD and has 0444 as permission at the top dir.
         adjust_permissions(self.builddir, stat.S_IWUSR)
@@ -135,4 +135,4 @@ class EB_COMSOL(PackedBinary):
             ],
             'dirs': ["java/glnxa64", "plugins"],
         }
-        super(EB_COMSOL, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

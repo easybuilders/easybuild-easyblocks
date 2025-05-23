@@ -39,7 +39,7 @@ class EB_Bowtie2(MakeCp):
 
     def __init__(self, *args, **kwargs):
         """Bowtie2 easyblock constructor, define class variables."""
-        super(EB_Bowtie2, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.bowtie2_files = ['bowtie2', 'bowtie2-build', 'bowtie2-inspect', 'MANUAL', 'MANUAL.markdown', 'NEWS']
         if LooseVersion(self.version) >= LooseVersion('2.2.0'):
@@ -70,14 +70,14 @@ class EB_Bowtie2(MakeCp):
         if cxxflags:
             self.cfg.update('buildopts', 'RELEASE_FLAGS="%s"' % cxxflags)
 
-        super(EB_Bowtie2, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """
         Install by copying files to install dir
         """
         self.cfg['files_to_copy'] = [(self.bowtie2_files, 'bin'), 'doc', 'example', 'scripts']
-        super(EB_Bowtie2, self).install_step()
+        super().install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Bowtie2."""
@@ -85,4 +85,4 @@ class EB_Bowtie2(MakeCp):
             'files': [os.path.join('bin', f) for f in self.bowtie2_files],
             'dirs': ['doc', 'example', 'scripts']
         }
-        super(EB_Bowtie2, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

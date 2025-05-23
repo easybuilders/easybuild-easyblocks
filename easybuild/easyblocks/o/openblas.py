@@ -252,4 +252,4 @@ class EB_OpenBLAS(ConfigureMake):
                     custom_paths['files'].extend(f"lib/libopenblas{filename_suffix}.{ext}"
                                                  for ext in ['a', shlib_ext])
 
-        super(EB_OpenBLAS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

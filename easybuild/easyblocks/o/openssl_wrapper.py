@@ -69,7 +69,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
     def __init__(self, *args, **kwargs):
         """Locate the installation files of OpenSSL in the host system"""
-        super(EB_OpenSSL_wrapper, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('2'):
             try:
@@ -261,7 +261,7 @@ class EB_OpenSSL_wrapper(Bundle):
 
         # Check system include paths for OpenSSL headers
         cmd = "LC_ALL=C gcc -E -Wp,-v -xc /dev/null"
-        res = run_shell_cmd(cmd, hidden=True)
+        res = run_shell_cmd(cmd, hidden=True, in_dry_run=True)
 
         sys_include_dirs = []
         for match in re.finditer(r'^\s(/[^\0\n]*)+', res.output, re.MULTILINE):
@@ -315,12 +315,12 @@ class EB_OpenSSL_wrapper(Bundle):
     def fetch_step(self, *args, **kwargs):
         """Fetch sources if OpenSSL component is needed"""
         if not all(self.system_ssl[key] for key in ('bin', 'engines', 'include', 'libs')):
-            super(EB_OpenSSL_wrapper, self).fetch_step(*args, **kwargs)
+            super().fetch_step(*args, **kwargs)
 
     def extract_step(self):
         """Extract sources if OpenSSL component is needed"""
         if not all(self.system_ssl[key] for key in ('bin', 'engines', 'include', 'libs')):
-            super(EB_OpenSSL_wrapper, self).extract_step()
+            super().extract_step()
 
     def install_step(self):
         """Symlink target OpenSSL installation"""
@@ -368,12 +368,12 @@ class EB_OpenSSL_wrapper(Bundle):
         elif self.cfg.get('wrap_system_openssl'):
             # install OpenSSL component due to lack of OpenSSL in host system
             print_warning("Not all OpenSSL components found in host system, falling back to OpenSSL in EasyBuild!")
-            super(EB_OpenSSL_wrapper, self).install_step()
+            super().install_step()
         else:
             # install OpenSSL component by user request
             warn_msg = "Installing OpenSSL from source in EasyBuild by user request ('wrap_system_openssl=%s')"
             print_warning(warn_msg, self.cfg.get('wrap_system_openssl'))
-            super(EB_OpenSSL_wrapper, self).install_step()
+            super().install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for OpenSSL wrapper."""
@@ -412,7 +412,7 @@ class EB_OpenSSL_wrapper(Bundle):
              "| grep 'Verify return code: 0 (ok)'" % proxy_arg),
         ]
 
-        super(Bundle, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def get_openssl_bin_version(self, bin_name):
         """Check OpenSSL executable version"""
@@ -422,7 +422,7 @@ class EB_OpenSSL_wrapper(Bundle):
             return None, None
 
         cmd = "%s version" % bin_path
-        res = run_shell_cmd(cmd, fail_on_error=False, hidden=True)
+        res = run_shell_cmd(cmd, fail_on_error=False, hidden=True, in_dry_run=True)
 
         try:
             bin_version = res.output.split(' ')[1]

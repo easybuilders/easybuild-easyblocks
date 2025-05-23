@@ -49,7 +49,7 @@ class VersionIndependentPythonPackage(PythonPackage):
 
     def set_pylibdirs(self):
         """Set pylibdir."""
-        super(VersionIndependentPythonPackage, self).set_pylibdirs()
+        super().set_pylibdirs()
         self.pylibdir = 'lib'
         self.all_pylibdirs = ['lib']
 
