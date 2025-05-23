@@ -514,7 +514,9 @@ class PythonPackage(ExtensionEasyBlock):
                                "Otherwise it will be used as-is. A value of None then skips the build step. "
                                "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
-            'download_dep_fail': [True, "Fail if downloaded dependencies are detected", CUSTOM],
+            'download_dep_fail': [None, "Fail if downloaded dependencies are detected. "
+                                  "Defaults to True unless 'use_pip_for_deps' or 'use_pip_requirement' is True.",
+                                  CUSTOM],
             'fix_python_shebang_for': [['bin/*'], "List of files for which Python shebang should be fixed "
                                                   "to '#!/usr/bin/env python' (glob patterns supported) "
                                                   "(default: ['bin/*'])", CUSTOM],
@@ -589,13 +591,18 @@ class PythonPackage(ExtensionEasyBlock):
             self.log.info("Using default value for expected module name (lowercase software name): '%s'",
                           self.options['modulename'])
 
-        # only for Python packages installed as extensions:
-        # inherit setting for detection of downloaded dependencies from parent,
-        # if 'download_dep_fail' was left unspecified
-        if self.is_extension and self.cfg.get('download_dep_fail') is None:
-            self.cfg['download_dep_fail'] = self.master.cfg['exts_download_dep_fail']
-            self.log.info("Inherited setting for detection of downloaded dependencies from parent: %s",
-                          self.cfg['download_dep_fail'])
+        # Set default if 'download_dep_fail' was left unspecified
+        if self.cfg.get('download_dep_fail') is None:
+            if self.cfg.get('use_pip_for_deps') or self.cfg.get('use_pip_requirement'):
+                self.cfg['download_dep_fail'] = False  # Those 2 options will always download dependencies
+            elif self.is_extension:
+                # only for Python packages installed as extensions:
+                # inherit setting for detection of downloaded dependencies from parent,
+                self.cfg['download_dep_fail'] = self.master.cfg['exts_download_dep_fail']
+                self.log.info("Inherited setting for detection of downloaded dependencies from parent: %s",
+                              self.cfg['download_dep_fail'])
+            else:
+                self.cfg['download_dep_fail'] = True
 
         # figure out whether this Python package is being installed for multiple Python versions
         self.multi_python = 'Python' in self.cfg['multi_deps']
