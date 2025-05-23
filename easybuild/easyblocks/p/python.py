@@ -276,8 +276,8 @@ class EB_Python(ConfigureMake):
             # which is voluntarily or accidentally installed multiple times.
             # Example: Upgrading to a higher version after installing new dependencies.
             'pip_ignore_installed': False,
-            # Python installations must be clean. Requires pip >= 9
-            'sanity_pip_check': LooseVersion(self._get_pip_ext_version() or '0.0') >= LooseVersion('9.0'),
+            # disable per-extension 'pip check', since it's a global check done in sanity check step of Python easyblock
+            'sanity_pip_check': False,
             # EasyBuild 5
             'use_pip': True,
         }
@@ -682,6 +682,9 @@ class EB_Python(ConfigureMake):
             fake_mod_data = self.load_fake_module()
         except EasyBuildError as err:
             raise EasyBuildError("Loading fake module failed: %s", err)
+
+        # global 'pip check' to verify that version requirements are met for Python packages installed as extensions
+        run_pip_check(python_cmd='python')
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
