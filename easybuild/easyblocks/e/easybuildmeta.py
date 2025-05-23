@@ -61,6 +61,23 @@ class EB_EasyBuildMeta(PythonPackage):
         self.real_initial_environ = copy.deepcopy(self.initial_environ)
 
         self.easybuild_pkgs = ['easybuild-framework', 'easybuild-easyblocks', 'easybuild-easyconfigs']
+
+        # check whether 'easybuild' package is part of the sources
+        self.with_easybuild_pkg = False
+        for source in self.cfg['sources']:
+            if isinstance(source, dict):
+                pkg_name = source.get('filename')
+                if pkg_name is None:
+                    raise EasyBuildError(f"Unknown filename for source: {source}")
+            elif isinstance(source, str):
+                pkg_name = source
+            else:
+                raise EasyBuildError(f"Unknown type of source specification: {source}")
+
+            if pkg_name == f'easybuild-{self.version}':
+                self.with_easybuild_pkg = True
+                break
+
         if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) <= LooseVersion('3.999'):
             # deliberately include vsc-install & vsc-base twice;
             # first time to ensure the specified vsc-install/vsc-base package is available when framework gets installed
@@ -73,6 +90,9 @@ class EB_EasyBuildMeta(PythonPackage):
             self.easybuild_pkgs.extend(['vsc-base', 'vsc-install'])
             # consider setuptools first, in case it is listed as a sources
             self.easybuild_pkgs.insert(0, 'setuptools')
+        elif LooseVersion(self.version) >= LooseVersion('5.0') and self.with_easybuild_pkg:
+            # use easybuild-base for easybuild to avoid matching all easybuild-* directories during install
+            self.easybuild_pkgs.append('easybuild-base')
 
     # Override this function since we want to respect the user choice for the python installation to use
     # (which can be influenced by EB_PYTHON and EB_INSTALLPYTHON)
@@ -141,8 +161,9 @@ class EB_EasyBuildMeta(PythonPackage):
 
                     super().install_step()
 
-            egginfo = os.path.join(self.installdir, self.pylibdir, f'easybuild-{self.version}.egg-info')
-            write_file(egginfo, EGGINFO % (self.version, ''.join(self.cfg['description'].splitlines())))
+            if not self.with_easybuild_pkg:
+                egginfo = os.path.join(self.installdir, self.pylibdir, f'easybuild-{self.version}.egg-info')
+                write_file(egginfo, EGGINFO % (self.version, ''.join(self.cfg['description'].splitlines())))
 
         except OSError as err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
