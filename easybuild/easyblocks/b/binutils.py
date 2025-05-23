@@ -33,13 +33,14 @@ import re
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, copy_file
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import RISCV, get_cpu_family, get_shared_lib_ext
+from easybuild.tools.systemtools import RISCV, get_cpu_family, get_gcc_version, get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
 
@@ -100,6 +101,8 @@ class EB_binutils(ConfigureMake):
     def configure_step(self):
         """Custom configuration procedure for binutils: statically link to zlib, configure options."""
 
+        version = LooseVersion(self.version)
+
         if self.toolchain.is_system_toolchain():
             # determine list of 'lib' directories to use rpath for;
             # this should 'harden' the resulting binutils to bootstrap GCC
@@ -139,7 +142,7 @@ class EB_binutils(ConfigureMake):
                 libz_path = os.path.join(zlibroot, get_software_libdir('zlib'), 'libz.a')
 
                 # for recent binutils versions, we need to override ZLIB in Makefile.in of components
-                if LooseVersion(self.version) >= LooseVersion('2.26'):
+                if version >= '2.26':
                     regex_subs = [
                         (r"^(ZLIB\s*=\s*).*$", r"\1%s" % libz_path),
                         (r"^(ZLIBINC\s*=\s*).*$", r"\1-I%s" % os.path.join(zlibroot, 'include')),
@@ -152,7 +155,7 @@ class EB_binutils(ConfigureMake):
                     libs.append(libz_path)
 
         msgpackroot = get_software_root('msgpack-c')
-        if LooseVersion(self.version) >= LooseVersion('2.39'):
+        if version >= '2.39':
             if msgpackroot:
                 self.cfg.update('configopts', '--with-msgpack')
             else:
@@ -172,16 +175,16 @@ class EB_binutils(ConfigureMake):
         self.cfg.update('configopts', '--with-sysroot=/')
 
         # build both static and shared libraries for recent binutils versions (default is only static)
-        if LooseVersion(self.version) > LooseVersion('2.24'):
+        if version > '2.24':
             self.cfg.update('configopts', "--enable-shared --enable-static")
 
         # enable gold linker with plugin support, use ld as default linker (for recent versions of binutils)
-        if LooseVersion(self.version) > LooseVersion('2.24'):
+        if version > '2.24':
             self.cfg.update('configopts', "--enable-plugins --enable-ld=default")
             if self.use_gold:
                 self.cfg.update('configopts', '--enable-gold')
 
-        if LooseVersion(self.version) >= LooseVersion('2.34'):
+        if version >= '2.34':
             if self.cfg['use_debuginfod']:
                 self.cfg.update('configopts', '--with-debuginfod')
             else:
@@ -198,6 +201,13 @@ class EB_binutils(ConfigureMake):
                 # if $CFLAGS is not defined, make sure we retain "-g -O2",
                 # since not specifying any optimization level implies -O0...
                 self.cfg.update('buildopts', 'CFLAGS="-g -O2 -fPIC"')
+
+            version = LooseVersion(self.version)
+            if version >= '2.42' and self.toolchain.comp_family() == toolchain.SYSTEM:
+                gcc_version = LooseVersion(get_gcc_version())
+                if gcc_version and ('4.8.1' <= gcc_version < '6.1.0'):
+                    # append "-std=c++11" to $CXXFLAGS, not overriding
+                    self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -std=c++11"')
 
     def install_step(self):
         """Install using 'make install', also install libiberty if desired."""
