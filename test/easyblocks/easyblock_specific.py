@@ -276,14 +276,14 @@ class EasyBlockSpecificTest(TestCase):
         Test det_installed_python_packages function providyed by PythonPackage easyblock
         """
         pkg1 = None
-        res = pythonpackage.det_installed_python_packages(python_cmd=sys.executable)
+        res = python.det_installed_python_packages(python_cmd=sys.executable)
         # we can't make too much assumptions on which installed Python packages are found
         self.assertTrue(isinstance(res, list))
         if res:
             pkg1_name = res[0]
             self.assertTrue(isinstance(pkg1_name, str))
 
-        res_detailed = pythonpackage.det_installed_python_packages(python_cmd=sys.executable, names_only=False)
+        res_detailed = python.det_installed_python_packages(python_cmd=sys.executable, names_only=False)
         self.assertTrue(isinstance(res_detailed, list))
         if res_detailed:
             pkg1 = res_detailed[0]
@@ -293,6 +293,21 @@ class EasyBlockSpecificTest(TestCase):
             regex = re.compile('^[0-9].*')
             ver = pkg1['version']
             self.assertTrue(regex.match(ver), f"Pattern {regex.pattern} matches for pkg version: {ver}")
+
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            stderr = None
+            if "pip list" in cmd:
+                output = '[{"name": "example", "version": "1.2.3"}]'
+                stderr = "DEPRECATION: Python 2.7 reached the end of its life on January 1st, 2020"
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=stderr, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        res = python.det_installed_python_packages(python_cmd=sys.executable)
+        self.assertEqual(res, ['example'])
 
     def test_det_py_install_scheme(self):
         """Test det_py_install_scheme function provided by PythonPackage easyblock."""
