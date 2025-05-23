@@ -40,9 +40,9 @@ class EB_Rserve(RPackage):
     def install_extension(self):
         """Set LIBS environment variable correctly prior to building."""
         self.configurevars = ['LIBS="$LIBS -lpthread"']
-        super(EB_Rserve, self).install_extension()
+        super().install_extension()
 
     def install_extension_async(self, *args, **kwargs):
         """Set LIBS environment variable correctly prior to building."""
         self.configurevars = ['LIBS="$LIBS -lpthread"']
-        return super(EB_Rserve, self).install_extension_async(*args, **kwargs)
+        return super().install_extension_async(*args, **kwargs)

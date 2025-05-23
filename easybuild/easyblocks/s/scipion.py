@@ -44,7 +44,7 @@ class EB_Scipion(ExtensionEasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialize Scipion-specific variables."""
-        super(EB_Scipion, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         # strip off 'scipion-*' part to avoid having everything in a subdirectory
         self.unpack_options = '--strip-components=1'
 
@@ -185,7 +185,7 @@ class EB_Scipion(ExtensionEasyBlock):
         """Perform the actual Scipion package configure/installation procedure"""
 
         # The ExtensionEasyBlock run does unpack and patch
-        super(EB_Scipion, self).install_extension(unpack_src=True)
+        super().install_extension(unpack_src=True)
         self.builddir = self.ext_dir
 
         # configure, build, install
@@ -200,4 +200,4 @@ class EB_Scipion(ExtensionEasyBlock):
             'files': [os.path.join('bin', 'scipion')],
             'dirs': ['config', 'data', 'pyworkflow', 'software'],
         }
-        return super(EB_Scipion, self).sanity_check_step(custom_paths=custom_paths)
+        return super().sanity_check_step(custom_paths=custom_paths)

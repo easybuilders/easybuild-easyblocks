@@ -55,12 +55,12 @@ class EB_NAMD(MakeCp):
 
     def __init__(self, *args, **kwargs):
         """Custom easyblock constructor for NAMD, initialize class variables."""
-        super(EB_NAMD, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.namd_arch = None
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
-        super(EB_NAMD, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         if self.cfg['namd_basearch'] is None:
 
@@ -77,7 +77,7 @@ class EB_NAMD(MakeCp):
 
     def extract_step(self):
         """Custom extract step for NAMD, we need to extract charm++ so we can patch it."""
-        super(EB_NAMD, self).extract_step()
+        super().extract_step()
 
         change_dir(self.src[0]['finalpath'])
         self.charm_tarballs = glob.glob('charm-*.tar')
@@ -89,7 +89,7 @@ class EB_NAMD(MakeCp):
 
     def patch_step(self, *args, **kwargs):
         """Patch scripts to avoid using hardcoded /bin/csh."""
-        super(EB_NAMD, self).patch_step(*args, **kwargs)
+        super().patch_step(*args, **kwargs)
 
         self.charm_dir = self.charm_tarballs[0][:-4]
 
@@ -194,7 +194,7 @@ class EB_NAMD(MakeCp):
 
     def build_step(self):
         """Build NAMD for configured architecture"""
-        super(EB_NAMD, self).build_step(path=self.namd_arch)
+        super().build_step(path=self.namd_arch)
 
     def test_step(self):
         """Run NAMD test case."""
@@ -243,7 +243,7 @@ class EB_NAMD(MakeCp):
 
     def make_module_extra(self):
         """Add the install directory to PATH"""
-        txt = super(EB_NAMD, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.prepend_paths("PATH", [''])
         return txt
 
@@ -253,4 +253,4 @@ class EB_NAMD(MakeCp):
             'files': ['charmrun', 'flipbinpdb', 'flipdcd', 'namd%s' % self.version.split('.')[0], 'psfgen'],
             'dirs': ['inc'],
         }
-        super(EB_NAMD, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

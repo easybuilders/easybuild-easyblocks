@@ -64,7 +64,7 @@ class EB_Trilinos(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Constructor of custom easyblock for Trilinos."""
-        super(EB_Trilinos, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.cfg['shared_libs'] is not None:
             self.log.deprecated("Use 'build_shared_libs' instead of 'shared_libs' easyconfig parameter", '5.0')
@@ -254,11 +254,11 @@ class EB_Trilinos(CMakeMake):
         symlink(obj_dir, short_build_dir)
 
         # configure using cmake
-        super(EB_Trilinos, self).configure_step(srcdir=short_src_dir, builddir=short_build_dir)
+        super().configure_step(srcdir=short_src_dir, builddir=short_build_dir)
 
     def build_step(self):
         """Build with make (verbose logging enabled)."""
-        super(EB_Trilinos, self).build_step(verbose=True)
+        super().build_step(verbose=True)
 
     def sanity_check_step(self):
         """Custom sanity check for Trilinos."""
@@ -307,7 +307,7 @@ class EB_Trilinos(CMakeMake):
             'dirs': ['bin', 'include']
         }
 
-        super(EB_Trilinos, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def cleanup_step(self):
         """Complete cleanup by also removing custom created short build directory."""

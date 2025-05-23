@@ -44,7 +44,7 @@ class EB_UCX_Plugins(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Custom initialization for UCX-Plugins."""
-        super(EB_UCX_Plugins, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._plugins = None
         self.makefile_dirs = []
 
@@ -101,7 +101,7 @@ class EB_UCX_Plugins(ConfigureMake):
 
         self.cfg.update('configopts', configopts)
 
-        super(EB_UCX_Plugins, self).configure_step()
+        super().configure_step()
 
     def build_step(self):
         """Build plugins"""
@@ -115,7 +115,7 @@ class EB_UCX_Plugins(ConfigureMake):
 
     def make_module_extra(self, *args, **kwargs):
         """Add extra statements to generated module file specific to UCX plugins"""
-        txt = super(EB_UCX_Plugins, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
 
         base_conf = dict()
         cmd = ['ucx_info', '-b']
@@ -161,4 +161,4 @@ class EB_UCX_Plugins(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_UCX_Plugins, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

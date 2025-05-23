@@ -39,7 +39,7 @@ class EB_reticulate(RPackage):
     def install_extension(self):
         """Add extra environment variables to modulefile"""
 
-        txt = super(EB_reticulate, self).install_extension()
+        txt = super().install_extension()
         if not txt:
             txt = ""
 

@@ -129,14 +129,14 @@ class EB_MPICH(ConfigureMake):
         # things might go wrong if a previous install dir is present, so let's get rid of it
         if not self.cfg['keeppreviousinstall']:
             self.log.info("Making sure any old installation is removed before we start the build...")
-            super(EB_MPICH, self).make_dir(self.installdir, True, dontcreateinstalldir=True)
+            super().make_dir(self.installdir, True, dontcreateinstalldir=True)
 
         if add_mpich_configopts:
             self.add_mpich_configopts()
 
         self.correct_mpich_build_env()
 
-        super(EB_MPICH, self).configure_step()
+        super().configure_step()
 
     # make and make install are default
 
@@ -175,4 +175,4 @@ class EB_MPICH(ConfigureMake):
         custom_paths.setdefault('dirs', []).extend(['bin', 'include', ('lib', 'lib64')])
         custom_paths.setdefault('files', []).extend(bins + headers + libs)
 
-        super(EB_MPICH, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

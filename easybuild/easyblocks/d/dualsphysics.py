@@ -56,14 +56,14 @@ class EB_DualSPHysics(CMakeMakeCp):
 
     def __init__(self, *args, **kwargs):
         """Initialize calss variables custom to DualSPHysics."""
-        super(EB_DualSPHysics, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.dsph_target = None
         self.shortver = '.'.join(self.version.split('.')[0:2])
 
     def prepare_step(self, *args, **kwargs):
         """Determine name of binary that will be installed."""
-        super(EB_DualSPHysics, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         if get_software_root('CUDA'):
             self.dsph_target = 'GPU'
@@ -73,7 +73,7 @@ class EB_DualSPHysics(CMakeMakeCp):
     def configure_step(self):
         """Custom configure procedure for DualSPHysics."""
         srcdir = os.path.join(self.cfg['start_dir'], 'src/source')
-        super(EB_DualSPHysics, self).configure_step(srcdir=srcdir)
+        super().configure_step(srcdir=srcdir)
 
     def install_step(self):
         """Custom install procedure for DualSPHysics."""
@@ -88,11 +88,11 @@ class EB_DualSPHysics(CMakeMakeCp):
             (['bin/linux/*'], 'bin'),
             (['src/lib/linux_gcc/*'], 'lib'),
         ]
-        super(EB_DualSPHysics, self).install_step()
+        super().install_step()
 
     def post_processing_step(self):
         """Custom post-installation step: ensure rpath is patched into binaries/libraries if configured."""
-        super(EB_DualSPHysics, self).post_processing_step()
+        super().post_processing_step()
 
         if build_option('rpath'):
             # only the compiled binary (e.g. DualSPHysics5.0CPU_linux64) is rpath'd, the precompiled libraries
@@ -144,4 +144,4 @@ class EB_DualSPHysics(CMakeMakeCp):
 
         custom_commands = ['%s_linux64 -h' % x for x in bins]
 
-        super(EB_DualSPHysics, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

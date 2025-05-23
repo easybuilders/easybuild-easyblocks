@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -23,33 +23,22 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for building and installing xml R, implemented as an easyblock
+EasyBuild support for installing Term::ReadLine::Gnu.
 
-@author: Kenneth Hoste (Ghent University)
+@author: Alexander Grund (TU Dresden)
 """
-import os
 
-import easybuild.tools.environment as env
-from easybuild.easyblocks.generic.rpackage import RPackage
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
+from easybuild.easyblocks.generic.perlmodule import PerlModule
 from easybuild.tools.modules import get_software_root
 
 
-class EB_XML(RPackage):
-    """Support for installing the XML R package."""
+class EB_Term_colon__colon_ReadLine_colon__colon_Gnu(PerlModule):
+    """Support for installing the Term::ReadLine::Gnu Perl module."""
 
-    def install_R_package(self, *args, **kwargs):
-        """Customized install procedure for XML R package, add zlib lib path to LIBS."""
-
-        libs = os.getenv('LIBS', '')
-        zlib = get_software_root('zlib')
-
-        if zlib:
-            env.setvar('LIBS', "%s -L%s" % (libs, os.path.join(zlib, 'lib')))
-        elif 'zlib' in build_option('filter_deps'):
-            self.log.info("zlib included in list of filtered dependencies, so no need to tweak $LIBS")
-        else:
-            raise EasyBuildError("zlib module not loaded (required)")
-
-        return super().install_R_package(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        """Set configopts for dependencies"""
+        super().__init__(*args, **kwargs)
+        # Use the custom --prefix option to pass the installation prefixes of all direct dependencies
+        # to avoid it picking up system libraries.
+        prefix = ':'.join(get_software_root(dep['name']) for dep in self.cfg.dependencies())
+        self.cfg.update('configopts', f"--prefix='{prefix}'")

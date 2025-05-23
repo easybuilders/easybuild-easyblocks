@@ -95,4 +95,4 @@ class EB_CBLAS(ConfigureMake):
             'files': ['lib/libcblas.a', 'lib/libcblas.%s' % get_shared_lib_ext()],
             'dirs': ['include'],
         }
-        super(EB_CBLAS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

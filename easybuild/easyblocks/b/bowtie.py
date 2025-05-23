@@ -62,7 +62,7 @@ class EB_Bowtie(ConfigureMake):
         """
         if LooseVersion(self.version) >= LooseVersion('1.1.2'):
             # 'make install' is supported since Bowtie 1.1.2
-            super(EB_Bowtie, self).install_step()
+            super().install_step()
         else:
             destdir = os.path.join(self.installdir, 'bin')
             mkdir(destdir)
@@ -86,4 +86,4 @@ class EB_Bowtie(ConfigureMake):
             'files': [os.path.join('bin', x) for x in binaries],
             'dirs': []
         }
-        super(EB_Bowtie, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

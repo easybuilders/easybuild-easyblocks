@@ -62,7 +62,7 @@ class EB_numpy(FortranPythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Initialize numpy-specific class variables."""
-        super(EB_numpy, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
@@ -213,7 +213,7 @@ class EB_numpy(FortranPythonPackage):
             # This variable makes it try `-lm` first and is supported until the Meson backend is used in 1.26+.
             env.setvar('MATHLIB', 'm')
 
-        super(EB_numpy, self).configure_step()
+        super().configure_step()
 
         if LooseVersion(self.version) < LooseVersion('1.21'):
             # check configuration (for debugging purposes)
@@ -267,7 +267,7 @@ class EB_numpy(FortranPythonPackage):
         # see http://projects.scipy.org/numpy/ticket/182
         self.testcmd = "unset LDFLAGS && cd .. && %%(python)s -c '%s'" % test_code
 
-        super(EB_numpy, self).test_step()
+        super().test_step()
 
         # temporarily install numpy, it doesn't alow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()
@@ -329,7 +329,7 @@ class EB_numpy(FortranPythonPackage):
 
     def install_step(self):
         """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
-        super(EB_numpy, self).install_step()
+        super().install_step()
 
         builddir = os.path.join(self.builddir, "numpy")
         try:
@@ -344,7 +344,7 @@ class EB_numpy(FortranPythonPackage):
 
     def install_extension(self):
         """Install numpy as an extension"""
-        super(EB_numpy, self).install_extension()
+        super().install_extension()
 
         return self.make_module_extra_numpy_include()
 
@@ -397,7 +397,7 @@ class EB_numpy(FortranPythonPackage):
             # _dotblas is required for decent performance of numpy.dot(), but only there in numpy 1.9.x and older
             custom_commands.append("python -c 'import numpy.core._dotblas'")
 
-        return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra_numpy_include(self):
         """
@@ -423,6 +423,6 @@ class EB_numpy(FortranPythonPackage):
         """
         Add additional update statements in module file specific to numpy
         """
-        txt = super(EB_numpy, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.make_module_extra_numpy_include()
         return txt

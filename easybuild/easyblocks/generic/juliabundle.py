@@ -50,7 +50,7 @@ class JuliaBundle(Bundle, JuliaPackage):
 
     def __init__(self, *args, **kwargs):
         """Initialize JuliaBundle easyblock."""
-        super(JuliaBundle, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg['exts_defaultclass'] = 'JuliaPackage'
         self.cfg['exts_filter'] = EXTS_FILTER_JULIA_PACKAGES
@@ -78,7 +78,7 @@ class JuliaBundle(Bundle, JuliaPackage):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for installing bundle of Julia packages."""
-        super(JuliaBundle, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def install_step(self):
         """Prepare installation environment and dd all dependencies to project environment."""
@@ -91,9 +91,8 @@ class JuliaBundle(Bundle, JuliaPackage):
             'files': [],
             'dirs': [os.path.join('packages', self.name)],
         }
-        super(JuliaBundle, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self, *args, **kwargs):
         """Custom module environment from JuliaPackage"""
-        mod = super(JuliaBundle, self).make_module_extra(*args, **kwargs)
-        return mod
+        return super().make_module_extra(*args, **kwargs)

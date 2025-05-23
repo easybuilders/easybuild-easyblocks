@@ -68,7 +68,7 @@ class EB_Amber(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor: initialise class variables."""
-        super(EB_Amber, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('20'):
             # Build Amber <20 in install directory
@@ -83,7 +83,7 @@ class EB_Amber(CMakeMake):
     def extract_step(self):
         """Extract sources; strip off parent directory during unpack"""
         self.cfg.update('unpack_options', "--strip-components=1")
-        super(EB_Amber, self).extract_step()
+        super().extract_step()
 
     def patch_step(self, *args, **kwargs):
         """Patch Amber using 'update_amber' tool, prior to applying listed patch files (if any)."""
@@ -118,7 +118,7 @@ class EB_Amber(CMakeMake):
                 for _ in range(self.cfg['patchruns']):
                     run_shell_cmd(cmd)
 
-        super(EB_Amber, self).patch_step(*args, **kwargs)
+        super().patch_step(*args, **kwargs)
 
     def configure_step(self):
         """Apply the necessary CMake config opts."""
@@ -203,7 +203,7 @@ class EB_Amber(CMakeMake):
         self.cfg.update('configopts', '-DCOMPILER=AUTO')
 
         # configure using cmake
-        super(EB_Amber, self).configure_step()
+        super().configure_step()
 
     def build_step(self):
         """Build Amber"""
@@ -211,7 +211,7 @@ class EB_Amber(CMakeMake):
             # Building Amber < 20 is done in install step.
             return
 
-        super(EB_Amber, self).build_step()
+        super().build_step()
 
     def test_step(self):
         """Testing Amber build is done in install step."""
@@ -296,7 +296,8 @@ class EB_Amber(CMakeMake):
             self.with_cuda = True
             build_targets.append(('-cuda', 'test.cuda'))
             if self.with_mpi:
-                build_targets.append(("-cuda %s" % self.mpi_option, 'test.cuda_parallel'))
+                testname = 'test.cuda_parallel' if (LooseVersion(self.version) < '24') else 'test.cuda.parallel'
+                build_targets.append(("-cuda %s" % self.mpi_option, testname))
 
         ld_lib_path = os.environ.get('LD_LIBRARY_PATH', '')
         env.setvar('LD_LIBRARY_PATH', os.pathsep.join([os.path.join(self.installdir, 'lib'), ld_lib_path]))
@@ -308,7 +309,7 @@ class EB_Amber(CMakeMake):
 
             # build in situ using 'make install'
             # note: not 'build'
-            super(EB_Amber, self).install_step()
+            super().install_step()
 
             # test
             if self.cfg['runtest']:
@@ -325,30 +326,38 @@ class EB_Amber(CMakeMake):
             self.configuremake_install_step()
             return
 
-        super(EB_Amber, self).install_step()
+        super().install_step()
 
         # Run the tests located in the build directory
         if self.cfg['runtest']:
-            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, self.builddir)
+            if LooseVersion(self.version) >= LooseVersion('24'):
+                testdir = os.path.join(self.builddir, 'test')
+                testname_cs = 'test.cuda.serial'
+                testname_cp = 'test.cuda.parallel'
+            else:
+                testdir = self.builddir
+                testname_cs = 'test.cuda_serial'
+                testname_cp = 'test.cuda_parallel'
+            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, testdir)
 
             # serial tests
             run_shell_cmd("%s && make test.serial" % pretestcommands)
             if self.with_cuda:
-                res = run_shell_cmd("%s && make test.cuda_serial" % pretestcommands)
+                res = run_shell_cmd(f"{pretestcommands} && make {testname_cs}")
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
-                res = run_shell_cmd("%s && make test.parallel" % pretestcommands)
+                res = run_shell_cmd(f"{pretestcommands} && make test.parallel")
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
             if self.with_mpi and self.with_cuda:
                 # Hard-code CUDA parallel tests to use 2 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 2))
-                res = run_shell_cmd("%s && make test.cuda_parallel" % pretestcommands)
+                res = run_shell_cmd(f"{pretestcommands} && make {testname_cp}")
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda_parallel tests for possible failures")
 
@@ -374,11 +383,11 @@ class EB_Amber(CMakeMake):
             'files': [os.path.join(self.installdir, 'bin', binary) for binary in binaries],
             'dirs': [],
         }
-        super(EB_Amber, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add module entries specific to Amber/AmberTools"""
-        txt = super(EB_Amber, self).make_module_extra()
+        txt = super().make_module_extra()
 
         txt += self.module_generator.set_environment('AMBERHOME', self.installdir)
 

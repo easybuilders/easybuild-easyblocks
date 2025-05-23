@@ -77,7 +77,7 @@ class EB_MXNet(MakeCp):
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
-        super(EB_MXNet, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.mxnet_src_dir = None
         self.py_ext = PythonPackage(self, {'name': self.name, 'version': self.version})
@@ -98,7 +98,7 @@ class EB_MXNet(MakeCp):
         to their right place.
         """
         # Extract everything into separate directories.
-        super(EB_MXNet, self).extract_step()
+        super().extract_step()
 
         mxnet_dirs = glob.glob(os.path.join(self.builddir, '*mxnet-*'))
         if len(mxnet_dirs) == 1:
@@ -142,7 +142,7 @@ class EB_MXNet(MakeCp):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for building and installing MXNet."""
-        super(EB_MXNet, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         self.py_ext.prepare_python()
 
     def configure_step(self):
@@ -172,14 +172,14 @@ class EB_MXNet(MakeCp):
         if get_software_root('NNPACK'):
             self.cfg.update('buildopts', 'USE_NNPACK=1')
 
-        super(EB_MXNet, self).configure_step()
+        super().configure_step()
 
     def install_step(self):
         """Specify list of files to copy"""
         self.cfg['files_to_copy'] = ['bin', 'include', 'lib']
         if LooseVersion(self.version) < LooseVersion('1.0'):
             self.cfg.update('files_to_copy', [(['dmlc-core/include/dmlc', 'nnvm/include/nnvm'], 'include')])
-        super(EB_MXNet, self).install_step()
+        super().install_step()
 
     def extensions_step(self):
         """Build & Install both Python and R extension"""
@@ -231,7 +231,7 @@ class EB_MXNet(MakeCp):
             'files': ['lib/libmxnet.a', 'lib/libmxnet.%s' % get_shared_lib_ext()],
             'dirs': [],
         }
-        super(EB_MXNet, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
         # for the extension we are doing the loading of the fake module ourself
         try:
@@ -250,7 +250,7 @@ class EB_MXNet(MakeCp):
 
     def make_module_extra(self, *args, **kwargs):
         """Custom variables for MXNet module."""
-        txt = super(EB_MXNet, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
 
         txt += self.module_generator.prepend_paths("R_LIBS", [''])  # prepend R_LIBS with install path
 

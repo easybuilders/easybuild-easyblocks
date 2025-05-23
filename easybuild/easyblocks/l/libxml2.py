@@ -134,7 +134,7 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         if self.with_python_bindings:
             txt = PythonPackage.make_module_extra(self)
         else:
-            txt = super(EB_libxml2, self).make_module_extra()
+            txt = super().make_module_extra()
 
         txt += self.module_generator.prepend_paths('CPATH', [os.path.join('include', 'libxml2')])
         return txt
