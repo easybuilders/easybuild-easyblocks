@@ -37,7 +37,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, copy_file
+from easybuild.tools.filetools import apply_regex_substitutions, symlink
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, get_cpu_family, get_gcc_version, get_shared_lib_ext
@@ -211,6 +211,15 @@ class EB_binutils(ConfigureMake):
                 if gcc_version and ('4.8.1' <= gcc_version < '6.1.0'):
                     # append "-std=c++11" to $CXXFLAGS, not overriding
                     self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -std=c++11"')
+
+    def install_step(self):
+        """Install using 'make install', also symlink libiberty/demangle headers if desired."""
+        super().install_step()
+
+        if self.cfg['install_libiberty']:
+            for includefile in ['demangle.h', 'libiberty.h']:
+                symlink(os.path.join(self.installdir, 'include', 'libiberty', includefile),
+                        os.path.join(self.installdir, 'include', includefile))
 
     def sanity_check_step(self):
         """Custom sanity check for binutils."""
