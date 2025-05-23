@@ -37,7 +37,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, symlink
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, symlink
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, get_cpu_family, get_gcc_version, get_shared_lib_ext
@@ -220,6 +220,10 @@ class EB_binutils(ConfigureMake):
             for includefile in ['demangle.h', 'libiberty.h']:
                 symlink(os.path.join(self.installdir, 'include', 'libiberty', includefile),
                         os.path.join(self.installdir, 'include', includefile))
+
+            if not os.path.exists(os.path.join(self.installdir, 'info', 'libiberty.texi')):
+                copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.texi'),
+                          os.path.join(self.installdir, 'info', 'libiberty.texi'))
 
     def sanity_check_step(self):
         """Custom sanity check for binutils."""
