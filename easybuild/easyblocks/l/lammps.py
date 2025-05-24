@@ -219,6 +219,7 @@ class EB_LAMMPS(CMakeMake):
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
             self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
             self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
+            self.kokkos_cpu_mapping['cortex_a72'] = 'ARMV81'
 
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
             self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
