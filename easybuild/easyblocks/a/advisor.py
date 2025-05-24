@@ -45,7 +45,7 @@ class EB_Advisor(IntelBase):
 
     def __init__(self, *args, **kwargs):
         """Constructor, initialize class variables."""
-        super(EB_Advisor, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('2020'):
             raise EasyBuildError(
@@ -63,10 +63,10 @@ class EB_Advisor(IntelBase):
     def prepare_step(self, *args, **kwargs):
         """Since 2019u3 there is no license required."""
         kwargs['requires_runtime_license'] = False
-        super(EB_Advisor, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def sanity_check_step(self):
         """Custom sanity check paths for Advisor"""
         binaries = ['advixe-cl', 'advixe-feedback', 'advixe-gui', 'advixe-runss', 'advixe-runtrc', 'advixe-runtc']
         custom_paths = self.get_custom_paths_tools(binaries)
-        super(EB_Advisor, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

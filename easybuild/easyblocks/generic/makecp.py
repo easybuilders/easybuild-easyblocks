@@ -60,7 +60,7 @@ class MakeCp(ConfigureMake):
         Configure build if required
         """
         if self.cfg.get('with_configure', False):
-            return super(MakeCp, self).configure_step(cmd_prefix=cmd_prefix)
+            return super().configure_step(cmd_prefix=cmd_prefix)
 
     def install_step(self):
         """Install by copying specified files and directories."""

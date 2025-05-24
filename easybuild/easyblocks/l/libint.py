@@ -55,7 +55,7 @@ class EB_Libint(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_Libint, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # add custom paths to headers to module load environment
         libint_includes = ['include']
@@ -141,14 +141,14 @@ class EB_Libint(CMakeMake):
 
             # specify current directory as source directory (that contains CMakeLists.txt),
             # since that's the path to the unpacked source tarball for Libint library (created by 'make export')
-            super(EB_Libint, self).configure_step(srcdir=os.getcwd())
+            super().configure_step(srcdir=os.getcwd())
 
     def test_step(self):
         """Run Libint test suite for recent versions"""
         if LooseVersion(self.version) >= LooseVersion('2.1') and self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'check'
 
-        super(EB_Libint, self).test_step()
+        super().test_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Libint."""
@@ -180,4 +180,4 @@ class EB_Libint(CMakeMake):
                 'files': headers + libs,
                 'dirs': [],
             }
-        super(EB_Libint, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

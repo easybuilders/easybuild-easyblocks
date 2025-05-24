@@ -201,7 +201,7 @@ class EB_LAMMPS(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """LAMMPS easyblock constructor: determine whether we should build with CUDA support enabled."""
-        super(EB_LAMMPS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         cuda_dep = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()]
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
@@ -265,6 +265,38 @@ class EB_LAMMPS(CMakeMake):
 
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
         self.update_kokkos_cpu_mapping()
+
+    @staticmethod
+    def extra_options(**kwargs):
+        """Custom easyconfig parameters for LAMMPS"""
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
+            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
+            'kokkos': [True, "Enable kokkos build.", CUSTOM],
+            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
+            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
+            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
+    def update_kokkos_cpu_mapping(self):
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
+            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
+            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
+            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
+            self.kokkos_cpu_mapping['icelake'] = 'ICX'
+            self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
+
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step for LAMMPS."""
+        super().prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and self.cuda:
@@ -476,11 +508,11 @@ class EB_LAMMPS(CMakeMake):
         else:
             raise EasyBuildError("Expected to find a Python dependency as sanity check commands rely on it!")
 
-        return super(EB_LAMMPS, self).configure_step()
+        return super().configure_step()
 
     def install_step(self):
         """Install LAMMPS and examples/potentials."""
-        super(EB_LAMMPS, self).install_step()
+        super().install_step()
         # Copy LICENCE and version file so these can be used with `--module-only`
         version_file = os.path.join(self.start_dir, 'src', 'version.h')
         copy_file(version_file, os.path.join(self.installdir, 'src', 'version.h'))
@@ -585,7 +617,7 @@ class EB_LAMMPS(CMakeMake):
             pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
             custom_paths['dirs'].append(pythonpath)
 
-        return super(EB_LAMMPS, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        return super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
 
 def get_cuda_gpu_arch(cuda_cc):

@@ -75,7 +75,7 @@ class EB_PETSc(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize PETSc specific variables."""
-        super(EB_PETSc, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion("3.9"):
             raise EasyBuildError(
@@ -144,7 +144,7 @@ class EB_PETSc(ConfigureMake):
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
 
-        super(EB_PETSc, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # build with Python support if Python is loaded as a non-build (runtime) dependency
         build_deps = self.cfg.dependencies(build_only=True)
@@ -331,7 +331,7 @@ class EB_PETSc(ConfigureMake):
             res = run_shell_cmd(cmd)
             out = res.output
         else:
-            out = super(EB_PETSc, self).configure_step()
+            out = super().configure_step()
 
         # check for errors in configure
         error_regexp = re.compile("ERROR")
@@ -384,7 +384,7 @@ class EB_PETSc(ConfigureMake):
         Install using make install (for non-source installations)
         """
         if not self.cfg['sourceinstall']:
-            super(EB_PETSc, self).install_step()
+            super().install_step()
 
         # Remove MPI-CXX flags added during configure to prevent them from being passed to consumers of PETsc
         petsc_variables_path = os.path.join(self.petsc_root, 'lib', 'petsc', 'conf', 'petscvariables')
@@ -395,7 +395,7 @@ class EB_PETSc(ConfigureMake):
 
     def make_module_extra(self):
         """Set PETSc specific environment variables (PETSC_DIR, PETSC_ARCH)."""
-        txt = super(EB_PETSc, self).make_module_extra()
+        txt = super().make_module_extra()
 
         txt += self.module_generator.set_environment('PETSC_DIR', self.petsc_root)
         if self.cfg['sourceinstall']:
@@ -428,4 +428,4 @@ class EB_PETSc(ConfigureMake):
         if self.with_python:
             custom_commands.append("python -m PetscBinaryIO --help")
 
-        super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -78,7 +78,7 @@ class EB_itac(IntelBase):
         if LooseVersion(self.version) >= LooseVersion('2021'):
             kwargs['requires_runtime_license'] = False
 
-        super(EB_itac, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def install_step_classic(self):
         """
@@ -87,9 +87,9 @@ class EB_itac(IntelBase):
         - create silent cfg file
         - execute command
         """
-        super(EB_itac, self).install_step_classic(silent_cfg_names_map=None)
+        super().install_step_classic(silent_cfg_names_map=None)
         # since itac v9.0.1 installer create itac/<version> subdir, so stuff needs to be moved afterwards
-        super(EB_itac, self).move_after_install()
+        super().move_after_install()
 
     def install_step_oneapi(self, *args, **kwargs):
         """
@@ -117,7 +117,7 @@ class EB_itac(IntelBase):
         run_shell_cmd(cmd)
 
         # itac installer create itac/<version> subdir, so stuff needs to be moved afterwards
-        super(EB_itac, self).move_after_install()
+        super().move_after_install()
 
     def sanity_check_step(self):
         """Custom sanity check paths for ITAC."""
@@ -127,11 +127,11 @@ class EB_itac(IntelBase):
             'dirs': ["bin", "lib", "slib"],
         }
 
-        super(EB_itac, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Overwritten from IntelBase to add extra txt"""
-        txt = super(EB_itac, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('VT_ROOT', self.installdir)
         txt += self.module_generator.set_environment('VT_MPI', self.cfg['preferredmpi'])
         txt += self.module_generator.set_environment('VT_ADD_LIBS', "-ldwarf -lelf -lvtunwind -lnsl -lm -ldl -lpthread")

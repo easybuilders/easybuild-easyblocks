@@ -39,13 +39,13 @@ class EB_numexpr(PythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for numexpr."""
-        super(EB_numexpr, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.imkl_root = None
 
     def configure_step(self):
         """Custom configuration procedure for numexpr."""
-        super(EB_numexpr, self).configure_step()
+        super().configure_step()
 
         self.imkl_root = get_software_root('imkl')
 
@@ -114,4 +114,4 @@ class EB_numexpr(PythonPackage):
             if LooseVersion(self.version) >= LooseVersion('2.7.3'):
                 custom_commands.append("""python -c "import numexpr; numexpr.set_vml_accuracy_mode('low')" """)
 
-        return super(EB_numexpr, self).sanity_check_step(custom_commands=custom_commands)
+        return super().sanity_check_step(custom_commands=custom_commands)

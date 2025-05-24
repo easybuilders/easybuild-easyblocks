@@ -61,7 +61,7 @@ class EB_Java(PackedBinary):
         else:
             raise EasyBuildError("Architecture %s is not supported for Java on EasyBuild", myarch)
 
-        super(EB_Java, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg.template_values['jdkarch'] = jdkarch
         self.cfg.generate_template_values()
@@ -92,7 +92,7 @@ class EB_Java(PackedBinary):
         Custom post-installation step:
         - ensure correct glibc is used when installing into custom sysroot and using RPATH
         """
-        super(EB_Java, self).post_processing_step()
+        super().post_processing_step()
 
         # patch binaries and libraries when using alternate sysroot in combination with RPATH
         sysroot = build_option('sysroot')
@@ -130,8 +130,7 @@ class EB_Java(PackedBinary):
                     raise EasyBuildError("Failed to isolate ELF interpreter!")
 
                 # Expand paths in PATH and make sure these are unique real paths
-                bindirs = nub([x for bindir in self.module_load_environment.PATH
-                               for x in self.expand_module_search_path(bindir)])
+                bindirs = self.module_load_environment.PATH.expand_paths(self.installdir)
                 bindirs = [os.path.realpath(os.path.join(self.installdir, bindir)) for bindir in bindirs]
                 for bindir in bindirs:
                     for path in os.listdir(bindir):
@@ -165,8 +164,7 @@ class EB_Java(PackedBinary):
                             self.log.debug("RPATH for %s (after shrinking): %s" % (path, res.output))
 
                 # Expand paths in LIBRARY_PATH and make sure these are unique real paths
-                libdirs = nub([x for ld in self.module_load_environment.LIBRARY_PATH
-                               for x in self.expand_module_search_path(ld)])
+                libdirs = self.module_load_environment.LIBRARY_PATH.expand_paths(self.installdir)
                 libdirs = [os.path.realpath(os.path.join(self.installdir, ld)) for ld in libdirs]
                 shlib_ext = '.' + get_shared_lib_ext()
                 for libdir in libdirs:
@@ -205,12 +203,12 @@ class EB_Java(PackedBinary):
             "javac -help",
         ]
 
-        super(EB_Java, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """
         Set $JAVA_HOME to installation directory
         """
-        txt = PackedBinary.make_module_extra(self)
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('JAVA_HOME', self.installdir)
         return txt

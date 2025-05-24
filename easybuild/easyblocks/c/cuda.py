@@ -87,7 +87,7 @@ class EB_CUDA(Binary):
         else:
             raise EasyBuildError("Architecture %s is not supported for CUDA on EasyBuild", myarch)
 
-        super(EB_CUDA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg.template_values['cudaarch'] = cudaarch
         self.cfg.generate_template_values()
@@ -122,7 +122,7 @@ class EB_CUDA(Binary):
             name='CUDA',
             more_info='https://docs.nvidia.com/cuda/eula/index.html'
         )
-        return super(EB_CUDA, self).fetch_step(*args, **kwargs)
+        return super().fetch_step(*args, **kwargs)
 
     def extract_step(self):
         """Extract installer to have more control, e.g. options, patching Perl scripts, etc."""
@@ -310,7 +310,7 @@ class EB_CUDA(Binary):
                 symlink(pc_file, link, use_abspath_source=False)
             change_dir(cwd)
 
-        super(EB_CUDA, self).post_processing_step()
+        super().post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""
@@ -340,7 +340,7 @@ class EB_CUDA(Binary):
             pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc']
             custom_paths['files'].extend(os.path.join('pkgconfig', x) for x in pc_files)
 
-        super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set the install directory as CUDA_HOME, CUDA_ROOT, CUDA_PATH."""
@@ -350,7 +350,7 @@ class EB_CUDA(Binary):
         # (like compute-sanitizer)
         self.cfg['prepend_to_path'] = False
 
-        txt = super(EB_CUDA, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('CUDA_HOME', self.installdir)
         txt += self.module_generator.set_environment('CUDA_ROOT', self.installdir)
         txt += self.module_generator.set_environment('CUDA_PATH', self.installdir)

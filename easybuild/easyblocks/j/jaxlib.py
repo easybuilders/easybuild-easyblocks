@@ -65,7 +65,7 @@ class EB_jaxlib(PythonPackage):
     def configure_step(self):
         """Custom configure step for jaxlib."""
 
-        super(EB_jaxlib, self).configure_step()
+        super().configure_step()
 
         binutils_root = get_software_root('binutils')
         if not binutils_root:
