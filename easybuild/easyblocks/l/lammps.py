@@ -212,6 +212,8 @@ class EB_LAMMPS(CMakeMake):
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
 
+        self.cur_version = None
+
     def update_kokkos_cpu_mapping(self):
         """Add new kokkos_cpu_mapping to the list based on in which version they were added to LAMMPS"""
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
@@ -560,9 +562,7 @@ class EB_LAMMPS(CMakeMake):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
 
         # Set cur_version when running --sanity-check-only
-        try:
-            self.cur_version
-        except Exception:
+        if self.cur_version is None:
             self.cur_version = translate_lammps_version(self.version, path=self.installdir)
 
         # Output files need to go somewhere (and has to work for --module-only as well)
