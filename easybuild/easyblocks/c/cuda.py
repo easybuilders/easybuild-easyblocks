@@ -46,7 +46,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import IGNORE
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, expand_glob_paths
 from easybuild.tools.filetools import patch_perl_script_autoflush, remove_file, symlink, which, write_file
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
 import easybuild.tools.environment as env
 
@@ -87,10 +87,32 @@ class EB_CUDA(Binary):
         else:
             raise EasyBuildError("Architecture %s is not supported for CUDA on EasyBuild", myarch)
 
-        super(EB_CUDA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg.template_values['cudaarch'] = cudaarch
         self.cfg.generate_template_values()
+
+        # Specify CUDA custom values for module load environment
+        # The dirs should be in the order ['open64/bin', 'bin']
+        bin_path = []
+        if LooseVersion(self.version) < LooseVersion('7'):
+            bin_path.append(os.path.join('open64', 'bin'))
+        bin_path.append('bin')
+
+        lib_path = ['lib64']
+        inc_path = ['include']
+        if LooseVersion(self.version) >= LooseVersion('7'):
+            lib_path.append(os.path.join('extras', 'CUPTI', 'lib64'))
+            inc_path.append(os.path.join('extras', 'CUPTI', 'include'))
+            bin_path.append(os.path.join('nvvm', 'bin'))
+            lib_path.append(os.path.join('nvvm', 'lib64'))
+            inc_path.append(os.path.join('nvvm', 'include'))
+
+        self.module_load_environment.CPATH = inc_path
+        self.module_load_environment.LD_LIBRARY_PATH = lib_path
+        self.module_load_environment.LIBRARY_PATH = lib_path + [os.path.join('stubs', 'lib64')]
+        self.module_load_environment.PATH = bin_path
+        self.module_load_environment.PKG_CONFIG_PATH = ['pkgconfig']
 
     def fetch_step(self, *args, **kwargs):
         """Check for EULA acceptance prior to getting sources."""
@@ -100,12 +122,12 @@ class EB_CUDA(Binary):
             name='CUDA',
             more_info='https://docs.nvidia.com/cuda/eula/index.html'
         )
-        return super(EB_CUDA, self).fetch_step(*args, **kwargs)
+        return super().fetch_step(*args, **kwargs)
 
     def extract_step(self):
         """Extract installer to have more control, e.g. options, patching Perl scripts, etc."""
         execpath = self.src[0]['path']
-        run_cmd("/bin/sh " + execpath + " --noexec --nox11 --target " + self.builddir)
+        run_shell_cmd("/bin/sh " + execpath + " --noexec --nox11 --target " + self.builddir)
         self.src[0]['finalpath'] = self.builddir
 
     def install_step(self):
@@ -172,12 +194,11 @@ class EB_CUDA(Binary):
         }
 
         # prepare for running install script autonomously
-        qanda = {}
-        stdqa = {
+        qa = [
             # this question is only asked if CUDA tools are already available system-wide
-            r"Would you like to remove all CUDA files under .*? (yes/no/abort): ": "no",
-        }
-        noqanda = [
+            (r"Would you like to remove all CUDA files under .*\? \(yes/no/abort\): ", "no"),
+        ]
+        no_qa = [
             r"^Configuring",
             r"Installation Complete",
             r"Verifying archive integrity.*",
@@ -206,9 +227,9 @@ class EB_CUDA(Binary):
         # instead of segfaulting in the cuda-installer.
         remove_file('/tmp/cuda-installer.log')
 
-        # overriding maxhits default value to 1000 (seconds to wait for nothing to change in the output
+        # overriding qa_timeout default value to 1000 (seconds to wait for nothing to change in the output
         # without seeing a known question)
-        run_cmd_qa(cmd, qanda, std_qa=stdqa, no_qa=noqanda, log_all=True, simple=True, maxhits=1000)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=1000)
 
         # Remove the cuda-installer log file
         remove_file('/tmp/cuda-installer.log')
@@ -217,9 +238,9 @@ class EB_CUDA(Binary):
         if len(self.src) > 1:
             for patch in self.src[1:]:
                 self.log.debug("Running patch %s", patch['name'])
-                run_cmd("/bin/sh " + patch['path'] + " --accept-eula --silent --installdir=" + self.installdir)
+                run_shell_cmd("/bin/sh " + patch['path'] + " --accept-eula --silent --installdir=" + self.installdir)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """
         Create wrappers for the specified host compilers, generate the appropriate stub symlinks,
         and create version independent pkgconfig files
@@ -265,7 +286,7 @@ class EB_CUDA(Binary):
 
         # Run ldconfig to create missing symlinks in the stubs directory (libcuda.so.1, etc)
         cmd = ' '.join([ldconfig, '-N', stubs_dir])
-        run_cmd(cmd)
+        run_shell_cmd(cmd)
 
         # GCC searches paths in LIBRARY_PATH and the system paths suffixed with ../lib64 or ../lib first
         # This means stubs/../lib64 is searched before the system /lib64 folder containing a potentially older libcuda.
@@ -289,7 +310,7 @@ class EB_CUDA(Binary):
                 symlink(pc_file, link, use_abspath_source=False)
             change_dir(cwd)
 
-        super(EB_CUDA, self).post_install_step()
+        super().post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""
@@ -319,7 +340,7 @@ class EB_CUDA(Binary):
             pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc']
             custom_paths['files'].extend(os.path.join('pkgconfig', x) for x in pc_files)
 
-        super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set the install directory as CUDA_HOME, CUDA_ROOT, CUDA_PATH."""
@@ -329,39 +350,9 @@ class EB_CUDA(Binary):
         # (like compute-sanitizer)
         self.cfg['prepend_to_path'] = False
 
-        txt = super(EB_CUDA, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('CUDA_HOME', self.installdir)
         txt += self.module_generator.set_environment('CUDA_ROOT', self.installdir)
         txt += self.module_generator.set_environment('CUDA_PATH', self.installdir)
         self.log.debug("make_module_extra added this: %s", txt)
         return txt
-
-    def make_module_req_guess(self):
-        """Specify CUDA custom values for PATH etc."""
-
-        guesses = super(EB_CUDA, self).make_module_req_guess()
-
-        # The dirs should be in the order ['open64/bin', 'bin']
-        bin_path = []
-        if LooseVersion(self.version) < LooseVersion('7'):
-            bin_path.append(os.path.join('open64', 'bin'))
-        bin_path.append('bin')
-
-        lib_path = ['lib64']
-        inc_path = ['include']
-        if LooseVersion(self.version) >= LooseVersion('7'):
-            lib_path.append(os.path.join('extras', 'CUPTI', 'lib64'))
-            inc_path.append(os.path.join('extras', 'CUPTI', 'include'))
-            bin_path.append(os.path.join('nvvm', 'bin'))
-            lib_path.append(os.path.join('nvvm', 'lib64'))
-            inc_path.append(os.path.join('nvvm', 'include'))
-
-        guesses.update({
-            'CPATH': inc_path,
-            'LD_LIBRARY_PATH': lib_path,
-            'LIBRARY_PATH': lib_path + [os.path.join('stubs', 'lib64')],
-            'PATH': bin_path,
-            'PKG_CONFIG_PATH': ['pkgconfig'],
-        })
-
-        return guesses

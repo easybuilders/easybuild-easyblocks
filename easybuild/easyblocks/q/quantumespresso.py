@@ -46,7 +46,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, copy_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -74,7 +74,7 @@ class EB_QuantumESPRESSO(EasyBlock):
 
     def __init__(self, ec, *args, **kwargs):
         """Select the correct EB depending on version."""
-        super(EB_QuantumESPRESSO, self).__init__(ec, *args, **kwargs)
+        super().__init__(ec, *args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('7.3.1'):
             self.log.info('Using legacy easyblock for Quantum ESPRESSO')
@@ -135,7 +135,7 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         def __init__(self, *args, **kwargs):
             """Add extra config options specific to Quantum ESPRESSO."""
-            super(EB_QuantumESPRESSOcmake, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
             self.install_subdir = 'qe-%s' % self.version
 
@@ -344,7 +344,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                     ldflags += ' -Wl,--copy-dt-needed-entries '
                     env.setvar('LDFLAGS', ldflags)
 
-            super(EB_QuantumESPRESSOcmake, self).configure_step()
+            super().configure_step()
 
         def test_step(self):
             """
@@ -356,16 +356,13 @@ class EB_QuantumESPRESSO(EasyBlock):
                 return
 
             thr = self.cfg.get('test_suite_threshold', 0.97)
-            concurrent = max(1, self.cfg.get('parallel', 1) // self._test_nprocs)
+            concurrent = max(1, self.cfg.parallel // self._test_nprocs)
             allow_fail = self.cfg.get('test_suite_allow_failures', [])
 
-            cmd = ' '.join([
-                'ctest',
-                '-j%d' % concurrent,
-                '--output-on-failure',
-            ])
+            cmd = f'ctest -j{concurrent} --output-on-failure'
 
-            (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            out = res.output
 
             # Example output:
             # 74% tests passed, 124 tests failed out of 481
@@ -483,7 +480,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 'dirs': []
             }
 
-            super(EB_QuantumESPRESSOcmake, self).sanity_check_step(custom_paths=custom_paths)
+            super().sanity_check_step(custom_paths=custom_paths)
 
     # Legacy version of Quantum ESPRESSO easyblock
     # Do not update further
@@ -530,13 +527,13 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         def __init__(self, *args, **kwargs):
             """Add extra config options specific to Quantum ESPRESSO."""
-            super(EB_QuantumESPRESSOconfig, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
             self.install_subdir = "qe-%s" % self.version
 
         def patch_step(self):
             """Patch files from build dir (not start dir)."""
-            super(EB_QuantumESPRESSOconfig, self).patch_step(beginpath=self.builddir)
+            super().patch_step(beginpath=self.builddir)
 
         def _add_compiler_flags(self, comp_fam):
             """Add compiler flags to the build."""
@@ -852,7 +849,7 @@ class EB_QuantumESPRESSO(EasyBlock):
 
             self._adjust_compiler_flags(comp_fam)
 
-            super(EB_QuantumESPRESSOconfig, self).configure_step()
+            super().configure_step()
 
             # always include -w to supress warnings
             self.dflags.append('-w')
@@ -1041,7 +1038,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             thr = self.cfg.get('test_suite_threshold', 0.9)
             stot = 0
             spass = 0
-            parallel = min(4, self.cfg.get('parallel', 1))
+            parallel = min(4, self.cfg.parallel)
             test_dir = os.path.join(self.start_dir, self.TEST_SUITE_DIR)
 
             pseudo_loc = "https://pseudopotentials.quantum-espresso.org/upf_files/"
@@ -1051,7 +1048,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                     "cd %s" % test_dir,
                     "sed -i 's|export NETWORK_PSEUDO=.*|export NETWORK_PSEUDO=%s|g' ENVIRONMENT" % pseudo_loc
                 ])
-                run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+                run_shell_cmd(cmd, fail_on_error=False)
 
             targets = self.cfg.get('test_suite_targets', [])
             allow_fail = self.cfg.get('test_suite_allow_failures', [])
@@ -1069,7 +1066,8 @@ class EB_QuantumESPRESSO(EasyBlock):
                     pcmd = 'NPROCS=%d' % parallel
 
                 cmd = 'cd %s && %s make run-tests-%s' % (test_dir, pcmd, target)
-                (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+                res = run_shell_cmd(cmd, fail_on_error=False)
+                out = res.output
 
                 # Example output:
                 # All done. 2 out of 2 tests passed.
@@ -1302,7 +1300,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 'dirs': []
             }
 
-            super(EB_QuantumESPRESSOconfig, self).sanity_check_step(custom_paths=custom_paths)
+            super().sanity_check_step(custom_paths=custom_paths)
 
 
 EB_QuantumESPRESSOconfig = EB_QuantumESPRESSO.EB_QuantumESPRESSOconfig

@@ -37,7 +37,7 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, copy_file, mkdir, remove_file, symlink
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_HPL(ConfigureMake):
@@ -65,7 +65,7 @@ class EB_HPL(ConfigureMake):
 
         cmd = "/bin/bash make_generic"
 
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
         remove_file(makeincfile)
         symlink(os.path.join(setupdir, 'Make.UNKNOWN'), makeincfile)
@@ -106,7 +106,7 @@ class EB_HPL(ConfigureMake):
 
         # set options and build
         self.cfg.update('buildopts', extra_makeopts)
-        super(EB_HPL, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """
@@ -129,4 +129,4 @@ class EB_HPL(ConfigureMake):
             'dirs': []
         }
 
-        super(EB_HPL, self).sanity_check_step(custom_paths)
+        super().sanity_check_step(custom_paths)

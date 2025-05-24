@@ -45,7 +45,7 @@ class EB_Mesa(MesonNinja):
     def __init__(self, *args, **kwargs):
         """Constructor for custom Mesa easyblock: figure out which values to pass to swr-arches configuration option."""
 
-        super(EB_Mesa, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.gallium_configopts = []
 
@@ -133,12 +133,12 @@ class EB_Mesa(MesonNinja):
         if self.gallium_configopts:
             self.cfg.update('configopts', self.gallium_configopts)
 
-        return super(EB_Mesa, self).configure_step()
+        return super().configure_step()
 
     def install_step(self):
         """Also copy additional header files after installing Mesa."""
 
-        super(EB_Mesa, self).install_step()
+        super().install_step()
 
         # also install header files located in include/GL/internal, unless they're available already;
         # we can't enable both DRI and Gallium drivers,
@@ -179,12 +179,12 @@ class EB_Mesa(MesonNinja):
             swr_arch_libs = [os.path.join('lib', 'libswr%s.%s' % (a.upper(), shlib_ext)) for a in self.swr_arches]
             custom_paths['files'].extend(swr_arch_libs)
 
-        super(EB_Mesa, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self, *args, **kwargs):
         """ Append to EGL vendor library path,
         so that any NVidia libraries take precedence. """
-        txt = super(EB_Mesa, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
         # Append rather than prepend path to ensure that system NVidia drivers have priority.
         txt += self.module_generator.append_paths('__EGL_VENDOR_LIBRARY_DIRS', 'share/glvnd/egl_vendor.d')
         return txt

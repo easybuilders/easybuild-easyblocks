@@ -36,7 +36,6 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
-from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture
 
 
@@ -61,7 +60,7 @@ class EB_ORCA(PackedBinary, MakeCp):
 
     def __init__(self, *args, **kwargs):
         """Init and validate easyconfig parameters and system architecture"""
-        super(EB_ORCA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # If user overwrites 'files_to_copy', custom 'sanity_check_paths' must be present
         if self.cfg['files_to_copy'] and not self.cfg['sanity_check_paths']:
@@ -119,7 +118,7 @@ class EB_ORCA(PackedBinary, MakeCp):
                     if isinstance(spec, tuple):
                         file_pattern = spec[0]
                         dest_dir = spec[1]
-                    elif isinstance(spec, string_type):
+                    elif isinstance(spec, str):
                         file_pattern = spec
                         dest_dir = ''
                     else:
@@ -127,7 +126,7 @@ class EB_ORCA(PackedBinary, MakeCp):
                             "Found neither string nor tuple as file to copy: '%s' (type %s)", spec, type(spec)
                         )
 
-                    if isinstance(file_pattern, string_type):
+                    if isinstance(file_pattern, str):
                         file_pattern = [file_pattern]
 
                     source_files = []
@@ -181,4 +180,4 @@ H   0.7920   0.0000  -0.4973
             "%s | grep -c '%s'" % (test_orca_cmd, test_output_regex),
         ]
 
-        super(EB_ORCA, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

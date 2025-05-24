@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -23,26 +23,22 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for PyQuante, implemented as an easyblock
+EasyBuild support for installing Term::ReadLine::Gnu.
 
-@author: Ward Poelmans (Ghent University)
+@author: Alexander Grund (TU Dresden)
 """
 
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.generic.perlmodule import PerlModule
 from easybuild.tools.modules import get_software_root
 
 
-class EB_PyQuante(PythonPackage):
-    """Support for installing the PyQuante Python package."""
+class EB_Term_colon__colon_ReadLine_colon__colon_Gnu(PerlModule):
+    """Support for installing the Term::ReadLine::Gnu Perl module."""
 
-    def configure_step(self):
-        """Check for Libint and use it if present"""
-
-        root_libint = get_software_root("Libint")
-        if root_libint:
-            self.log.info("Building Libint extension")
-            self.cfg.update('installopts', "--enable-libint")
-        else:
-            self.log.warn("Not building Libint extension")
-
-        super(EB_PyQuante, self).configure_step()
+    def __init__(self, *args, **kwargs):
+        """Set configopts for dependencies"""
+        super().__init__(*args, **kwargs)
+        # Use the custom --prefix option to pass the installation prefixes of all direct dependencies
+        # to avoid it picking up system libraries.
+        prefix = ':'.join(get_software_root(dep['name']) for dep in self.cfg.dependencies())
+        self.cfg.update('configopts', f"--prefix='{prefix}'")

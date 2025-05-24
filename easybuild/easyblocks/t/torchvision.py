@@ -40,18 +40,9 @@ import easybuild.tools.environment as env
 class EB_torchvision(PythonPackage):
     """Support for building/installing TorchVison."""
 
-    @staticmethod
-    def extra_options():
-        """Change some defaults for easyconfig parameters."""
-        extra_vars = PythonPackage.extra_options()
-        extra_vars['use_pip'][0] = True
-        extra_vars['download_dep_fail'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
-        return extra_vars
-
     def __init__(self, *args, **kwargs):
         """Initialize torchvision easyblock."""
-        super(EB_torchvision, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         dep_names = set(dep['name'] for dep in self.cfg.dependencies())
 
@@ -84,15 +75,15 @@ class EB_torchvision(PythonPackage):
         if libjpeg_root and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
             env.setvar('TORCHVISION_INCLUDE', os.path.join(libjpeg_root, 'include'))
 
-        super(EB_torchvision, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for torchvision."""
 
         # load module early ourselves rather than letting parent sanity_check_step method do so,
         # so the correct 'python' command is used to by det_pylibdir() below;
-        if hasattr(self, 'sanity_check_module_loaded') and not self.sanity_check_module_loaded:
-            self.fake_mod_data = self.sanity_check_load_module(extension=self.is_extension)
+        if not self.sanity_check_module_loaded:
+            self.sanity_check_load_module(extension=self.is_extension)
 
         custom_commands = []
         custom_paths = {
@@ -123,4 +114,4 @@ class EB_torchvision(PythonPackage):
             ])
             custom_commands.append('python -c "%s"' % python_code)
 
-        return super(EB_torchvision, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        return super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

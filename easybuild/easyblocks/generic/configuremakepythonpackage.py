@@ -31,7 +31,7 @@ implemented as an easyblock
 """
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class ConfigureMakePythonPackage(ConfigureMake, PythonPackage):
@@ -58,7 +58,7 @@ class ConfigureMakePythonPackage(ConfigureMake, PythonPackage):
         """Configure build using ``python configure``."""
         PythonPackage.configure_step(self, *args, **kwargs)
         cmd = ' '.join([self.cfg['preconfigopts'], self.python_cmd, self.cfg['configopts']])
-        run_cmd(cmd, log_all=True)
+        run_shell_cmd(cmd)
 
     def build_step(self, *args, **kwargs):
         """Build Python package with ``make``."""

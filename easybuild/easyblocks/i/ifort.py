@@ -34,61 +34,58 @@ EasyBuild support for installing the Intel Fortran compiler suite, implemented a
 """
 
 import os
-from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.icc import EB_icc  # @UnresolvedImport
+from easybuild.tools import LooseVersion
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_ifort(EB_icc, IntelBase):
     """
     Class that can be used to install ifort
-    - tested with 11.1.046
-    -- will fail for all older versions (due to newer silent installer)
+    - minimum version suported: 2020.0
+    - will fail for all older versions (due to newer silent installer)
     """
+
+    def __init__(self, *args, **kwargs):
+        """Constructor, initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) < LooseVersion('2020'):
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
+            )
+
+        # define list of subdirectories in search paths of module load environment
+        # add additional paths to those of ICC only needed for separate ifort installations
+        for envar in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
+            envar.append(os.path.join(self.comp_libs_subdir, 'compiler/include'))
 
     def sanity_check_step(self):
         """Custom sanity check paths for ifort."""
         shlib_ext = get_shared_lib_ext()
 
-        binprefix = 'bin/intel64'
+        binprefix = 'bin'
+        binfiles = ['ifort']
+        binaries = [os.path.join(binprefix, f) for f in binfiles]
+
         libprefix = 'lib/intel64'
-        if LooseVersion(self.version) >= LooseVersion('2011'):
-            if LooseVersion(self.version) <= LooseVersion('2011.3.174'):
-                binprefix = 'bin'
-            elif LooseVersion(self.version) >= LooseVersion('2013_sp1'):
-                binprefix = 'bin'
-            else:
-                libprefix = 'compiler/lib/intel64'
+        libfiles = [f'lib{lib}' for lib in ['ifcore.a', f'ifcore.{shlib_ext}', 'iomp5.a', f'iomp5.{shlib_ext}']]
+        libraries = [os.path.join(libprefix, f) for f in libfiles]
 
-        bins = ['ifort']
-        if LooseVersion(self.version) < LooseVersion('2013'):
-            # idb is not shipped with ifort anymore in 2013.x versions (it is with icc though)
-            bins.append('idb')
-
-        libs = ['lib%s' % lib for lib in ['ifcore.a', 'ifcore.%s' % shlib_ext, 'iomp5.a', 'iomp5.%s' % shlib_ext]]
         custom_paths = {
-            'files': [os.path.join(binprefix, x) for x in bins] + [os.path.join(libprefix, lib) for lib in libs],
+            'files': binaries + libraries,
             'dirs': [],
         }
 
         # make very sure that expected 'compilers_and_libraries_<VERSION>/linux' subdir is there for recent versions,
-        # since we rely on it being there in make_module_req_guess
+        # since we rely on it being there in module_load_environment
         if self.comp_libs_subdir:
             custom_paths['dirs'].append(self.comp_libs_subdir)
 
         custom_commands = ["which ifort"]
 
         IntelBase.sanity_check_step(self, custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """
-        Additional paths to consider for prepend-paths statements in module file
-        """
-        guesses = super(EB_ifort, self).make_module_req_guess()
-        if LooseVersion(self.version) >= LooseVersion('2016'):
-            # This enables the creation of fortran 2008 bindings in MPI
-            guesses['CPATH'].append('include')
-
-        return guesses

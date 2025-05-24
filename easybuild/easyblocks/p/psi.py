@@ -41,7 +41,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_PSI(CMakeMake):
@@ -51,7 +51,7 @@ class EB_PSI(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize class variables custom to PSI."""
-        super(EB_PSI, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.psi_srcdir = None
         self.install_psi_objdir = None
@@ -197,7 +197,7 @@ class EB_PSI(CMakeMake):
 
     def install_step(self):
         """Custom install procedure for PSI."""
-        super(EB_PSI, self).install_step()
+        super().install_step()
 
         # the obj and unpacked sources must remain available for working with plugins
         try:
@@ -218,15 +218,12 @@ class EB_PSI(CMakeMake):
             if self.cfg['runtest']:
                 paracmd = ''
                 # Run ctest parallel, but limit to maximum 4 jobs (in case of slow disks)
-                if self.cfg['parallel']:
-                    if self.cfg['parallel'] > 4:
-                        paracmd = '-j 4'
-                    else:
-                        paracmd = "-j %s" % self.cfg['parallel']
+                if self.cfg.parallel > 1:
+                    paracmd = f"-j {min(4, self.cfg.parallel)}"
                 cmd = "ctest %s %s" % (paracmd, self.cfg['runtest'])
-                run_cmd(cmd, log_all=True, simple=False)
+                run_shell_cmd(cmd)
         else:
-            super(EB_PSI, self).test_step()
+            super().test_step()
 
         try:
             shutil.rmtree(testdir)
@@ -239,11 +236,11 @@ class EB_PSI(CMakeMake):
             'files': ['bin/psi4'],
             'dirs': ['include', ('share/psi', 'share/psi4')],
         }
-        super(EB_PSI, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom variables for PSI module."""
-        txt = super(EB_PSI, self).make_module_extra()
+        txt = super().make_module_extra()
         share_dir = os.path.join(self.installdir, 'share')
         if os.path.exists(share_dir):
             psi4datadir = glob.glob(os.path.join(share_dir, 'psi*'))

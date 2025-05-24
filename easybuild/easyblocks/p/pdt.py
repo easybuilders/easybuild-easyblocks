@@ -82,9 +82,9 @@ class EB_PDT(ConfigureMake):
 
         # Configure creates required subfolders in installdir, so create first (but only once, during first iteration)
         if self.iter_idx == 0:
-            super(EB_PDT, self).make_installdir()
+            super().make_installdir()
 
-        super(EB_PDT, self).configure_step()
+        super().configure_step()
 
     def build_step(self):
         """Skip build step"""
@@ -98,10 +98,10 @@ class EB_PDT(ConfigureMake):
     def install_step(self):
         """Create symlinks into arch-specific directories"""
 
-        if self.cfg['parallel']:
-            self.cfg.update('installopts', '-j %s' % self.cfg['parallel'])
+        if self.parallel_flag:
+            self.cfg.update('installopts', self.parallel_flag)
 
-        super(EB_PDT, self).install_step()
+        super().install_step()
 
         # Link arch-specific directories into prefix
         arch_dir = find_arch_dir(self.installdir)
@@ -122,4 +122,4 @@ class EB_PDT(ConfigureMake):
                       os.path.join('lib', 'libpdb.a')],
             'dirs': [],
         }
-        super(EB_PDT, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

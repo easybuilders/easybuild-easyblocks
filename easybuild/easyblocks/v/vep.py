@@ -34,7 +34,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import print_warning
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.modules import get_software_version, get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_VEP(EasyBlock):
@@ -42,7 +42,7 @@ class EB_VEP(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """VEP easyblock constructor."""
-        super(EB_VEP, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.build_in_installdir = True
         self.cfg['unpack_options'] = "--strip-components=1"
@@ -115,7 +115,7 @@ class EB_VEP(EasyBlock):
             '--DESTDIR ' + api_mods_dir,
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for VEP."""
@@ -145,9 +145,9 @@ class EB_VEP(EasyBlock):
 
         custom_commands = ['vep --help']
 
-        super(EB_VEP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """Custom guesses for environment variables (PATH, ...) for VEP."""
         perl_majver = get_major_perl_version()
 
@@ -156,9 +156,7 @@ class EB_VEP(EasyBlock):
             perl_ver = get_software_version('Perl')
             perl_libpath.extend([os.path.join('lib', 'perl' + perl_majver, 'site_perl', perl_ver)])
 
-        guesses = super(EB_VEP, self).make_module_req_guess()
-        guesses = {
-            'PATH': '',
-            'PERL%sLIB' % perl_majver: perl_libpath,
-        }
-        return guesses
+        self.module_load_environment.PATH = ''
+        setattr(self.module_load_environment, f'PERL{perl_majver}LIB', perl_libpath)
+
+        return super().make_module_step(*args, **kwargs)

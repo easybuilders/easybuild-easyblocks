@@ -47,7 +47,7 @@ class CrayToolchain(Bundle):
 
         kwargs['load_tc_deps_modules'] = False
 
-        super(CrayToolchain, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def make_module_dep(self):
         """

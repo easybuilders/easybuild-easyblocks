@@ -39,7 +39,7 @@ from easybuild.tools import LooseVersion
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, symlink, remove_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -49,7 +49,7 @@ class EB_ParMETIS(EasyBlock):
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
 
-        super(EB_ParMETIS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.config_shared = False
         self.config_static = False
@@ -94,17 +94,15 @@ class EB_ParMETIS(EasyBlock):
                 os.chdir(self.parmetis_builddir)
                 cmd = 'cmake .. %s -DCMAKE_INSTALL_PREFIX="%s"' % (self.cfg['configopts'],
                                                                    self.installdir)
-                run_cmd(cmd, log_all=True, simple=True)
+                run_shell_cmd(cmd)
                 os.chdir(self.cfg['start_dir'])
             except OSError as err:
                 raise EasyBuildError("Running cmake in %s failed: %s", self.parmetis_builddir, err)
 
-    def build_step(self, verbose=False):
+    def build_step(self):
         """Build ParMETIS (and METIS) using build_step."""
 
-        paracmd = ''
-        if self.cfg['parallel']:
-            paracmd = "-j %s" % self.cfg['parallel']
+        paracmd = f'-j {self.cfg.parallel}' if self.cfg.parallel > 1 else ''
 
         self.cfg.update('buildopts', 'LIBDIR=""')
 
@@ -120,12 +118,12 @@ class EB_ParMETIS(EasyBlock):
         if LooseVersion(self.version) >= LooseVersion("4"):
             try:
                 os.chdir(self.parmetis_builddir)
-                run_cmd(cmd, log_all=True, simple=True, log_output=verbose)
+                run_shell_cmd(cmd)
                 os.chdir(self.cfg['start_dir'])
             except OSError as err:
                 raise EasyBuildError("Running cmd '%s' in %s failed: %s", cmd, self.parmetis_builddir, err)
         else:
-            run_cmd(cmd, log_all=True, simple=True, log_output=verbose)
+            run_shell_cmd(cmd)
 
     def install_step(self):
         """
@@ -141,7 +139,7 @@ class EB_ParMETIS(EasyBlock):
             cmd = "make install %s" % self.cfg['installopts']
             try:
                 os.chdir(self.parmetis_builddir)
-                run_cmd(cmd, log_all=True, simple=True)
+                run_shell_cmd(cmd)
                 os.chdir(self.cfg['start_dir'])
             except OSError as err:
                 raise EasyBuildError("Running '%s' in %s failed: %s", cmd, self.parmetis_builddir, err)
@@ -215,4 +213,4 @@ class EB_ParMETIS(EasyBlock):
             'dirs': ['Lib']
         }
 
-        super(EB_ParMETIS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

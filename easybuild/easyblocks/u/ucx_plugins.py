@@ -35,8 +35,7 @@ import os
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import subprocess_popen_text
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -45,7 +44,7 @@ class EB_UCX_Plugins(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Custom initialization for UCX-Plugins."""
-        super(EB_UCX_Plugins, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._plugins = None
         self.makefile_dirs = []
 
@@ -102,21 +101,21 @@ class EB_UCX_Plugins(ConfigureMake):
 
         self.cfg.update('configopts', configopts)
 
-        super(EB_UCX_Plugins, self).configure_step()
+        super().configure_step()
 
     def build_step(self):
         """Build plugins"""
         for makefile_dir in self.makefile_dirs:
-            run_cmd('make -C src/%s V=1' % makefile_dir)
+            run_shell_cmd('make -C src/%s V=1' % makefile_dir)
 
     def install_step(self):
         """Install plugins"""
         for makefile_dir in self.makefile_dirs:
-            run_cmd('make -C src/%s install' % (makefile_dir))
+            run_shell_cmd('make -C src/%s install' % (makefile_dir))
 
     def make_module_extra(self, *args, **kwargs):
         """Add extra statements to generated module file specific to UCX plugins"""
-        txt = super(EB_UCX_Plugins, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
 
         base_conf = dict()
         cmd = ['ucx_info', '-b']
@@ -162,4 +161,4 @@ class EB_UCX_Plugins(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_UCX_Plugins, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
