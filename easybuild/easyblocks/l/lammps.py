@@ -176,12 +176,10 @@ def translate_lammps_version(version, path=None):
        "DEC": '12'
     }
     items = [x for x in re.split('(\\d+)', version) if x]
-    if len(items) < 3:
-        raise ValueError("Version %s does not have (at least) 3 elements" % version)
 
     try:
         return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
-    except KeyError:
+    except (IndexError, KeyError):
         # avoid failing miserably under --module-only --force
         if path and os.path.exists(path) and os.listdir(path):
             version_file = os.path.join(path, 'src', 'version.h')
@@ -215,7 +213,9 @@ class EB_LAMMPS(CMakeMake):
         self.cur_version = None
 
     def update_kokkos_cpu_mapping(self):
-        """Add new kokkos_cpu_mapping to the list based on in which version they were added to LAMMPS"""
+        """
+        Update mapping to Kokkos CPU targets based on LAMMPS version
+        """
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
             self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
             self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
@@ -276,22 +276,6 @@ class EB_LAMMPS(CMakeMake):
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and self.cuda:
             env.unset_env_vars(['LIBS'])
-
-    def update_kokkos_cpu_mapping(self):
-        """
-        Update mapping to Kokkos CPU targets based on LAMMPS version
-        """
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
-            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
-            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
-            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
-            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
-            self.kokkos_cpu_mapping['icelake'] = 'ICX'
-            self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
 
     def configure_step(self, **kwargs):
         """Custom configuration procedure for LAMMPS."""

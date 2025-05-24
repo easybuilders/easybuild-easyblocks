@@ -40,6 +40,7 @@ from test.easyblocks.module import cleanup
 
 import easybuild.tools.options as eboptions
 import easybuild.easyblocks.generic.pythonpackage as pythonpackage
+import easybuild.easyblocks.l.lammps as lammps
 import easybuild.easyblocks.p.python as python
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
@@ -462,6 +463,28 @@ class EasyBlockSpecificTest(TestCase):
         self.assertEqual(sorted(os.listdir(lib64_path)), ['site-packages'])
         self.assertTrue(os.path.isdir(lib64_site_path))
         self.assertFalse(os.path.islink(lib64_site_path))
+
+    def test_translate_lammps_version(self):
+        """Test translate_lammps_version function from LAMMPS easyblock"""
+        lammps_versions = {
+            '23Jun2022': '2022.06.23',
+            '2Aug2023_update2': '2023.08.02',
+            '29Aug2024': '2024.08.29',
+            '29Aug2024_update2': '2024.08.29',
+            '28Oct2024': '2024.10.28',
+        }
+        for key in lammps_versions:
+            self.assertEqual(lammps.translate_lammps_version(key), lammps_versions[key])
+
+        version_file = os.path.join(self.tmpdir, 'src', 'version.h')
+        version_txt = '\n'.join([
+            '#define LAMMPS_VERSION "2 Apr 2025"',
+            '#define LAMMPS_UPDATE "Development"',
+        ])
+        write_file(version_file, version_txt)
+
+        self.assertEqual(lammps.translate_lammps_version('d3adb33f', path=self.tmpdir), '2025.04.02')
+        self.assertEqual(lammps.translate_lammps_version('devel', path=self.tmpdir), '2025.04.02')
 
 
 def suite():
