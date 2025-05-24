@@ -273,22 +273,10 @@ class EB_LAMMPS(CMakeMake):
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
         self.update_kokkos_cpu_mapping()
 
-    @staticmethod
-    def extra_options(**kwargs):
-        """Custom easyconfig parameters for LAMMPS"""
-        extra_vars = CMakeMake.extra_options()
-        extra_vars.update({
-            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
-            'kokkos': [True, "Enable kokkos build.", CUSTOM],
-            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
-            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
-        })
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
-
     def update_kokkos_cpu_mapping(self):
-
+        """
+        Update mapping to Kokkos CPU targets based on LAMMPS version
+        """
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
             self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
             self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
@@ -520,17 +508,20 @@ class EB_LAMMPS(CMakeMake):
     def install_step(self):
         """Install LAMMPS and examples/potentials."""
         super().install_step()
-        # Copy LICENCE and version file so these can be used with `--module-only`
+
+        # Copy LICENSE and version file so these can be used with `--module-only`
         version_file = os.path.join(self.start_dir, 'src', 'version.h')
         copy_file(version_file, os.path.join(self.installdir, 'src', 'version.h'))
         license_file = os.path.join(self.start_dir, 'LICENSE')
         copy_file(license_file, os.path.join(self.installdir, 'LICENSE'))
+
         # Copy over the examples so we can repeat the sanity check
         # (some symlinks may be broken)
         examples_dir = os.path.join(self.start_dir, 'examples')
         copy_dir(examples_dir, os.path.join(self.installdir, 'examples'), symlinks=True)
         potentials_dir = os.path.join(self.start_dir, 'potentials')
         copy_dir(potentials_dir, os.path.join(self.installdir, 'potentials'))
+
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
             # From ver 2Aug2023:
             # "make install in a CMake based installation will no longer install
@@ -607,11 +598,11 @@ class EB_LAMMPS(CMakeMake):
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [
-                os.path.join('src', 'version.h'),
                 'LICENSE',
                 os.path.join('bin', 'lmp'),
                 os.path.join('include', 'lammps', 'library.h'),
                 os.path.join('lib', 'liblammps.%s' % shlib_ext),
+                os.path.join('src', 'version.h'),
             ],
             'dirs': [],
         }
