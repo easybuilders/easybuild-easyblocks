@@ -159,7 +159,7 @@ ref_version = '29Sep2021'
 _log = fancylogger.getLogger('easyblocks.lammps')
 
 
-def translate_lammps_version(version, path=""):
+def translate_lammps_version(version, path=None):
     """Translate the LAMMPS version into something that can be used in a comparison"""
     month_map = {
        "JAN": '01',
@@ -178,20 +178,25 @@ def translate_lammps_version(version, path=""):
     items = [x for x in re.split('(\\d+)', version) if x]
     if len(items) < 3:
         raise ValueError("Version %s does not have (at least) 3 elements" % version)
+
     try:
         return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
     except KeyError:
         # avoid failing miserably under --module-only --force
-        if os.path.exists(path) and os.listdir(path):
-            txt = read_file(os.path.join(path, 'src', 'version.h'))
-            result = re.search(r'(?<=LAMMPS_VERSION ")\d+ \S+ \d+', txt)
-            if result:
-                day, month, year = result.group().split(' ')
+        if path and os.path.exists(path) and os.listdir(path):
+            version_file = os.path.join(path, 'src', 'version.h')
+            if os.path.exists(version_file):
+                txt = read_file(os.path.join(path, 'src', 'version.h'))
+                result = re.search(r'(?<=LAMMPS_VERSION ")\d+ \S+ \d+', txt)
+                if result:
+                    day, month, year = result.group().split(' ')
+                else:
+                    raise EasyBuildError(f"Failed to parse LAMMPS version: '{txt}'")
+                return '.'.join([year, month_map[month.upper()], '%02d' % int(day)])
             else:
-                raise EasyBuildError("Failed to parse LAMMPS version: '%s'", txt)
-            return '.'.join([year, month_map[month.upper()], '%02d' % int(day)])
+                raise EasyBuildError(f"Expected to find version file at {version_file}, but it doesn't exist")
         else:
-            raise ValueError("Version %s cannot be generated" % version)
+            raise ValueError("LAMMPS version {version} cannot be translated")
 
 
 class EB_LAMMPS(CMakeMake):
