@@ -598,11 +598,9 @@ class EB_LAMMPS(CMakeMake):
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
             'files': [
-                'LICENSE',
                 os.path.join('bin', 'lmp'),
                 os.path.join('include', 'lammps', 'library.h'),
                 os.path.join('lib', 'liblammps.%s' % shlib_ext),
-                os.path.join('src', 'version.h'),
             ],
             'dirs': [],
         }
