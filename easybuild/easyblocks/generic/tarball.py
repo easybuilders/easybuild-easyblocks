@@ -40,6 +40,7 @@ import os
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, extract_file, remove_dir
 from easybuild.tools.run import run_shell_cmd
 
@@ -110,10 +111,15 @@ class Tarball(ExtensionEasyBlock):
             dirs_exist_ok = True
             install_logmsg = "Merging tarball contents of %s into %s..."
         elif self.cfg['install_type'] is None:
-            # Wipe and copy root of installation directory (default)
             install_path = self.installdir
-            dirs_exist_ok = False
-            install_logmsg = "Copying tarball contents of %s into %s after wiping it..."
+            if build_option('new_namespace_installdir'):
+                # Copy but don’t wipe root of installation directory: is bind mounted to new (empty) namespace
+                dirs_exist_ok = True
+                install_logmsg = "Copying tarball contents of %s into (empty) %s, not wiping it..."
+            else:
+                # Wipe and copy root of installation directory (default)
+                dirs_exist_ok = False
+                install_logmsg = "Copying tarball contents of %s into %s after wiping it..."
         else:
             raise EasyBuildError("Unknown option '%s' for index_type.", self.cfg['install_type'])
 
