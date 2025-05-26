@@ -117,7 +117,7 @@ class EB_Bazel(EasyBlock):
 
     def prepare_step(self, *args, **kwargs):
         """Setup bazel output root"""
-        super(EB_Bazel, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         self.bazel_tmp_dir = tempfile.mkdtemp(suffix='-bazel-tmp', dir=self.builddir)
         self._make_output_user_root()
 
@@ -143,7 +143,7 @@ class EB_Bazel(EasyBlock):
         # Older Bazel won't build when the output_user_root is a subfolder of the source folder
         # So create a dedicated source folder
         self.cfg.update('unpack_options', '-d src')
-        super(EB_Bazel, self).extract_step()
+        super().extract_step()
 
     def configure_step(self):
         """Custom configuration procedure for Bazel."""
@@ -231,4 +231,4 @@ class EB_Bazel(EasyBlock):
             # Avoid writes to $HOME
             custom_commands.append("bazel --output_user_root=%s --help" % self.output_user_root)
 
-        super(EB_Bazel, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

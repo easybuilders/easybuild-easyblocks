@@ -48,7 +48,7 @@ class EB_FLUENT(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Custom constructor for FLUENT easyblock, initialize/define class parameters."""
-        super(EB_FLUENT, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         subdir_version = self.cfg['subdir_version']
         if subdir_version is None:
@@ -81,4 +81,4 @@ class EB_FLUENT(PackedBinary):
             'files': [os.path.join(bindir, 'fluent%s' % x) for x in ['', '_arch', '_sysinfo']],
             'dirs': [os.path.join(self.fluent_verdir, x) for x in ['aisol', 'CFD-Post']]
         }
-        super(EB_FLUENT, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

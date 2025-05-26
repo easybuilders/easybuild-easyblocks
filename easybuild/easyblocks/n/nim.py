@@ -77,4 +77,4 @@ class EB_Nim(EasyBlock):
             'files': ['bin/nim', 'bin/nimble', 'bin/nimgrep', 'bin/nimsuggest'],
             'dirs': ['config', 'doc', 'lib'],
         }
-        super(EB_Nim, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

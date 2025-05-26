@@ -173,7 +173,7 @@ class EB_Perl(ConfigureMake):
             # specify pattern for paths (relative to install dir) of files for which shebang should be patched
             self.cfg['fix_perl_shebang_for'] = 'bin/*'
 
-        super(EB_Perl, self).post_processing_step(*args, **kwargs)
+        super().post_processing_step(*args, **kwargs)
 
     def sanity_check_step(self):
         """Custom sanity check for Perl."""
@@ -186,7 +186,7 @@ class EB_Perl(ConfigureMake):
             'files': [os.path.join('bin', x) for x in ['perl', 'perldoc']],
             'dirs': dirs,
         }
-        super(EB_Perl, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
 
 def get_major_perl_version():

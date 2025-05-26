@@ -43,7 +43,7 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
         After unpacking the main tar file, we need to unpack the rpm
         inside it.
         """
-        super(EB_FDTD_underscore_Solutions, self).extract_step()
+        super().extract_step()
 
         rpms = glob.glob(os.path.join(self.src[0]['finalpath'], 'rpm_install_files', 'FDTD-%s*.rpm' % self.version))
         if len(rpms) != 1:
@@ -55,7 +55,7 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
         """Override installdir creation"""
         self.log.warning("Not pre-creating installation directory %s" % self.installdir)
         self.cfg['dontcreateinstalldir'] = True
-        super(EB_FDTD_underscore_Solutions, self).make_installdir()
+        super().make_installdir()
 
     def build_step(self):
         """No build step for FDTD Solutions."""
@@ -72,4 +72,4 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
             'files': ['bin/fdtd-solutions'],
             'dirs': ['lib'],
         }
-        super(EB_FDTD_underscore_Solutions, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

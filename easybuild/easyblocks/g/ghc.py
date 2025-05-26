@@ -46,4 +46,4 @@ class EB_GHC(ConfigureMake):
         if LooseVersion(self.version) < LooseVersion("7.0"):
             pass
         else:
-            super(EB_GHC, self).build_step(verbose=verbose)
+            super().build_step(verbose=verbose)

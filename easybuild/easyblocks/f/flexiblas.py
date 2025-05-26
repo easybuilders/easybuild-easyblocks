@@ -68,7 +68,7 @@ class EB_FlexiBLAS(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_FlexiBLAS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         dep_names = [dep['name'] for dep in self.cfg.dependencies()]
         if self.cfg['backends']:
@@ -155,12 +155,12 @@ class EB_FlexiBLAS(CMakeMake):
         if build_option('rpath'):
             self.cfg['abs_path_compilers'] = True
 
-        super(EB_FlexiBLAS, self).configure_step(builddir=self.obj_builddir)
+        super().configure_step(builddir=self.obj_builddir)
 
     def install_step(self):
         """Install imkl configuration, found via FLEXIBLAS_LIBRARY_PATH set by imkl module."""
 
-        super(EB_FlexiBLAS, self).install_step()
+        super().install_step()
         if self.cfg['backends'] and 'imkl' in self.cfg['backends'] and 'imkl' not in self.blas_libs:
             if self.toolchain.comp_family() == toolchain.GCC:
                 parallel = "gnu"
@@ -232,4 +232,4 @@ class EB_FlexiBLAS(CMakeMake):
         for blas_lib in self.blas_libs:
             custom_commands.append("flexiblas list | grep %s" % blas_lib.upper())
 
-        super(EB_FlexiBLAS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

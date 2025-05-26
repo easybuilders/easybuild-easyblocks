@@ -69,7 +69,7 @@ class EB_iccifort(EB_ifort, EB_icc):
         EB_ifort.sanity_check_step(self)
 
     def make_module_extra(self):
-        txt = super(EB_iccifort, self).make_module_extra()
+        txt = super().make_module_extra()
 
         # also define $EBROOT* and $EBVERSION* for icc/ifort
         txt += self.module_generator.set_environment('EBROOTICC', self.installdir)

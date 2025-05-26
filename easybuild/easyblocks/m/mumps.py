@@ -170,4 +170,4 @@ class EB_MUMPS(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_MUMPS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

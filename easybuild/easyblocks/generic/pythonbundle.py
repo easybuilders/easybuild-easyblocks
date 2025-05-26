@@ -30,12 +30,11 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES
+from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES, run_pip_check, set_py_env_vars
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd_from_ec
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
-import easybuild.tools.environment as env
 
 
 class PythonBundle(Bundle):
@@ -56,7 +55,7 @@ class PythonBundle(Bundle):
 
     def __init__(self, *args, **kwargs):
         """Initialize PythonBundle easyblock."""
-        super(PythonBundle, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg['exts_defaultclass'] = 'PythonPackage'
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
@@ -96,14 +95,13 @@ class PythonBundle(Bundle):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for installing bundle of Python packages."""
-        super(Bundle, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         self.prepare_python()
 
     def extensions_step(self, *args, **kwargs):
         """Install extensions (usually PythonPackages)"""
-        # don't add user site directory to sys.path (equivalent to python -s)
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
-        super(PythonBundle, self).extensions_step(*args, **kwargs)
+        set_py_env_vars(self.log)
+        super().extensions_step(*args, **kwargs)
 
     def test_step(self):
         """No global test step for bundle of Python packages."""
@@ -112,7 +110,7 @@ class PythonBundle(Bundle):
 
     def make_module_extra(self, *args, **kwargs):
         """Extra statements to include in module file: update $PYTHONPATH."""
-        txt = super(Bundle, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
 
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
         # if this Python package was installed for multiple Python versions, or if we prefer it
@@ -149,19 +147,28 @@ class PythonBundle(Bundle):
         return txt
 
     def load_module(self, *args, **kwargs):
+        """(Re)set environment variables after loading module file.
+
+        Required here to ensure the variables are also defined for stand-alone installations,
+        because the environment is reset to the initial environment right before loading the module.
         """
-        Make sure that $PYTHONNOUSERSITE is defined after loading module file for this software."""
 
-        super(PythonBundle, self).load_module(*args, **kwargs)
-
-        # Don't add user site directory to sys.path (equivalent to python -s),
-        # to avoid that any Python packages installed in $HOME/.local/lib affect the sanity check.
+        super().load_module(*args, **kwargs)
         # Required here to ensure that it is defined for sanity check commands of the bundle
         # because the environment is reset to the initial environment right before loading the module
-        env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
+        set_py_env_vars(self.log)
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Python package."""
+
+        if self.pylibdir is None:
+            # Python attributes not set up yet, happens e.g. with --sanity-check-only, so do it now.
+            # This also ensures the exts_filter option for extensions is set correctly.
+            # Load module first to get the right python command.
+            if not self.sanity_check_module_loaded:
+                self.sanity_check_load_module(extension=kwargs.get('extension', False),
+                                              extra_modules=kwargs.get('extra_modules', None))
+            self.prepare_python()
 
         # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths
         # this is relevant for installations of Python bundles for multiple Python versions (via multi_deps)
@@ -172,4 +179,33 @@ class PythonBundle(Bundle):
                 'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
             }
 
-        super(Bundle, self).sanity_check_step(*args, **kwargs)
+        super().sanity_check_step(*args, **kwargs)
+
+    def _sanity_check_step_extensions(self):
+        """Run the pip check for extensions if enabled"""
+        super(PythonBundle, self)._sanity_check_step_extensions()
+
+        sanity_pip_check = self.cfg['sanity_pip_check']
+        unversioned_packages = set(self.cfg['unversioned_packages'])
+
+        # The options should be set in the main EC and cannot be different between extensions.
+        # For backwards compatibility and to avoid surprises enable the pip-check if it is enabled
+        # in the main EC or any extension and build the union of all unversioned_packages.
+        has_sanity_pip_check_mismatch = False
+        all_unversioned_packages = unversioned_packages.copy()
+        for ext in self.ext_instances:
+            if isinstance(ext, PythonPackage):
+                if ext.cfg['sanity_pip_check'] != sanity_pip_check:
+                    has_sanity_pip_check_mismatch = True
+                all_unversioned_packages.update(ext.cfg['unversioned_packages'])
+
+        if has_sanity_pip_check_mismatch:
+            self.log.deprecated("For bundles of PythonPackage extensions the sanity_pip_check parameter "
+                                "must be set at the top level, outside of exts_list", '6.0')
+            sanity_pip_check = True  # Either the main set it or any extension enabled it
+        if all_unversioned_packages != unversioned_packages:
+            self.log.deprecated("For bundles of PythonPackage extensions the unversioned_packages parameter "
+                                "must be set at the top level, outside of exts_list", '6.0')
+
+        if sanity_pip_check:
+            run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)

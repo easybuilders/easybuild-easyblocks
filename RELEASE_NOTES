@@ -3,7 +3,64 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at https://docs.easybuild.io/release-notes .
 
-The latest version of easybuild-easyblocks provides 196 software-specific easyblocks and 44 generic easyblocks.
+The latest version of easybuild-easyblocks provides 199 software-specific easyblocks and 45 generic easyblocks.
+
+
+v5.1.0 (26 May 2025)
+--------------------
+
+feature release
+
+- new easyblocks:
+  - add `generic` Dataset easyblock (#3246)
+  - add custom easyblock for VSCode (#3638)
+  - add back easyblock for fastStructure which was removed in EasyBuild v5.0.0 (#3642, #3692)
+  - add custom easyblock for `Term::ReadLine::Gnu` Perl module (#3712)
+- various enhancements, including:
+  - generate version from the source files for LAMMPS when using `software-commit` (#3485)
+  - add support for `optarch` to `GoPackage` easyblock (#3503)
+  - add support for `neoverse_n1` instances of Azure (cortex-a72) to LAMMPs easyblock (#3580)
+  - enhance `BuildEnv` generic easyblock to copy RPATH wrapper scripts from build environment to installation directory (if available) (#3661)
+  - add option to impi easyblock to rebuild Fortran 2008 bindings (#3678)
+  - also install `easybuild` package for `EasyBuild >= 5` (#3700)
+  - enhance `Cargo` easyblock to handle single-line members in workspaces (#3705)
+  - generate an egg-info file for the `easybuild` meta package (#3725)
+  - produce clean trace message for '`pip check`' (#3732)
+- various updates:
+  - minor updates to ABAQUS easyblock to make hotfixes 2441 and 2424 working (#3512)
+  - update easyblock for AEDT 2025R1 (#3644)
+  - update Amber easyblock for version 24.x and newer (#3685)
+  - update TensorFlow easyblock for v2.18.x (#3699)
+  - do not build `ld.gold` with binutils 2.44 or newer (#3703)
+- various bug fixes, including:
+  - run `pip check` only once for `PythonBundle` and `Python` installations (#3432, #3730, #3731)
+  - avoid failure in Python package installation and sanity check when `$PIP_REQUIRE_VIRTUALENV` is set (#3460)
+  - fix handling of maximum Python version in `pick_python_cmd` function in `PythonPackage` easyblock (#3478)
+  - unset PMIX environment variables when configuring OpenMPI (#3511)
+  - various fixes for LLVM easyblock (#3674, #3690, #3695, #3706)
+  - enhance LLVM EasyBlock to better handle offload builds (#3675)
+  - fix `make_module_extra` methods for easyblocks that derive from `ExtensionEasyBlock` (#3681)
+  - fix access to unassigned variable when installing Python < 3.9.1 with using sysroot (#3686)
+  - update QuantumESPRESSO easyblock to use `cfg.parallel` property (#3688)
+  - configure Rust to use `stable` channel (#3691)
+  - don't use non-existing `--enable-sve` configure option when building FFTW on Arm system that supports SVE (#3696)
+  - specify path to `gcc` RPATH wrapper to linker option of Rust compiler (#3698)
+  - avoid leaking file handles in `PythonPackage` by using `read_file` and `write_file` functions (#3704)
+  - rebuild C++ API for Gurobi (#3714)
+  - fix Python shebangs for scripts in Python and Conda-like installations (#3717)
+  - fix dry run for `openssl_wrapper` (#3719)
+  - allow downloaded Python packages if implicitely requested (#3722)
+  - replace deprecated `expand_module_search_path` with `ModuleEnvironmentVariable.expand_paths()` in `Bundle` and `Java` easyblocks (#3727)
+  - add `-std=c++11` to `$CXXFLAGS` when building binutils 2.42+ with system GCC 4.8.1 to 5.x (#3728)
+- other changes:
+  - require that maximum major Python version is specified if maximum minor Python version is specified in `pick_python_cmd` function (#3478)
+  - remove Python 2.7 and 3.5 from list of classifiers in `setup.py` + add Python 3.12 & 3.13 (#3669, #3673)
+  - code cleanup: remove Python2 style `super()`-calls (#3681)
+  - fix testsuite badge in README (#3687)
+  - delete `.travis.yml` (#3679)
+  - remove superflous assignment of sanity check module data in custom easyblock for torchvision (#3701)
+  - deprecate JAR easyblock, `Binary` easyblock should be used instead (#3721)
+
 
 v5.0.0 (18 March 2025)
 ----------------------

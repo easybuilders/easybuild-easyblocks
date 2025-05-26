@@ -152,10 +152,10 @@ class EB_XALT(ConfigureMake):
             self.cfg.update('configopts', '--with-xaltFilePrefix=%s' % self.cfg['file_prefix'])
 
         # Configure
-        super(EB_XALT, self).configure_step()
+        super().configure_step()
 
     def make_module_extra(self, *args, **kwargs):
-        txt = super(EB_XALT, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
 
         txt += self.module_generator.prepend_paths('LD_PRELOAD', 'lib64/libxalt_init.%s' % get_shared_lib_ext())
         txt += self.module_generator.set_environment('XALT_DIR', self.installdir)
@@ -187,5 +187,4 @@ class EB_XALT(ConfigureMake):
         }
         custom_commands = ['xalt_configuration_report']
 
-        super(EB_XALT, self).sanity_check_step(custom_commands=custom_commands,
-                                               custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

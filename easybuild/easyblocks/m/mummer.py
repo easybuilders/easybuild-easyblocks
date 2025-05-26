@@ -44,7 +44,7 @@ class EB_MUMmer(ConfigureMake):
     def __init__(self, *args, **kwargs):
         """Define list of bin/aux_bin files."""
 
-        super(EB_MUMmer, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.bin_files = [
             "mummer", "annotate", "combineMUMs", "delta-filter", "gaps", "mgaps",
@@ -69,7 +69,7 @@ class EB_MUMmer(ConfigureMake):
         # make sure that compiler options specified by EasyBuild are used
         self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS" CFLAGS="$CFLAGS"')
 
-        super(EB_MUMmer, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """Patch files to avoid use of build dir, install by copying files to install dir."""
@@ -106,7 +106,7 @@ class EB_MUMmer(ConfigureMake):
         perlmajver = get_major_perl_version()
 
         # set $PATH and $PERLXLIB correctly
-        txt = super(EB_MUMmer, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.prepend_paths("PATH", ['bin/aux_bin'])
         txt += self.module_generator.prepend_paths("PERL%sLIB" % perlmajver, ['bin/scripts'])
         return txt
@@ -124,4 +124,4 @@ class EB_MUMmer(ConfigureMake):
 
         custom_commands = ["mummer -h"]
 
-        super(EB_MUMmer, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

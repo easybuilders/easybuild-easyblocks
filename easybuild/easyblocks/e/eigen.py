@@ -97,4 +97,4 @@ class EB_Eigen(CMakeMake):
             custom_commands.append("! grep -q -r '${PACKAGE_PREFIX_DIR}/${PACKAGE_PREFIX_DIR}' %s"
                                    % os.path.join(self.installdir, cmake_config_dir))
 
-        super(EB_Eigen, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

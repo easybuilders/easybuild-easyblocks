@@ -176,4 +176,4 @@ class EB_OpenBLAS(ConfigureMake):
                       'lib/libopenblas.a', 'lib/libopenblas.%s' % get_shared_lib_ext()],
             'dirs': [],
         }
-        super(EB_OpenBLAS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

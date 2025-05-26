@@ -106,7 +106,7 @@ class EB_HPL(ConfigureMake):
 
         # set options and build
         self.cfg.update('buildopts', extra_makeopts)
-        super(EB_HPL, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """
@@ -129,4 +129,4 @@ class EB_HPL(ConfigureMake):
             'dirs': []
         }
 
-        super(EB_HPL, self).sanity_check_step(custom_paths)
+        super().sanity_check_step(custom_paths)

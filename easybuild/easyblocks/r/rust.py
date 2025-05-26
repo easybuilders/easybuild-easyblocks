@@ -47,7 +47,7 @@ class EB_Rust(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Custom easyblock constructor for Rust."""
-        super(EB_Rust, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # see https://rustc-dev-guide.rust-lang.org/building/how-to-build-and-run.html#what-is-xpy
         # note: ConfigureMake.build_step automatically adds '-j <parallel>'
@@ -100,6 +100,12 @@ class EB_Rust(ConfigureMake):
         # old llvm builds from CI get deleted after a certain time
         self.cfg.update('configopts', "--set=llvm.download-ci-llvm=false")
 
+        # set channel to "stable", otherwise Rust will be built with nightly channel,
+        # see also https://rust-lang.github.io/rustup/concepts/channels.html;
+        # for recent version of Rust, this would also result in using rust-lld instead of the default linker,
+        # see https://blog.rust-lang.org/2024/05/17/enabling-rust-lld-on-linux.html
+        self.cfg.update('configopts', "--set=rust.channel=stable")
+
         # don't use Ninja if it is not listed as a build dependency;
         # may be because Ninja requires Python, and Rust is a build dependency for cryptography
         # which may be included as an extension with Python
@@ -107,7 +113,7 @@ class EB_Rust(ConfigureMake):
         if 'Ninja' not in build_dep_names:
             self.cfg.update('configopts', "--set=llvm.ninja=false")
 
-        super(EB_Rust, self).configure_step()
+        super().configure_step()
 
         # avoid failure when home directory is an NFS mount,
         # see https://github.com/rust-lang/cargo/issues/6652
@@ -117,7 +123,7 @@ class EB_Rust(ConfigureMake):
 
     def install_step(self):
         """Custom install step for Rust"""
-        super(EB_Rust, self).install_step()
+        super().install_step()
 
         if build_option('rpath'):
             self._convert_runpaths_to_rpaths()
@@ -134,4 +140,4 @@ class EB_Rust(ConfigureMake):
             "cargo --version",
             "rustc --version",
         ]
-        return super(EB_Rust, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

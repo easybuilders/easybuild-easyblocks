@@ -34,7 +34,7 @@ class EB_BWA(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to BWA."""
-        super(EB_BWA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.files = ['bwa', 'qualfa2fq.pl', 'xa2multi.pl']
         if LooseVersion(self.version) < LooseVersion('0.7.0'):
@@ -58,7 +58,7 @@ class EB_BWA(ConfigureMake):
             if env_var + '=' not in self.cfg['buildopts']:
                 self.cfg.update('buildopts', env_var + '="$' + env_var + '"')
 
-        super(EB_BWA, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """
@@ -112,4 +112,4 @@ class EB_BWA(ConfigureMake):
         # when run without arguments (and exits with exit code 1)
         custom_commands = ["bwa 2>&1 | grep 'index sequences in the FASTA format'"]
 
-        super(EB_BWA, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
