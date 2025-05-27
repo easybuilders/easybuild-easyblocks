@@ -1033,9 +1033,9 @@ class PythonPackage(ExtensionEasyBlock):
                 # If the main easyblock (e.g. PythonBundle) defines the variable
                 # we trust it does the pip check if requested and checks for mismatches
                 sanity_pip_check = False
-                msg = "Sanity 'pip check' disabled for {self.name} extension, "
-                msg += "assuming that parent will take care of it"
-                self.log.info(msg)
+                self.log.info(f"Sanity 'pip check' disabled for {self.name} extension, "
+                              f"assuming that parent will take care of it"
+                              )
 
         if sanity_pip_check:
             if not self.is_extension:
