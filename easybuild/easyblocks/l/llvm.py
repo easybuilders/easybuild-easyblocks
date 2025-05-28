@@ -1174,6 +1174,16 @@ class EB_LLVM(CMakeMake):
                 error_msg = f"Dynamic linker is not set to the sysroot '{self.sysroot}'"
                 raise EasyBuildError(error_msg)
 
+            cmd = f'./{x_name}'
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            if res.exit_code != EasyBuildExit.SUCCESS:
+                error_msg = f"Failed to run the compiled executable '{x_name}' for testing the dynamic linker"
+                raise EasyBuildError(error_msg)
+
+            remove_file(c_name)
+            remove_file(o_name)
+            remove_file(x_name)
+
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
         lib_dir_runtime = None
@@ -1367,9 +1377,10 @@ class EB_LLVM(CMakeMake):
             # Required for 'clang -v' to work if linked to LLVM runtimes
             with _wrap_env(ld_path=os.path.join(self.installdir, lib_dir_runtime)):
                 self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
+                self._sanity_check_dynamic_linker()
         else:
             self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
-        self._sanity_check_dynamic_linker()
+            self._sanity_check_dynamic_linker()
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
