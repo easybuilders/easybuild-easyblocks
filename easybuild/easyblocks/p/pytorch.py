@@ -502,7 +502,7 @@ class EB_PyTorch(PythonPackage):
             if has_rocm:
                 with_gpu_support = True
 
-        if pytorch_version >= 'v1.10.0':
+        if pytorch_version >= '1.10.0':
             add_enable_option('USE_MAGMA', with_gpu_support and get_software_root('magma'))
 
         if get_cpu_architecture() == POWER:
@@ -512,7 +512,7 @@ class EB_PyTorch(PythonPackage):
             if pytorch_version >= '1.10.0' and pytorch_version < '1.12.0':
                 options.append('USE_BREAKPAD=0')
             # FBGEMM requires AVX512, so not available on PPC
-            if pytorch_version >= 'v1.10.0':
+            if pytorch_version >= '1.10.0':
                 options.append('USE_FBGEMM=0')
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
