@@ -766,7 +766,7 @@ class EB_LLVM(CMakeMake):
         """Create a config file for the compiler to point to the correct GCC installation."""
         self._set_gcc_prefix()
         bin_dir = os.path.join(installdir, 'bin')
-        opts = [f'--gcc-toolchain={self.gcc_prefix}']
+        opts = [f'--gcc-install-dir={self.gcc_prefix}']
 
         if self.dynamic_linker:
             opts.append(f'-Wl,-dynamic-linker,{self.dynamic_linker}')
