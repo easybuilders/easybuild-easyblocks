@@ -577,6 +577,7 @@ class EB_LLVM(CMakeMake):
                 if os.path.isfile(linker):
                     self.log.info("Using linker %s from sysroot", linker)
                     self.dynamic_linker = linker
+                    break
             else:
                 msg = f"No linker found in sysroot {self.sysroot}, using default linker"
                 trace_msg(msg)
