@@ -775,6 +775,18 @@ class EB_LLVM(CMakeMake):
             # prefix = self.sysroot.rstrip('/')
             # opts.append(f'--dyld-prefix={prefix}')
 
+        # Check, for a non `full_llvm` build, if GCCcore is in the LIBRARY_PATH, and if not add it
+        # This is needed as the runtimes tests will not add the -L option to the linker command line for GCCcore
+        # otherwise
+        if not self.full_llvm:
+            gcc_root = get_software_root('GCCcore')
+            gcc_lib = os.path.join(gcc_root, 'lib64')
+            library_path = os.getenv('LLIBRARY_PATH', '')
+            if gcc_lib not in library_path:
+                self.log.info("Adding GCCcore libraries location `%s` the config files", gcc_lib)
+                lib_path = f"{gcc_lib}:{lib_path}" if lib_path else gcc_lib
+                opts.append(f'-L{lib_path}')
+
         for comp in self.cfg_compilers:
             write_file(os.path.join(bin_dir, f'{comp}.cfg'), ' '.join(opts))
 
