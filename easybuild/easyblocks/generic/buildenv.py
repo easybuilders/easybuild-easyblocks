@@ -29,11 +29,11 @@ environment flags for the current toolchain
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 """
 import os
+import stat
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.tools.filetools import copy_dir
+from easybuild.tools.filetools import adjust_permissions, copy_dir
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
-
 
 class BuildEnv(Bundle):
     """
@@ -60,6 +60,11 @@ class BuildEnv(Bundle):
         if os.path.exists(wrappers_dir):
             self.rpath_wrappers_dir = os.path.join(self.installdir, 'bin')
             copy_dir(wrappers_dir, os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR))
+            # Make sure wrappers are readable/executable by everyone
+            adjust_permissions(
+                self.rpath_wrappers_dir,
+                stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+                )
 
     def make_module_extra(self):
         """Add all the build environment variables."""
