@@ -355,12 +355,12 @@ class EB_LLVM(CMakeMake):
             general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
 
         # Sysroot
-        sysroot = build_option('sysroot')
-        if sysroot:
-            general_opts['DEFAULT_SYSROOT'] = sysroot
-            general_opts['CMAKE_SYSROOT'] = sysroot
+        self.sysroot = build_option('sysroot')
+        if self.sysroot:
+            general_opts['DEFAULT_SYSROOT'] = self.sysroot
+            general_opts['CMAKE_SYSROOT'] = self.sysroot
             self._set_dynamic_linker()
-            trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {sysroot}")
+            trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {self.sysroot}")
 
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
