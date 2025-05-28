@@ -37,7 +37,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, copy_file
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, symlink
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, get_cpu_family, get_gcc_version, get_shared_lib_ext
@@ -190,6 +190,9 @@ class EB_binutils(ConfigureMake):
             else:
                 self.cfg.update('configopts', '--without-debuginfod')
 
+        if self.cfg['install_libiberty']:
+            self.cfg.update('configopts', '--enable-install-libiberty')
+
         # complete configuration with configure_method of parent
         super().configure_step()
 
@@ -210,30 +213,13 @@ class EB_binutils(ConfigureMake):
                     self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -std=c++11"')
 
     def install_step(self):
-        """Install using 'make install', also install libiberty if desired."""
+        """Install using 'make install', also symlink libiberty/demangle headers if desired."""
         super().install_step()
 
-        # only install libiberty files if if they're not there yet;
-        # libiberty.a is installed by default for old binutils versions
         if self.cfg['install_libiberty']:
-            if not os.path.exists(os.path.join(self.installdir, 'include', 'libiberty.h')):
-                copy_file(os.path.join(self.cfg['start_dir'], 'include', 'libiberty.h'),
-                          os.path.join(self.installdir, 'include', 'libiberty.h'))
-
-            if not glob.glob(os.path.join(self.installdir, 'lib*', 'libiberty.a')):
-                # Be a bit careful about where we install into
-                libdir = os.path.join(self.installdir, 'lib')
-                # At this point the lib directory should exist and be populated, if not try the other option
-                if not (os.path.exists(libdir) and os.path.isdir(libdir) and os.listdir(libdir)):
-                    libdir = os.path.join(self.installdir, 'lib64')
-
-                # Make sure the target exists (it should, otherwise our sanity check will fail)
-                if os.path.exists(libdir) and os.path.isdir(libdir) and os.listdir(libdir):
-                    copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.a'),
-                              os.path.join(libdir, 'libiberty.a'))
-                else:
-                    raise EasyBuildError("Target installation directory %s for libiberty.a is non-existent or empty",
-                                         libdir)
+            for includefile in ['demangle.h', 'libiberty.h']:
+                symlink(os.path.join(self.installdir, 'include', 'libiberty', includefile),
+                        os.path.join(self.installdir, 'include', includefile))
 
             if not os.path.exists(os.path.join(self.installdir, 'info', 'libiberty.texi')):
                 copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.texi'),
@@ -270,7 +256,7 @@ class EB_binutils(ConfigureMake):
         if self.cfg['install_libiberty']:
             custom_paths['files'].extend([
                 (os.path.join('lib', 'libiberty.a'), os.path.join('lib64', 'libiberty.a')),
-                os.path.join('include', 'libiberty.h'),
+                os.path.join('include', 'libiberty.h'),  os.path.join('include', 'demangle.h'),
             ])
 
         # All binaries support --version, check that they can be run
