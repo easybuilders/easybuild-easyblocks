@@ -256,6 +256,7 @@ class EB_LLVM(CMakeMake):
         self.offload_targets = ['host']
         # self._added_librt = None
         self.host_triple = None
+        self.dynamic_linker = None
 
         # Shared
         off_opts, on_opts = [], []
@@ -354,10 +355,12 @@ class EB_LLVM(CMakeMake):
             general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
 
         # Sysroot
-        self.sysroot = build_option('sysroot')
-        if self.sysroot:
-            general_opts['DEFAULT_SYSROOT'] = self.sysroot
-            general_opts['CMAKE_SYSROOT'] = self.sysroot
+        sysroot = build_option('sysroot')
+        if sysroot:
+            general_opts['DEFAULT_SYSROOT'] = sysroot
+            general_opts['CMAKE_SYSROOT'] = sysroot
+            self._set_dynamic_linker()
+            trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {sysroot}")
 
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
@@ -566,6 +569,19 @@ class EB_LLVM(CMakeMake):
             self.gcc_prefix = gcc_prefix
         self.log.debug("Using %s as the gcc install location", self.gcc_prefix)
 
+    def _set_dynamic_linker(self):
+        """Set the dynamic linker for the build if not the default one."""
+        if self.sysroot:
+            linkers = glob.glob(os.path.join(self.sysroot, '**', 'ld-*.so*'))
+            for linker in linkers:
+                if os.path.isfile(linker):
+                    self.log.info("Using linker %s from sysroot", linker)
+                    self.dynamic_linker = linker
+            else:
+                msg = f"No linker found in sysroot {self.sysroot}, using default linker"
+                trace_msg(msg)
+                self.log.warning(msg)
+
     def configure_step(self):
         """
         Install extra tools in bin/; enable zlib if it is a dep; optionally enable rtti; and set the build target
@@ -751,16 +767,8 @@ class EB_LLVM(CMakeMake):
         bin_dir = os.path.join(installdir, 'bin')
         opts = [f'--gcc-toolchain={self.gcc_prefix}']
 
-        if self.sysroot:
-            linkers = glob.glob(os.path.join(self.sysroot, '**', 'ld-*.so*'))
-            for linker in linkers:
-                if os.path.isfile(linker):
-                    self.log.debug("Using linker %s from sysroot", linker)
-                    opts.append(f'-Wl,-dynamic-linker,{linker}')
-            else:
-                msg = f"No linker found in sysroot {self.sysroot}, using default linker"
-                trace_msg(msg)
-                self.log.warning(msg)
+        if self.dynamic_linker:
+            opts.append(f'-Wl,-dynamic-linker,{self.dynamic_linker}')
             # The --dyld-prefix flag exists, but beside being poorly documented it is also not supported by flang
             # https://reviews.llvm.org/D851
             # prefix = self.sysroot.rstrip('/')
