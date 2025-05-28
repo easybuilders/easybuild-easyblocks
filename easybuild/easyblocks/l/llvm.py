@@ -354,10 +354,10 @@ class EB_LLVM(CMakeMake):
             general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
 
         # Sysroot
-        sysroot = build_option('sysroot')
-        if sysroot:
-            general_opts['DEFAULT_SYSROOT'] = sysroot
-            general_opts['CMAKE_SYSROOT'] = sysroot
+        self.sysroot = build_option('sysroot')
+        if self.sysroot:
+            general_opts['DEFAULT_SYSROOT'] = self.sysroot
+            general_opts['CMAKE_SYSROOT'] = self.sysroot
 
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
@@ -745,13 +745,29 @@ class EB_LLVM(CMakeMake):
         if self.full_llvm:
             self._cmakeopts.update(remove_gcc_dependency_opts)
 
-    @staticmethod
-    def _create_compiler_config_file(compilers, gcc_prefix, installdir):
+    def _create_compiler_config_file(self, installdir):
         """Create a config file for the compiler to point to the correct GCC installation."""
+        self._set_gcc_prefix()
         bin_dir = os.path.join(installdir, 'bin')
-        prefix_str = '--gcc-install-dir=%s' % gcc_prefix
-        for comp in compilers:
-            write_file(os.path.join(bin_dir, f'{comp}.cfg'), prefix_str)
+        opts = [f'--gcc-toolchain={self.gcc_prefix}']
+
+        if self.sysroot:
+            linkers = glob.glob(os.path.join(self.sysroot, '**', 'ld-*.so*'))
+            for linker in linkers:
+                if os.path.isfile(linker):
+                    self.log.debug("Using linker %s from sysroot", linker)
+                    opts.append(f'-Wl,-dynamic-linker,{linker}')
+            else:
+                msg = f"No linker found in sysroot {self.sysroot}, using default linker"
+                trace_msg(msg)
+                self.log.warning(msg)
+            # The --dyld-prefix flag exists, but beside being poorly documented it is also not supported by flang
+            # https://reviews.llvm.org/D851
+            # prefix = self.sysroot.rstrip('/')
+            # opts.append(f'--dyld-prefix={prefix}')
+
+        for comp in self.cfg_compilers:
+            write_file(os.path.join(bin_dir, f'{comp}.cfg'), ' '.join(opts))
 
     def build_with_prev_stage(self, prev_dir, stage_dir):
         """Build LLVM using the previous stage."""
@@ -826,7 +842,7 @@ class EB_LLVM(CMakeMake):
             # Also runs of the intermediate step compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
-                self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, prev_dir)
+                self._create_compiler_config_file(prev_dir)
 
             self.add_cmake_opts()
 
@@ -1011,7 +1027,7 @@ class EB_LLVM(CMakeMake):
             # Also runs of test suite compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
-                self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
+                self._create_compiler_config_file(self.final_dir)
 
             self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
 
@@ -1072,7 +1088,7 @@ class EB_LLVM(CMakeMake):
             # For GCC aware installation create config files in order to point to the correct GCC installation
             # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
             self._set_gcc_prefix()
-            self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.installdir)
+            self._create_compiler_config_file(self.installdir)
 
         # This is needed as some older build system will select a different naming scheme for the library leading to
         # The correct target <__config_site> and libclang_rt.builtins.a not being found
@@ -1136,6 +1152,26 @@ class EB_LLVM(CMakeMake):
             check_prefix = mch.group(1)
             if check_prefix != gcc_prefix:
                 error_msg = f"GCC installation path '{check_prefix}' does not match expected path '{gcc_prefix}'"
+                raise EasyBuildError(error_msg)
+
+    def _sanity_check_dynamic_linker(self):
+        """Check if the dynamic linker is correct."""
+        if self.sysroot:
+            c_name = 'abcdefg.c'
+            o_name = 'abcdefg.o'
+            x_name = 'abcdefg.x'
+            with open(c_name, 'w', encoding='utf-8') as f:
+                f.write('#include <stdio.h>\n')
+                f.write('int main() { printf("Hello World\\n"); return 0; }\n')
+            cmd = f"{os.path.join(self.installdir, 'bin', 'clang')} -o {o_name} -c {c_name}"
+            run_shell_cmd(cmd, fail_on_error=True)
+            cmd = f"{os.path.join(self.installdir, 'bin', 'clang')} -v -o {x_name} {o_name}"
+            res = run_shell_cmd(cmd, fail_on_error=True)
+            out = res.output
+
+            # Check if the dynamic linker is set to the sysroot
+            if self.sysroot not in out:
+                error_msg = f"Dynamic linker is not set to the sysroot '{self.sysroot}'"
                 raise EasyBuildError(error_msg)
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
@@ -1333,6 +1369,7 @@ class EB_LLVM(CMakeMake):
                 self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
         else:
             self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
+        self._sanity_check_dynamic_linker()
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
