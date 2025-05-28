@@ -574,7 +574,7 @@ class EB_LLVM(CMakeMake):
         if self.sysroot:
             linkers = glob.glob(os.path.join(self.sysroot, '**', 'ld-*.so*'))
             for linker in linkers:
-                if os.path.isfile(linker):
+                if os.path.isfile(linker) and not os.path.islink(linker):
                     self.log.info("Using linker %s from sysroot", linker)
                     self.dynamic_linker = linker
                     break
