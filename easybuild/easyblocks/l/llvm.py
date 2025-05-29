@@ -503,6 +503,20 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
             if not self.cfg['build_openmp_tools']:
                 self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
+            # Force dlopen of the GPU libraries at runtime, not using existing libraries
+            if LooseVersion(self.version) >= LooseVersion('19'):
+                dlopen_plugin_list = []
+                if self.amdgpu_target_cond:
+                    dlopen_plugin_list += ['amdgpu']
+                if self.nvptx_target_cond:
+                    dlopen_plugin_list += ['cuda']
+                if dlopen_plugin_list:
+                    self.runtimes_cmake_args['LIBOMPTARGET_DLOPEN_PLUGINS'] = '%s' % '|'.join(dlopen_plugin_list)
+            else:
+                if self.amdgpu_target_cond:
+                    self.runtimes_cmake_args['LIBOMPTARGET_FORCE_DLOPEN_LIBHSA'] = 'ON'
+                if self.nvptx_target_cond:
+                    self.runtimes_cmake_args['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
 
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
