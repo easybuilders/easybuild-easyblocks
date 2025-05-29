@@ -514,9 +514,9 @@ class EB_LLVM(CMakeMake):
                     self.runtimes_cmake_args['LIBOMPTARGET_DLOPEN_PLUGINS'] = '%s' % '|'.join(dlopen_plugin_list)
             else:
                 if self.amdgpu_target_cond:
-                    self.runtimes_cmake_args['LIBOMPTARGET_FORCE_DLOPEN_LIBHSA'] = 'ON'
+                    self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBHSA'] = 'ON'
                 if self.nvptx_target_cond:
-                    self.runtimes_cmake_args['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
+                    self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
 
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
