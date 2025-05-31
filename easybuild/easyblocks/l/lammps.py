@@ -228,6 +228,10 @@ class EB_LAMMPS(CMakeMake):
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
             self.kokkos_cpu_mapping['icelake'] = 'ICX'
             self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('4Feb2025')):
+            self.kokkos_cpu_mapping['neoverse_v2'] = 'ARMv9-Grace'
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Apr2025')):
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN4'
 
     @staticmethod
     def extra_options(**kwargs):
