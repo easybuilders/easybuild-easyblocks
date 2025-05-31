@@ -305,7 +305,7 @@ class Bundle(EasyBlock):
                 self.comp_cfgs_sanity_check.append(comp)
 
             # run relevant steps
-            for step_name in ['patch', 'configure', 'build', 'install']:
+            for step_name in ['patch', 'configure', 'build', 'test', 'install']:
                 if step_name in cfg['skipsteps']:
                     comp.log.info("Skipping '%s' step for component %s v%s", step_name, cfg['name'], cfg['version'])
                 else:
