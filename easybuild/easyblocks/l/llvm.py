@@ -784,8 +784,7 @@ class EB_LLVM(CMakeMake):
             lib_path = os.getenv('LIBRARY_PATH', '')
             if gcc_lib not in lib_path:
                 self.log.info("Adding GCCcore libraries location `%s` the config files", gcc_lib)
-                lib_path = f"{gcc_lib}:{lib_path}" if lib_path else gcc_lib
-                opts.append(f'-L{lib_path}')
+                opts.append(f'-L{gcc_lib}')
 
         for comp in self.cfg_compilers:
             write_file(os.path.join(bin_dir, f'{comp}.cfg'), ' '.join(opts))
