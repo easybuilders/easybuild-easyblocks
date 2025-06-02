@@ -197,12 +197,12 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('wrapt', '2.0.0:'): 'wrapt',
     }
 
-    dependency_mapping = dict((dep_name, tf_name)
-                              for (dep_name, version_range), tf_name in available_system_libs.items()
-                              if is_version_ok(version_range))
-    python_mapping = dict((pkg_name, tf_name)
-                          for (pkg_name, version_range), tf_name in python_system_libs.items()
-                          if is_version_ok(version_range))
+    dependency_mapping = {dep_name: tf_name
+                          for (dep_name, version_range), tf_name in available_system_libs.items()
+                          if is_version_ok(version_range)}
+    python_mapping = {pkg_name: tf_name
+                      for (pkg_name, version_range), tf_name in python_system_libs.items()
+                      if is_version_ok(version_range)}
 
     if as_valid_libs:
         tf_names = [tf_name for tf_name, version_range in unused_system_libs.items()
@@ -356,8 +356,8 @@ class EB_TensorFlow(PythonPackage):
         """
         dependency_mapping, python_mapping = get_system_libs_for_version(self.version)
         # Some TF dependencies require both a (usually C++) dependency and a Python package
-        deps_with_python_pkg = set(tf_name for tf_name in dependency_mapping.values()
-                                   if tf_name in python_mapping.values())
+        deps_with_python_pkg = {tf_name for tf_name in dependency_mapping.values()
+                                if tf_name in python_mapping.values()}
 
         system_libs = []
         cpaths = []
@@ -365,7 +365,7 @@ class EB_TensorFlow(PythonPackage):
         ignored_system_deps = []
 
         # Check direct dependencies
-        dep_names = set(dep['name'] for dep in self.cfg.dependencies())
+        dep_names = {dep['name'] for dep in self.cfg.dependencies()}
         for dep_name, tf_name in sorted(dependency_mapping.items(), key=lambda i: i[0].lower()):
             if dep_name in dep_names:
                 if tf_name in deps_with_python_pkg:
@@ -1120,7 +1120,7 @@ class EB_TensorFlow(PythonPackage):
                 self.log.warning(fail_msg)
                 # Try to enhance error message
                 failed_tests = []
-                failed_test_logs = dict()
+                failed_test_logs = {}
                 # Bazel outputs failed tests like "//tensorflow/c:kernels_test   FAILED in[...]"
                 for match in re.finditer(r'^(//[a-zA-Z_/:]+)\s+FAILED', res.output, re.MULTILINE):
                     test_name = match.group(1)
