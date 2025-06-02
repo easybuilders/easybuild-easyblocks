@@ -186,7 +186,9 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
 
     if python_cmd is None:
         python_cmd = 'python'
-    if unversioned_packages is None:
+    if build_option('ignore_pip_unversioned_pkgs'):
+        unversioned_packages = list(set(build_option('ignore_pip_unversioned_pkgs') + unversioned_packages))
+    elif unversioned_packages is None:
         unversioned_packages = []
 
     pip_check_cmd = f"{python_cmd} -m pip check"
