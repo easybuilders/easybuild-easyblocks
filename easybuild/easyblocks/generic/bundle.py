@@ -41,6 +41,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.easyconfig import get_easyblock_class
 from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.config import build_option
+from easybuild.tools.hooks import TEST_STEP
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.utilities import nub
 
@@ -308,6 +310,9 @@ class Bundle(EasyBlock):
             for step_name in ['patch', 'configure', 'build', 'test', 'install']:
                 if step_name in cfg['skipsteps']:
                     comp.log.info("Skipping '%s' step for component %s v%s", step_name, cfg['name'], cfg['version'])
+                elif build_option('skip_test_step') and step_name == TEST_STEP:
+                    comp.log.info("Skipping %s step for component %s v%s, as requested via skip-test-step", step_name,
+                                  cfg['name'], cfg['version'])
                 else:
                     comp.run_step(step_name, [lambda x: getattr(x, '%s_step' % step_name)])
 
