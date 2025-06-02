@@ -819,7 +819,7 @@ class EB_TensorFlow(PythonPackage):
             regex_subs.extend([('-fPIE', '-fPIC'), ('"-pie"', '"-fPIC"')])
 
         # patch all CROSSTOOL* scripts to fix hardcoding of locations of binutils/GCC binaries
-        for path, dirnames, filenames in os.walk(os.getcwd()):
+        for path, _dirnames, filenames in os.walk(os.getcwd()):
             for filename in filenames:
                 if filename.startswith('CROSSTOOL'):
                     full_path = os.path.join(path, filename)
