@@ -446,6 +446,8 @@ class EB_TensorFlow(PythonPackage):
         parent_dir = os.path.dirname(self.start_dir)
         # Path where Bazel will store its output, build artefacts etc.
         self.output_user_root_dir = os.path.join(parent_dir, 'bazel-root')
+        # Replace $HOME with a temporary folder to avoid using the user's home directory
+        self.home_dir = tempfile.mkdtemp(suffix='-tf-home')
         # Folder where wrapper binaries can be placed, where required. TODO: Replace by --action_env cmds
         self.wrapper_dir = os.path.join(parent_dir, 'wrapper_bin')
         mkdir(self.wrapper_dir)
@@ -848,6 +850,8 @@ class EB_TensorFlow(PythonPackage):
         action_env = {}
         # A value of None is interpreted as using the invoking environments value
         INHERIT = None  # For better readability
+
+        action_env['HOME'] = self.home_dir
 
         jvm_max_memory = self.cfg['jvm_max_memory']
         if jvm_max_memory:
