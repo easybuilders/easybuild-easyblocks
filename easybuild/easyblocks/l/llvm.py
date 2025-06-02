@@ -864,6 +864,10 @@ class EB_LLVM(CMakeMake):
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
                 self._create_compiler_config_file(prev_dir)
+                # Pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
+                # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
+                # runtimes (which would otherwise use the system default dynamic linker)
+                self._create_compiler_config_file(stage_dir)
 
             self.add_cmake_opts()
 
