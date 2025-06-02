@@ -721,14 +721,19 @@ class EB_LLVM(CMakeMake):
             else:
                 self.log.warning("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
 
-        if not self.cfg['bootstrap'] and build_option('rpath') and self._cmakeopts['LLVM_ENABLE_RUNTIMES'] != '""':
-            # Ensure RPATH wrappers are used for the runtimes also at the first stage
-            # Call configure again now that the host triple is known from the previous configure call
-            remove_dir(self.llvm_obj_dir_stage1)
-            self._prepare_runtimes_rpath_wrappers(self.llvm_obj_dir_stage1)
-            self.add_cmake_opts()
-            trace_msg("Reconfiguring LLVM to use the RPATH wrappers for the runtimes")
-            super(EB_LLVM, self).configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+        if not self.cfg['bootstrap']:
+            if build_option('rpath') and self._cmakeopts['LLVM_ENABLE_RUNTIMES'] != '""':
+                # Ensure RPATH wrappers are used for the runtimes also at the first stage
+                # Call configure again now that the host triple is known from the previous configure call
+                remove_dir(self.llvm_obj_dir_stage1)
+                self._prepare_runtimes_rpath_wrappers(self.llvm_obj_dir_stage1)
+                self.add_cmake_opts()
+                trace_msg("Reconfiguring LLVM to use the RPATH wrappers for the runtimes")
+                super(EB_LLVM, self).configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+            # Pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
+            # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
+            # runtimes (which would otherwise use the system default dynamic linker)
+            self._create_compiler_config_file(self.llvm_obj_dir_stage1)
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
