@@ -550,6 +550,20 @@ class EB_LLVM(CMakeMake):
 
         return gcc_root, gcc_prefix
 
+    @staticmethod
+    def _get_gcc_libpath(strict=False):
+        """Get the GCC library path for the build."""
+        gcc_root = get_software_root('GCCcore')
+        if gcc_root is None:
+            gcc_root = get_software_root('GCC')
+        if gcc_root is None:
+            if strict:
+                raise EasyBuildError("Can't find GCC or GCCcore to use")
+            else:
+                print_msg("Can't find GCC or GCCcore to use, skipping setting of GCC library path", level=IGNORE)
+                return ''
+        return os.path.join(gcc_root, 'lib64')
+
     def _set_gcc_prefix(self):
         """Set the GCC prefix for the build."""
         if self.gcc_prefix is None:
@@ -784,8 +798,7 @@ class EB_LLVM(CMakeMake):
         # This is needed as the runtimes tests will not add the -L option to the linker command line for GCCcore
         # otherwise
         if not self.full_llvm:
-            gcc_root = get_software_root('GCCcore')
-            gcc_lib = os.path.join(gcc_root, 'lib64')
+            gcc_lib = self._get_gcc_libpath(strict=True)
             lib_path = os.getenv('LIBRARY_PATH', '')
             if gcc_lib not in lib_path:
                 self.log.info("Adding GCCcore libraries location `%s` the config files", gcc_lib)
@@ -999,6 +1012,11 @@ class EB_LLVM(CMakeMake):
         if self.cfg['build_runtimes']:
             lib_dir_runtime = self.get_runtime_lib_path(basedir)
             lib_path = os.path.join(basedir, lib_dir_runtime)
+        if not self.full_llvm:
+            # Add the GCC library path to the LD_LIBRARY_PATH if it is not already there to ensure correct
+            # libstdc++ and libgcc_s.so are used for tests
+            gcc_lib = self._get_gcc_libpath(strict=True)
+            lib_path = ':'.join(filter(None, [gcc_lib, lib_path]))
 
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
             cmd = f"make -j {parallel} check-all"
