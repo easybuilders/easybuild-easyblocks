@@ -674,6 +674,8 @@ class EB_LLVM(CMakeMake):
         # Should not use system SWIG if present
         general_opts['LLDB_ENABLE_SWIG'] = 'ON' if get_software_root('SWIG') else 'OFF'
 
+        general_opts['LIBOMP_OMPD_GDB_SUPPORT'] = 'ON' if get_software_root('GDB') else 'OFF'
+
         z3_root = get_software_root("Z3")
         if z3_root:
             self.log.info("Using %s as Z3 root", z3_root)
