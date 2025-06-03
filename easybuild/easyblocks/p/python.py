@@ -179,17 +179,19 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
     """
     Check installed Python packages using 'pip check'
 
-    :param unversioned_packages: list of Python packages to exclude in the version existence check
+    :param unversioned_packages: set of Python packages to exclude in the version existence check
     :param python_cmd: Python command to use (if None, 'python' is used)
     """
     log = fancylogger.getLogger('det_installed_python_packages', fname=False)
 
     if python_cmd is None:
         python_cmd = 'python'
+
+    if unversioned_packages is None:
+        unversioned_packages = set()
+
     if build_option('ignore_pip_unversioned_pkgs'):
-        unversioned_packages = list(set(build_option('ignore_pip_unversioned_pkgs') + unversioned_packages))
-    elif unversioned_packages is None:
-        unversioned_packages = []
+        unversioned_packages.update(build_option('ignore_pip_unversioned_pkgs'))
 
     pip_check_cmd = f"{python_cmd} -m pip check"
 
