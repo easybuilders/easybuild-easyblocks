@@ -41,6 +41,8 @@ import shutil
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.easyblocks.llvm import EB_LLVM as LLVM
+from easybuild.easyblocks.llvm import DEFAULT_TARGETS_MAP, BUILD_TARGET_AMDGPU, BUILD_TARGET_NVPTX
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools.config import ERROR
@@ -49,23 +51,13 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink, which
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
 from easybuild.tools.environment import setvar
 
 # List of all possible build targets for Clang
-CLANG_TARGETS = ["all", "AArch64", "AMDGPU", "ARM", "CppBackend", "Hexagon", "Mips",
-                 "MBlaze", "MSP430", "NVPTX", "PowerPC", "R600", "RISCV", "Sparc",
+CLANG_TARGETS = [BUILD_TARGET_AMDGPU, BUILD_TARGET_NVPTX, "all", "AArch64", "ARM", "CppBackend", "Hexagon", "Mips",
+                 "MBlaze", "MSP430", "PowerPC", "R600", "RISCV", "Sparc",
                  "SystemZ", "X86", "XCore"]
-
-# Mapping of EasyBuild CPU architecture names to list of default LLVM target names
-DEFAULT_TARGETS_MAP = {
-    AARCH32: ['ARM'],
-    AARCH64: ['AArch64'],
-    POWER: ['PowerPC'],
-    RISCV64: ['RISCV'],
-    X86_64: ['X86'],
-}
 
 # List of all possible AMDGPU gfx targets supported by LLVM
 AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
@@ -74,13 +66,6 @@ AMDGPU_GFX_SUPPORT = ['gfx700', 'gfx701', 'gfx801', 'gfx803', 'gfx900',
 
 # List of all supported CUDA toolkit versions supported by LLVM
 CUDA_TOOLKIT_SUPPORT = ['80', '90', '91', '92', '100', '101', '102', '110', '111', '112']
-
-
-# When extending the lists below, make sure to add additional sanity checks!
-# List of the known LLVM projects
-KNOWN_LLVM_PROJECTS = ['llvm', 'clang', 'polly', 'lld', 'lldb', 'clang-tools-extra', 'flang']
-# List of the known LLVM runtimes
-KNOWN_LLVM_RUNTIMES = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi', 'openmp']
 
 
 class EB_Clang(CMakeMake):
@@ -120,11 +105,20 @@ class EB_Clang(CMakeMake):
         """Initialize custom class variables for Clang."""
 
         super().__init__(*args, **kwargs)
+
+        # When extending the lists below, make sure to add additional sanity checks!
+        # List of the known LLVM projects
+        self.KNOWN_LLVM_PROJECTS = ['llvm', 'clang', 'polly', 'lld', 'lldb', 'clang-tools-extra', 'flang']
+        # List of the known LLVM runtimes
+        self.KNOWN_LLVM_RUNTIMES = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi', 'openmp']
+        if LooseVersion(self.version) >= '19.1':
+            self.KNOWN_LLVM_RUNTIMES.append('offload')  # OpenMP Offload runtime separated in 19.x
+
         self.llvm_src_dir = None
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
         self.llvm_obj_dir_stage3 = None
-        self.runtime_lib_path = "lib"
+        self.host_triple = None
 
         # Bypass the .mod file check for GCCcore installs
         self.cfg['skip_mod_files_sanity_check'] = True
@@ -135,28 +129,25 @@ class EB_Clang(CMakeMake):
             self.cfg['llvm_runtimes'] = []
 
         # Be forgiving if someone places a runtime under projects since it is pretty new
-        for project in [p for p in self.cfg['llvm_projects'] if p in KNOWN_LLVM_RUNTIMES]:
+        for project in [p for p in self.cfg['llvm_projects'] if p in self.KNOWN_LLVM_RUNTIMES]:
             msg = "LLVM project %s included but this should be a runtime, moving to runtime list!" % project
-            self.log.warning(msg)
             self.cfg.update('llvm_runtimes', [project], allow_duplicate=False)
-            # No cleaner way to remove an element from the list
-            self.cfg['llvm_projects'] = [p for p in self.cfg['llvm_projects'] if p != project]
-            print_warning(msg)
+            self.cfg['llvm_projects'].remove(project)
+            print_warning(msg, log=self.log)
 
-        for project in [p for p in self.cfg['llvm_projects'] if p not in KNOWN_LLVM_PROJECTS]:
+        for project in [p for p in self.cfg['llvm_projects'] if p not in self.KNOWN_LLVM_PROJECTS]:
             msg = "LLVM project %s included but not recognised, this project will NOT be sanity checked!" % project
-            self.log.warning(msg)
-            print_warning(msg)
+            print_warning(msg, log=self.log)
 
-        for runtime in [r for r in self.cfg['llvm_runtimes'] if r not in KNOWN_LLVM_RUNTIMES]:
+        for runtime in [r for r in self.cfg['llvm_runtimes'] if r not in self.KNOWN_LLVM_RUNTIMES]:
             msg = "LLVM runtime %s included but not recognised, this runtime will NOT be sanity checked!" % runtime
-            self.log.warning(msg)
-            print_warning(msg)
+            print_warning(msg, log=self.log)
 
-        # keep compatibility between using llvm_projects/llvm_runtimes vs using flags
         if LooseVersion(self.version) >= LooseVersion('14'):
             self.cfg.update('llvm_projects', ['llvm', 'clang'], allow_duplicate=False)
             self.cfg.update('llvm_runtimes', ['compiler-rt', 'openmp'], allow_duplicate=False)
+
+            # keep compatibility between using llvm_projects/llvm_runtimes vs using flags
             if self.cfg['usepolly']:
                 self.cfg.update('llvm_projects', 'polly', allow_duplicate=False)
             if self.cfg['build_lld']:
@@ -168,6 +159,9 @@ class EB_Clang(CMakeMake):
                 self.cfg.update('llvm_runtimes', ['libcxx', 'libcxxabi'], allow_duplicate=False)
             if self.cfg['build_extra_clang_tools']:
                 self.cfg.update('llvm_projects', 'clang-tools-extra', allow_duplicate=False)
+
+        if LooseVersion(self.version) >= '19.1':
+            self.cfg.update('llvm_runtimes', 'offload', allow_duplicate=False)
 
         # ensure libunwind is there if lld is there
         if 'lld' in self.cfg['llvm_projects']:
@@ -188,13 +182,13 @@ class EB_Clang(CMakeMake):
                 # There are (old) toolchains with CUDA as part of the toolchain
                 cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
                 if 'cuda' in deps or cuda_toolchain:
-                    default_targets += ['NVPTX']
+                    default_targets.append(BUILD_TARGET_NVPTX)
                 # For AMDGPU support we need ROCR-Runtime and
                 # ROCT-Thunk-Interface, however, since ROCT is a dependency of
                 # ROCR we only check for the ROCR-Runtime here
                 # https://openmp.llvm.org/SupportAndFAQ.html#q-how-to-build-an-openmp-amdgpu-offload-capable-compiler
                 if 'rocr-runtime' in deps:
-                    default_targets += ['AMDGPU']
+                    default_targets.append(BUILD_TARGET_AMDGPU)
                 self.cfg['build_targets'] = build_targets = default_targets
                 self.log.debug("Using %s as default build targets for CPU/GPU architecture %s.", default_targets, arch)
             except KeyError:
@@ -254,7 +248,7 @@ class EB_Clang(CMakeMake):
                                      glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
-        if any([x['name'].startswith('llvm-project') for x in self.src]):
+        if any(x['name'].startswith('llvm-project') for x in self.src):
             # if sources contain 'llvm-project*', we use the full tarball
             find_source_dir("../llvm-project-*", os.path.join(self.llvm_src_dir, "llvm-project-%s" % self.version))
             self.cfg.update('configopts', '-DLLVM_ENABLE_PROJECTS="%s"' % ';'.join(self.cfg['llvm_projects']))
@@ -314,6 +308,7 @@ class EB_Clang(CMakeMake):
 
     def configure_step(self):
         """Run CMake for stage 1 Clang."""
+        version = LooseVersion(self.version)
 
         if all(dep['name'] != 'ncurses' for dep in self.cfg['dependencies']):
             print_warning('Clang requires ncurses to run, did you forgot to add it to dependencies?')
@@ -323,7 +318,7 @@ class EB_Clang(CMakeMake):
             self.llvm_obj_dir_stage2 = os.path.join(self.builddir, 'llvm.obj.2')
             self.llvm_obj_dir_stage3 = os.path.join(self.builddir, 'llvm.obj.3')
 
-        if LooseVersion(self.version) >= LooseVersion('3.3'):
+        if version >= '3.3':
             disable_san_tests = False
             # all sanitizer tests will fail when there's a limit on the vmem
             # this is ugly but I haven't found a cleaner way so far
@@ -363,8 +358,11 @@ class EB_Clang(CMakeMake):
         if gcc_prefix is None:
             raise EasyBuildError("Can't find GCC or GCCcore to use")
 
-        self.cfg.update('configopts', "-DGCC_INSTALL_PREFIX='%s'" % gcc_prefix)
-        self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
+        self.gcc_prefix = gcc_prefix
+        # For LLVM 18+ config files should be used and this option is deprecated and removed
+        if version < '18':
+            self.cfg.update('configopts', "-DGCC_INSTALL_PREFIX='%s'" % gcc_prefix)
+            self.log.debug("Using %s as GCC_INSTALL_PREFIX", gcc_prefix)
 
         # Configure some default options
         if self.cfg["enable_rtti"]:
@@ -384,13 +382,13 @@ class EB_Clang(CMakeMake):
 
         if 'polly' in self.cfg['llvm_projects']:
             # Not exactly sure when this change took place, educated guess
-            if LooseVersion(self.version) >= LooseVersion('14'):
+            if version >= '14':
                 self.cfg.update('configopts', "-DLLVM_POLLY_LINK_INTO_TOOLS=ON")
             else:
                 self.cfg.update('configopts', "-DLINK_POLLY_INTO_TOOLS=ON")
 
         # If Z3 is included as a dep, enable support in static analyzer (if enabled)
-        if self.cfg["static_analyzer"] and LooseVersion(self.version) >= LooseVersion('9.0.0'):
+        if self.cfg["static_analyzer"] and version >= '9.0.0':
             z3_root = get_software_root("Z3")
             if z3_root:
                 self.cfg.update('configopts', "-DLLVM_ENABLE_Z3_SOLVER=ON")
@@ -398,7 +396,7 @@ class EB_Clang(CMakeMake):
 
         build_targets = self.cfg['build_targets']
 
-        if 'polly' in self.cfg['llvm_projects'] and "NVPTX" in build_targets:
+        if 'polly' in self.cfg['llvm_projects'] and BUILD_TARGET_NVPTX in build_targets and version < '17':
             self.cfg.update('configopts', "-DPOLLY_ENABLE_GPGPU_CODEGEN=ON")
 
         self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
@@ -410,31 +408,34 @@ class EB_Clang(CMakeMake):
             self.cfg.update('configopts', '-DLIBOMP_HWLOC_INSTALL_DIR=%s' % hwloc_root)
 
         # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
-        if 'NVPTX' in build_targets:
-            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-            cfg_cuda_cc = build_option('cuda_compute_capabilities')
-            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
+        if BUILD_TARGET_NVPTX in build_targets:
+            cuda_cc = self.cfg.get_cuda_cc_template_value("cuda_compute_capabilities")
             if not cuda_cc:
                 raise EasyBuildError("Can't build Clang with CUDA support "
                                      "without specifying 'cuda-compute-capabilities'")
-            default_cc = self.cfg['default_cuda_capability'] or min(cuda_cc)
-            if not self.cfg['default_cuda_capability']:
-                print_warning("No default CUDA capability defined! "
-                              "Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
-            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            default_cc = default_cc.replace('.', '')
-            self.cfg.update('configopts', '-DCLANG_OPENMP_NVPTX_DEFAULT_ARCH=sm_%s' % default_cc)
-            self.cfg.update('configopts', '-DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES=%s' % ','.join(cuda_cc))
+            if version < '16':
+                default_cc = self.cfg['default_cuda_capability']
+                if not default_cc:
+                    default_cc = min(cuda_cc.split(','))
+                    print_warning("No default CUDA capability defined! "
+                                  "Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
+                default_cc = default_cc.replace('.', '')
+                self.cfg.update('configopts', '-DCLANG_OPENMP_NVPTX_DEFAULT_ARCH=sm_%s' % default_cc)
+            # Option for CUDA CCs changed in LLVM 17.
+            # Use 17.0.1 as an existing EC claims version 17.0.0 but is actually a pre-release
+            if version >= '17.0.1':
+                cuda_cc = self.cfg.get_cuda_cc_template_value("cuda_sm_comma_sep").replace(',', ';')
+                self.cfg.update('configopts', f'-DLIBOMPTARGET_DEVICE_ARCHITECTURES={cuda_cc}')
+            elif version < '20.1.0':  # OpenMP DeviceRTL uses a generic IR in 20.1.0
+                cuda_cc = self.cfg.get_cuda_cc_template_value("cuda_cc_cmake")
+                self.cfg.update('configopts', f'-DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES={cuda_cc}')
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
         # using the environment variable which is used as-is and later checked for a falsy value when determining
         # whether CUDA was found
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
         # If 'AMDGPU' is in the build targets we assume the user would like OpenMP offload support for AMD
-        if 'AMDGPU' in build_targets:
+        if BUILD_TARGET_AMDGPU in build_targets:
             if not get_software_root('ROCR-Runtime'):
                 raise EasyBuildError("Can't build Clang with AMDGPU support "
                                      "without dependency 'ROCR-Runtime'")
@@ -447,10 +448,16 @@ class EB_Clang(CMakeMake):
         self.log.info("Configuring")
 
         # directory structure has changed in version 14.x, cmake must start in llvm sub directory
-        if LooseVersion(self.version) >= LooseVersion('14'):
-            super().configure_step(srcdir=os.path.join(self.llvm_src_dir, "llvm"))
+        if version >= '14':
+            src_dir = os.path.join(self.llvm_src_dir, "llvm")
         else:
-            super().configure_step(srcdir=self.llvm_src_dir)
+            src_dir = self.llvm_src_dir
+        output = super().configure_step(srcdir=src_dir)
+        # Get LLVM_HOST_TRIPLE (e.g. x86_64-unknown-linux-gnu) from the output
+        for line in output.splitlines():
+            if 'llvm host triple' in line.lower():
+                self.host_triple = line.split(':')[1].strip()
+                break
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
@@ -485,6 +492,15 @@ class EB_Clang(CMakeMake):
 
             apply_regex_substitutions(cmakelists_tests, regex_subs)
 
+    def write_config_files(self, prefix_dir=None):
+        """Write (default) config files"""
+        if prefix_dir is None:
+            prefix_dir = self.installdir
+        if LooseVersion(self.version) >= '18':
+            # Preferred in Clang 18, required in 20+, see https://github.com/llvm/llvm-project/pull/77537
+            LLVM.create_compiler_config_file(['clang', 'clang++', 'clang-cpp'],
+                                             gcc_prefix=self.gcc_prefix, installdir=prefix_dir)
+
     def build_with_prev_stage(self, prev_obj, next_obj):
         """Build Clang stage N using Clang stage N-1"""
 
@@ -498,6 +514,7 @@ class EB_Clang(CMakeMake):
         orig_path = os.getenv('PATH')
         prev_obj_path = os.path.join(prev_obj, 'bin')
         setvar('PATH', prev_obj_path + ":" + orig_path)
+        self.write_config_files(prefix_dir=prev_obj)
 
         # If building with rpath, create RPATH wrappers for the Clang compilers for stage 2 and 3
         if build_option('rpath'):
@@ -587,6 +604,7 @@ class EB_Clang(CMakeMake):
         else:
             change_dir(self.llvm_obj_dir_stage1)
         super().install_step()
+        self.write_config_files()
 
         # the static analyzer is not installed by default
         # we do it by hand
@@ -634,30 +652,10 @@ class EB_Clang(CMakeMake):
         if version >= '16':
             resdir_version = self.version.split('.')[0]
 
-        # Detect OpenMP support for CPU architecture
-        arch = get_cpu_architecture()
-        # Check architecture explicitly since Clang uses potentially
-        # different names
-        if arch == X86_64:
-            arch = 'x86_64'
-        elif arch == POWER:
-            arch = 'ppc64'
-        elif arch == AARCH64:
-            arch = 'aarch64'
-        else:
-            print_warning("Unknown CPU architecture (%s) for OpenMP and runtime libraries check!" % arch)
-
         if version >= '14':
-            glob_pattern = os.path.join(self.installdir, 'lib', '%s-*' % arch)
-            matches = glob.glob(glob_pattern)
-            if matches:
-                directory = os.path.basename(matches[0])
-                self.runtime_lib_path = os.path.join("lib", directory)
-            else:
-                print_warning("Could not find runtime library directory")
-                self.runtime_lib_path = "lib"
+            runtime_lib_path = LLVM.get_arch_lib_path(self.host_triple, self.installdir)
         else:
-            self.runtime_lib_path = "lib"
+            runtime_lib_path = "lib"
 
         custom_paths = {
             'files': [
@@ -684,13 +682,13 @@ class EB_Clang(CMakeMake):
             custom_paths['files'].extend(["bin/lldb"])
 
         if 'libunwind' in self.cfg['llvm_runtimes']:
-            custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libunwind.%s" % shlib_ext)])
+            custom_paths['files'].extend([os.path.join(runtime_lib_path, "libunwind.%s" % shlib_ext)])
 
         if 'libcxx' in self.cfg['llvm_runtimes']:
-            custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libc++.%s" % shlib_ext)])
+            custom_paths['files'].extend([os.path.join(runtime_lib_path, "libc++.%s" % shlib_ext)])
 
         if 'libcxxabi' in self.cfg['llvm_runtimes']:
-            custom_paths['files'].extend([os.path.join(self.runtime_lib_path, "libc++abi.%s" % shlib_ext)])
+            custom_paths['files'].extend([os.path.join(runtime_lib_path, "libc++abi.%s" % shlib_ext)])
 
         if 'flang' in self.cfg['llvm_projects'] and version >= '15':
             flang_compiler = 'flang-new'
@@ -698,54 +696,11 @@ class EB_Clang(CMakeMake):
             custom_commands.extend(["%s --help" % flang_compiler])
 
         if version >= '3.8':
-            custom_paths['files'].extend(["lib/libomp.%s" % shlib_ext, "lib/clang/%s/include/omp.h" % resdir_version])
+            custom_paths['files'].append(f"lib/clang/{resdir_version}/include/omp.h")
 
-        if version >= '12':
-            omp_target_libs = ["lib/libomptarget.%s" % shlib_ext, "lib/libomptarget.rtl.%s.%s" % (arch, shlib_ext)]
-        else:
-            omp_target_libs = ["lib/libomptarget.%s" % shlib_ext]
-        custom_paths['files'].extend(omp_target_libs)
-
-        # If building for CUDA check that OpenMP target library was created
-        if 'NVPTX' in self.cfg['build_targets']:
-            custom_paths['files'].append("lib/libomptarget.rtl.cuda.%s" % shlib_ext)
-            # The static 'nvptx.a' library is not built from version 12 onwards
-            if version < '12.0':
-                custom_paths['files'].append("lib/libomptarget-nvptx.a")
-            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-            cfg_cuda_cc = build_option('cuda_compute_capabilities')
-            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
-            # We need the CUDA capability in the form of '75' and not '7.5'
-            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            if '12.0' < version < '13.0':
-                custom_paths['files'].extend(["lib/libomptarget-nvptx-cuda_%s-sm_%s.bc" % (x, y)
-                                             for x in CUDA_TOOLKIT_SUPPORT for y in cuda_cc])
-            # libomptarget-nvptx-sm*.bc is not there for Clang 14.x;
-            elif version < '14.0' or version >= '15.0':
-                custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
-                                             for cc in cuda_cc])
-            # From version 13, and hopefully onwards, the naming of the CUDA
-            # '.bc' files became a bit simpler and now we don't need to take
-            # into account the CUDA version Clang was compiled with, making it
-            # easier to check for the bitcode files we expect;
-            # libomptarget-new-nvptx-sm*.bc is only there in Clang 13.x and 14.x;
-            if version >= '13.0' and version < '15.0':
-                custom_paths['files'].extend(["lib/libomptarget-new-nvptx-sm_%s.bc" % cc
-                                              for cc in cuda_cc])
-        # If building for AMDGPU check that OpenMP target library was created
-        if 'AMDGPU' in self.cfg['build_targets']:
-            custom_paths['files'].append("lib/libLLVMAMDGPUCodeGen.a")
-            # OpenMP offloading support to AMDGPU was not added until version
-            # 13, however, building for the AMDGPU target predates this and so
-            # doesn't necessarily mean that the AMDGPU target failed
-            if version >= '13.0':
-                custom_paths['files'].append("lib/libomptarget.rtl.amdgpu.%s" % shlib_ext)
-                custom_paths['files'].extend(["lib/libomptarget-amdgcn-%s.bc" % gfx
-                                              for gfx in self.cfg['amd_gfx_list']])
-                custom_paths['files'].append("bin/amdgpu-arch")
-            if version >= '14.0':
-                custom_paths['files'].extend(["lib/libomptarget-new-amdgpu-%s.bc" % gfx
-                                              for gfx in self.cfg['amd_gfx_list']])
+        custom_paths['files'].extend(LLVM.get_expected_openmp_files(self.cfg, runtime_lib_path,
+                                                                    with_offload=True,
+                                                                    build_targets=self.cfg['build_targets']))
 
         if self.cfg['python_bindings']:
             custom_paths['files'].extend([os.path.join("lib", "python", "clang", "cindex.py")])
@@ -764,7 +719,8 @@ class EB_Clang(CMakeMake):
             self.module_load_environment.remove(disallowed_var)
             self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
         # Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib64', self.runtime_lib_path]
+        runtime_lib_path = LLVM.get_arch_lib_path(self.host_triple, self.installdir)
+        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib64', runtime_lib_path]
 
         return super().make_module_step(*args, **kwargs)
 

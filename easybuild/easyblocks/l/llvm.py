@@ -43,7 +43,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion
 from easybuild.tools.utilities import trace_msg
-from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
 from easybuild.tools.config import ERROR, IGNORE, SEARCH_PATH_LIB_DIRS, build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, adjust_permissions
@@ -161,6 +161,21 @@ def get_arch_prefix():
             return 'powerpc64'
     else:
         return arch.lower()
+
+
+def get_llvm_arch():
+    """Get the LLVM architecture name based on the CPU architecture."""
+    arch = get_cpu_architecture()
+    # Check architecture explicitly since Clang uses potentially different names
+    if arch == X86_64:
+        arch = 'x86_64'
+    elif arch == POWER:
+        arch = 'ppc64'
+    elif arch == AARCH64:
+        arch = 'aarch64'
+    else:
+        print_warning("Unknown CPU architecture (%s) for OpenMP and runtime libraries check!" % arch)
+    return arch
 
 
 class EB_LLVM(CMakeMake):
@@ -679,11 +694,10 @@ class EB_LLVM(CMakeMake):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
         if self.cfg['build_openmp_offload'] and LooseVersion('19') <= LooseVersion(self.version) < LooseVersion('20'):
-            gpu_archs = []
-            gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
+            gpu_archs = self.cfg.get_cuda_cc_template_value("cuda_sm_space_sep").split()
             gpu_archs += self.amd_gfx
             if gpu_archs:
-                self.runtimes_cmake_args['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '%s' % '|'.join(gpu_archs)
+                self.runtimes_cmake_args['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '%s' % ';'.join(gpu_archs)
 
         self._configure_general_build()
         self.add_cmake_opts()
@@ -746,7 +760,7 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts.update(remove_gcc_dependency_opts)
 
     @staticmethod
-    def _create_compiler_config_file(compilers, gcc_prefix, installdir):
+    def create_compiler_config_file(compilers, gcc_prefix, installdir):
         """Create a config file for the compiler to point to the correct GCC installation."""
         bin_dir = os.path.join(installdir, 'bin')
         prefix_str = '--gcc-install-dir=%s' % gcc_prefix
@@ -826,7 +840,7 @@ class EB_LLVM(CMakeMake):
             # Also runs of the intermediate step compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
-                self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, prev_dir)
+                self.create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, prev_dir)
 
             self.add_cmake_opts()
 
@@ -1011,7 +1025,7 @@ class EB_LLVM(CMakeMake):
             # Also runs of test suite compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
-                self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
+                self.create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
 
             self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
 
@@ -1072,7 +1086,7 @@ class EB_LLVM(CMakeMake):
             # For GCC aware installation create config files in order to point to the correct GCC installation
             # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
             self._set_gcc_prefix()
-            self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.installdir)
+            self.create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.installdir)
 
         # This is needed as some older build system will select a different naming scheme for the library leading to
         # The correct target <__config_site> and libclang_rt.builtins.a not being found
@@ -1089,26 +1103,30 @@ class EB_LLVM(CMakeMake):
                     self.log.info(msg)
                     symlink(src, dst)
 
-    def get_runtime_lib_path(self, base_dir, fail_ok=False):
-        """Return the path to the runtime libraries."""
-        if self.host_triple is None:
+    @staticmethod
+    def get_arch_lib_path(host_triple, base_dir, fail_ok=False):
+        """Return the path to the architecture specific runtime libraries."""
+        if host_triple is None:
             # Attempt using the glob based detection of the runtime library directory for runs of
             # --sanity-check-only/--module-only where the configure step is not used
             arch = get_arch_prefix()
-            glob_pattern = os.path.join(base_dir, 'lib', f'{arch}-*')
-            matches = glob.glob(glob_pattern)
+            matches = glob.glob(os.path.join(base_dir, 'lib', f'{arch}-*'))
             if matches:
-                self.host_triple = os.path.basename(matches[0])
+                host_triple = os.path.basename(matches[0])
             else:
                 raise EasyBuildError("Could not find runtime library directory")
 
-        res = os.path.join('lib', self.host_triple)
+        res = os.path.join('lib', host_triple)
         if not fail_ok:
             path = os.path.join(base_dir, res)
             if not os.path.exists(path):
                 raise EasyBuildError("Could not find runtime library directory '%s'", path)
 
         return res
+
+    def get_runtime_lib_path(self, base_dir, fail_ok=False):
+        """Return the path to the runtime libraries."""
+        return self.get_arch_lib_path(self.host_triple, base_dir, fail_ok=fail_ok)
 
     def banned_linked_shared_libs(self):
         """Return a list of shared libraries that should not be linked against."""
@@ -1138,7 +1156,49 @@ class EB_LLVM(CMakeMake):
                 error_msg = f"GCC installation path '{check_prefix}' does not match expected path '{gcc_prefix}'"
                 raise EasyBuildError(error_msg)
 
-    def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
+    @staticmethod
+    def get_expected_openmp_files(cfg, runtime_lib_path, with_offload, build_targets):
+        """Return list of expected OpenMP files for the given LLVM version."""
+        version = LooseVersion(cfg['version'])
+        files = []
+        omp_lib_files = ['libomp.so', 'libompd.so']
+        if with_offload:
+            omp_lib_files += ['libomptarget.so']
+            # In LLVM 19, the omptarget plugins (rtl.<device>.so) are built as static libraries
+            # and linked into the libomptarget.so shared library
+            if version < '19':
+                omp_lib_files += ['libomptarget.rtl.%s.so' % get_llvm_arch()]
+            if (BUILD_TARGET_NVPTX in build_targets) or ('all' in build_targets):
+                if version < '19':
+                    omp_lib_files += ['libomptarget.rtl.cuda.so']
+                if version < '20':
+                    cuda_cc = cfg.get_cuda_cc_template_value("cuda_int_space_sep").split()
+                    omp_lib_files += [f'libomptarget-nvptx-sm_{cc}.bc' for cc in cuda_cc]
+                else:
+                    omp_lib_files += ['libomptarget-nvptx.bc']
+            if (BUILD_TARGET_AMDGPU in build_targets) or ('all' in build_targets):
+                if version < '19':
+                    omp_lib_files += ['libomptarget.rtl.amdgpu.so']
+                if version < '20':
+                    amd_gfx_list = cfg['amd_gfx_list'] or []
+                    omp_lib_files += ['libomptarget-amdgpu-%s.bc' % gfx for gfx in amd_gfx_list]
+                else:
+                    omp_lib_files += ['libomptarget-amdgpu.bc']
+            bin_files = ['llvm-omp-kernel-replay']
+            if version < '20':
+                bin_files += ['llvm-omp-device-info']
+            else:
+                bin_files += ['llvm-offload-device-info']
+            files.extend(os.path.join('bin', f) for f in bin_files)
+        if version < '19':
+            # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
+            files.extend(os.path.join('lib', f) for f in omp_lib_files)
+        else:
+            # Starting from LLVM 19, omp related libraries are installed the runtime library directory
+            files.extend(os.path.join(runtime_lib_path, f) for f in omp_lib_files)
+        return files
+
+    def sanity_check_step(self, custom_paths=None, custom_commands=None, _extension=False, _extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
         lib_dir_runtime = None
         if self.cfg['build_runtimes']:
@@ -1146,16 +1206,6 @@ class EB_LLVM(CMakeMake):
         shlib_ext = '.' + get_shared_lib_ext()
 
         resdir_version = self.version.split('.')[0]
-
-        # Detect OpenMP support for CPU architecture
-        arch = get_cpu_architecture()
-        # Check architecture explicitly since Clang uses potentially different names
-        if arch == X86_64:
-            arch = 'x86_64'
-        elif arch == POWER:
-            arch = 'ppc64'
-        elif arch == AARCH64:
-            arch = 'aarch64'
 
         check_files = []
         check_bin_files = []
@@ -1263,40 +1313,9 @@ class EB_LLVM(CMakeMake):
             check_lib_files += ['libbolt_rt_instr.a']
             custom_commands += ['llvm-bolt --help']
         if 'openmp' in self.final_projects:
-            omp_lib_files = []
-            omp_lib_files += ['libomp.so', 'libompd.so']
-            if self.cfg['build_openmp_offload']:
-                # Judging from the build process/logs of LLVM 19, the omptarget plugins (rtl.<device>.so) are now built
-                # as static libraries and linked into the libomptarget.so shared library
-                omp_lib_files += ['libomptarget.so']
-                if LooseVersion(self.version) < LooseVersion('19'):
-                    omp_lib_files += ['libomptarget.rtl.%s.so' % arch]
-                if self.nvptx_target_cond:
-                    if LooseVersion(self.version) < LooseVersion('19'):
-                        omp_lib_files += ['libomptarget.rtl.cuda.so']
-                    if LooseVersion(self.version) < LooseVersion('20'):
-                        omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
-                    else:
-                        omp_lib_files += ['libomptarget-nvptx.bc']
-                if self.amdgpu_target_cond:
-                    if LooseVersion(self.version) < LooseVersion('19'):
-                        omp_lib_files += ['libomptarget.rtl.amdgpu.so']
-                    if LooseVersion(self.version) < LooseVersion('20'):
-                        omp_lib_files += ['libomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
-                    else:
-                        omp_lib_files += ['libomptarget-amdgpu.bc']
-
-                if LooseVersion(self.version) < LooseVersion('19'):
-                    # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
-                    check_lib_files += omp_lib_files
-                else:
-                    # Starting from LLVM 19, omp related libraries are installed the runtime library directory
-                    check_librt_files += omp_lib_files
-                    check_bin_files += ['llvm-omp-kernel-replay']
-                    if LooseVersion(self.version) < LooseVersion('20'):
-                        check_bin_files += ['llvm-omp-device-info']
-                    else:
-                        check_bin_files += ['llvm-offload-device-info']
+            check_files.extend(self.get_expected_openmp_files(self.cfg, runtime_lib_path=lib_dir_runtime,
+                                                              with_offload=self.cfg['build_openmp_offload'],
+                                                              build_targets=self.cfg['build_targets']))
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
