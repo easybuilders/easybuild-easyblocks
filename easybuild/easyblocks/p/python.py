@@ -189,6 +189,8 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
 
     if unversioned_packages is None:
         unversioned_packages = set()
+    elif isinstance(unversioned_packages, list):
+        unversioned_packages = set(unversioned_packages)
 
     if build_option('ignore_pip_unversioned_pkgs'):
         unversioned_packages.update(build_option('ignore_pip_unversioned_pkgs'))
