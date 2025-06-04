@@ -674,6 +674,8 @@ class EB_LLVM(CMakeMake):
         # Should not use system SWIG if present
         general_opts['LLDB_ENABLE_SWIG'] = 'ON' if get_software_root('SWIG') else 'OFF'
 
+        # Avoid using system `gdb` in case it is not provided as a dependency
+        # This could cause the wrong sysroot/dynamic linker being picked up in a sysroot build causing tests to fail
         general_opts['LIBOMP_OMPD_GDB_SUPPORT'] = 'ON' if get_software_root('GDB') else 'OFF'
 
         z3_root = get_software_root("Z3")
