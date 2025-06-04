@@ -511,7 +511,7 @@ class EB_LLVM(CMakeMake):
                 if self.nvptx_target_cond:
                     dlopen_plugin_list += ['cuda']
                 if dlopen_plugin_list:
-                    self.runtimes_cmake_args['LIBOMPTARGET_DLOPEN_PLUGINS'] = '%s' % '|'.join(dlopen_plugin_list)
+                    self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = "'%s'" % ';'.join(dlopen_plugin_list)
             else:
                 if self.amdgpu_target_cond:
                     self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBHSA'] = 'ON'
