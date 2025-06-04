@@ -704,10 +704,15 @@ class EB_LLVM(CMakeMake):
             known_frontend_files = [
                 'warning-poison-system-directories.c'
             ]
+            prev = self.ignore_patterns.copy()
             for file in known_driver_files:
                 self.ignore_patterns.append(f'Clang :: Driver/{file}')
             for file in known_frontend_files:
                 self.ignore_patterns.append(f'Clang :: Frontend/{file}')
+            self.log.info(
+                f"Ignore patterns for tests updated from {prev} to {self.ignore_patterns} to avoid known ignorable "
+                "failures with sysroot builds."
+                )
 
         python_opts = get_cmake_python_config_dict()
         general_opts.update(python_opts)
