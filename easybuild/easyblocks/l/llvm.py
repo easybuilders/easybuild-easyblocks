@@ -703,6 +703,15 @@ class EB_LLVM(CMakeMake):
         regex_subs.append((r'add_subdirectory\(bindings/python/tests\)', ''))
         apply_regex_substitutions(cmakelists_tests, regex_subs)
 
+        # Remove flags disabling the use of configuration files during compiler-rt tests as we in general relies on
+        # them (See https://github.com/easybuilders/easybuild-easyblocks/pull/3741#issuecomment-2939404304)
+        lit_cfg_file = os.path.join(self.llvm_src_dir, 'compiler-rt', 'test', 'lit.common.cfg.py')
+        regex_subs = [
+            (r'^if config.has_no_default_config_flag:', ''),
+            (r'^\s*config.environment\["CLANG_NO_DEFAULT_CONFIG"\] = "1"', '')
+        ]
+        apply_regex_substitutions(lit_cfg_file, regex_subs)
+
         self._set_gcc_prefix()
 
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
