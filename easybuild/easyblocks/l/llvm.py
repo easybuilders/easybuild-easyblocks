@@ -362,6 +362,8 @@ class EB_LLVM(CMakeMake):
             self._set_dynamic_linker()
             trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {self.sysroot}")
 
+        self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
+
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
         # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
@@ -685,6 +687,27 @@ class EB_LLVM(CMakeMake):
             general_opts['LLVM_Z3_INSTALL_DIR'] = z3_root
         else:
             general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'OFF'
+
+        if self.sysroot:
+            # Some tests will run a FileCheck on the output of `clang -v` for `-internal-externc-isystem /usr/include`
+            # where the path is hardcoded. If sysroot is set we replace that path by prepending the sysroot to it.
+            # The changes needed varies from file to file and are not the same across versions.
+            # Since this seems to be more of a problem with the test-suite settings than using the compilers
+            # we can probably safely ignore these tests.
+            known_driver_files = [
+                'baremetal.cpp', 'csky-toolchain.c', 'freebsd-include-paths.c',
+                'haiku.c', 'hexagon-toolchain-elf.c', 'hexagon-toolchain-linux.c',
+                'mips-cs.cpp', 'mips-fsf.cpp', 'mips-img-v2.cpp', 'mips-img.cpp',
+                'riscv32-toolchain-extra.c', 'riscv64-toolchain-extra.c',
+                'rocm-detect.hip',
+            ]
+            known_frontend_files = [
+                'warning-poison-system-directories.c'
+            ]
+            for file in known_driver_files:
+                self.ignore_patterns.append(f'Clang :: Driver/{file}')
+            for file in known_frontend_files:
+                self.ignore_patterns.append(f'Clang :: Frontend/{file}')
 
         python_opts = get_cmake_python_config_dict()
         general_opts.update(python_opts)
@@ -1088,8 +1111,6 @@ class EB_LLVM(CMakeMake):
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
                 self._create_compiler_config_file(self.final_dir)
-
-            self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
 
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
             pxtas_path = which('ptxas', on_error=IGNORE)
