@@ -526,7 +526,7 @@ class EB_LLVM(CMakeMake):
             if self.cfg['build_openmp_offload']:
                 # Force dlopen of the GPU libraries at runtime, not using existing libraries
                 if LooseVersion(self.version) >= '19':
-                    self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
+                    self._cmakeopts['LIBOMPTARGET_PLUGINS_TO_BUILD'] = self.list_to_cmake_arg(self.offload_targets)
                     dlopen_plugins = set(self.offload_targets) & set(AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS)
                     if dlopen_plugins:
                         self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = self.list_to_cmake_arg(dlopen_plugins)
@@ -1457,18 +1457,17 @@ class EB_LLVM(CMakeMake):
                         omp_lib_files += [f'libomptarget-amdgpu-{gfx}.bc' for gfx in self.amd_gfx]
                     else:
                         omp_lib_files += ['libomptarget-amdgpu.bc']
-
-                if version < '19':
-                    # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
-                    check_lib_files += omp_lib_files
+                check_bin_files += ['llvm-omp-kernel-replay']
+                if version < '20':
+                    check_bin_files += ['llvm-omp-device-info']
                 else:
-                    # Starting from LLVM 19, omp related libraries are installed the runtime library directory
-                    check_librt_files += omp_lib_files
-                    check_bin_files += ['llvm-omp-kernel-replay']
-                    if version < '20':
-                        check_bin_files += ['llvm-omp-device-info']
-                    else:
-                        check_bin_files += ['llvm-offload-device-info']
+                    check_bin_files += ['llvm-offload-device-info']
+            if version < '19':
+                # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
+                check_lib_files += omp_lib_files
+            else:
+                # Starting from LLVM 19, omp related libraries are installed the runtime library directory
+                check_librt_files += omp_lib_files
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
