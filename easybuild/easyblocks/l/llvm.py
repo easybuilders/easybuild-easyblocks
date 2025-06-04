@@ -462,7 +462,7 @@ class EB_LLVM(CMakeMake):
                 self.log.debug("Enabling `amdgpu` offload target")
 
         general_opts['CMAKE_BUILD_TYPE'] = self.build_type
-        general_opts['LLVM_TARGETS_TO_BUILD'] = '"%s"' % ';'.join(build_targets)
+        general_opts['LLVM_TARGETS_TO_BUILD'] = self.list_to_cmake_arg(build_targets)
 
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
@@ -482,14 +482,14 @@ class EB_LLVM(CMakeMake):
 
     def _add_cmake_runtime_args(self):
         """Generate the value for 'RUNTIMES_CMAKE_ARGS' and add it to the cmake options."""
-        if self.runtimes_cmake_args:
-            args = []
-            for key, val in self.runtimes_cmake_args.items():
-                if isinstance(val, list):
-                    val = ' '.join(val)
-                if val:
-                    args.append('-D%s=%s' % (key, val))
-            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(args)
+        args = []
+        for key, val in self.runtimes_cmake_args.items():
+            if isinstance(val, list):
+                val = ' '.join(val)
+            if val:
+                args.append(f'-D{key}={val}')
+        if args:
+            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = self.list_to_cmake_arg(args)
 
     def _configure_general_build(self):
         """General configuration step for LLVM."""
@@ -498,13 +498,13 @@ class EB_LLVM(CMakeMake):
 
     def _configure_intermediate_build(self):
         """Configure the intermediate stages of the build."""
-        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.intermediate_projects)
-        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.intermediate_runtimes)
+        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = self.list_to_cmake_arg(self.intermediate_projects)
+        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = self.list_to_cmake_arg(self.intermediate_runtimes)
 
     def _configure_final_build(self):
         """Configure the final stage of the build."""
-        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.final_projects)
-        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.final_runtimes)
+        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = self.list_to_cmake_arg(self.final_projects)
+        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = self.list_to_cmake_arg(self.final_runtimes)
 
         hwloc_root = get_software_root('hwloc')
         if hwloc_root:
@@ -519,7 +519,7 @@ class EB_LLVM(CMakeMake):
                     self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
                     dlopen_plugins = set(self.offload_targets) & set(AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS)
                     if dlopen_plugins:
-                        self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = "'%s'" % ';'.join(dlopen_plugins)
+                        self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = self.list_to_cmake_arg(dlopen_plugins)
                 else:
                     if self.amdgpu_target_cond:
                         self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBHSA'] = 'ON'
@@ -789,7 +789,7 @@ class EB_LLVM(CMakeMake):
             gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
             gpu_archs += self.amd_gfx
             if gpu_archs:
-                self.runtimes_cmake_args['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '%s' % '|'.join(gpu_archs)
+                self._cmakeopts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
 
         self._configure_general_build()
         self.add_cmake_opts()
