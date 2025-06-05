@@ -601,6 +601,49 @@ class EB_LLVM(CMakeMake):
                 trace_msg(msg)
                 self.log.warning(msg)
 
+    def update_ignore_patterns(self):
+        """Update the ignore patterns based on known ignorable test failures when running with specific LLVM versions
+        or with specific dependencies/options."""
+        new_ignore_patterns = []
+        if self.sysroot:
+            # Some tests will run a FileCheck on the output of `clang -v` for `-internal-externc-isystem /usr/include`
+            # where the path is hardcoded. If sysroot is set we replace that path by prepending the sysroot to it.
+            # The changes needed varies from file to file and are not the same across versions.
+            # Since this seems to be more of a problem with the test-suite settings than using the compilers
+            # we can probably safely ignore these tests.
+            known_driver_files = [
+                'baremetal.cpp', 'csky-toolchain.c', 'freebsd-include-paths.c',
+                'haiku.c', 'hexagon-toolchain-elf.c', 'hexagon-toolchain-linux.c',
+                'mips-cs.cpp', 'mips-fsf.cpp', 'mips-img-v2.cpp', 'mips-img.cpp',
+                'riscv32-toolchain-extra.c', 'riscv64-toolchain-extra.c',
+                'rocm-detect.hip',
+            ]
+            known_frontend_files = [
+                'warning-poison-system-directories.c'
+            ]
+            for file in known_driver_files:
+                new_ignore_patterns.append(f'Clang :: Driver/{file}')
+            for file in known_frontend_files:
+                new_ignore_patterns.append(f'Clang :: Frontend/{file}')
+
+            # Test related to config files, can fail due to overriding the default config file that we set to
+            # ensure correct working with sysroot builds
+            new_ignore_patterns.append('Flang :: Driver/config-file.f90')
+
+        # See https://github.com/easybuilders/easybuild-easyblocks/pull/3741#issuecomment-2944852391
+        # System-related failures due to /etc/timezone behavior
+        new_ignore_patterns.append('llvm-libc++-shared.cfg.in :: std/time/time.zone/')
+
+        # Can give different behavior based on system Scrt1.o
+        new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
+
+        # See https://github.com/llvm/llvm-project/issues/140024
+        if LooseVersion(self.version) <= LooseVersion('20.1.5'):
+            new_ignore_patterns.append('LLVM :: CodeGen/Hexagon/isel/pfalse-v4i1.ll')
+
+        self.ignore_patterns += new_ignore_patterns
+        self.log.info(f"Ignore patterns added due to known and ignorable test failures: {new_ignore_patterns}")
+
     def configure_step(self):
         """
         Install extra tools in bin/; enable zlib if it is a dep; optionally enable rtti; and set the build target
@@ -690,46 +733,7 @@ class EB_LLVM(CMakeMake):
         else:
             general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'OFF'
 
-        new_ignore_patterns = []
-        if self.sysroot:
-            # Some tests will run a FileCheck on the output of `clang -v` for `-internal-externc-isystem /usr/include`
-            # where the path is hardcoded. If sysroot is set we replace that path by prepending the sysroot to it.
-            # The changes needed varies from file to file and are not the same across versions.
-            # Since this seems to be more of a problem with the test-suite settings than using the compilers
-            # we can probably safely ignore these tests.
-            known_driver_files = [
-                'baremetal.cpp', 'csky-toolchain.c', 'freebsd-include-paths.c',
-                'haiku.c', 'hexagon-toolchain-elf.c', 'hexagon-toolchain-linux.c',
-                'mips-cs.cpp', 'mips-fsf.cpp', 'mips-img-v2.cpp', 'mips-img.cpp',
-                'riscv32-toolchain-extra.c', 'riscv64-toolchain-extra.c',
-                'rocm-detect.hip',
-            ]
-            known_frontend_files = [
-                'warning-poison-system-directories.c'
-            ]
-            for file in known_driver_files:
-                new_ignore_patterns.append(f'Clang :: Driver/{file}')
-            for file in known_frontend_files:
-                new_ignore_patterns.append(f'Clang :: Frontend/{file}')
-
-            # Test related to config files, can fail due to overriding the default config file that we set to
-            # ensure correct working with sysroot builds
-            new_ignore_patterns.append('Flang :: Driver/config-file.f90')
-
-
-        # See https://github.com/easybuilders/easybuild-easyblocks/pull/3741#issuecomment-2944852391
-        # System-related failures due to /etc/timezone behavior
-        new_ignore_patterns.append('llvm-libc++-shared.cfg.in :: std/time/time.zone/')
-
-        # Can give different behavior based on system Scrt1.o
-        new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
-
-        # See https://github.com/llvm/llvm-project/issues/140024
-        if LooseVersion(self.version) <= LooseVersion('20.1.5'):
-            new_ignore_patterns.append('LLVM :: CodeGen/Hexagon/isel/pfalse-v4i1.ll')
-
-        self.ignore_patterns += new_ignore_patterns
-        self.log.info(f"Ignore patterns added due to known and ignorable test failures: {new_ignore_patterns}")
+        self.update_ignore_patterns()
 
         python_opts = get_cmake_python_config_dict()
         general_opts.update(python_opts)
