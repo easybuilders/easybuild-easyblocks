@@ -357,6 +357,8 @@ class EB_LLVM(CMakeMake):
         # Sysroot
         self.sysroot = build_option('sysroot')
         if self.sysroot:
+            if LooseVersion(self.version) < LooseVersion('19'):
+                raise EasyBuildError("Using sysroot is not supported by EasyBuild for LLVM < 19")
             general_opts['DEFAULT_SYSROOT'] = self.sysroot
             general_opts['CMAKE_SYSROOT'] = self.sysroot
             self._set_dynamic_linker()
