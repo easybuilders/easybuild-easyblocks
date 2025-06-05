@@ -33,7 +33,6 @@ import os
 import stat
 
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, remove_dir
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
@@ -41,16 +40,6 @@ from easybuild.tools.run import run_shell_cmd
 
 class EB_Anaconda(Binary):
     """Support for building/installing Anaconda and Miniconda."""
-
-    @staticmethod
-    def extra_options():
-        """Add extra config options specific to Python."""
-        extra_vars = {
-            'fix_python_shebang_for': [['bin/*'], "List of files for which Python shebang should be fixed "
-                                                  "to '#!/usr/bin/env python' (glob patterns supported) "
-                                                  "(default: ['bin/*'])", CUSTOM],
-        }
-        return Binary.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
         """Initialize class variables."""
