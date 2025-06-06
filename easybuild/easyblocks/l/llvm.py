@@ -254,7 +254,6 @@ class EB_LLVM(CMakeMake):
             'CMAKE_EXE_LINKER_FLAGS': [],
             }
         self.offload_targets = ['host']
-        # self._added_librt = None
         self.host_triple = None
         self.dynamic_linker = None
 
@@ -601,7 +600,7 @@ class EB_LLVM(CMakeMake):
                 trace_msg(msg)
                 self.log.warning(msg)
 
-    def update_ignore_patterns(self):
+    def _update_ignore_patterns(self):
         """Update the ignore patterns based on known ignorable test failures when running with specific LLVM versions
         or with specific dependencies/options."""
         new_ignore_patterns = []
@@ -733,7 +732,8 @@ class EB_LLVM(CMakeMake):
         else:
             general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'OFF'
 
-        self.update_ignore_patterns()
+        # update ignore patterns for ignorable test failures
+        self._update_test_ignore_patterns()
 
         python_opts = get_cmake_python_config_dict()
         general_opts.update(python_opts)
@@ -754,8 +754,8 @@ class EB_LLVM(CMakeMake):
         regex_subs.append((r'add_subdirectory\(bindings/python/tests\)', ''))
         apply_regex_substitutions(cmakelists_tests, regex_subs)
 
-        # Remove flags disabling the use of configuration files during compiler-rt tests as we in general relies on
-        # them (See https://github.com/easybuilders/easybuild-easyblocks/pull/3741#issuecomment-2939404304)
+        # Remove flags disabling the use of configuration files during compiler-rt tests as we in general rely on them
+        # (see https://github.com/easybuilders/easybuild-easyblocks/pull/3741#issuecomment-2939404304)
         lit_cfg_file = os.path.join(self.llvm_src_dir, 'compiler-rt', 'test', 'lit.common.cfg.py')
         regex_subs = [
             (r'^if config.has_no_default_config_flag:', ''),
@@ -856,7 +856,7 @@ class EB_LLVM(CMakeMake):
             # prefix = self.sysroot.rstrip('/')
             # opts.append(f'--dyld-prefix={prefix}')
 
-        # Check, for a non `full_llvm` build, if GCCcore is in the LIBRARY_PATH, and if not add it
+        # Check, for a non `full_llvm` build, if GCCcore is in the LIBRARY_PATH, and if not add it;
         # This is needed as the runtimes tests will not add the -L option to the linker command line for GCCcore
         # otherwise
         if not self.full_llvm:
@@ -943,7 +943,7 @@ class EB_LLVM(CMakeMake):
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
                 self._create_compiler_config_file(prev_dir)
-                # Pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
+                # also pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
                 # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
                 # runtimes (which would otherwise use the system default dynamic linker)
                 self._create_compiler_config_file(stage_dir)
@@ -1264,15 +1264,17 @@ class EB_LLVM(CMakeMake):
     def _sanity_check_dynamic_linker(self):
         """Check if the dynamic linker is correct."""
         if self.sysroot:
-            c_name = 'abcdefg.c'
-            o_name = 'abcdefg.o'
-            x_name = 'abcdefg.x'
-            with open(c_name, 'w', encoding='utf-8') as f:
-                f.write('#include <stdio.h>\n')
-                f.write('int main() { printf("Hello World\\n"); return 0; }\n')
-            cmd = f"{os.path.join(self.installdir, 'bin', 'clang')} -o {o_name} -c {c_name}"
+            # compile & test trivial C program to verify that works
+            test_fn = 'test123'
+            test_txt = '#include <stdio.h>\n'
+            test_txt += 'int main() { printf("Hello World\\n"); return 0; }\n'
+            write_file(test_fn + '.c', test_txt)
+
+            clang = os.path.join(self.installdir, 'bin', 'clang')
+            cmd = f"{clang} -o {test_fn}.o -c {test_fn}.c"
             run_shell_cmd(cmd, fail_on_error=True)
-            cmd = f"{os.path.join(self.installdir, 'bin', 'clang')} -v -o {x_name} {o_name}"
+
+            cmd = f"{clang} -v -o {test_fn}.x {test_fn}.o"
             res = run_shell_cmd(cmd, fail_on_error=True)
             out = res.output
 
@@ -1281,15 +1283,14 @@ class EB_LLVM(CMakeMake):
                 error_msg = f"Dynamic linker is not set to the sysroot '{self.sysroot}'"
                 raise EasyBuildError(error_msg)
 
-            cmd = f'./{x_name}'
+            cmd = f'./{test_fn}.x'
             res = run_shell_cmd(cmd, fail_on_error=False)
             if res.exit_code != EasyBuildExit.SUCCESS:
-                error_msg = f"Failed to run the compiled executable '{x_name}' for testing the dynamic linker"
+                error_msg = f"Failed to run the compiled executable '{cmd}' for testing the dynamic linker"
                 raise EasyBuildError(error_msg)
 
-            remove_file(c_name)
-            remove_file(o_name)
-            remove_file(x_name)
+            for suffix in ('.c', '.o', '.x'):
+                remove_file('{test_fn}{suffix}')
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
