@@ -606,7 +606,7 @@ class EB_LLVM(CMakeMake):
                 trace_msg(msg)
                 self.log.warning(msg)
 
-    def _update_ignore_patterns(self):
+    def _update_test_ignore_patterns(self):
         """Update the ignore patterns based on known ignorable test failures when running with specific LLVM versions
         or with specific dependencies/options."""
         new_ignore_patterns = []
