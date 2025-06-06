@@ -42,24 +42,18 @@ import stat
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion
-from easybuild.tools.build_log import EasyBuildError, print_msg
-from easybuild.tools.config import (ERROR, IGNORE, SEARCH_PATH_LIB_DIRS,
-                                    build_option)
-from easybuild.tools.environment import setvar
-from easybuild.tools.filetools import (adjust_permissions,
-                                       apply_regex_substitutions, change_dir,
-                                       copy_dir, mkdir, remove_dir,
-                                       remove_file, symlink, which, write_file)
-from easybuild.tools.modules import (MODULE_LOAD_ENV_HEADERS,
-                                     get_software_root, get_software_version)
-from easybuild.tools.run import EasyBuildExit, run_shell_cmd
-from easybuild.tools.systemtools import (AARCH32, AARCH64, POWER, POWER_LE,
-                                         RISCV64, X86_64, get_cpu_architecture,
-                                         get_cpu_family, get_shared_lib_ext)
 from easybuild.tools.utilities import trace_msg
+from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.config import ERROR, IGNORE, SEARCH_PATH_LIB_DIRS, build_option
+from easybuild.tools.environment import setvar
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, adjust_permissions
+from easybuild.tools.filetools import mkdir, remove_file, symlink, which, write_file, remove_dir
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
+from easybuild.tools.run import run_shell_cmd, EasyBuildExit
+from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64, POWER_LE
+from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_family, get_shared_lib_ext
 
-from easybuild.easyblocks.generic.cmakemake import (
-    CMakeMake, get_cmake_python_config_dict)
+from easybuild.easyblocks.generic.cmakemake import CMakeMake, get_cmake_python_config_dict
 
 BUILD_TARGET_AMDGPU = 'AMDGPU'
 BUILD_TARGET_NVPTX = 'NVPTX'
@@ -1296,7 +1290,7 @@ class EB_LLVM(CMakeMake):
                 raise EasyBuildError(error_msg)
 
             for suffix in ('.c', '.o', '.x'):
-                remove_file(f'{test_fn}{suffix}')
+                remove_file('{test_fn}{suffix}')
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
