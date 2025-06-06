@@ -1290,7 +1290,7 @@ class EB_LLVM(CMakeMake):
                 raise EasyBuildError(error_msg)
 
             for suffix in ('.c', '.o', '.x'):
-                remove_file('{test_fn}{suffix}')
+                remove_file(f'{test_fn}{suffix}')
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
