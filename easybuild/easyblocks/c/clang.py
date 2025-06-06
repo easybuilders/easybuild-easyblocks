@@ -124,7 +124,7 @@ class EB_Clang(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('19'):
             raise EasyBuildError(
                 "The Clang EasyBlock has been deprecated and does not support LLVM versions >= 19. "
-                "Please use the 'LLVM' EasyBlock instead, which supports building Clang as well"
+                "Please use the 'LLVM' EasyBlock instead, which supports building Clang as well "
                 "as other LLVM projects."
             )
 
