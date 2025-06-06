@@ -539,7 +539,7 @@ class EB_LLVM(CMakeMake):
                     if self.nvptx_target_cond:
                         self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
-            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
+            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'ON'
             if not self.cfg['build_openmp_tools']:
                 self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
 
