@@ -254,8 +254,8 @@ class EB_LLVM(CMakeMake):
             'CMAKE_EXE_LINKER_FLAGS': [],
             }
         self.offload_targets = ['host']
-        # self._added_librt = None
         self.host_triple = None
+        self.dynamic_linker = None
 
         # Shared
         off_opts, on_opts = [], []
@@ -354,10 +354,16 @@ class EB_LLVM(CMakeMake):
             general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
 
         # Sysroot
-        sysroot = build_option('sysroot')
-        if sysroot:
-            general_opts['DEFAULT_SYSROOT'] = sysroot
-            general_opts['CMAKE_SYSROOT'] = sysroot
+        self.sysroot = build_option('sysroot')
+        if self.sysroot:
+            if LooseVersion(self.version) < LooseVersion('19'):
+                raise EasyBuildError("Using sysroot is not supported by EasyBuild for LLVM < 19")
+            general_opts['DEFAULT_SYSROOT'] = self.sysroot
+            general_opts['CMAKE_SYSROOT'] = self.sysroot
+            self._set_dynamic_linker()
+            trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {self.sysroot}")
+
+        self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
 
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
@@ -547,6 +553,20 @@ class EB_LLVM(CMakeMake):
 
         return gcc_root, gcc_prefix
 
+    @staticmethod
+    def _get_gcc_libpath(strict=False):
+        """Get the GCC library path for the build."""
+        gcc_root = get_software_root('GCCcore')
+        if gcc_root is None:
+            gcc_root = get_software_root('GCC')
+        if gcc_root is None:
+            if strict:
+                raise EasyBuildError("Can't find GCC or GCCcore to use")
+            else:
+                print_msg("Can't find GCC or GCCcore to use, skipping setting of GCC library path", level=IGNORE)
+                return ''
+        return os.path.join(gcc_root, 'lib64')
+
     def _set_gcc_prefix(self):
         """Set the GCC prefix for the build."""
         if self.gcc_prefix is None:
@@ -565,6 +585,63 @@ class EB_LLVM(CMakeMake):
 
             self.gcc_prefix = gcc_prefix
         self.log.debug("Using %s as the gcc install location", self.gcc_prefix)
+
+    def _set_dynamic_linker(self):
+        """Set the dynamic linker for the build if not the default one."""
+        if self.sysroot:
+            linkers = glob.glob(os.path.join(self.sysroot, '**', 'ld-*.so*'))
+            for linker in linkers:
+                if os.path.isfile(linker) and not os.path.islink(linker):
+                    self.log.info("Using linker %s from sysroot", linker)
+                    self.dynamic_linker = linker
+                    break
+            else:
+                msg = f"No linker found in sysroot {self.sysroot}, using default linker"
+                trace_msg(msg)
+                self.log.warning(msg)
+
+    def _update_test_ignore_patterns(self):
+        """Update the ignore patterns based on known ignorable test failures when running with specific LLVM versions
+        or with specific dependencies/options."""
+        new_ignore_patterns = []
+        if self.sysroot:
+            # Some tests will run a FileCheck on the output of `clang -v` for `-internal-externc-isystem /usr/include`
+            # where the path is hardcoded. If sysroot is set we replace that path by prepending the sysroot to it.
+            # The changes needed varies from file to file and are not the same across versions.
+            # Since this seems to be more of a problem with the test-suite settings than using the compilers
+            # we can probably safely ignore these tests.
+            known_driver_files = [
+                'baremetal.cpp', 'csky-toolchain.c', 'freebsd-include-paths.c',
+                'haiku.c', 'hexagon-toolchain-elf.c', 'hexagon-toolchain-linux.c',
+                'mips-cs.cpp', 'mips-fsf.cpp', 'mips-img-v2.cpp', 'mips-img.cpp',
+                'riscv32-toolchain-extra.c', 'riscv64-toolchain-extra.c',
+                'rocm-detect.hip',
+            ]
+            known_frontend_files = [
+                'warning-poison-system-directories.c'
+            ]
+            for file in known_driver_files:
+                new_ignore_patterns.append(f'Clang :: Driver/{file}')
+            for file in known_frontend_files:
+                new_ignore_patterns.append(f'Clang :: Frontend/{file}')
+
+            # Test related to config files, can fail due to overriding the default config file that we set to
+            # ensure correct working with sysroot builds
+            new_ignore_patterns.append('Flang :: Driver/config-file.f90')
+
+        # See https://github.com/easybuilders/easybuild-easyblocks/pull/3741#issuecomment-2944852391
+        # System-related failures due to /etc/timezone behavior
+        new_ignore_patterns.append('llvm-libc++-shared.cfg.in :: std/time/time.zone/')
+
+        # Can give different behavior based on system Scrt1.o
+        new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
+
+        # See https://github.com/llvm/llvm-project/issues/140024
+        if LooseVersion(self.version) <= LooseVersion('20.1.5'):
+            new_ignore_patterns.append('LLVM :: CodeGen/Hexagon/isel/pfalse-v4i1.ll')
+
+        self.ignore_patterns += new_ignore_patterns
+        self.log.info(f"Ignore patterns added due to known and ignorable test failures: {new_ignore_patterns}")
 
     def configure_step(self):
         """
@@ -643,6 +720,10 @@ class EB_LLVM(CMakeMake):
         # Should not use system SWIG if present
         general_opts['LLDB_ENABLE_SWIG'] = 'ON' if get_software_root('SWIG') else 'OFF'
 
+        # Avoid using system `gdb` in case it is not provided as a dependency
+        # This could cause the wrong sysroot/dynamic linker being picked up in a sysroot build causing tests to fail
+        general_opts['LIBOMP_OMPD_GDB_SUPPORT'] = 'ON' if get_software_root('GDB') else 'OFF'
+
         z3_root = get_software_root("Z3")
         if z3_root:
             self.log.info("Using %s as Z3 root", z3_root)
@@ -650,6 +731,9 @@ class EB_LLVM(CMakeMake):
             general_opts['LLVM_Z3_INSTALL_DIR'] = z3_root
         else:
             general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'OFF'
+
+        # update ignore patterns for ignorable test failures
+        self._update_test_ignore_patterns()
 
         python_opts = get_cmake_python_config_dict()
         general_opts.update(python_opts)
@@ -669,6 +753,15 @@ class EB_LLVM(CMakeMake):
         regex_subs = []
         regex_subs.append((r'add_subdirectory\(bindings/python/tests\)', ''))
         apply_regex_substitutions(cmakelists_tests, regex_subs)
+
+        # Remove flags disabling the use of configuration files during compiler-rt tests as we in general rely on them
+        # (see https://github.com/easybuilders/easybuild-easyblocks/pull/3741#issuecomment-2939404304)
+        lit_cfg_file = os.path.join(self.llvm_src_dir, 'compiler-rt', 'test', 'lit.common.cfg.py')
+        regex_subs = [
+            (r'^if config.has_no_default_config_flag:', ''),
+            (r'^\s*config.environment\["CLANG_NO_DEFAULT_CONFIG"\] = "1"', '')
+        ]
+        apply_regex_substitutions(lit_cfg_file, regex_subs)
 
         self._set_gcc_prefix()
 
@@ -704,14 +797,19 @@ class EB_LLVM(CMakeMake):
             else:
                 self.log.warning("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
 
-        if not self.cfg['bootstrap'] and build_option('rpath') and self._cmakeopts['LLVM_ENABLE_RUNTIMES'] != '""':
-            # Ensure RPATH wrappers are used for the runtimes also at the first stage
-            # Call configure again now that the host triple is known from the previous configure call
-            remove_dir(self.llvm_obj_dir_stage1)
-            self._prepare_runtimes_rpath_wrappers(self.llvm_obj_dir_stage1)
-            self.add_cmake_opts()
-            trace_msg("Reconfiguring LLVM to use the RPATH wrappers for the runtimes")
-            super(EB_LLVM, self).configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+        if not self.cfg['bootstrap']:
+            if build_option('rpath') and self._cmakeopts['LLVM_ENABLE_RUNTIMES'] != '""':
+                # Ensure RPATH wrappers are used for the runtimes also at the first stage
+                # Call configure again now that the host triple is known from the previous configure call
+                remove_dir(self.llvm_obj_dir_stage1)
+                self._prepare_runtimes_rpath_wrappers(self.llvm_obj_dir_stage1)
+                self.add_cmake_opts()
+                trace_msg("Reconfiguring LLVM to use the RPATH wrappers for the runtimes")
+                super(EB_LLVM, self).configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+            # Pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
+            # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
+            # runtimes (which would otherwise use the system default dynamic linker)
+            self._create_compiler_config_file(self.llvm_obj_dir_stage1)
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
@@ -745,13 +843,31 @@ class EB_LLVM(CMakeMake):
         if self.full_llvm:
             self._cmakeopts.update(remove_gcc_dependency_opts)
 
-    @staticmethod
-    def _create_compiler_config_file(compilers, gcc_prefix, installdir):
+    def _create_compiler_config_file(self, installdir):
         """Create a config file for the compiler to point to the correct GCC installation."""
+        self._set_gcc_prefix()
         bin_dir = os.path.join(installdir, 'bin')
-        prefix_str = '--gcc-install-dir=%s' % gcc_prefix
-        for comp in compilers:
-            write_file(os.path.join(bin_dir, f'{comp}.cfg'), prefix_str)
+        opts = [f'--gcc-install-dir={self.gcc_prefix}']
+
+        if self.dynamic_linker:
+            opts.append(f'-Wl,-dynamic-linker,{self.dynamic_linker}')
+            # The --dyld-prefix flag exists, but beside being poorly documented it is also not supported by flang
+            # https://reviews.llvm.org/D851
+            # prefix = self.sysroot.rstrip('/')
+            # opts.append(f'--dyld-prefix={prefix}')
+
+        # Check, for a non `full_llvm` build, if GCCcore is in the LIBRARY_PATH, and if not add it;
+        # This is needed as the runtimes tests will not add the -L option to the linker command line for GCCcore
+        # otherwise
+        if not self.full_llvm:
+            gcc_lib = self._get_gcc_libpath(strict=True)
+            lib_path = os.getenv('LIBRARY_PATH', '')
+            if gcc_lib not in lib_path:
+                self.log.info("Adding GCCcore libraries location `%s` the config files", gcc_lib)
+                opts.append(f'-L{gcc_lib}')
+
+        for comp in self.cfg_compilers:
+            write_file(os.path.join(bin_dir, f'{comp}.cfg'), ' '.join(opts))
 
     def build_with_prev_stage(self, prev_dir, stage_dir):
         """Build LLVM using the previous stage."""
@@ -826,7 +942,11 @@ class EB_LLVM(CMakeMake):
             # Also runs of the intermediate step compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
-                self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, prev_dir)
+                self._create_compiler_config_file(prev_dir)
+                # also pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
+                # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
+                # runtimes (which would otherwise use the system default dynamic linker)
+                self._create_compiler_config_file(stage_dir)
 
             self.add_cmake_opts()
 
@@ -954,6 +1074,11 @@ class EB_LLVM(CMakeMake):
         if self.cfg['build_runtimes']:
             lib_dir_runtime = self.get_runtime_lib_path(basedir)
             lib_path = os.path.join(basedir, lib_dir_runtime)
+        if not self.full_llvm:
+            # Add the GCC library path to the LD_LIBRARY_PATH if it is not already there to ensure correct
+            # libstdc++ and libgcc_s.so are used for tests
+            gcc_lib = self._get_gcc_libpath(strict=True)
+            lib_path = ':'.join(filter(None, [gcc_lib, lib_path]))
 
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
             cmd = f"make -j {parallel} check-all"
@@ -1011,9 +1136,7 @@ class EB_LLVM(CMakeMake):
             # Also runs of test suite compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
                 self._set_gcc_prefix()
-                self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.final_dir)
-
-            self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
+                self._create_compiler_config_file(self.final_dir)
 
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
             pxtas_path = which('ptxas', on_error=IGNORE)
@@ -1072,7 +1195,7 @@ class EB_LLVM(CMakeMake):
             # For GCC aware installation create config files in order to point to the correct GCC installation
             # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
             self._set_gcc_prefix()
-            self._create_compiler_config_file(self.cfg_compilers, self.gcc_prefix, self.installdir)
+            self._create_compiler_config_file(self.installdir)
 
         # This is needed as some older build system will select a different naming scheme for the library leading to
         # The correct target <__config_site> and libclang_rt.builtins.a not being found
@@ -1137,6 +1260,37 @@ class EB_LLVM(CMakeMake):
             if check_prefix != gcc_prefix:
                 error_msg = f"GCC installation path '{check_prefix}' does not match expected path '{gcc_prefix}'"
                 raise EasyBuildError(error_msg)
+
+    def _sanity_check_dynamic_linker(self):
+        """Check if the dynamic linker is correct."""
+        if self.sysroot:
+            # compile & test trivial C program to verify that works
+            test_fn = 'test123'
+            test_txt = '#include <stdio.h>\n'
+            test_txt += 'int main() { printf("Hello World\\n"); return 0; }\n'
+            write_file(test_fn + '.c', test_txt)
+
+            clang = os.path.join(self.installdir, 'bin', 'clang')
+            cmd = f"{clang} -o {test_fn}.o -c {test_fn}.c"
+            run_shell_cmd(cmd, fail_on_error=True)
+
+            cmd = f"{clang} -v -o {test_fn}.x {test_fn}.o"
+            res = run_shell_cmd(cmd, fail_on_error=True)
+            out = res.output
+
+            # Check if the dynamic linker is set to the sysroot
+            if self.sysroot not in out:
+                error_msg = f"Dynamic linker is not set to the sysroot '{self.sysroot}'"
+                raise EasyBuildError(error_msg)
+
+            cmd = f'./{test_fn}.x'
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            if res.exit_code != EasyBuildExit.SUCCESS:
+                error_msg = f"Failed to run the compiled executable '{cmd}' for testing the dynamic linker"
+                raise EasyBuildError(error_msg)
+
+            for suffix in ('.c', '.o', '.x'):
+                remove_file(f'{test_fn}{suffix}')
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
         """Perform sanity checks on the installed LLVM."""
@@ -1331,8 +1485,10 @@ class EB_LLVM(CMakeMake):
             # Required for 'clang -v' to work if linked to LLVM runtimes
             with _wrap_env(ld_path=os.path.join(self.installdir, lib_dir_runtime)):
                 self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
+                self._sanity_check_dynamic_linker()
         else:
             self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
+            self._sanity_check_dynamic_linker()
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
