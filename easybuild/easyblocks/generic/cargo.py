@@ -255,6 +255,9 @@ class Cargo(ExtensionEasyBlock):
         env.setvar('RUST_LOG', 'DEBUG')
         env.setvar('RUST_BACKTRACE', '1')
 
+        # Use environment variable since it would also be passed along to builds triggered via python packages
+        env.setvar('CARGO_NET_OFFLINE', 'true')
+
     @property
     def crates(self):
         """Return the crates as defined in the EasyConfig"""
@@ -409,9 +412,6 @@ class Cargo(ExtensionEasyBlock):
                     CONFIG_TOML_SOURCE_GIT_WORKSPACE.format(url=git_repo, rev=rev, workspace_dir=src_dir),
                     append=True
                 )
-
-        # Use environment variable since it would also be passed along to builds triggered via python packages
-        env.setvar('CARGO_NET_OFFLINE', 'true')
 
     def _get_crate_git_repo_branch(self, crate_name):
         """
