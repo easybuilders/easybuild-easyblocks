@@ -256,7 +256,8 @@ class Cargo(ExtensionEasyBlock):
         env.setvar('RUST_BACKTRACE', '1')
 
         # Use environment variable since it would also be passed along to builds triggered via python packages
-        env.setvar('CARGO_NET_OFFLINE', 'true')
+        if self.cfg['offline']:
+            env.setvar('CARGO_NET_OFFLINE', 'true')
 
     @property
     def crates(self):
