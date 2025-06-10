@@ -50,4 +50,4 @@ class EB_libdrm(ConfigureMake):
         if arch == X86_64:
             custom_paths['files'].append('lib/libdrm_intel.%s' % shlib_ext)
 
-        super(EB_libdrm, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

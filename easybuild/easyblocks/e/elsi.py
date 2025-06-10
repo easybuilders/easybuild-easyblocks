@@ -40,7 +40,7 @@ class EB_ELSI(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize ELSI-specific variables."""
-        super(EB_ELSI, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.enable_sips = False
         self.internal_ntpoly = True
         self.env_suff = '_MT' if self.toolchain.options.get('openmp', None) else ''
@@ -142,7 +142,7 @@ class EB_ELSI(CMakeMake):
         self.cfg.update('configopts', "-DLIB_PATHS='%s'" % ';'.join(lib_paths))
         self.cfg.update('configopts', "-DINC_PATHS='%s'" % ';'.join(inc_paths))
 
-        super(EB_ELSI, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for ELSI."""
@@ -173,4 +173,4 @@ class EB_ELSI(CMakeMake):
             'dirs': [],
         }
 
-        super(EB_ELSI, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

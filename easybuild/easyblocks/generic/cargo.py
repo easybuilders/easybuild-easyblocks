@@ -114,16 +114,19 @@ def get_workspace_members(crate_dir):
         if line.startswith('#'):
             continue  # Skip comments
         if re.match(r'\[\w+\]', line):
-            break
+            break  # New section
         if member_str is None:
             m = re.match(r'members\s+=\s+\[', line)
             if m:
                 member_str = line[m.end():]
-        elif line.endswith(']'):
-            member_str += line[:-1].strip()
-            break
         else:
             member_str += line
+        # Stop if we reach the end of the list
+        if member_str is not None and member_str.endswith(']'):
+            member_str = member_str[:-1]
+            break
+    if member_str is None:
+        raise EasyBuildError('Failed to find members in %s', cargo_toml)
     # Split at commas after removing possibly trailing ones and remove the quotes
     members = [member.strip().strip('"') for member in member_str.rstrip(',').split(',')]
     # Sanity check that we didn't pick up anything unexpected
@@ -210,7 +213,7 @@ class Cargo(ExtensionEasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Constructor for Cargo easyblock."""
-        super(Cargo, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
         self.set_cargo_vars()
 
@@ -252,6 +255,10 @@ class Cargo(ExtensionEasyBlock):
         env.setvar('RUST_LOG', 'DEBUG')
         env.setvar('RUST_BACKTRACE', '1')
 
+        # Use environment variable since it would also be passed along to builds triggered via python packages
+        if self.cfg['offline']:
+            env.setvar('CARGO_NET_OFFLINE', 'true')
+
     @property
     def crates(self):
         """Return the crates as defined in the EasyConfig"""
@@ -263,7 +270,7 @@ class Cargo(ExtensionEasyBlock):
         Required here to ensure the variables are defined for stand-alone installations and extensions,
         because the environment is reset to the initial environment right before loading the module.
         """
-        super(Cargo, self).load_module(*args, **kwargs)
+        super().load_module(*args, **kwargs)
         self.set_cargo_vars()
 
     def extract_step(self):
@@ -406,9 +413,6 @@ class Cargo(ExtensionEasyBlock):
                     CONFIG_TOML_SOURCE_GIT_WORKSPACE.format(url=git_repo, rev=rev, workspace_dir=src_dir),
                     append=True
                 )
-
-        # Use environment variable since it would also be passed along to builds triggered via python packages
-        env.setvar('CARGO_NET_OFFLINE', 'true')
 
     def _get_crate_git_repo_branch(self, crate_name):
         """

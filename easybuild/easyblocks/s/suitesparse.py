@@ -61,7 +61,7 @@ class EB_SuiteSparse(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Custom constructor for SuiteSparse easyblock, initialize custom class parameters."""
-        super(EB_SuiteSparse, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.config_name = 'UNKNOWN'
 
     def configure_step(self):
@@ -212,7 +212,7 @@ class EB_SuiteSparse(ConfigureMake):
             mkdir(os.path.join(self.installdir, 'lib'))
             mkdir(os.path.join(self.installdir, 'include'))
 
-        super(EB_SuiteSparse, self).install_step()
+        super().install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for SuiteSparse."""
@@ -235,4 +235,4 @@ class EB_SuiteSparse(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_SuiteSparse, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

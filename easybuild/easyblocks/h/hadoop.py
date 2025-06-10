@@ -72,9 +72,9 @@ class EB_Hadoop(Tarball):
         """Custom install procedure for Hadoop: install-by-copy."""
         if self.cfg['build_native_libs']:
             src = os.path.join(self.cfg['start_dir'], 'hadoop-dist', 'target', 'hadoop-%s' % self.version)
-            super(EB_Hadoop, self).install_step(src=src)
+            super().install_step(src=src)
         else:
-            super(EB_Hadoop, self).install_step()
+            super().install_step()
 
     def post_processing_step(self):
         """After the install, copy the extra native libraries into place."""
@@ -106,7 +106,7 @@ class EB_Hadoop(Tarball):
             'files': ['bin/hadoop'] + native_files,
             'dirs': ['etc', 'libexec'],
         }
-        super(EB_Hadoop, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
         fake_mod_data = self.load_fake_module(purge=True)
         # exit code is ignored, since this cmd exits with 1 if not all native libraries were found
@@ -125,7 +125,7 @@ class EB_Hadoop(Tarball):
 
     def make_module_extra(self):
         """Custom extra module file entries for Hadoop."""
-        txt = super(EB_Hadoop, self).make_module_extra()
+        txt = super().make_module_extra()
         mapreduce_subdir = os.path.join('share', 'hadoop', 'mapreduce')
         txt += self.module_generator.prepend_paths('HADOOP_HOME', mapreduce_subdir)
         return txt

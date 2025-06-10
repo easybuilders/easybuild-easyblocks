@@ -59,7 +59,7 @@ class EB_GATE(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Initialise class variables."""
-        super(EB_GATE, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.g4system = None
         self.gate_subdirs = [
             '.',
@@ -71,7 +71,7 @@ class EB_GATE(CMakeMake):
         """Custom configure procedure for GATE: CMake for versions 6.2 or more recent."""
 
         if LooseVersion(self.version) >= '6.2':
-            super(EB_GATE, self).configure_step()
+            super().configure_step()
 
     def build_step(self):
         """Custom build procedure for GATE, including cluster tools."""
@@ -112,7 +112,7 @@ class EB_GATE(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to move to %s: %s", subdir, err)
 
-            super(EB_GATE, self).build_step()
+            super().build_step()
 
         try:
             os.chdir(self.cfg['start_dir'])
@@ -132,7 +132,7 @@ class EB_GATE(CMakeMake):
                 except OSError as err:
                     raise EasyBuildError("Failed to move to %s: %s", subdir, err)
 
-                super(EB_GATE, self).install_step()
+                super().install_step()
         else:
             # manually copy files for versions prior to v6.2
 
@@ -174,7 +174,7 @@ class EB_GATE(CMakeMake):
     def make_module_extra(self):
         """Overwritten from Application to add extra txt"""
         subdir = os.getenv('G4SYSTEM', '')
-        txt = super(EB_GATE, self).make_module_extra()
+        txt = super().make_module_extra()
         path_dirs = []
         fm_bin = os.path.join('cluster_tools', 'filemerger', 'bin', subdir)
         js_dir = os.path.join('cluster_tools', 'jobsplitter')
@@ -216,4 +216,4 @@ class EB_GATE(CMakeMake):
         }
         custom_commands = ["gjs -h | grep 'This executable is compiled with %s as default'"
                            % self.cfg['default_platform']]
-        super(EB_GATE, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
