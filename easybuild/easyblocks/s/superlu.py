@@ -118,6 +118,19 @@ class EB_SuperLU(CMakeMake):
             # This BLAS library is not supported yet
             raise EasyBuildError("BLAS library '%s' is not supported yet", toolchain_blas)
 
+        parmetis_root = get_software_root('ParMETIS')
+        if parmetis_root:
+            self.cfg.update('configopts', '-DTPL_ENABLE_PARMETISLIB=ON')
+            parmetis_include = os.path.join(parmetis_root, 'include')
+            self.cfg.update('configopts', '-DTPL_PARMETIS_INCLUDE_DIRS=%s' % parmetis_include)
+            parmetis_libs = ';'.join([
+                os.path.join(parmetis_root, 'lib', 'libparmetis.a'),
+                os.path.join(parmetis_root, 'lib', 'libmetis.a'),
+            ])
+            self.cfg.update('configopts', "-DTPL_PARMETIS_LIBRARIES='%s'" % parmetis_libs)
+        else:
+            self.cfg.update('configopts', '-DTPL_ENABLE_PARMETISLIB=OFF')
+
         super().configure_step()
 
     def test_step(self):
