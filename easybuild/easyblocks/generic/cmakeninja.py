@@ -32,6 +32,8 @@ CMake configure step and Ninja build install.
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 
+DEFAULT_TEST_CMD = 'ninja'
+
 
 class CMakeNinja(CMakeMake, MesonNinja):
     """Support for configuring with CMake, building and installing with MesonNinja."""
@@ -44,6 +46,10 @@ class CMakeNinja(CMakeMake, MesonNinja):
         extra_vars.update({
             key: value for key, value in MesonNinja.extra_options().items()
             if key.startswith('build_') or key.startswith('install_')
+        })
+        extra_vars.update({
+            'test_cmd': [DEFAULT_TEST_CMD, "Test command to use ('runtest' value is appended)", CUSTOM],
+            'runtest': [None, "Ninja target to test build or True to use CTest", BUILD],
         })
         return extra_vars
 
