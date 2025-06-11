@@ -127,7 +127,7 @@ class EB_SuperLU(CMakeMake):
                 os.path.join(parmetis_root, 'lib', 'libparmetis.a'),
                 os.path.join(parmetis_root, 'lib', 'libmetis.a'),
             ])
-            self.cfg.update('configopts', '-DTPL_PARMETIS_LIBRARIES=%s' % parmetis_libs)
+            self.cfg.update('configopts', "-DTPL_PARMETIS_LIBRARIES='%s'" % parmetis_libs)
         else:
             self.cfg.update('configopts', '-DTPL_ENABLE_PARMETISLIB=OFF')
 
