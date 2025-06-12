@@ -31,6 +31,7 @@ CMake configure step and Ninja build install.
 """
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
+from easybuild.framework.easyconfig import BUILD, CUSTOM
 
 DEFAULT_TEST_CMD = 'ninja'
 
