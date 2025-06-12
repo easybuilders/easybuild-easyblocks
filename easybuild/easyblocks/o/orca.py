@@ -153,7 +153,7 @@ H  -0.7920   0.0000  -0.4973
 H   0.7920   0.0000  -0.4973
 *
 """
-        nprocs = self.cfg.get('parallel', 1)
+        nprocs = self.cfg.parallel
         test_input_content = test_input_content % {'nprocs': nprocs}
         test_input_path = os.path.join(self.builddir, 'eb_test_hf_water.inp')
         write_file(test_input_path, test_input_content)
