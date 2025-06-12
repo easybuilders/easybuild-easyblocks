@@ -267,9 +267,6 @@ class Bundle(EasyBlock):
             # make sure we can build in parallel
             comp.set_parallel()
 
-            # figure out correct start directory
-            comp.guess_start_dir()
-
             # need to run fetch_patches to ensure per-component patches are applied
             comp.fetch_patches()
 
@@ -299,8 +296,8 @@ class Bundle(EasyBlock):
                 if not found:
                     raise EasyBuildError("Failed to find spec for source %s for component %s", comp_src_fn, comp.name)
 
-                # location of first unpacked source is used to determine where to apply patch(es)
-                comp.src[-1]['finalpath'] = comp.cfg['start_dir']
+            # figure out correct start directory
+            comp.guess_start_dir()
 
             # check if sanity checks are enabled for the component
             if self.cfg['sanity_check_all_components'] or comp.cfg['name'] in self.cfg['sanity_check_components']:
