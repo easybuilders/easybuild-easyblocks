@@ -23,7 +23,7 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for BLIS, implemented as an easyblock
+EasyBuild support for BLIS and AOCL-BLAS, implemented as an easyblock
 
 @author: Samuel Moors (Vrije Universiteit Brussel)
 """
@@ -37,11 +37,11 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_BLIS(ConfigureMake):
-    """Support for building and installing BLIS."""
+    """Support for building and installing BLIS and AOCL-BLAS."""
 
     @staticmethod
     def extra_options(extra_vars=None):
-        """Extra easyconfig parameters for BLIS."""
+        """Extra easyconfig parameters."""
         extra_vars = {
             'cpu_architecture': ['auto', 'CPU architecture (default is autodetect)', CUSTOM],
         }
@@ -49,7 +49,7 @@ class EB_BLIS(ConfigureMake):
         return ConfigureMake.extra_options(extra_vars)
 
     def configure_step(self):
-        """Custom configopts for BLIS."""
+        """Custom configopts."""
         self.cfg.update('configopts', '--enable-cblas --enable-threading=openmp --enable-shared CC="$CC"')
         self.cfg.update('configopts', self.cfg['cpu_architecture'])
 
@@ -61,17 +61,20 @@ class EB_BLIS(ConfigureMake):
                 raise EasyBuildError(failed_detect_str)
 
     def make_module_extra(self):
-        """Extra environment variables for BLIS."""
+        """Extra environment variables."""
         return self.module_generator.prepend_paths(MODULE_LOAD_ENV_HEADERS, ['include/blis'])
 
     def sanity_check_step(self):
-        """Custom sanity check for BLIS."""
+        """Custom sanity check paths."""
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
-            'files': ['include/blis/cblas.h', 'include/blis/blis.h',
-                      'lib/libblis.a', f'lib/libblis.{shlib_ext}'],
+            'files': ['include/blis/cblas.h', 'include/blis/blis.h'],
             'dirs': [],
         }
+        if self.name == 'BLIS':
+            custom_paths['files'].extend(['lib/libblis.a', f'lib/libblis.{shlib_ext}'])
+        elif self.name == 'AOCL-BLAS':
+            custom_paths['files'].extend(['lib/libblis-mt.a', f'lib/libblis-mt.{shlib_ext}'])
 
         super().sanity_check_step(custom_paths=custom_paths)
