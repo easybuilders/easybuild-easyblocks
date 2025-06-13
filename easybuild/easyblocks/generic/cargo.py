@@ -448,6 +448,14 @@ class Cargo(ExtensionEasyBlock):
 
         return None
 
+    def prepare_step(self, *args, **kwargs):
+        """
+        Custom prepare step: set environment variable for Rust/cargo after setting up build environment.
+        """
+        super().prepare_step(*args, **kwargs)
+
+        self.set_cargo_vars()
+
     def configure_step(self):
         """Empty configuration step."""
         pass
