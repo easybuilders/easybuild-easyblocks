@@ -124,8 +124,16 @@ class Bundle(EasyBlock):
                 comp_cfg['name'] = comp_name
                 comp_cfg['version'] = comp_version
 
+                # The copy above may include unexpected settings for common values.
+                # In particular a Pythonbundle for we have seen a component inheriting
+                #  runtest = True
+                # which is not a valid value for many easyblocks.
+                # Reset runtest to the original default, if people want the test step
+                # they can set it explicitly.
+                comp_cfg['runtest'] = None
+
                 # determine easyblock to use for this component
-                # - if an easyblock is specified explicitely, that will be used
+                # - if an easyblock is specified explicitly, that will be used
                 # - if not, a software-specific easyblock will be considered by get_easyblock_class
                 # - if no easyblock was found, default_easyblock is considered
                 comp_easyblock = comp_specs.get('easyblock')
