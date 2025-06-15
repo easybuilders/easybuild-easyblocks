@@ -62,7 +62,9 @@ class EB_BLIS(ConfigureMake):
 
     def make_module_extra(self):
         """Extra environment variables."""
-        return self.module_generator.prepend_paths(MODULE_LOAD_ENV_HEADERS, ['include/blis'])
+        mod = super().make_module_extra()
+        mod += self.module_generator.prepend_paths(MODULE_LOAD_ENV_HEADERS, ['include/blis'])
+        return mod
 
     def sanity_check_step(self):
         """Custom sanity check paths."""
