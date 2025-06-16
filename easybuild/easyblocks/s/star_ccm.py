@@ -186,7 +186,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
         }
 
         custom_commands = ["starccm+ --help 2>&1 | grep 'Usage: '"]
-        
+
         super().sanity_check_step(
             custom_paths=custom_paths,
             custom_commands=custom_commands
