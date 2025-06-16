@@ -50,7 +50,6 @@ class EB_BLIS(ConfigureMake):
 
     def configure_step(self):
         """Custom configopts."""
-        # self.cfg.update('configopts', '--enable-cblas --enable-shared CC="$CC"')
 
         if self.toolchain.options.get('openmp', None):
             self.cfg.update('configopts', '--enable-threading=openmp')
