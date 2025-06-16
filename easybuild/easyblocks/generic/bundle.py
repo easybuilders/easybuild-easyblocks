@@ -92,6 +92,10 @@ class Bundle(EasyBlock):
         # (like adding component sources to top-level sources easyconfig parameter)
         self.cfg = self.cfg.copy()
 
+        # Keep track of sources for each component to restore them:
+        # (Component instance, start idx [in self.src], end idx)
+        self.comp_to_src_idxs = []
+
         # disable templating to avoid premature resolving of template values
         # Note that self.cfg.update also resolves templates!
         with self.cfg.disable_templating():
@@ -166,6 +170,10 @@ class Bundle(EasyBlock):
                 for key in comp_specs:
                     comp_cfg[key] = comp_specs[key]
 
+                # Combine all component sources into the top-level sources parameter
+                # This allows reusing top-level source_urls and unpacking them all in the extract_step
+
+                old_num_srcs = len(self.cfg.get('sources', resolve=False))
                 # Don't require that all template values can be resolved at this point but still resolve them.
                 # This is important to ensure that template values like %(name)s and %(version)s
                 # are correctly resolved with the component name/version before values are copied over to self.cfg
@@ -195,19 +203,15 @@ class Bundle(EasyBlock):
                 comp_checksums = comp_cfg['checksums']
                 if comp_checksums:
                     src_cnt = len(comp_sources)
-
                     # add per-component checksums for sources to list of checksums
                     self.cfg.update('checksums', comp_checksums[:src_cnt])
 
-                    # add per-component checksums for patches to list of checksums for patches
-                    checksums_patches.extend(comp_checksums[src_cnt:])
-
-                with comp_cfg.allow_unresolved_templates():
-                    comp_patches = comp_cfg['patches']
-                if comp_patches:
-                    self.cfg.update('patches', comp_patches)
-
                 self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
+                new_num_srcs = len(self.cfg.get('sources', resolve=False))
+                self.comp_to_src_idxs.append((self.comp_instances[-1], old_num_srcs, new_num_srcs))
+                # check if sanity checks are enabled for the component
+                if self.cfg['sanity_check_all_components'] or comp_cfg['name'] in self.cfg['sanity_check_components']:
+                    self.comp_cfgs_sanity_check.append(self.comp_instances[-1])
 
             self.cfg.update('checksums', checksums_patches)
 
@@ -228,6 +232,26 @@ class Bundle(EasyBlock):
             checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
 
         return checksum_issues
+
+    def fetch_step(self):
+        """Fetch sources of all extensions"""
+        super().fetch_step()
+        # Init src attribute as usually done by fetch_step
+        for (_, comp), start_idx, end_idx in self.comp_to_src_idxs:
+            comp.src = self.src[start_idx:end_idx]
+            # need to run fetch_patches to ensure per-component patches are gathered
+            comp.fetch_patches()
+
+    def prepare_step(self, *args, **kwargs):
+        """Init required properties for components"""
+        super().prepare_step(*args, **kwargs)
+        for _, comp in self.comp_instances:
+            # correct build/install dirs
+            comp.builddir = self.builddir
+            comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
+
+            # make sure we can build in parallel
+            comp.set_parallel()
 
     def patch_step(self):
         """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
@@ -260,47 +284,15 @@ class Bundle(EasyBlock):
                       (cfg['name'], cfg['version'], idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
 
-            # correct build/install dirs
-            comp.builddir = self.builddir
-            comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
-
-            # make sure we can build in parallel
-            comp.set_parallel()
-
             # figure out correct start directory
-            comp.guess_start_dir()
-
-            # need to run fetch_patches to ensure per-component patches are applied
-            comp.fetch_patches()
-
+            # Compatibility with ECs expecting the previous behavior where src wasn't populated at this point
+            tmp_src = comp.src
             comp.src = []
+            comp.guess_start_dir()
+            comp.src = tmp_src
 
-            # find matching entries in self.src for this component
-            with comp.cfg.allow_unresolved_templates():
-                comp_sources = comp.cfg['sources']
-            for source in comp_sources:
-                if isinstance(source, str):
-                    comp_src_fn = source
-                elif isinstance(source, dict):
-                    if 'filename' in source:
-                        comp_src_fn = source['filename']
-                    else:
-                        raise EasyBuildError("Encountered source file specified as dict without 'filename': %s", source)
-                else:
-                    raise EasyBuildError("Specification of unknown type for source file: %s", source)
-
-                found = False
-                for src in self.src:
-                    if src['name'] == comp_src_fn:
-                        self.log.info("Found spec for source %s for component %s: %s", comp_src_fn, comp.name, src)
-                        comp.src.append(src)
-                        found = True
-                        break
-                if not found:
-                    raise EasyBuildError("Failed to find spec for source %s for component %s", comp_src_fn, comp.name)
-
-                # location of first unpacked source is used to determine where to apply patch(es)
-                comp.src[-1]['finalpath'] = comp.cfg['start_dir']
+            # location of first unpacked source is used to determine where to apply patch(es)
+            comp.src[0]['finalpath'] = comp.cfg['start_dir']
 
             # check if sanity checks are enabled for the component
             if self.cfg['sanity_check_all_components'] or comp.cfg['name'] in self.cfg['sanity_check_components']:
