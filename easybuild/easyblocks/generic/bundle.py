@@ -39,6 +39,7 @@ import os
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.easyconfig import get_easyblock_class
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
@@ -130,7 +131,13 @@ class Bundle(EasyBlock):
                 # which is not a valid value for many easyblocks.
                 # Reset runtest to the original default, if people want the test step
                 # they can set it explicitly.
-                comp_cfg['runtest'] = None
+                if comp_cfg._config['runtest'] != DEFAULT_CONFIG["runtest"]:
+                    self.log.warning(
+                        "Resetting runtest to default value for component easyblock "
+                        f"(from {comp_cfg._config['runtest']})."
+                        )
+                    comp_cfg["runtest"] = DEFAULT_CONFIG["runtest"][0]
+                    comp_cfg._config['runtest'] = DEFAULT_CONFIG["runtest"]
 
                 # determine easyblock to use for this component
                 # - if an easyblock is specified explicitly, that will be used
