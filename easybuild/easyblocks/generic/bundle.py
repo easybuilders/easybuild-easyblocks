@@ -130,13 +130,12 @@ class Bundle(EasyBlock):
                 #  runtest = True
                 # which is not a valid value for many easyblocks.
                 # Reset runtest to the original default, if people want the test step
-                # they can set it explicitly (or it can be set by the component easyblock).
+                # they can set it explicitly, in default_component_specs or by the component easyblock
                 if comp_cfg._config['runtest'] != DEFAULT_CONFIG["runtest"]:
                     self.log.warning(
                         "Resetting runtest to default value for component easyblock "
                         f"(from {comp_cfg._config['runtest']})."
                         )
-                    comp_cfg["runtest"] = DEFAULT_CONFIG["runtest"][0]
                     comp_cfg._config['runtest'] = DEFAULT_CONFIG["runtest"]
 
                 # determine easyblock to use for this component
