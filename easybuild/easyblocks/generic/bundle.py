@@ -126,7 +126,7 @@ class Bundle(EasyBlock):
                 comp_cfg['version'] = comp_version
 
                 # The copy above may include unexpected settings for common values.
-                # In particular a Pythonbundle for we have seen a component inheriting
+                # In particular for a Pythonbundle we have seen a component inheriting
                 #  runtest = True
                 # which is not a valid value for many easyblocks.
                 # Reset runtest to the original default, if people want the test step
