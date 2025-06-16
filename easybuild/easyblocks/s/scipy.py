@@ -125,10 +125,18 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             # need to have already installed extensions in PATH, PYTHONPATH for configure/build/install steps
             pythonpath = os.getenv('PYTHONPATH')
             pylibdir = det_pylibdir()
-            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, pylibdir), pythonpath]))
+            if pythonpath is None:
+                pythonpath = os.path.join(self.installdir, pylibdir)
+            else:
+                pythonpath = os.pathsep.join([os.path.join(self.installdir, pylibdir), pythonpath])
+            env.setvar('PYTHONPATH', pythonpath)
 
             path = os.getenv('PATH')
-            env.setvar('PATH', os.pathsep.join([os.path.join(self.installdir, 'bin'), path]))
+            if path is None:
+                path = os.path.join(self.installdir, 'bin')
+            else:
+                path = os.pathsep.join([os.path.join(self.installdir, 'bin'), path])
+            env.setvar('PATH', path)
 
             MesonNinja.configure_step(self)
 

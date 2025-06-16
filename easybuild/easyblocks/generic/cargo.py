@@ -42,7 +42,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, extract_file, mkdir, move_file
-from easybuild.tools.filetools import read_file, write_file
+from easybuild.tools.filetools import read_file, write_file, which
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
@@ -114,16 +114,19 @@ def get_workspace_members(crate_dir):
         if line.startswith('#'):
             continue  # Skip comments
         if re.match(r'\[\w+\]', line):
-            break
+            break  # New section
         if member_str is None:
             m = re.match(r'members\s+=\s+\[', line)
             if m:
                 member_str = line[m.end():]
-        elif line.endswith(']'):
-            member_str += line[:-1].strip()
-            break
         else:
             member_str += line
+        # Stop if we reach the end of the list
+        if member_str is not None and member_str.endswith(']'):
+            member_str = member_str[:-1]
+            break
+    if member_str is None:
+        raise EasyBuildError('Failed to find members in %s', cargo_toml)
     # Split at commas after removing possibly trailing ones and remove the quotes
     members = [member.strip().strip('"') for member in member_str.rstrip(',').split(',')]
     # Sanity check that we didn't pick up anything unexpected
@@ -210,7 +213,7 @@ class Cargo(ExtensionEasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Constructor for Cargo easyblock."""
-        super(Cargo, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
         self.set_cargo_vars()
 
@@ -241,13 +244,20 @@ class Cargo(ExtensionEasyBlock):
 
     def set_cargo_vars(self):
         """Set environment variables for Rust compilation and Cargo"""
+        rustc_optarch = self.rustc_optarch()
+        gcc = which('gcc')  # makes sure gcc wrapper is used in case of rpath linking.
+
         env.setvar('CARGO_HOME', self.cargo_home)
         env.setvar('RUSTC', 'rustc')
         env.setvar('RUSTDOC', 'rustdoc')
         env.setvar('RUSTFMT', 'rustfmt')
-        env.setvar('RUSTFLAGS', self.rustc_optarch())
+        env.setvar('RUSTFLAGS', f'{rustc_optarch} -C linker={gcc}')
         env.setvar('RUST_LOG', 'DEBUG')
         env.setvar('RUST_BACKTRACE', '1')
+
+        # Use environment variable since it would also be passed along to builds triggered via python packages
+        if self.cfg['offline']:
+            env.setvar('CARGO_NET_OFFLINE', 'true')
 
     @property
     def crates(self):
@@ -260,7 +270,7 @@ class Cargo(ExtensionEasyBlock):
         Required here to ensure the variables are defined for stand-alone installations and extensions,
         because the environment is reset to the initial environment right before loading the module.
         """
-        super(Cargo, self).load_module(*args, **kwargs)
+        super().load_module(*args, **kwargs)
         self.set_cargo_vars()
 
     def extract_step(self):
@@ -404,9 +414,6 @@ class Cargo(ExtensionEasyBlock):
                     append=True
                 )
 
-        # Use environment variable since it would also be passed along to builds triggered via python packages
-        env.setvar('CARGO_NET_OFFLINE', 'true')
-
     def _get_crate_git_repo_branch(self, crate_name):
         """
         Find the dependency definition for given crate in all Cargo.toml files of sources
@@ -440,6 +447,14 @@ class Cargo(ExtensionEasyBlock):
                     return git_branch_crate.group(1)
 
         return None
+
+    def prepare_step(self, *args, **kwargs):
+        """
+        Custom prepare step: set environment variable for Rust/cargo after setting up build environment.
+        """
+        super().prepare_step(*args, **kwargs)
+
+        self.set_cargo_vars()
 
     def configure_step(self):
         """Empty configuration step."""

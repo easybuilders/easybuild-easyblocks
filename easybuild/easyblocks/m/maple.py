@@ -120,4 +120,4 @@ class EB_Maple(Binary):
             'files': ['bin/maple', 'lib/maple.mla'],
             'dirs': [],
         }
-        super(EB_Maple, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

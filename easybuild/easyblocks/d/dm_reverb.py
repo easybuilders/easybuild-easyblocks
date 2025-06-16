@@ -41,7 +41,7 @@ class EB_dm_minus_reverb(PythonPackage):
 
     def configure_step(self, *args, **kwargs):
         """Execute custom configure.py script"""
-        super(EB_dm_minus_reverb, self).configure_step(*args, **kwargs)
+        super().configure_step(*args, **kwargs)
 
         # set Python environment
         python_root = get_software_root('Python')
@@ -129,4 +129,4 @@ class EB_dm_minus_reverb(PythonPackage):
             'python': self.python_cmd,
         }
 
-        return super(EB_dm_minus_reverb, self).install_step(*args, **kwargs)
+        return super().install_step(*args, **kwargs)

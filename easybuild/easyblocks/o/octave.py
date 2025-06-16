@@ -76,14 +76,14 @@ class EB_Octave(ConfigureMake):
         else:
             self.log.debug("No Qt included as dependency")
 
-        super(EB_Octave, self).configure_step()
+        super().configure_step()
 
     def prepare_for_extensions(self):
         """Set default class and filter for Octave toolboxes."""
         # build and install additional packages with OctavePackage easyblock
         self.cfg['exts_defaultclass'] = 'OctavePackage'
         self.cfg['exts_filter'] = EXTS_FILTER_OCTAVE_PACKAGES
-        super(EB_Octave, self).prepare_for_extensions()
+        super().prepare_for_extensions()
 
     def sanity_check_step(self):
         """Custom sanity check for Octave."""
@@ -99,4 +99,4 @@ class EB_Octave(ConfigureMake):
 
         custom_commands = ["octave --eval '1+2'"]
 
-        super(EB_Octave, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

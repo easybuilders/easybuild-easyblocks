@@ -42,7 +42,7 @@ class EB_imkl_minus_FFTW(EB_imkl):
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step: make sure imkl is available as dependency."""
-        super(EB_imkl_minus_FFTW, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         imkl_root = get_software_root('imkl')
         if not imkl_root:
@@ -77,4 +77,5 @@ class EB_imkl_minus_FFTW(EB_imkl):
             'files': [os.path.join(self.installdir, 'lib', x) for x in self.get_mkl_fftw_interface_libs()],
             'dirs': [],
         }
+        # Skip imkl sanity check
         super(EB_imkl, self).sanity_check_step(custom_paths=custom_paths)

@@ -40,14 +40,14 @@ class EB_RepeatMasker(Tarball):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_RepeatMasker, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # custom path-like environment variables for RepeatMaskerConfig
         self.module_load_environment.PATH = ['']
 
     def install_step(self):
         """Custom install procedure for RepeatMasker."""
-        super(EB_RepeatMasker, self).install_step()
+        super().install_step()
 
         # check for required dependencies
         perl_root = get_software_root('Perl')
@@ -130,4 +130,4 @@ class EB_RepeatMasker(Tarball):
 
         custom_commands = ['RepeatMasker']
 
-        super(EB_RepeatMasker, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -67,7 +67,7 @@ class EB_Stata(PackedBinary):
             'files': ['stata', 'xstata'],
             'dirs': [],
         }
-        super(EB_Stata, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
         # make sure required libpng library is there for Stata
         # Stata depends on a very old version of libpng, so we need to provide it

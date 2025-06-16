@@ -74,7 +74,7 @@ class EB_QuantumESPRESSO(EasyBlock):
 
     def __init__(self, ec, *args, **kwargs):
         """Select the correct EB depending on version."""
-        super(EB_QuantumESPRESSO, self).__init__(ec, *args, **kwargs)
+        super().__init__(ec, *args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('7.3.1'):
             self.log.info('Using legacy easyblock for Quantum ESPRESSO')
@@ -135,7 +135,7 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         def __init__(self, *args, **kwargs):
             """Add extra config options specific to Quantum ESPRESSO."""
-            super(EB_QuantumESPRESSOcmake, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
             self.install_subdir = 'qe-%s' % self.version
 
@@ -344,7 +344,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                     ldflags += ' -Wl,--copy-dt-needed-entries '
                     env.setvar('LDFLAGS', ldflags)
 
-            super(EB_QuantumESPRESSOcmake, self).configure_step()
+            super().configure_step()
 
         def test_step(self):
             """
@@ -480,7 +480,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 'dirs': []
             }
 
-            super(EB_QuantumESPRESSOcmake, self).sanity_check_step(custom_paths=custom_paths)
+            super().sanity_check_step(custom_paths=custom_paths)
 
     # Legacy version of Quantum ESPRESSO easyblock
     # Do not update further
@@ -527,13 +527,13 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         def __init__(self, *args, **kwargs):
             """Add extra config options specific to Quantum ESPRESSO."""
-            super(EB_QuantumESPRESSOconfig, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
             self.install_subdir = "qe-%s" % self.version
 
         def patch_step(self):
             """Patch files from build dir (not start dir)."""
-            super(EB_QuantumESPRESSOconfig, self).patch_step(beginpath=self.builddir)
+            super().patch_step(beginpath=self.builddir)
 
         def _add_compiler_flags(self, comp_fam):
             """Add compiler flags to the build."""
@@ -849,7 +849,7 @@ class EB_QuantumESPRESSO(EasyBlock):
 
             self._adjust_compiler_flags(comp_fam)
 
-            super(EB_QuantumESPRESSOconfig, self).configure_step()
+            super().configure_step()
 
             # always include -w to supress warnings
             self.dflags.append('-w')
@@ -1300,7 +1300,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 'dirs': []
             }
 
-            super(EB_QuantumESPRESSOconfig, self).sanity_check_step(custom_paths=custom_paths)
+            super().sanity_check_step(custom_paths=custom_paths)
 
 
 EB_QuantumESPRESSOconfig = EB_QuantumESPRESSO.EB_QuantumESPRESSOconfig

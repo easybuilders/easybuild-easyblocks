@@ -119,7 +119,7 @@ class EB_Clang(CMakeMake):
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables for Clang."""
 
-        super(EB_Clang, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.llvm_src_dir = None
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
@@ -218,7 +218,7 @@ class EB_Clang(CMakeMake):
 
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
-        super(EB_Clang, self).check_readiness_step()
+        super().check_readiness_step()
         # RHEL 5.x have a buggy libc.  Building stage 2 will fail.
         if get_os_name() in ['redhat', 'RHEL', 'centos', 'SL'] and get_os_version().startswith('5.'):
             raise EasyBuildError("Can not build Clang on %s v5.x: libc is buggy, building stage 2 will fail. "
@@ -230,7 +230,7 @@ class EB_Clang(CMakeMake):
         """
 
         # Extract everything into separate directories.
-        super(EB_Clang, self).extract_step()
+        super().extract_step()
 
         # Find the full path to the directory that was unpacked from llvm-*.tar.gz.
         for tmp in self.src:
@@ -448,9 +448,9 @@ class EB_Clang(CMakeMake):
 
         # directory structure has changed in version 14.x, cmake must start in llvm sub directory
         if LooseVersion(self.version) >= LooseVersion('14'):
-            super(EB_Clang, self).configure_step(srcdir=os.path.join(self.llvm_src_dir, "llvm"))
+            super().configure_step(srcdir=os.path.join(self.llvm_src_dir, "llvm"))
         else:
-            super(EB_Clang, self).configure_step(srcdir=self.llvm_src_dir)
+            super().configure_step(srcdir=self.llvm_src_dir)
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
@@ -561,7 +561,7 @@ class EB_Clang(CMakeMake):
         # Stage 1: build using system compiler.
         self.log.info("Building stage 1")
         change_dir(self.llvm_obj_dir_stage1)
-        super(EB_Clang, self).build_step()
+        super().build_step()
 
         if self.cfg['bootstrap']:
             self.log.info("Building stage 2")
@@ -586,7 +586,7 @@ class EB_Clang(CMakeMake):
             change_dir(self.llvm_obj_dir_stage3)
         else:
             change_dir(self.llvm_obj_dir_stage1)
-        super(EB_Clang, self).install_step()
+        super().install_step()
 
         # the static analyzer is not installed by default
         # we do it by hand
@@ -610,7 +610,7 @@ class EB_Clang(CMakeMake):
 
     def post_processing_step(self):
         """Install python bindings."""
-        super(EB_Clang, self).post_processing_step()
+        super().post_processing_step()
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
@@ -751,7 +751,7 @@ class EB_Clang(CMakeMake):
             custom_paths['files'].extend([os.path.join("lib", "python", "clang", "cindex.py")])
             custom_commands.extend(["python -c 'import clang'"])
 
-        super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_step(self, *args, **kwargs):
         """
@@ -770,7 +770,7 @@ class EB_Clang(CMakeMake):
 
     def make_module_extra(self):
         """Custom variables for Clang module."""
-        txt = super(EB_Clang, self).make_module_extra()
+        txt = super().make_module_extra()
         # we set the symbolizer path so that asan/tsan give meanfull output by default
         asan_symbolizer_path = os.path.join(self.installdir, 'bin', 'llvm-symbolizer')
         txt += self.module_generator.set_environment('ASAN_SYMBOLIZER_PATH', asan_symbolizer_path)

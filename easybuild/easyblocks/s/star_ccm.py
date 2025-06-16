@@ -43,7 +43,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialise STAR-CCM+ easyblock."""
-        super(EB_STAR_minus_CCM_plus_, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.starccm_subdir = None
         self.starview_subdir = None
 
@@ -184,8 +184,10 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
                       os.path.join(self.installdir, self.starview_subdir, 'bin', 'starview+')],
             'dirs': [],
         }
+
         custom_commands = ["starccm+ --help 2>&1 | grep 'Usage: '"]
-        super(EB_STAR_minus_CCM_plus_, self).sanity_check_step(
+        
+        super().sanity_check_step(
             custom_paths=custom_paths,
             custom_commands=custom_commands
         )
@@ -195,7 +197,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
         if self.starccm_subdir is None or self.starview_subdir is None:
             self.find_starccm_subdirs()
 
-        txt = super(EB_STAR_minus_CCM_plus_, self).make_module_extra()
+        txt = super().make_module_extra()
 
         bin_dirs = [
             os.path.join(self.starccm_subdir, 'star', 'bin'),

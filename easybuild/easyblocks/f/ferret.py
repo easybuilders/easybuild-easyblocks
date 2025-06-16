@@ -222,4 +222,4 @@ class EB_Ferret(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_Ferret, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

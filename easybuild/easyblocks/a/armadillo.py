@@ -59,7 +59,7 @@ class EB_Armadillo(CMakeMake):
         self.cfg.update('configopts', '-DBLAS_LIBRARY:PATH="%s"' % os.getenv('LIBBLAS'))
         self.cfg.update('configopts', '-DLAPACK_LIBRARY:PATH="%s"' % os.getenv('LIBLAPACK'))
 
-        super(EB_Armadillo, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Armadillo."""
@@ -72,4 +72,4 @@ class EB_Armadillo(CMakeMake):
             'files': ['include/armadillo', os.path.join(libdir, 'libarmadillo.%s' % get_shared_lib_ext())],
             'dirs': ['include/armadillo_bits'],
         }
-        super(EB_Armadillo, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

@@ -57,7 +57,7 @@ class EB_WPS(EasyBlock):
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to WPS."""
 
-        super(EB_WPS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.build_in_installdir = True
         self.comp_fam = None
@@ -390,11 +390,11 @@ class EB_WPS(EasyBlock):
             'files': [os.path.join(self.wps_subdir, x) for x in ['geogrid.exe', 'metgrid.exe', 'ungrib.exe']],
             'dirs': [],
         }
-        super(EB_WPS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add netCDF environment variables to module file."""
-        txt = super(EB_WPS, self).make_module_extra()
+        txt = super().make_module_extra()
         for var in ['NETCDF', 'NETCDFF']:
             # check whether value is defined for compatibility with --module-only
             if os.getenv(var) is not None:

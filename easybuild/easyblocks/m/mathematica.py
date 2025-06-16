@@ -51,7 +51,7 @@ class EB_Mathematica(Binary):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_Mathematica, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # custom paths in module load environment
         self.module_load_environment.PATH = ['bin', 'Executables']
@@ -133,7 +133,7 @@ class EB_Mathematica(Binary):
         else:
             self.log.info("No activation key provided, so skipping activation of the installation.")
 
-        super(EB_Mathematica, self).post_processing_step()
+        super().post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Mathematica."""
@@ -148,4 +148,4 @@ class EB_Mathematica(Binary):
 
         custom_commands = ['mathematica --version']
 
-        super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -46,7 +46,7 @@ class EB_intel_minus_compilers(IntelBase):
         """
         Easyblock constructor: check version
         """
-        super(EB_intel_minus_compilers, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # this easyblock is only valid for recent versions of the Intel compilers (2021.x, oneAPI)
         if LooseVersion(self.version) < LooseVersion('2021'):
@@ -72,7 +72,7 @@ class EB_intel_minus_compilers(IntelBase):
         # avoid that IntelBase trips over not having license info specified
         kwargs['requires_runtime_license'] = False
 
-        super(EB_intel_minus_compilers, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def configure_step(self):
         """Configure installation."""
@@ -92,7 +92,7 @@ class EB_intel_minus_compilers(IntelBase):
         for idx, src in enumerate(srcs):
             print_msg("installing part %d/%s (%s)..." % (idx + 1, cnt, src['name']))
             self.src = [src]
-            super(EB_intel_minus_compilers, self).install_step()
+            super().install_step()
 
     def sanity_check_step(self):
         """
@@ -132,8 +132,7 @@ class EB_intel_minus_compilers(IntelBase):
         else:
             custom_commands.extend("%s --version | grep %s" % (c, self.version) for c in all_compiler_cmds)
 
-        super(EB_intel_minus_compilers, self).sanity_check_step(custom_paths=custom_paths,
-                                                                custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_step(self, *args, **kwargs):
         """
@@ -170,7 +169,7 @@ class EB_intel_minus_compilers(IntelBase):
 
     def make_module_extra(self):
         """Additional custom variables for intel-compiler"""
-        txt = super(EB_intel_minus_compilers, self).make_module_extra()
+        txt = super().make_module_extra()
 
         # On Debian/Ubuntu, /usr/include/x86_64-linux-gnu, or whatever dir gcc uses, needs to be included
         # in $CPATH for Intel C compiler

@@ -63,7 +63,7 @@ class EB_CUDAcompat(Binary):
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables for CUDACompat."""
-        super(EB_CUDAcompat, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._has_nvidia_smi = None
         # avoid building software with this compat libraries
         self.module_load_environment.remove('LIBRARY_PATH')
@@ -112,7 +112,7 @@ class EB_CUDAcompat(Binary):
         if 'LD_LIBRARY_PATH' in (build_option('filter_env_vars') or []):
             raise EasyBuildError("This module relies on setting $LD_LIBRARY_PATH, "
                                  "so you need to remove this variable from --filter-env-vars")
-        super(EB_CUDAcompat, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def fetch_step(self, *args, **kwargs):
         """Check for EULA acceptance prior to getting sources."""
@@ -122,7 +122,7 @@ class EB_CUDAcompat(Binary):
             name='NVIDIA-driver',
             more_info='https://www.nvidia.com/content/DriverDownload-March2009/licence.php?lang=us'
         )
-        return super(EB_CUDAcompat, self).fetch_step(*args, **kwargs)
+        return super().fetch_step(*args, **kwargs)
 
     def extract_step(self):
         """Extract the files without running the installer."""
@@ -172,7 +172,7 @@ class EB_CUDAcompat(Binary):
                 else:
                     self.log.info('The installed CUDA driver %s appears to be supported.', driver_version)
 
-        return super(EB_CUDAcompat, self).test_step()
+        return super().test_step()
 
     def install_step(self):
         """Install CUDA compat libraries by copying library files and creating the symlinks."""
@@ -228,7 +228,7 @@ class EB_CUDAcompat(Binary):
             'files': [os.path.join(self.installdir, 'lib', x) for x in libraries],
             'dirs': ['lib', 'lib64'],
         }
-        super(EB_CUDAcompat, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
         if self.has_nvidia_smi:
             fake_mod_data = None

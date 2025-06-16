@@ -59,7 +59,7 @@ class EB_OpenSSL(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for OpenSSL"""
-        super(EB_OpenSSL, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # path to SSL certificates
         ssl_certs_dir = self.cfg.get('ssl_certificates')
@@ -117,7 +117,7 @@ class EB_OpenSSL(ConfigureMake):
 
     def install_step(self):
         """Installation of OpenSSL and SSL certificates"""
-        super(EB_OpenSSL, self).install_step()
+        super().install_step()
 
         # SSL certificates
         # OPENSSLDIR is already populated by the installation of OpenSSL
@@ -166,4 +166,4 @@ class EB_OpenSSL(ConfigureMake):
         if self.ssl_certs_dir:
             custom_paths['dirs'].append('ssl/certs')
 
-        super(EB_OpenSSL, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

@@ -235,10 +235,10 @@ class EB_NCL(EasyBlock):
             'files': ['bin/fontc', 'bin/ncl', 'lib/libncl.a', 'lib/libncarg.a'],
             'dirs': ['include/ncarg', 'lib/ncarg/fontcaps'],
         }
-        super(EB_NCL, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set NCARG_ROOT environment variable in module."""
-        txt = super(EB_NCL, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('NCARG_ROOT', self.installdir)
         return txt

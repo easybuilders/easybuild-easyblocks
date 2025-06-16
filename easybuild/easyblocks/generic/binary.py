@@ -70,7 +70,7 @@ class Binary(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialize Binary-specific variables."""
-        super(Binary, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.actual_installdir = None
         if self.cfg.get('staged_install', False):
@@ -83,7 +83,7 @@ class Binary(EasyBlock):
         """Copy all source files to the build directory"""
 
         if self.cfg.get('extract_sources', False):
-            super(Binary, self).extract_step()
+            super().extract_step()
         else:
             # required for correctly guessing start directory
             self.src[0]['finalpath'] = self.builddir
@@ -145,7 +145,7 @@ class Binary(EasyBlock):
                 raise EasyBuildError("Failed to move staged install from %s to %s: %s",
                                      staged_installdir, self.installdir, err)
 
-        super(Binary, self).post_processing_step()
+        super().post_processing_step()
 
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
@@ -155,7 +155,7 @@ class Binary(EasyBlock):
     def make_module_extra(self):
         """Add the specified directories to the PATH."""
 
-        txt = super(Binary, self).make_module_extra()
+        txt = super().make_module_extra()
         prepend_to_path = self.cfg.get('prepend_to_path', PREPEND_TO_PATH_DEFAULT)
         if prepend_to_path:
             txt += self.module_generator.prepend_paths("PATH", prepend_to_path)

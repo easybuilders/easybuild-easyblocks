@@ -60,7 +60,7 @@ class EB_Molpro(ConfigureMake, Binary):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor, initialize class variables specific to Molpro and check on license token."""
-        super(EB_Molpro, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.full_prefix = ''  # no None, to make easyblock compatible with --module-only
         self.orig_launcher = None
@@ -170,7 +170,7 @@ class EB_Molpro(ConfigureMake, Binary):
     def build_step(self):
         """Custom build procedure for Molpro, unless it is a binary install."""
         if not self.cfg['precompiled_binaries']:
-            super(EB_Molpro, self).build_step()
+            super().build_step()
 
     def test_step(self):
         """
@@ -229,7 +229,7 @@ class EB_Molpro(ConfigureMake, Binary):
             if os.path.isfile(self.license_token):
                 run_shell_cmd("make tuning")
 
-            super(EB_Molpro, self).install_step()
+            super().install_step()
 
             # put original LAUNCHER definition back in place in bin/molpro that got installed,
             # since the value used during installation point to temporary files
@@ -267,4 +267,4 @@ class EB_Molpro(ConfigureMake, Binary):
             'files': [os.path.join(prefix_subdir, x) for x in files_to_check],
             'dirs': [os.path.join(prefix_subdir, x) for x in dirs_to_check],
         }
-        super(EB_Molpro, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
