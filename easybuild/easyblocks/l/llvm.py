@@ -465,7 +465,7 @@ class EB_LLVM(CMakeMake):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare step, modified to ensure install dir is deleted before building"""
-        super(EB_LLVM, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         # re-create installation dir (deletes old installation),
         # Needed to ensure hardcoded rpath do not point to old installation during runtime builds and testing
         self.make_installdir()
@@ -805,7 +805,7 @@ class EB_LLVM(CMakeMake):
                 self._prepare_runtimes_rpath_wrappers(self.llvm_obj_dir_stage1)
                 self.add_cmake_opts()
                 trace_msg("Reconfiguring LLVM to use the RPATH wrappers for the runtimes")
-                super(EB_LLVM, self).configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+                super().configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
             # Pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
             # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
             # runtimes (which would otherwise use the system default dynamic linker)
