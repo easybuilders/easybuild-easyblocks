@@ -369,18 +369,81 @@ class EB_LLVM(CMakeMake):
         if LooseVersion(self.version) < LooseVersion('16'):
             self.general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
 
-        # Sysroot
-        self.sysroot = build_option('sysroot')
-        if self.sysroot:
-            if LooseVersion(self.version) < LooseVersion('19'):
-                raise EasyBuildError("Using sysroot is not supported by EasyBuild for LLVM < 19")
-            self.general_opts['DEFAULT_SYSROOT'] = self.sysroot
-            self.general_opts['CMAKE_SYSROOT'] = self.sysroot
-            self._set_dynamic_linker()
-            trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {self.sysroot}")
+        self.log.info("Final projects to build: %s", ', '.join(self.final_projects))
+        self.log.info("Final runtimes to build: %s", ', '.join(self.final_runtimes))
 
-        self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
+        self._cmakeopts = {}
+        self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
 
+    def prepare_step(self, *args, **kwargs):
+        """Prepare step, modified to ensure install dir is deleted before building"""
+        super(EB_LLVM, self).prepare_step(*args, **kwargs)
+        # re-create installation dir (deletes old installation),
+        # Needed to ensure hardcoded rpath do not point to old installation during runtime builds and testing
+        self.make_installdir()
+
+    def _add_cmake_runtime_args(self):
+        """Generate the value for 'RUNTIMES_CMAKE_ARGS' and add it to the cmake options."""
+        if self.runtimes_cmake_args:
+            args = []
+            for key, val in self.runtimes_cmake_args.items():
+                if isinstance(val, list):
+                    val = ' '.join(val)
+                if val:
+                    args.append('-D%s=%s' % (key, val))
+            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(args)
+
+    def _configure_general_build(self):
+        """General configuration step for LLVM."""
+        self._cmakeopts.update(general_opts)
+        self._add_cmake_runtime_args()
+
+    def _configure_intermediate_build(self):
+        """Configure the intermediate stages of the build."""
+        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.intermediate_projects)
+        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.intermediate_runtimes)
+
+    def _configure_final_build(self):
+        """Configure the final stage of the build."""
+        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.final_projects)
+        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.final_runtimes)
+
+        hwloc_root = get_software_root('hwloc')
+        if hwloc_root:
+            self.log.info("Using %s as hwloc root", hwloc_root)
+            self._cmakeopts['LIBOMP_USE_HWLOC'] = 'ON'
+            self._cmakeopts['LIBOMP_HWLOC_INSTALL_DIR'] = hwloc_root
+
+        if 'openmp' in self.final_projects:
+            if LooseVersion(self.version) >= LooseVersion('19') and self.cfg['build_openmp_offload']:
+                self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
+            self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
+            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
+            if not self.cfg['build_openmp_tools']:
+                self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
+
+        # Make sure tests are not running with more than 'parallel' tasks
+        parallel = self.cfg.parallel
+        if not build_option('mpi_tests'):
+            parallel = 1
+        lit_args = [f'-j {parallel}']
+        if self.cfg['debug_tests']:
+            lit_args += ['-v']
+        timeout_single = self.cfg['test_suite_timeout_single']
+        if timeout_single:
+            lit_args += ['--timeout', str(timeout_single)]
+        timeout_total = self.cfg['test_suite_timeout_total']
+        if timeout_total:
+            lit_args += ['--max-time', str(timeout_total)]
+        self._cmakeopts['LLVM_LIT_ARGS'] = '"%s"' % ' '.join(lit_args)
+
+        if self.cfg['usepolly']:
+            self._cmakeopts['LLVM_POLLY_LINK_INTO_TOOLS'] = 'ON'
+        if not self.cfg['skip_all_tests']:
+            self._cmakeopts['LLVM_INCLUDE_TESTS'] = 'ON'
+            self._cmakeopts['LLVM_BUILD_TESTS'] = 'ON'
+
+    def _configure_build_targets(self):
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
         # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
@@ -478,12 +541,6 @@ class EB_LLVM(CMakeMake):
 
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
-
-    @property
-    def llvm_src_dir(self):
-        """Return root source directory of LLVM (containing all components)"""
-        # LLVM is the first source so we already have this in start_dir. Might be changed later
-        return self.start_dir
 
     def prepare_step(self, *args, **kwargs):
         """Prepare step, modified to ensure install dir is deleted before building"""
@@ -635,6 +692,8 @@ class EB_LLVM(CMakeMake):
     def _update_test_ignore_patterns(self):
         """Update the ignore patterns based on known ignorable test failures when running with specific LLVM versions
         or with specific dependencies/options."""
+        self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
+
         new_ignore_patterns = []
         if self.sysroot:
             # Some tests will run a FileCheck on the output of `clang -v` for `-internal-externc-isystem /usr/include`
@@ -704,6 +763,18 @@ class EB_LLVM(CMakeMake):
         self.make_parallel_opts = ""
         if self.cfg.parallel:
             self.make_parallel_opts = f"-j {self.cfg.parallel}"
+
+        self._configure_build_targets()
+
+        # Sysroot
+        self.sysroot = build_option('sysroot')
+        if self.sysroot:
+            if LooseVersion(self.version) < LooseVersion('19'):
+                raise EasyBuildError("Using sysroot is not supported by EasyBuild for LLVM < 19")
+            general_opts['DEFAULT_SYSROOT'] = self.sysroot
+            general_opts['CMAKE_SYSROOT'] = self.sysroot
+            self._set_dynamic_linker()
+            trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {self.sysroot}")
 
         # CMAKE_INSTALL_PREFIX and LLVM start directory are set here instead of in __init__ to
         # ensure this easyblock can be used as a Bundle component, see
