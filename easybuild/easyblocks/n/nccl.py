@@ -39,6 +39,11 @@ from easybuild.tools.filetools import copy_file
 class EB_NCCL(ConfigureMake):
     """Support for building NCCL."""
 
+    def __init__(self, *args, **kwargs):
+        """Init module env"""
+        super().__init__(*args, **kwargs)
+        self.module_load_environment.NCCL_HOME = ['']
+
     def configure_step(self):
         """NCCL has no configure step"""
         pass
