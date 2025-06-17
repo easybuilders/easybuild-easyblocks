@@ -443,6 +443,19 @@ class EB_LAMMPS(CMakeMake):
                 else:
                     self.cfg.update('configopts', '-D%s_ARCH="%s"' % (self.kokkos_prefix, processor_arch))
 
+            # Selection of the FFT library for KOKKOS (available since version 29Aug2024)
+            # See: https://docs.lammps.org/Build_settings.html#fft-library
+            #      https://docs.lammps.org/Build_extras.html#kokkos
+            # For the sake of performance, do not use internal KISS FFT library, if possible
+            if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Aug2024')):
+                if self.cuda:
+                    self.cfg.update('configopts', '-DFFT_KOKKOS=CUFFT')
+                else:
+                    if get_software_root("imkl"):
+                        self.cfg.update('configopts', '-DFFT_KOKKOS=MKL')
+                    elif get_software_root("FFTW"):
+                        self.cfg.update('configopts', '-DFFT_KOKKOS=FFTW3')
+
         # CUDA only
         elif self.cuda:
             print_msg("Using GPU package (not Kokkos) with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
