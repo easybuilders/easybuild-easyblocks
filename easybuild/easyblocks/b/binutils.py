@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -33,13 +33,14 @@ import re
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, copy_file
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, symlink
 from easybuild.tools.modules import get_software_libdir, get_software_root
-from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import RISCV, get_cpu_family, get_shared_lib_ext
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.systemtools import RISCV, get_cpu_family, get_gcc_version, get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
 
@@ -58,10 +59,13 @@ class EB_binutils(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor"""
-        super(EB_binutils, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
-        # ld.gold linker is not supported on RISC-V
-        self.use_gold = get_cpu_family() != RISCV
+        if LooseVersion(self.version) >= LooseVersion('2.44') or get_cpu_family() == RISCV:
+            # ld.gold linker is not supported on RISC-V, and is being phased out starting from v2.44
+            self.use_gold = False
+        else:
+            self.use_gold = True
 
     def determine_used_library_paths(self):
         """Check which paths are used to search for libraries"""
@@ -70,11 +74,11 @@ class EB_binutils(ConfigureMake):
         compiler_cmd = os.environ.get('CC', 'gcc')
 
         # determine library search paths for GCC
-        stdout, ec = run_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler_cmd, simple=False, log_all=True)
-        if ec:
+        res = run_shell_cmd('LC_ALL=C "%s" -print-search-dirs' % compiler_cmd)
+        if res.exit_code:
             raise EasyBuildError("Failed to determine library search dirs from compiler %s", compiler_cmd)
 
-        m = re.search('^libraries: *=(.*)$', stdout, re.M)
+        m = re.search('^libraries: *=(.*)$', res.output, re.M)
         paths = nub(os.path.abspath(p) for p in m.group(1).split(os.pathsep))
         self.log.debug('Unique library search paths from compiler %s: %s', compiler_cmd, paths)
 
@@ -96,6 +100,8 @@ class EB_binutils(ConfigureMake):
 
     def configure_step(self):
         """Custom configuration procedure for binutils: statically link to zlib, configure options."""
+
+        version = LooseVersion(self.version)
 
         if self.toolchain.is_system_toolchain():
             # determine list of 'lib' directories to use rpath for;
@@ -136,7 +142,7 @@ class EB_binutils(ConfigureMake):
                 libz_path = os.path.join(zlibroot, get_software_libdir('zlib'), 'libz.a')
 
                 # for recent binutils versions, we need to override ZLIB in Makefile.in of components
-                if LooseVersion(self.version) >= LooseVersion('2.26'):
+                if version >= '2.26':
                     regex_subs = [
                         (r"^(ZLIB\s*=\s*).*$", r"\1%s" % libz_path),
                         (r"^(ZLIBINC\s*=\s*).*$", r"\1-I%s" % os.path.join(zlibroot, 'include')),
@@ -149,7 +155,7 @@ class EB_binutils(ConfigureMake):
                     libs.append(libz_path)
 
         msgpackroot = get_software_root('msgpack-c')
-        if LooseVersion(self.version) >= LooseVersion('2.39'):
+        if version >= '2.39':
             if msgpackroot:
                 self.cfg.update('configopts', '--with-msgpack')
             else:
@@ -169,23 +175,26 @@ class EB_binutils(ConfigureMake):
         self.cfg.update('configopts', '--with-sysroot=/')
 
         # build both static and shared libraries for recent binutils versions (default is only static)
-        if LooseVersion(self.version) > LooseVersion('2.24'):
+        if version > '2.24':
             self.cfg.update('configopts', "--enable-shared --enable-static")
 
         # enable gold linker with plugin support, use ld as default linker (for recent versions of binutils)
-        if LooseVersion(self.version) > LooseVersion('2.24'):
+        if version > '2.24':
             self.cfg.update('configopts', "--enable-plugins --enable-ld=default")
             if self.use_gold:
                 self.cfg.update('configopts', '--enable-gold')
 
-        if LooseVersion(self.version) >= LooseVersion('2.34'):
+        if version >= '2.34':
             if self.cfg['use_debuginfod']:
                 self.cfg.update('configopts', '--with-debuginfod')
             else:
                 self.cfg.update('configopts', '--without-debuginfod')
 
+        if self.cfg['install_libiberty']:
+            self.cfg.update('configopts', '--enable-install-libiberty')
+
         # complete configuration with configure_method of parent
-        super(EB_binutils, self).configure_step()
+        super().configure_step()
 
         if self.cfg['install_libiberty']:
             cflags = os.getenv('CFLAGS')
@@ -196,31 +205,21 @@ class EB_binutils(ConfigureMake):
                 # since not specifying any optimization level implies -O0...
                 self.cfg.update('buildopts', 'CFLAGS="-g -O2 -fPIC"')
 
+            version = LooseVersion(self.version)
+            if version >= '2.42' and self.toolchain.comp_family() == toolchain.SYSTEM:
+                gcc_version = LooseVersion(get_gcc_version())
+                if gcc_version and ('4.8.1' <= gcc_version < '6.1.0'):
+                    # append "-std=c++11" to $CXXFLAGS, not overriding
+                    self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -std=c++11"')
+
     def install_step(self):
-        """Install using 'make install', also install libiberty if desired."""
-        super(EB_binutils, self).install_step()
+        """Install using 'make install', also symlink libiberty/demangle headers if desired."""
+        super().install_step()
 
-        # only install libiberty files if if they're not there yet;
-        # libiberty.a is installed by default for old binutils versions
         if self.cfg['install_libiberty']:
-            if not os.path.exists(os.path.join(self.installdir, 'include', 'libiberty.h')):
-                copy_file(os.path.join(self.cfg['start_dir'], 'include', 'libiberty.h'),
-                          os.path.join(self.installdir, 'include', 'libiberty.h'))
-
-            if not glob.glob(os.path.join(self.installdir, 'lib*', 'libiberty.a')):
-                # Be a bit careful about where we install into
-                libdir = os.path.join(self.installdir, 'lib')
-                # At this point the lib directory should exist and be populated, if not try the other option
-                if not (os.path.exists(libdir) and os.path.isdir(libdir) and os.listdir(libdir)):
-                    libdir = os.path.join(self.installdir, 'lib64')
-
-                # Make sure the target exists (it should, otherwise our sanity check will fail)
-                if os.path.exists(libdir) and os.path.isdir(libdir) and os.listdir(libdir):
-                    copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.a'),
-                              os.path.join(libdir, 'libiberty.a'))
-                else:
-                    raise EasyBuildError("Target installation directory %s for libiberty.a is non-existent or empty",
-                                         libdir)
+            for includefile in ['demangle.h', 'libiberty.h']:
+                symlink(os.path.join(self.installdir, 'include', 'libiberty', includefile),
+                        os.path.join(self.installdir, 'include', includefile))
 
             if not os.path.exists(os.path.join(self.installdir, 'info', 'libiberty.texi')):
                 copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.texi'),
@@ -257,7 +256,7 @@ class EB_binutils(ConfigureMake):
         if self.cfg['install_libiberty']:
             custom_paths['files'].extend([
                 (os.path.join('lib', 'libiberty.a'), os.path.join('lib64', 'libiberty.a')),
-                os.path.join('include', 'libiberty.h'),
+                os.path.join('include', 'libiberty.h'),  os.path.join('include', 'demangle.h'),
             ])
 
         # All binaries support --version, check that they can be run
@@ -268,14 +267,14 @@ class EB_binutils(ConfigureMake):
         if any(dep['name'] == 'zlib' for dep in build_deps):
             for binary in binaries:
                 bin_path = os.path.join(self.installdir, 'bin', binary)
-                out, _ = run_cmd("file %s" % bin_path, simple=False)
-                if re.search(r'statically linked', out):
+                res = run_shell_cmd("file %s" % bin_path)
+                if re.search(r'statically linked', res.output):
                     # binary is fully statically linked, so no chance for dynamically linked libz
                     continue
 
                 # check whether libz is linked dynamically, it shouldn't be
-                out, _ = run_cmd("ldd %s" % bin_path, simple=False)
-                if re.search(r'libz\.%s' % shlib_ext, out):
-                    raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, out)
+                res = run_shell_cmd("ldd %s" % bin_path)
+                if re.search(r'libz\.%s' % shlib_ext, res.output):
+                    raise EasyBuildError("zlib is not statically linked in %s: %s", bin_path, res.output)
 
-        super(EB_binutils, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

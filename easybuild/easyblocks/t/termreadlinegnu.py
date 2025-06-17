@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -23,18 +23,22 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for building and installing pbdSLAP, implemented as an easyblock
+EasyBuild support for installing Term::ReadLine::Gnu.
 
-@author: Ewan Higgs (Ghent University)
+@author: Alexander Grund (TU Dresden)
 """
 
-from easybuild.easyblocks.generic.rpackage import RPackage
+from easybuild.easyblocks.generic.perlmodule import PerlModule
+from easybuild.tools.modules import get_software_root
 
 
-class EB_pbdSLAP(RPackage):
-    """Support for building/installing pbdSLAP."""
+class EB_Term_colon__colon_ReadLine_colon__colon_Gnu(PerlModule):
+    """Support for installing the Term::ReadLine::Gnu Perl module."""
 
     def __init__(self, *args, **kwargs):
-        """Initialisation of custom class variables for pbdSLAP."""
-        super(EB_pbdSLAP, self).__init__(*args, **kwargs)
-        self.configurevars.append("EXT_LDFLAGS='$LIBSCALAPACK'")
+        """Set configopts for dependencies"""
+        super().__init__(*args, **kwargs)
+        # Use the custom --prefix option to pass the installation prefixes of all direct dependencies
+        # to avoid it picking up system libraries.
+        prefix = ':'.join(get_software_root(dep['name']) for dep in self.cfg.dependencies())
+        self.cfg.update('configopts', f"--prefix='{prefix}'")

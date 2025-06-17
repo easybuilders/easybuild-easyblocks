@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,13 +39,15 @@ from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
+from easybuild.base import fancylogger
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, mkdir
+from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 
@@ -124,6 +126,7 @@ KOKKOS_CPU_MAPPING = {
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
     'icelake': 'SKX',
+    'sapphirerapids': 'SKX',
     'knights-landing': 'KNL',
     'zen': 'ZEN',
     'zen2': 'ZEN2',
@@ -153,12 +156,11 @@ KOKKOS_GPU_ARCH_TABLE = {
 # lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
 ref_version = '29Sep2021'
 
+_log = fancylogger.getLogger('easyblocks.lammps')
 
-def translate_lammps_version(version):
+
+def translate_lammps_version(version, path=None):
     """Translate the LAMMPS version into something that can be used in a comparison"""
-    items = [x for x in re.split('(\\d+)', version) if x]
-    if len(items) < 3:
-        raise ValueError("Version %s does not have (at least) 3 elements" % version)
     month_map = {
        "JAN": '01',
        "FEB": '02',
@@ -173,7 +175,26 @@ def translate_lammps_version(version):
        "NOV": '11',
        "DEC": '12'
     }
-    return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+    items = [x for x in re.split('(\\d+)', version) if x]
+
+    try:
+        return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
+    except (IndexError, KeyError):
+        # avoid failing miserably under --module-only --force
+        if path and os.path.exists(path) and os.listdir(path):
+            version_file = os.path.join(path, 'src', 'version.h')
+            if os.path.exists(version_file):
+                txt = read_file(os.path.join(path, 'src', 'version.h'))
+                result = re.search(r'(?<=LAMMPS_VERSION ")\d+ \S+ \d+', txt)
+                if result:
+                    day, month, year = result.group().split(' ')
+                else:
+                    raise EasyBuildError(f"Failed to parse LAMMPS version: '{txt}'")
+                return '.'.join([year, month_map[month.upper()], '%02d' % int(day)])
+            else:
+                raise EasyBuildError(f"Expected to find version file at {version_file}, but it doesn't exist")
+        else:
+            raise ValueError("LAMMPS version {version} cannot be translated")
 
 
 class EB_LAMMPS(CMakeMake):
@@ -183,15 +204,60 @@ class EB_LAMMPS(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """LAMMPS easyblock constructor: determine whether we should build with CUDA support enabled."""
-        super(EB_LAMMPS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         cuda_dep = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies()]
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
 
+        self.cur_version = None
+
+    def update_kokkos_cpu_mapping(self):
+        """
+        Update mapping to Kokkos CPU targets based on LAMMPS version
+        """
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
+            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
+            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
+            self.kokkos_cpu_mapping['cortex_a72'] = 'ARMV81'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
+            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
+            self.kokkos_cpu_mapping['icelake'] = 'ICX'
+            self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('4Feb2025')):
+            self.kokkos_cpu_mapping['neoverse_v2'] = 'ARMv9-Grace'
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Apr2025')):
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN4'
+
+    @staticmethod
+    def extra_options(**kwargs):
+        """Custom easyconfig parameters for LAMMPS"""
+        extra_vars = CMakeMake.extra_options()
+        extra_vars.update({
+            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
+            'kokkos': [True, "Enable kokkos build.", CUSTOM],
+            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
+            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
+            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
+        })
+        extra_vars['separate_build_dir'][0] = True
+        return extra_vars
+
+    def prepare_step(self, *args, **kwargs):
+        """Custom prepare step for LAMMPS."""
+        super().prepare_step(*args, **kwargs)
+
         # version 1.3.2 is used in the test suite to check easyblock can be initialised
         if self.version != '1.3.2':
-            self.cur_version = translate_lammps_version(self.version)
+            # take into account that build directory may not be available (in case of --module-only)
+            if os.path.exists(self.start_dir) and os.listdir(self.start_dir):
+                self.cur_version = translate_lammps_version(self.version, path=self.start_dir)
+            else:
+                self.cur_version = translate_lammps_version(self.version, path=self.installdir)
         else:
             self.cur_version = self.version
         self.ref_version = translate_lammps_version(ref_version)
@@ -211,34 +277,6 @@ class EB_LAMMPS(CMakeMake):
 
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
         self.update_kokkos_cpu_mapping()
-
-    @staticmethod
-    def extra_options(**kwargs):
-        """Custom easyconfig parameters for LAMMPS"""
-        extra_vars = CMakeMake.extra_options()
-        extra_vars.update({
-            'general_packages': [None, "List of general packages (without prefix PKG_).", MANDATORY],
-            'kokkos': [True, "Enable kokkos build.", CUSTOM],
-            'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
-            'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
-        })
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
-
-    def update_kokkos_cpu_mapping(self):
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('31Mar2017')):
-            self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
-            self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
-
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
-            self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
-            self.kokkos_cpu_mapping['zen4'] = 'ZEN3'
-
-    def prepare_step(self, *args, **kwargs):
-        """Custom prepare step for LAMMPS."""
-        super(EB_LAMMPS, self).prepare_step(*args, **kwargs)
 
         # Unset LIBS when using both KOKKOS and CUDA - it will mix lib paths otherwise
         if self.cfg['kokkos'] and self.cuda:
@@ -426,18 +464,18 @@ class EB_LAMMPS(CMakeMake):
         if python_dir:
             # Find the Python .so lib
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'LDLIBRARY\'))"'
-            (python_lib, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
-            if not python_lib:
-                raise EasyBuildError("Failed to determine Python .so library: %s", python_lib)
-            python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', python_lib.strip()))[0]
+            res = run_shell_cmd(cmd, hidden=True)
+            if not res.output:
+                raise EasyBuildError("Failed to determine Python .so library: %s", res.output)
+            python_lib_path = glob.glob(os.path.join(python_dir, 'lib*', res.output.strip()))[0]
             if not python_lib_path:
-                raise EasyBuildError("Could not find path to Python .so library: %s", python_lib)
+                raise EasyBuildError("Could not find path to Python .so library: %s", res.output)
             # and the path to the Python include folder
             cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'INCLUDEPY\'))"'
-            (python_include_dir, _) = run_cmd(cmd, log_all=True, simple=False, trace=False)
-            if not python_include_dir:
-                raise EasyBuildError("Failed to determine Python include dir: %s", python_include_dir)
-            python_include_dir = python_include_dir.strip()
+            res = run_shell_cmd(cmd, hidden=True)
+            if not res.output:
+                raise EasyBuildError("Failed to determine Python include dir: %s", res.output)
+            python_include_dir = res.output.strip()
 
             # Whether you need one or the other of the options below depends on the version of CMake and LAMMPS
             # Rather than figure this out, use both (and one will be ignored)
@@ -450,17 +488,25 @@ class EB_LAMMPS(CMakeMake):
         else:
             raise EasyBuildError("Expected to find a Python dependency as sanity check commands rely on it!")
 
-        return super(EB_LAMMPS, self).configure_step()
+        return super().configure_step()
 
     def install_step(self):
         """Install LAMMPS and examples/potentials."""
-        super(EB_LAMMPS, self).install_step()
+        super().install_step()
+
+        # Copy LICENSE and version file so these can be used with `--module-only`
+        version_file = os.path.join(self.start_dir, 'src', 'version.h')
+        copy_file(version_file, os.path.join(self.installdir, 'src', 'version.h'))
+        license_file = os.path.join(self.start_dir, 'LICENSE')
+        copy_file(license_file, os.path.join(self.installdir, 'LICENSE'))
+
         # Copy over the examples so we can repeat the sanity check
         # (some symlinks may be broken)
         examples_dir = os.path.join(self.start_dir, 'examples')
         copy_dir(examples_dir, os.path.join(self.installdir, 'examples'), symlinks=True)
         potentials_dir = os.path.join(self.start_dir, 'potentials')
         copy_dir(potentials_dir, os.path.join(self.installdir, 'potentials'))
+
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
             # From ver 2Aug2023:
             # "make install in a CMake based installation will no longer install
@@ -471,7 +517,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-*_%s' % (self.name.lower(), self.version))
+            self.lammpsdir = os.path.join(self.builddir, '%s-*' % self.name.lower())
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
@@ -486,10 +532,14 @@ class EB_LAMMPS(CMakeMake):
                 'site_packages': site_packages,
             }
 
-            run_cmd(cmd, log_all=True, simple=False)
+            run_shell_cmd(cmd)
 
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
+
+        # Set cur_version when running --sanity-check-only
+        if self.cur_version is None:
+            self.cur_version = translate_lammps_version(self.version, path=self.installdir)
 
         # Output files need to go somewhere (and has to work for --module-only as well)
         execution_dir = tempfile.mkdtemp()
@@ -546,20 +596,7 @@ class EB_LAMMPS(CMakeMake):
             pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
             custom_paths['dirs'].append(pythonpath)
 
-        return super(EB_LAMMPS, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
-
-    def make_module_extra(self):
-        """Add install path to PYTHONPATH"""
-
-        txt = super(EB_LAMMPS, self).make_module_extra()
-
-        python = get_software_version('Python')
-        if python:
-            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-            pythonpath = os.path.join('lib', 'python%s' % pyshortver, 'site-packages')
-            txt += self.module_generator.prepend_paths('PYTHONPATH', [pythonpath])
-
-        return txt
+        return super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
 
 def get_cuda_gpu_arch(cuda_cc):
@@ -579,7 +616,22 @@ def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
 
     processor_arch = None
 
-    if kokkos_arch:
+    if build_option('optarch') == OPTARCH_GENERIC:
+        # For generic Arm builds we use an existing target;
+        # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
+        # For other architectures we set a custom/non-existent type, which will disable all optimizations,
+        # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
+        if get_cpu_architecture() == AARCH64:
+            processor_arch = 'ARMV80'
+        else:
+            processor_arch = 'EASYBUILD_GENERIC'
+
+        _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
+        if kokkos_arch:
+            msg = "The specified kokkos_arch (%s) will be ignored " % kokkos_arch
+            msg += "because a generic build was requested (via --optarch=GENERIC)"
+            print_warning(msg)
+    elif kokkos_arch:
         if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
             warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
             warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
@@ -666,7 +718,7 @@ def get_cpu_arch():
 
     :return: returns detected cpu architecture
     """
-    out, ec = run_cmd("python -c 'from archspec.cpu import host; print(host())'", simple=False)
-    if ec:
-        raise EasyBuildError("Failed to determine CPU architecture: %s", out)
-    return out.strip()
+    res = run_shell_cmd("python -c 'from archspec.cpu import host; print(host())'")
+    if res.exit_code:
+        raise EasyBuildError("Failed to determine CPU architecture: %s", res.output)
+    return res.output.strip()

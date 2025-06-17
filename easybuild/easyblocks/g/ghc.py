@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,4 +46,4 @@ class EB_GHC(ConfigureMake):
         if LooseVersion(self.version) < LooseVersion("7.0"):
             pass
         else:
-            super(EB_GHC, self).build_step(verbose=verbose)
+            super().build_step(verbose=verbose)

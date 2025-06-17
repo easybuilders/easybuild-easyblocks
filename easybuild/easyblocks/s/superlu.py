@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University, University of Luxembourg
+# Copyright 2009-2025 Ghent University, University of Luxembourg
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,7 +52,7 @@ class EB_SuperLU(CMakeMake):
     def __init__(self, *args, **kwargs):
         """Constructor for SuperLU easyblock."""
 
-        super(EB_SuperLU, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # if self.lib_ext is not set by CMakeMake, fall back to .a (static libraries by default)
         self.lib_ext = self.lib_ext or 'a'
@@ -118,7 +118,20 @@ class EB_SuperLU(CMakeMake):
             # This BLAS library is not supported yet
             raise EasyBuildError("BLAS library '%s' is not supported yet", toolchain_blas)
 
-        super(EB_SuperLU, self).configure_step()
+        parmetis_root = get_software_root('ParMETIS')
+        if parmetis_root:
+            self.cfg.update('configopts', '-DTPL_ENABLE_PARMETISLIB=ON')
+            parmetis_include = os.path.join(parmetis_root, 'include')
+            self.cfg.update('configopts', '-DTPL_PARMETIS_INCLUDE_DIRS=%s' % parmetis_include)
+            parmetis_libs = ';'.join([
+                os.path.join(parmetis_root, 'lib', 'libparmetis.a'),
+                os.path.join(parmetis_root, 'lib', 'libmetis.a'),
+            ])
+            self.cfg.update('configopts', "-DTPL_PARMETIS_LIBRARIES='%s'" % parmetis_libs)
+        else:
+            self.cfg.update('configopts', '-DTPL_ENABLE_PARMETISLIB=OFF')
+
+        super().configure_step()
 
     def test_step(self):
         """
@@ -126,13 +139,13 @@ class EB_SuperLU(CMakeMake):
         """
         if self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'test'
-        super(EB_SuperLU, self).test_step()
+        super().test_step()
 
     def install_step(self):
         """
         Custom install procedure for SuperLU
         """
-        super(EB_SuperLU, self).install_step()
+        super().install_step()
 
         libbits = 'lib'
         if not os.path.exists(os.path.join(self.installdir, libbits)):
@@ -159,4 +172,4 @@ class EB_SuperLU(CMakeMake):
             'files': ["include/supermatrix.h", os.path.join('lib', 'libsuperlu.%s' % self.lib_ext)],
             'dirs': [],
         }
-        super(EB_SuperLU, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

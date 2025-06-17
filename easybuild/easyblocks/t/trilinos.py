@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,6 +31,8 @@ import os
 import random
 import re
 
+from string import ascii_letters
+
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
@@ -39,7 +41,6 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
 from easybuild.tools.filetools import mkdir, remove_dir, symlink
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import ascii_letters
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -63,7 +64,7 @@ class EB_Trilinos(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Constructor of custom easyblock for Trilinos."""
-        super(EB_Trilinos, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.cfg['shared_libs'] is not None:
             self.log.deprecated("Use 'build_shared_libs' instead of 'shared_libs' easyconfig parameter", '5.0')
@@ -253,11 +254,11 @@ class EB_Trilinos(CMakeMake):
         symlink(obj_dir, short_build_dir)
 
         # configure using cmake
-        super(EB_Trilinos, self).configure_step(srcdir=short_src_dir, builddir=short_build_dir)
+        super().configure_step(srcdir=short_src_dir, builddir=short_build_dir)
 
     def build_step(self):
         """Build with make (verbose logging enabled)."""
-        super(EB_Trilinos, self).build_step(verbose=True)
+        super().build_step(verbose=True)
 
     def sanity_check_step(self):
         """Custom sanity check for Trilinos."""
@@ -306,7 +307,7 @@ class EB_Trilinos(CMakeMake):
             'dirs': ['bin', 'include']
         }
 
-        super(EB_Trilinos, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def cleanup_step(self):
         """Complete cleanup by also removing custom created short build directory."""

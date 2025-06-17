@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2024 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, create_unused_dir, which
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 DEFAULT_CONFIGURE_CMD = 'meson'
 DEFAULT_BUILD_CMD = 'ninja'
@@ -53,11 +53,27 @@ class MesonNinja(EasyBlock):
         extra_vars.update({
             'build_dir': [None, "build_dir to pass to meson", CUSTOM],
             'build_cmd': [DEFAULT_BUILD_CMD, "Build command to use", CUSTOM],
+            'build_type': [None, "Build type for meson, e.g. release."
+                                 "Replaces use of toolchain options debug, noopt, lowopt, opt", CUSTOM],
+            'ndebug': [True, "Sets -Db_ndebug which in turn defines NDEBUG for C/C++ builds."
+                             "This disabled costly asserts in code, typical for production.", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
         })
         return extra_vars
+
+    @property
+    def optimization(self):
+        """Optimization level"""
+        if self.toolchain.options.get('noopt', False):
+            return 0
+        elif self.toolchain.options.get('lowopt', False):
+            return 1
+        elif self.toolchain.options.get('opt', False):
+            return 3
+        else:
+            return 2
 
     def configure_step(self, cmd_prefix=''):
         """
@@ -92,15 +108,27 @@ class MesonNinja(EasyBlock):
 
         build_dir = self.cfg.get('build_dir') or self.start_dir
 
-        cmd = "%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s %(configopts)s %(source_dir)s" % {
+        # Build type is either specified directly or via --optimization and --debug flags.
+        if self.cfg['build_type'] is not None:
+            build_type = '--buildtype=' + self.cfg['build_type']
+        else:
+            build_type = '--optimization=%(optimization)s %(debug)s' % {
+                'optimization': self.optimization,
+                'debug': '--debug' if self.toolchain.options.get('debug', False) else '',
+            }
+
+        cmd = ("%(preconfigopts)s %(configure_cmd)s --prefix %(installdir)s %(build_type)s %(configopts)s "
+               "-Db_ndebug=%(ndebug)s %(source_dir)s") % {
+            'build_type': build_type,
             'configopts': self.cfg['configopts'],
             'configure_cmd': configure_cmd,
             'installdir': self.installdir,
             'preconfigopts': self.cfg['preconfigopts'],
+            'ndebug': str(self.cfg.get('ndebug')).lower(),
             'source_dir': build_dir,
         }
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        return out
+        res = run_shell_cmd(cmd)
+        return res.output
 
     def build_step(self, verbose=False, path=None):
         """
@@ -108,18 +136,16 @@ class MesonNinja(EasyBlock):
         """
         build_cmd = self.cfg.get('build_cmd', DEFAULT_BUILD_CMD)
 
-        parallel = ''
-        if self.cfg['parallel']:
-            parallel = "-j %s" % self.cfg['parallel']
+        parallel = f'-j {self.cfg.parallel}' if self.cfg.parallel > 1 else ''
 
-        cmd = "%(prebuildopts)s %(build_cmd)s %(parallel)s %(buildopts)s" % {
+        cmd = "%(prebuildopts)s %(build_cmd)s -v %(parallel)s %(buildopts)s" % {
             'buildopts': self.cfg['buildopts'],
             'build_cmd': build_cmd,
             'parallel': parallel,
             'prebuildopts': self.cfg['prebuildopts'],
         }
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        return out
+        res = run_shell_cmd(cmd)
+        return res.output
 
     def test_step(self):
         """
@@ -127,8 +153,8 @@ class MesonNinja(EasyBlock):
         """
         if self.cfg['runtest']:
             cmd = "%s %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
-            return out
+            res = run_shell_cmd(cmd)
+            return res.output
 
     def install_step(self):
         """
@@ -136,9 +162,7 @@ class MesonNinja(EasyBlock):
         """
         install_cmd = self.cfg.get('install_cmd', DEFAULT_INSTALL_CMD)
 
-        parallel = ''
-        if self.cfg['parallel']:
-            parallel = "-j %s" % self.cfg['parallel']
+        parallel = f'-j {self.cfg.parallel}' if self.cfg.parallel > 1 else ''
 
         cmd = "%(preinstallopts)s %(install_cmd)s %(parallel)s %(installopts)s install" % {
             'installopts': self.cfg['installopts'],
@@ -146,5 +170,5 @@ class MesonNinja(EasyBlock):
             'install_cmd': install_cmd,
             'preinstallopts': self.cfg['preinstallopts'],
         }
-        (out, _) = run_cmd(cmd, log_all=True, simple=False)
-        return out
+        res = run_shell_cmd(cmd)
+        return res.output

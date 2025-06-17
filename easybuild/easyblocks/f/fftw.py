@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -88,7 +88,7 @@ class EB_FFTW(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for FFTW."""
-        super(EB_FFTW, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # do not enable MPI if the toolchain does not support it
         if not self.toolchain.mpi_family():
@@ -191,7 +191,7 @@ class EB_FFTW(ConfigureMake):
                 if self.sve:
                     # SVE (ARM) only for single precision and double precision (on AARCH64 if sve feature is present)
                     if prec == 'single' or prec == 'double':
-                        prec_configopts.append('--enable-fma --enable-sve --enable-armv8-cntvct-el0')
+                        prec_configopts.append('--enable-fma --enable-armv8-cntvct-el0')
                 elif self.asimd or self.neon:
                     # NEON (ARM) only for single precision and double precision (on AARCH64)
                     if prec == 'single' or (prec == 'double' and self.asimd):
@@ -227,7 +227,7 @@ class EB_FFTW(ConfigureMake):
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
-        return super(EB_FFTW, self).run_all_steps(*args, **kwargs)
+        return super().run_all_steps(*args, **kwargs)
 
     def test_step(self):
         """Custom implementation of test step for FFTW."""
@@ -245,7 +245,7 @@ class EB_FFTW(ConfigureMake):
                 if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
                     self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
 
-        super(EB_FFTW, self).test_step()
+        super().test_step()
 
     def sanity_check_step(self, mpionly=False):
         """Custom sanity check for FFTW. mpionly=True only for FFTW.MPI"""
@@ -302,4 +302,4 @@ class EB_FFTW(ConfigureMake):
 
         custom_paths['files'].extend(nub(extra_files))
 
-        super(EB_FFTW, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
