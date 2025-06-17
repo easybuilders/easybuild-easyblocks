@@ -54,7 +54,7 @@ class EB_BLIS(ConfigureMake):
         if self.toolchain.options.get('openmp', None):
             self.cfg.update('configopts', '--enable-threading=openmp')
 
-        self.cfg.update('configopts', f'--enable-cblas --enable-shared {self.cfg["cpu_architecture"]}')
+        self.cfg.update('configopts', f'--enable-cblas --enable-shared CC="$CC" {self.cfg["cpu_architecture"]}')
 
         output = super().configure_step()
 
