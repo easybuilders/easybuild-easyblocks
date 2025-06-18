@@ -191,7 +191,7 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
         unversioned_packages = set()
     elif isinstance(unversioned_packages, (list, tuple)):
         unversioned_packages = set(unversioned_packages)
-    else:
+    elif not isinstance(unversioned_packages, set):
         raise EasyBuildError("Incorrect value type for 'unversioned_packages' in run_pip_check: %s",
                              type(unversioned_packages))
 
