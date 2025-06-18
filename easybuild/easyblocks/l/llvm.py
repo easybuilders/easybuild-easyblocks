@@ -933,7 +933,6 @@ class EB_LLVM(CMakeMake):
 
             # Also runs of the intermediate step compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
-                self._set_gcc_prefix()
                 self._create_compiler_config_file(prev_dir)
                 # also pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
                 # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
@@ -1127,7 +1126,6 @@ class EB_LLVM(CMakeMake):
         if not self.cfg['skip_all_tests']:
             # Also runs of test suite compilers should be made aware of the GCC installation
             if LooseVersion(self.version) >= LooseVersion('19'):
-                self._set_gcc_prefix()
                 self._create_compiler_config_file(self.final_dir)
 
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
@@ -1186,7 +1184,6 @@ class EB_LLVM(CMakeMake):
         if LooseVersion(self.version) >= LooseVersion('19'):
             # For GCC aware installation create config files in order to point to the correct GCC installation
             # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
-            self._set_gcc_prefix()
             self._create_compiler_config_file(self.installdir)
 
         # This is needed as some older build system will select a different naming scheme for the library leading to
