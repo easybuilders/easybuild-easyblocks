@@ -157,7 +157,11 @@ class CMakeMake(ConfigureMake):
             'install_libdir': ['lib', "Subdirectory to use for library installation files", CUSTOM],
             'runtest': [None, "Make target to test build or True to use CTest", BUILD],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
-            'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
+            'separate_build_dir': [True, "Perform build in a separate directory. "
+                                         "Can be set to a specific path to use, "
+                                         "otherwise a new, empty folder is created. "
+                                         "A relative path is relative to %(builddir)s. "
+                                         "To build in the source directory set this to 'False'.", CUSTOM],
         })
         return extra_vars
 
@@ -220,9 +224,19 @@ class CMakeMake(ConfigureMake):
 
         setup_cmake_env(self.toolchain)
 
-        if builddir is None and self.cfg.get('separate_build_dir', True):
-            self.separate_build_dir = create_unused_dir(self.builddir, 'easybuild_obj')
-            builddir = self.separate_build_dir
+        if builddir is None:
+            separate_build_dir = self.cfg['separate_build_dir']
+            if separate_build_dir is not False:
+                if separate_build_dir is True:
+                    self.separate_build_dir = create_unused_dir(self.builddir, 'easybuild_obj')
+                elif isinstance(separate_build_dir, str):
+                    # Note that the join returns separate_build_dir if it is absolute
+                    self.separate_build_dir = os.path.join(self.builddir, separate_build_dir)
+                    mkdir(self.separate_build_dir)
+                else:
+                    raise EasyBuildError('Invalid value for separate_build_dir: %s (type %s)',
+                                         separate_build_dir, type(separate_build_dir))
+                builddir = self.separate_build_dir
 
         if builddir:
             mkdir(builddir, parents=True)
