@@ -845,8 +845,13 @@ class PythonPackage(ExtensionEasyBlock):
                 # print Python search path (just debugging purposes)
                 run_shell_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, hidden=True)
 
+                abs_bindirs = [os.path.join(actual_installdir, 'bin')]
                 abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
-                extrapath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
+                extrapath = "export PATH={path} PYTHONPATH={pythonpath} LD_LIBRARY_PATH={ld_library_path} &&".format(
+                    path=os.pathsep.join(abs_bindirs + ['$PATH']),
+                    pythonpath=os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH']),
+                    ld_library_path=os.pathsep.join(abs_pylibdirs + ['$LD_LIBRARY_PATH']),
+                )
 
                 cmd = self.compose_install_command(test_installdir, extrapath=extrapath)
                 run_shell_cmd(cmd)
