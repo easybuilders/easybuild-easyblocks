@@ -189,8 +189,11 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
 
     if unversioned_packages is None:
         unversioned_packages = set()
-    elif isinstance(unversioned_packages, list):
+    elif isinstance(unversioned_packages, (list, tuple)):
         unversioned_packages = set(unversioned_packages)
+    else:
+        raise EasyBuildError("Incorrect value type for 'unversioned_packages' in run_pip_check: %s",
+                             type(unversioned_packages))
 
     if build_option('ignore_pip_unversioned_pkgs'):
         unversioned_packages.update(build_option('ignore_pip_unversioned_pkgs'))
@@ -221,9 +224,9 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
     # so it will contain a version, but the raw tar.gz does not.
     pkgs = det_installed_python_packages(names_only=False, python_cmd=python_cmd)
     faulty_version = '0.0.0'
-    faulty_pkg_names = [pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version]
+    faulty_pkg_names = sorted([pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version])
 
-    for unversioned_package in unversioned_packages:
+    for unversioned_package in sorted(unversioned_packages):
         try:
             faulty_pkg_names.remove(unversioned_package)
             log.debug(f"Excluding unversioned package '{unversioned_package}' from check")
