@@ -243,7 +243,6 @@ class EB_LAMMPS(CMakeMake):
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
             'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
-            'runtest': [None, "Enable running the lammps unittests", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -371,8 +370,14 @@ class EB_LAMMPS(CMakeMake):
             for package in self.cfg['user_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_user_prefix, package))
 
-        if self.cfg['runtest']:
-            self.cfg.update('configopts', '-DENABLE_TESTING=on')
+        if LooseVersion(self.cur_version) >= LooseVersion('29Aug2024'):
+            if self.cfg['runtest'] is None or self.cfg['runtest']:
+                build_dep_names = [d['name'] for d in self.cfg.builddependencies()]
+                for tool in ['PyYAML']:
+                    if tool not in build_dep_names:
+                        raise EasyBuildError("%s not included as build dependency", tool)
+                    else:
+                        self.cfg.update('configopts', '-DENABLE_TESTING=on')
 
         # Optimization settings
         pkg_opt = '-D%sOPT=' % self.pkg_prefix
