@@ -379,6 +379,25 @@ class EasyBlockSpecificTest(TestCase):
         with self.mocked_stdout_stderr():
             python.run_pip_check(python_cmd=sys.executable)
 
+        # test ignored of unversioned Python packages
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip check" in cmd:
+                output = "No broken requirements found."
+            elif "pip list" in cmd:
+                output = '[{"name": "zero", "version": "0.0.0"}]'
+            elif "pip --version" in cmd:
+                output = "pip 20.0"
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        with self.mocked_stdout_stderr():
+            python.run_pip_check(python_cmd=sys.executable, unversioned_packages=('zero', ))
+
         # inject all possible errors
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
             if "pip check" in cmd:
