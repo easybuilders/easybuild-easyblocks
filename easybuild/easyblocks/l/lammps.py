@@ -243,6 +243,7 @@ class EB_LAMMPS(CMakeMake):
             'kokkos_arch': [None, "Set kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
             'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
+            'runtest': [None, "Enable running the lammps unittests", CUSTOM],
         })
         extra_vars['separate_build_dir'][0] = True
         return extra_vars
@@ -369,6 +370,9 @@ class EB_LAMMPS(CMakeMake):
         if self.cfg['user_packages']:
             for package in self.cfg['user_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_user_prefix, package))
+
+        if self.cfg['runtest']:
+            self.cfg.update('configopts', '-DENABLE_TESTING=on')
 
         # Optimization settings
         pkg_opt = '-D%sOPT=' % self.pkg_prefix
