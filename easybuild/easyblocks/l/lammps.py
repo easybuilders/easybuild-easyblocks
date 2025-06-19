@@ -553,7 +553,8 @@ class EB_LAMMPS(CMakeMake):
         if python:
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
             pythonpath = os.environ.get('PYTHONPATH', '')
-            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, 'lib', 'python%s' % pyshortver, 'site-packages'), pythonpath]))
+            pylammps = os.path.join(self.installdir, 'lib', 'python%s' % pyshortver, 'site-packages')
+            env.setvar('PYTHONPATH', os.pathsep.join([pylammps, pythonpath]))
 
         # There does not seem to be an easy way at the moment to add at the end of the test command
         # Doing this for now
