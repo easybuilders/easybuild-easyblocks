@@ -354,26 +354,36 @@ class EB_Python(ConfigureMake):
         # soname, instead let's return the full path in this particular scenario
         filtered_env_vars = build_option('filter_env_vars') or []
         if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
-            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
-            orig_gcc_so_name = None
-            # Let's do this incrementally since we are going back in time
-            if LooseVersion(self.version) >= "3.9.1":
-                # From 3.9.1 to at least v3.12.4 there is only one match for this line
-                orig_gcc_so_name = "_get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))"
-            if orig_gcc_so_name:
-                orig_gcc_so_name_regex = r'(\s*)' + re.escape(orig_gcc_so_name) + r'(\s*)'
-                # _get_soname() takes the full path as an argument and uses objdump to get the SONAME field from
-                # the shared object file. The presence or absence of the SONAME field in the ELF header of a shared
-                # library is influenced by how the library is compiled and linked. For manually built libraries we
-                # may be lacking this field, this approach also solves that problem.
-                updated_gcc_so_name = (
-                    "_findLib_gcc(name) or _findLib_ld(name)"
-                )
+            if LooseVersion(self.version) >= "3.11":
+                ctypes_init_py = os.path.join("Lib", "ctypes", "__init__.py")
+                # patches for __init__.py
+                # Import patch to add util and re capabilities
+                orig_import = 'from struct import calcsize as _calcsize'
+                updated_import = """from struct import calcsize as _calcsize
+                from ctypes import util
+                import re"""
+
                 apply_regex_substitutions(
-                    ctypes_util_py,
-                    [(orig_gcc_so_name_regex, r'\1' + updated_gcc_so_name + r'\2')],
-                    on_missing_match=ERROR
-                )
+                        ctypes_init_py,
+                        [(orig_import, updated_import)],
+                        on_missing_match=ERROR
+                        )
+                # add posix specific support
+                # this code snip use util_findLib_ld function to recover the 
+                # complete librarypath
+                orig_support_marker=r'if _sys.platform.startswith\(\"aix\"\):'
+                updated_support_marker="""
+                    if _os.name == "posix":
+                        if name and name.endswith(".so"):
+                            s = re.sub(r'lib', '', name)
+                            s = re.sub(r'..*', '', s)
+                        self._name = util._findLib_ld(s)
+                    if _sys.platform.startswith("aix"):"""
+                apply_regex_substitutions(
+                        ctypes_init_py,
+                        [(orig_support_marker, updated_support_marker)],
+                        on_missing_match=ERROR
+                        )
 
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
@@ -427,18 +437,45 @@ class EB_Python(ConfigureMake):
                 regex_subs.append((r'"/%s' % usr_subdir, r'"%s' % sysroot_usr_subdir))
 
             apply_regex_substitutions(setup_py_fn, regex_subs)
+            if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
+                ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+                orig_libpath =  r'libpath = os.environ.get\(\'LD_LIBRARY_PATH\'\)'
+                updated_libpath = """
+                        libpath = []
+                        if os.getenv('LIBRARY_PATH'):
+                            libpath.append(os.getenv('LIBRARY_PATH'))
+                        if {sysroot}:
+                            libpath.append(os.getenv('{sysroot_lib_dirs}'))
+                        libpath = ':'.join(libpath)
+                """.format(sysroot=sysroot, sysroot_lib_dirs=sysroot_lib_dirs)
+                apply_regex_substitutions(
+                    ctypes_util_py,
+                    [(orig_libpath, updated_libpath)],
+                    on_missing_match=ERROR
+                    )
+            else:
+                ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+                org_libpath =  r'libpath = os.environ.get\(\'LD_LIBRARY_PATH\'\)'
+                updated_libpath = r'libpath = os.environ.get\(\'LIBRARY_PATH\'\)'
+                apply_regex_substitutions(
+                    ctypes_util_py,
+                    [(orig_libpath, updated_libpath)],
+                    on_missing_match=ERROR
+                    )
 
         # The path to ldconfig is hardcoded in cpython.util._findSoname_ldconfig(name) as /sbin/ldconfig.
         # This is incorrect if a custom sysroot is used
         # Have confirmed for all versions starting with this one that _findSoname_ldconfig hardcodes /sbin/ldconfig
         if sysroot is not None and LooseVersion(self.version) >= "3.9.1":
-            orig_ld_config_call = "with subprocess.Popen(['/sbin/ldconfig', '-p'],"
+            orig_ld_config_call = "'/sbin/ldconfig'"
             ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
             orig_ld_config_call_regex = r'(\s*)' + re.escape(orig_ld_config_call) + r'(\s*)'
-            updated_ld_config_call = "with subprocess.Popen(['%s/sbin/ldconfig', '-p']," % sysroot
+            updated_ld_config_call = "'%s/sbin/ldconfig'" % sysroot
+
             apply_regex_substitutions(
                 ctypes_util_py,
                 [(orig_ld_config_call_regex, r'\1' + updated_ld_config_call + r'\2')],
+                match_all=True, 
                 on_missing_match=ERROR
             )
 
