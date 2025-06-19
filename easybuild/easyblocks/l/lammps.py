@@ -370,7 +370,7 @@ class EB_LAMMPS(CMakeMake):
             for package in self.cfg['user_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_user_prefix, package))
 
-        if LooseVersion(self.cur_version) >= LooseVersion('29Aug2024'):
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Aug2024')):
             if self.cfg['runtest'] is None or self.cfg['runtest']:
                 self.cfg['runtest'] = True
                 build_dep_names = [d['name'] for d in self.cfg.builddependencies()]
