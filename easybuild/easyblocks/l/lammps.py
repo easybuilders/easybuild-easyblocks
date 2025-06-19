@@ -372,6 +372,7 @@ class EB_LAMMPS(CMakeMake):
 
         if LooseVersion(self.cur_version) >= LooseVersion('29Aug2024'):
             if self.cfg['runtest'] is None or self.cfg['runtest']:
+                self.cfg['runtest'] = True
                 build_dep_names = [d['name'] for d in self.cfg.builddependencies()]
                 for tool in ['PyYAML']:
                     if tool not in build_dep_names:
