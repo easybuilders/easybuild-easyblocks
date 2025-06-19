@@ -544,6 +544,29 @@ class EB_LAMMPS(CMakeMake):
 
             run_shell_cmd(cmd)
 
+    def test_step(self):
+        """Set PythonPath before running ctest"""
+
+        # have to set the pythonpath to run the tests
+        # I'm not sure if this is the correct way to do it
+        python = get_software_version('Python')
+        if python:
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            pythonpath = os.environ.get('PYTHONPATH', '')
+            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, 'lib', 'python%s' % pyshortver, 'site-packages'), pythonpath]))
+
+        # There does not seem to be an easy way at the moment to add at the end of the test command
+        # Doing this for now
+        if self.cfg.get('runtest') is True and not self.cfg.get('test_cmd'):
+            test_cmd = 'ctest'
+            if LooseVersion(self.cmake_version) >= '3.17.0':
+                test_cmd += ' --no-tests=error'
+            test_cmd += ' -LE noWindows'
+            self.log.debug("`runtest = True` found, using '%s' as test_cmd", test_cmd)
+            self.cfg['test_cmd'] = test_cmd
+
+        super().test_step()
+
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
 
