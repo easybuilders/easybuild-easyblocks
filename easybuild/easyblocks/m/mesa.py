@@ -65,7 +65,7 @@ class EB_Mesa(MesonNinja):
         if not gallium_drivers:
             # Add appropriate Gallium drivers for current architecture
             arch = get_cpu_architecture()
-            if LooseVersion(self.version) < LooseVersion('25'):
+            if LooseVersion(self.version) >= LooseVersion('25'):
                 default_renderer = 'llvmpipe'
             else:
                 default_renderer = 'swrast'
