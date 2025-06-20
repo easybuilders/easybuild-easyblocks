@@ -362,6 +362,9 @@ class EB_LAMMPS(CMakeMake):
 
         # LAMMPS Configuration Options
         # https://github.com/lammps/lammps/blob/master/cmake/README.md#lammps-configuration-options
+        if build_option('rpath'):
+            self.cfg.update('configopts', '-DLAMMPS_INSTALL_RPATH=ON')
+
         if self.cfg['general_packages']:
             for package in self.cfg['general_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_prefix, package))
