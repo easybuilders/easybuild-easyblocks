@@ -37,18 +37,18 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 import os
 import re
 import stat
+from glob import glob
 
-from easybuild.tools import LooseVersion
-
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import IGNORE
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, expand_glob_paths
 from easybuild.tools.filetools import patch_perl_script_autoflush, remove_file, symlink, which, write_file
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
-import easybuild.tools.environment as env
 
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
@@ -309,6 +309,19 @@ class EB_CUDA(Binary):
                 link = re.sub('-[0-9]*.?[0-9]*(.[0-9]*)?.pc', '.pc', pc_file)
                 symlink(pc_file, link, use_abspath_source=False)
             change_dir(cwd)
+
+        # symlink CUPTI in standard location under CUDA_ROOT
+        # some software expects it there regardless of what we add in search paths
+        # see https://github.com/easybuilders/easybuild-easyconfigs/pull/22921
+        cupti_dir = os.path.join(self.installdir, 'extras', 'CUPTI')
+        if os.path.isdir(cupti_dir):
+            for cupti_subdir in ['include', 'lib64']:
+                cupti_target_dir = os.path.join(self.installdir, cupti_subdir)
+                cwd = change_dir(cupti_target_dir)
+                for cupti_file in glob(os.path.join(self.installdir, 'extras', 'CUPTI', cupti_subdir, '*')):
+                    cupti_link_src = os.path.relpath(os.path.realpath(cupti_file), os.path.realpath(cupti_target_dir))
+                    symlink(cupti_link_src, os.path.basename(cupti_file), use_abspath_source=False)
+                change_dir(cwd)
 
         super().post_processing_step()
 
