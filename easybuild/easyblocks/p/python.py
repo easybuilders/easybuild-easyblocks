@@ -40,6 +40,7 @@ import fileinput
 import sys
 import tempfile
 from easybuild.tools import LooseVersion
+import textwrap
 
 import easybuild.tools.environment as env
 from easybuild.base import fancylogger
@@ -365,7 +366,7 @@ class EB_Python(ConfigureMake):
 
                 apply_regex_substitutions(
                         ctypes_init_py,
-                        [(orig_import, updated_import)],
+                        [(orig_import, textwrap.dedent(updated_import))],
                         on_missing_match=ERROR
                         )
                 # add posix specific support
@@ -373,15 +374,16 @@ class EB_Python(ConfigureMake):
                 # complete librarypath
                 orig_support_marker=r'if _sys.platform.startswith\(\"aix\"\):'
                 updated_support_marker="""
-                    if _os.name == "posix":
-                        if name and name.endswith(".so"):
-                            s = re.sub(r'lib', '', name)
-                            s = re.sub(r'..*', '', s)
-                        self._name = util._findLib_ld(s)
-                    if _sys.platform.startswith("aix"):"""
+                if _os.name == "posix":
+                    if name and name.endswith(".so"):
+                        s = re.sub(r'lib', '', name)
+                        s = re.sub(r'..*', '', s)
+                    self._name = util._findLib_ld(s)
+                if _sys.platform.startswith("aix"):"""
+                test_support_marker=textwrap.indent(textwrap.dedent(updated_support_marker), '        ')
                 apply_regex_substitutions(
                         ctypes_init_py,
-                        [(orig_support_marker, updated_support_marker)],
+                        [(orig_support_marker, test_support_marker)],
                         on_missing_match=ERROR
                         )
 
@@ -437,31 +439,36 @@ class EB_Python(ConfigureMake):
                 regex_subs.append((r'"/%s' % usr_subdir, r'"%s' % sysroot_usr_subdir))
 
             apply_regex_substitutions(setup_py_fn, regex_subs)
+            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+            orig_libpath =  r'libpath = os.environ.get\(\'LD_LIBRARY_PATH\'\)'
             if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
-                ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
-                orig_libpath =  r'libpath = os.environ.get\(\'LD_LIBRARY_PATH\'\)'
                 updated_libpath = """
                         libpath = []
                         if os.getenv('LIBRARY_PATH'):
                             libpath.append(os.getenv('LIBRARY_PATH'))
-                        if {sysroot}:
-                            libpath.append(os.getenv('{sysroot_lib_dirs}'))
+                            libpath.extend([{sysroot_lib_dirs}])
                         libpath = ':'.join(libpath)
-                """.format(sysroot=sysroot, sysroot_lib_dirs=sysroot_lib_dirs)
-                apply_regex_substitutions(
-                    ctypes_util_py,
-                    [(orig_libpath, updated_libpath)],
-                    on_missing_match=ERROR
-                    )
+                """.format( sysroot_lib_dirs=sysroot_lib_dirs)
             else:
-                ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
-                org_libpath =  r'libpath = os.environ.get\(\'LD_LIBRARY_PATH\'\)'
-                updated_libpath = r'libpath = os.environ.get\(\'LIBRARY_PATH\'\)'
-                apply_regex_substitutions(
-                    ctypes_util_py,
-                    [(orig_libpath, updated_libpath)],
-                    on_missing_match=ERROR
-                    )
+                updated_libpath = """
+                        libpath = [{sysroot_lib_dirs}]
+                """.format( sysroot_lib_dirs=sysroot_lib_dirs)
+                
+            test_updated_libpath = textwrap.indent(textwrap.dedent(updated_libpath), '            ')
+            apply_regex_substitutions(
+                ctypes_util_py,
+                [(orig_libpath, test_updated_libpath)],
+                on_missing_match=ERROR
+                )
+        else:
+            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+            org_libpath =  r'libpath = os.environ.get\(\'LD_LIBRARY_PATH\'\)'
+            updated_libpath = r'libpath = os.environ.get\(\'LIBRARY_PATH\'\)'
+            apply_regex_substitutions(
+                ctypes_util_py,
+                [(orig_libpath, updated_libpath)],
+                on_missing_match=ERROR
+                )
 
         # The path to ldconfig is hardcoded in cpython.util._findSoname_ldconfig(name) as /sbin/ldconfig.
         # This is incorrect if a custom sysroot is used
