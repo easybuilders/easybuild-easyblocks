@@ -236,14 +236,12 @@ class EB_FFTW(ConfigureMake):
             self.log.info("Skipping testing of FFTW since MPI testing is disabled")
             return
 
-        if self.toolchain.mpi_family() == toolchain.OPENMPI and not self.toolchain.comp_family() == TC_CONSTANT_FUJITSU:
+        if self.toolchain.mpi_family() == toolchain.OPENMPI and self.toolchain.comp_family() != TC_CONSTANT_FUJITSU:
 
             # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
             # to avoid that some tests fail if only a handful of cores are available
-            ompi_ver = get_software_version('OpenMPI')
-            if LooseVersion(ompi_ver) >= LooseVersion('3.0'):
-                if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
-                    self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
+            if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
+                self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
 
         super().test_step()
 
