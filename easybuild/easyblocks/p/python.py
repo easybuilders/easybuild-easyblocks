@@ -355,12 +355,33 @@ class EB_Python(ConfigureMake):
         # soname, instead let's return the full path in this particular scenario
         filtered_env_vars = build_option('filter_env_vars') or []
         if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
+            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+            orig_gcc_so_name = None
+            # Let's do this incrementally since we are going back in time
+            if LooseVersion(self.version) >= "3.9.1":
+                # From 3.9.1 to at least v3.12.4 there is only one match for this line
+                orig_gcc_so_name = "_get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))"
+            if orig_gcc_so_name:
+                orig_gcc_so_name_regex = r'(\s*)' + re.escape(orig_gcc_so_name) + r'(\s*)'
+                # _get_soname() takes the full path as an argument and uses objdump to get the SONAME field from
+                # the shared object file. The presence or absence of the SONAME field in the ELF header of a shared
+                # library is influenced by how the library is compiled and linked. For manually built libraries we
+                # may be lacking this field, this approach also solves that problem.
+                updated_gcc_so_name = (
+                    "_findLib_gcc(name) or _findLib_ld(name)"
+                )
+                apply_regex_substitutions(
+                    ctypes_util_py,
+                    [(orig_gcc_so_name_regex, r'\1' + updated_gcc_so_name + r'\2')],
+                    on_missing_match=ERROR
+                )
             if LooseVersion(self.version) >= "3.11":
                 ctypes_init_py = os.path.join("Lib", "ctypes", "__init__.py")
                 # patches for __init__.py
                 # Import patch to add util and re capabilities
                 orig_import = 'from struct import calcsize as _calcsize'
-                updated_import = """from struct import calcsize as _calcsize
+                updated_import = """
+                from struct import calcsize as _calcsize
                 from ctypes import util
                 import re"""
 
@@ -377,8 +398,8 @@ class EB_Python(ConfigureMake):
                 if _os.name == "posix":
                     if name and name.endswith(".so"):
                         s = re.sub(r'lib', '', name)
-                        s = re.sub(r'..*', '', s)
-                    self._name = util._findLib_ld(s)
+                        s = re.sub(r'\..*', '', s)
+                        self._name = util._findLib_ld(s)
                 if _sys.platform.startswith("aix"):"""
                 test_support_marker=textwrap.indent(textwrap.dedent(updated_support_marker), '        ')
                 apply_regex_substitutions(
@@ -460,6 +481,7 @@ class EB_Python(ConfigureMake):
                 [(orig_libpath, test_updated_libpath)],
                 on_missing_match=ERROR
                 )
+            
         else:
             ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
             org_libpath =  r'libpath = os.environ.get\(\'LD_LIBRARY_PATH\'\)'
@@ -485,6 +507,7 @@ class EB_Python(ConfigureMake):
                 match_all=True, 
                 on_missing_match=ERROR
             )
+            
 
     def prepare_for_extensions(self):
         """
