@@ -462,6 +462,12 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
 
+    @property
+    def llvm_src_dir(self):
+        """Return root source directory of LLVM (containing all components)"""
+        # LLVM is the first source so we already have this in start_dir. Might be changed later
+        return self.start_dir
+
     def prepare_step(self, *args, **kwargs):
         """Prepare step, modified to ensure install dir is deleted before building"""
         super(EB_LLVM, self).prepare_step(*args, **kwargs)
