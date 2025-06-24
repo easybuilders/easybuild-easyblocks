@@ -375,6 +375,12 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
 
+    @property
+    def llvm_src_dir(self):
+        """Return root source directory of LLVM (containing all components)"""
+        # LLVM is the first source so we already have this in start_dir. Might be changed later
+        return self.start_dir
+
     def prepare_step(self, *args, **kwargs):
         """Prepare step, modified to ensure install dir is deleted before building"""
         super().prepare_step(*args, **kwargs)
@@ -392,56 +398,6 @@ class EB_LLVM(CMakeMake):
                 if val:
                     args.append('-D%s=%s' % (key, val))
             self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(args)
-
-    def _configure_general_build(self):
-        """General configuration step for LLVM."""
-        self._cmakeopts.update(general_opts)
-        self._add_cmake_runtime_args()
-
-    def _configure_intermediate_build(self):
-        """Configure the intermediate stages of the build."""
-        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.intermediate_projects)
-        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.intermediate_runtimes)
-
-    def _configure_final_build(self):
-        """Configure the final stage of the build."""
-        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.final_projects)
-        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.final_runtimes)
-
-        hwloc_root = get_software_root('hwloc')
-        if hwloc_root:
-            self.log.info("Using %s as hwloc root", hwloc_root)
-            self._cmakeopts['LIBOMP_USE_HWLOC'] = 'ON'
-            self._cmakeopts['LIBOMP_HWLOC_INSTALL_DIR'] = hwloc_root
-
-        if 'openmp' in self.final_projects:
-            if LooseVersion(self.version) >= LooseVersion('19') and self.cfg['build_openmp_offload']:
-                self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
-            self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
-            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
-            if not self.cfg['build_openmp_tools']:
-                self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
-
-        # Make sure tests are not running with more than 'parallel' tasks
-        parallel = self.cfg.parallel
-        if not build_option('mpi_tests'):
-            parallel = 1
-        lit_args = [f'-j {parallel}']
-        if self.cfg['debug_tests']:
-            lit_args += ['-v']
-        timeout_single = self.cfg['test_suite_timeout_single']
-        if timeout_single:
-            lit_args += ['--timeout', str(timeout_single)]
-        timeout_total = self.cfg['test_suite_timeout_total']
-        if timeout_total:
-            lit_args += ['--max-time', str(timeout_total)]
-        self._cmakeopts['LLVM_LIT_ARGS'] = '"%s"' % ' '.join(lit_args)
-
-        if self.cfg['usepolly']:
-            self._cmakeopts['LLVM_POLLY_LINK_INTO_TOOLS'] = 'ON'
-        if not self.cfg['skip_all_tests']:
-            self._cmakeopts['LLVM_INCLUDE_TESTS'] = 'ON'
-            self._cmakeopts['LLVM_BUILD_TESTS'] = 'ON'
 
     def _configure_build_targets(self):
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
