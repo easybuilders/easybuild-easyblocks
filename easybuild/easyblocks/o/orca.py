@@ -88,7 +88,7 @@ class EB_ORCA(PackedBinary, MakeCp):
 
             # Version 6 extra files
             if LooseVersion(self.version) >= LooseVersion('6.0.0'):
-                # Version 6.1.0 does not have the CompoundScripts 
+                # Version 6.1.0 does not have the CompoundScripts
                 if LooseVersion(self.version) == LooseVersion('6.1.0'):
                     files_to_copy.extend(['datasets', 'lib'])
                 else:
