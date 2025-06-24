@@ -556,7 +556,7 @@ class EB_LAMMPS(CMakeMake):
             test_cmd = 'ctest'
             if LooseVersion(self.cmake_version) >= '3.17.0':
                 test_cmd += ' --no-tests=error'
-            test_cmd += ' -LE "noWindows|unstable|slow" -E TestMliapPyUnified'
+            test_cmd += ' -LE unstable -E "TestMliapPyUnified|PythonPackage"'
             self.log.debug("`runtest = True` found, using '%s' as test_cmd", test_cmd)
             self.cfg['test_cmd'] = test_cmd
 
