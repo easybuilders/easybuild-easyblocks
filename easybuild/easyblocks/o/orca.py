@@ -88,7 +88,11 @@ class EB_ORCA(PackedBinary, MakeCp):
 
             # Version 6 extra files
             if LooseVersion(self.version) >= LooseVersion('6.0.0'):
-                files_to_copy.extend(['datasets', 'lib', (['CompoundScripts', 'openCOSMORS'], 'bin')])
+                # Version 6.1.0 does not have the CompoundScripts 
+                if LooseVersion(self.version) == LooseVersion('6.1.0'):
+                    files_to_copy.extend(['datasets', 'lib'])
+                else:
+                    files_to_copy.extend(['datasets', 'lib', (['CompoundScripts'], 'bin')])
 
             else:
                 # Version 5 extra files
@@ -153,7 +157,7 @@ H  -0.7920   0.0000  -0.4973
 H   0.7920   0.0000  -0.4973
 *
 """
-        nprocs = self.cfg.parallel
+        nprocs = self.cfg.get('parallel', 1)
         test_input_content = test_input_content % {'nprocs': nprocs}
         test_input_path = os.path.join(self.builddir, 'eb_test_hf_water.inp')
         write_file(test_input_path, test_input_content)
