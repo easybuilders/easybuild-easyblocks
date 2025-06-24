@@ -90,7 +90,7 @@ class EB_ORCA(PackedBinary, MakeCp):
             if LooseVersion(self.version) >= LooseVersion('6.1.0'):
                 files_to_copy.extend(['datasets', 'lib'(['openCOSMORS'], 'bin')])
             else:
-                files_to_copy.extend(['datasets', 'lib', (['CompoundScripts','openCOSMORS'], 'bin')])
+                files_to_copy.extend(['datasets', 'lib', (['CompoundScripts', 'openCOSMORS'], 'bin')])
 
             # Version 5 extra files
             if LooseVersion(self.version) >= LooseVersion('5.0.0'):
