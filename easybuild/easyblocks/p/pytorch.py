@@ -964,7 +964,7 @@ def determine_suite_name(xml_file: Path, test_suite_xml: List[ET.Element]) -> st
         # We can remove possible class names by only using the common part
         suite_name = os.path.commonpath(possible_paths)
         # Strip of common prefix to all classes, but keep the last part for uniqueness
-        non_classname_prefix = os.path.dirname(suite_name).replace(os.path.sep, '.') + '.'
+        non_classname_prefix = 'test.' + os.path.dirname(suite_name).replace(os.path.sep, '.') + '.'
         for testcase in test_cases:
             classname = testcase.attrib["classname"]
             if classname.startswith(non_classname_prefix):
