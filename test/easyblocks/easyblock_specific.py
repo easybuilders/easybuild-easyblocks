@@ -61,7 +61,7 @@ class EasyBlockSpecificTest(TestCase):
     """ Baseclass for easyblock testcases """
 
     # initialize configuration (required for e.g. default modules_tool setting)
-    eb_go = eboptions.parse_options()
+    eb_go = eboptions.parse_options(args=[])
     config.init(eb_go.options, eb_go.get_options_by_section('config'))
     build_options = {
         'suffix_modules_path': GENERAL_CLASS,
@@ -509,11 +509,11 @@ class EasyBlockSpecificTest(TestCase):
         self.assertEqual(lammps.translate_lammps_version('devel', path=self.tmpdir), '2025.04.02')
 
 
-def suite():
+def suite(loader):
     """Return all easyblock-specific tests."""
-    return TestLoader().loadTestsFromTestCase(EasyBlockSpecificTest)
+    return loader.loadTestsFromTestCase(EasyBlockSpecificTest)
 
 
 if __name__ == '__main__':
-    res = TextTestRunner(verbosity=1).run(suite())
+    res = TextTestRunner(verbosity=1).run(suite(TestLoader()))
     sys.exit(len(res.failures))
