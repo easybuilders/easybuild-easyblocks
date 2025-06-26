@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="1" skipped="7" tests="12" time="4.2">
+    <testcase classname="DynamicShapesCtxManagerTests" name="test_autograd_profiler_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesCtxManagerTests" name="test_generic_context_manager_with_graph_break_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesCtxManagerTests" name="test_generic_ctx_manager_with_graph_break_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesMiscTests" name="test_outside_linear_module_free_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py">
+      <rerun message="...">[snip]</rerun>
+      <rerun message="...">[snip]</rerun>
+      <failure message="...">[snip]</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

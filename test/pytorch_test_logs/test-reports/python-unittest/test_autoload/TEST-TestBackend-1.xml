@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="TestBackendAutoload-20250623211756" tests="1" file=".py" time="4.2" failures="0" errors="0" skipped="0">
+  <testcase classname="TestBackendAutoload" name="test_autoload" time="4.2" file="test_autoload.py" line="9"/>
+</testsuite>

@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="1" skipped="5" tests="17" time="4.2">
+    <testcase classname="TestQuantizedOps" name="test_adaptive_avg_pool" time="4.2" file="test_quantization.py">
+      <skipped message="...">[snip]</skipped>
+    </testcase>
+    <testcase classname="TestQuantizedOps" name="test_adaptive_avg_pool2d_nhwc" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestQuantizedOps" name="test_qadd_relu_cudnn" time="4.2" file="test_quantization.py">
+      <skipped message="...">[snip]</skipped>
+    </testcase>
+    <testcase classname="TestQuantizedOps" name="test_qadd_relu_cudnn_nhwc" time="4.2" file="test_quantization.py">
+      <skipped message="...">[snip]</skipped>
+    </testcase>
+    <testcase classname="TestQuantizedOps" name="test_qadd_relu_different_qparams" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestQuantizedLinear" name="test_qlinear_cudnn" time="4.2" file="test_quantization.py">
+      <skipped message="...">[snip]</skipped>
+    </testcase>
+    <testcase classname="TestQuantizedLinear" name="test_qlinear_gelu_pt2e" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestQuantizedConv" name="test_conv_reorder_issue_onednn" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestQuantizedConv" name="test_conv_transpose_reorder_issue_onednn" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestDynamicQuantizedOps" name="test_qrnncell" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestPadding" name="test_reflection_pad1d" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestQuantizedFunctionalOps" name="test_relu_api" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestFakeQuantizeOps" name="test_backward_per_channel" time="4.2" file="test_quantization.py">
+      <skipped message="...">[snip]</skipped>
+    </testcase>
+    <testcase classname="TestFakeQuantizeOps" name="test_backward_per_channel_cachemask_cpu" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestFakeQuantizeOps" name="test_backward_per_channel_cachemask_cuda" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestNumericDebugger" name="test_quantize_pt2e_preserve_handle" time="4.2" file="test_quantization.py"/>
+    <testcase classname="TestNumericDebugger" name="test_re_export_preserve_handle" time="4.2" file="test_quantization.py">
+      <rerun message="...">[snip]</rerun>
+      <rerun message="...">[snip]</rerun>
+      <failure message="...">[snip]</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
