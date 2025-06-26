@@ -241,7 +241,7 @@ class EB_numpy(FortranPythonPackage):
                 # This variable makes it try `-lm` first and is supported until the Meson backend is used in 1.26+.
                 env.setvar('MATHLIB', 'm')
 
-            FortranPythonPackage.configure_step(self)
+            super().configure_step()
 
             if LooseVersion(self.version) < LooseVersion('1.21'):
                 # check configuration (for debugging purposes)
@@ -279,7 +279,7 @@ class EB_numpy(FortranPythonPackage):
         """
         # no need for separate build step for numpy >= 2.0
         if LooseVersion(self.version) < LooseVersion('2.0'):
-            super().build(self, *args, **kwargs)
+            super().build(*args, **kwargs)
 
     def test_step(self):
         """Run available numpy unit tests, and more."""
@@ -314,7 +314,7 @@ class EB_numpy(FortranPythonPackage):
             # see http://projects.scipy.org/numpy/ticket/182
             self.testcmd = "unset LDFLAGS && cd .. && %%(python)s -c '%s'" % test_code
 
-        FortranPythonPackage.test_step(self)
+        super().test_step()
 
         # temporarily install numpy, it doesn't alow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()
@@ -377,7 +377,7 @@ class EB_numpy(FortranPythonPackage):
     def install_step(self):
         """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
 
-        FortranPythonPackage.install_step(self)
+        super().install_step()
 
         builddir = os.path.join(self.builddir, "numpy")
         try:
