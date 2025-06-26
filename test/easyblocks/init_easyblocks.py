@@ -54,7 +54,7 @@ class InitTest(TestCase):
     """ Baseclass for easyblock testcases """
 
     # initialize configuration (required for e.g. default modules_tool setting)
-    eb_go = eboptions.parse_options()
+    eb_go = eboptions.parse_options(args=[])
     config.init(eb_go.options, eb_go.get_options_by_section('config'))
     build_options = {
         'suffix_modules_path': GENERAL_CLASS,
