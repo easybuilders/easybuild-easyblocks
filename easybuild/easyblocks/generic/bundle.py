@@ -307,7 +307,7 @@ class Bundle(EasyBlock):
                 self.comp_cfgs_sanity_check.append(comp)
 
             # run relevant steps
-            for step_name in ['patch', 'configure', 'build', 'test', 'install', 'make_module']:
+            for step_name in ['patch', 'configure', 'build', 'test', 'install']:
                 if step_name in cfg['skipsteps']:
                     comp.log.info("Skipping '%s' step for component %s v%s", step_name, cfg['name'], cfg['version'])
                 elif build_option('skip_test_step') and step_name == TEST_STEP:
@@ -386,6 +386,10 @@ class Bundle(EasyBlock):
                     raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
                                          cfg['name'], cfg['version'])
             else:
+                # Explicit call required as adding step to 'install_step' is not sufficient
+                # for module-only build.
+                comp.make_module_step(*args, **kwargs)
+
                 for env_var_name, env_var_val in comp.module_load_environment.items():
                     if env_var_name in self.module_load_environment:
                         getattr(self.module_load_environment, env_var_name).extend(env_var_val)
