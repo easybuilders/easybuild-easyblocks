@@ -279,7 +279,7 @@ class EB_numpy(FortranPythonPackage):
         """
         # no need for separate build step for numpy >= 2.0
         if LooseVersion(self.version) < LooseVersion('2.0'):
-            super().build(*args, **kwargs)
+            super().build_step(*args, **kwargs)
 
     def test_step(self):
         """Run available numpy unit tests, and more."""
