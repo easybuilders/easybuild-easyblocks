@@ -295,7 +295,7 @@ class EB_numpy(FortranPythonPackage):
 
             # test suite should be run via 'spin' tool,
             # see https://numpy.org/devdocs/dev/development_environment.html#testing-builds
-            self.testcmd = f"spin test --no-build --verbose"
+            self.testcmd = "spin test --no-build --verbose"
         else:
             if self.cfg['ignore_test_result']:
                 test_code = 'numpy.test(verbose=2)'
