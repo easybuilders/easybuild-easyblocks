@@ -992,7 +992,12 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
     :return: A list of TestSuite objects representing the parsed structure.
     """
     try:
-        root = ET.parse(xml_file).getroot()
+        try:
+            root = ET.parse(xml_file).getroot()
+        except ET.ParseError:
+            if '<test' not in xml_file.read_text():
+                return []  # Empty file, no test results
+            raise
 
         # Normalize root to be a list of test suite elements
         if root.tag == "testsuites":
