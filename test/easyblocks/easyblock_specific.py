@@ -648,6 +648,8 @@ class EasyBlockSpecificTest(TestCase):
 
         self.assertErrorRegex(ValueError, "<testsuites> or <testsuite>",
                               pytorch.get_test_results, error_log_dir / 'root')
+        self.assertErrorRegex(ValueError, "Failed to parse",
+                              pytorch.get_test_results, error_log_dir / 'invalid_xml')
         self.assertErrorRegex(ValueError, "multiple reported files",
                               pytorch.get_test_results, error_log_dir / 'multi_file')
         self.assertErrorRegex(ValueError, "Path from folder and filename should be equal",
