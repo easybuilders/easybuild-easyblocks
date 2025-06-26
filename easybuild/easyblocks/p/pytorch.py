@@ -905,8 +905,8 @@ def parse_test_cases(test_suite_el: ET.Element) -> List[TestCase]:
         num_reruns = len(testcase.findall("rerun"))
 
         if skipped:
-            if num_reruns > 0 or failed or errored:
-                raise ValueError(f"Invalid state for testcase '{test_name}'")
+            if failed or errored:
+                raise ValueError(f"Invalid state for testcase '{test_name}': Both skipped and failed/errored")
             state = TestState.SKIPPED
         else:
             state = TestState.FAILURE if failed else TestState.ERROR if errored else TestState.SUCCESS
