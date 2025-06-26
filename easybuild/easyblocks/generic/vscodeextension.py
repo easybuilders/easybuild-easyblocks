@@ -66,7 +66,7 @@ class VSCodeExtension(ExtensionEasyBlock):
         pass
 
     def install_step(self):
-        """Install VSCode Extensions using gem package manager"""
+        """Install VSCode Extensions using code-server as package manager"""
         code_server_root = get_software_root('code-server')
         if not code_server_root:
             raise EasyBuildError("code-server module not loaded?")
