@@ -37,10 +37,12 @@ import os
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.modules import get_software_root
 
 
 class EB_MPICH(ConfigureMake):
@@ -55,6 +57,7 @@ class EB_MPICH(ConfigureMake):
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
             'debug': [False, "Enable debug build (which is slower)", CUSTOM],
+            'mpi_abi': [False, "Enable build with MPI ABI compatibility", CUSTOM],
         })
         return extra_vars
 
@@ -108,6 +111,27 @@ class EB_MPICH(ConfigureMake):
             else:
                 add_configopts.append('--enable-error-checking=no')
                 add_configopts.append('--enable-timing=none')
+
+        ucx_root = get_software_root('UCX')
+        if ucx_root:
+            add_configopts.append('--with-ucx=%s' % ucx_root)
+            self.log.info("Enabling UCX support, using UCX root: %s", ucx_root)
+
+        if self.cfg['mpi_abi']:
+            if LooseVersion(self.version) < LooseVersion('4.3'):
+                raise EasyBuildError("MPI ABI compatibility is not supported in MPICH < 4.3")
+            self.log.info("Enabling MPI ABI compatibility")
+            add_configopts.append('--enable-mpi-abi')
+
+            # TODO https://github.com/llvm/llvm-project/issues/56760
+            # #pragma weak ...  cannot be used which leads `c_binding_abi.c` to use types such as
+            # ABI_Comm_copy_attr_function which are not defined.
+
+            comp_fam = self.toolchain.comp_family()
+            if comp_fam == toolchain.LLVMtc:
+                # LLVM toolchain requires additional flags or to do something else?
+                pass
+
 
         # enable shared libraries, using GCC and GNU ld options
         add_configopts.append('--enable-shared')
@@ -163,6 +187,9 @@ class EB_MPICH(ConfigureMake):
         binaries = ['mpicc', 'mpicxx', 'mpif77', 'mpif90']
         if check_launchers:
             binaries.extend(['mpiexec', 'mpiexec.hydra', 'mpirun'])
+
+        if self.cfg['mpi_abi']:
+            libnames.append('mpi_abi')
 
         bins = [os.path.join('bin', x) for x in binaries]
         headers = [os.path.join('include', x) for x in ['mpi.h', 'mpicxx.h', 'mpif.h']]
