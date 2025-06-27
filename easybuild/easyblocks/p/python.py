@@ -368,7 +368,7 @@ class EB_Python(ConfigureMake):
                 # library is influenced by how the library is compiled and linked. For manually built libraries we
                 # may be lacking this field, this approach also solves that problem.
                 updated_gcc_so_name = (
-                    "_findLib_gcc(name) or _findLib_ld(name)"
+                    "_findLib_ld(name)"
                 )
                 apply_regex_substitutions(
                     ctypes_util_py,
@@ -399,7 +399,7 @@ class EB_Python(ConfigureMake):
                     if name and name.endswith(".so"):
                         s = re.sub(r'lib', '', name)
                         s = re.sub(r'\..*', '', s)
-                        self._name = util._findLib_ld(s)
+                        self._name = util.find_library(s)
                 if _sys.platform.startswith("aix"):"""
                 test_support_marker=textwrap.indent(textwrap.dedent(updated_support_marker), '        ')
                 apply_regex_substitutions(
@@ -460,27 +460,28 @@ class EB_Python(ConfigureMake):
                 regex_subs.append((r'"/%s' % usr_subdir, r'"%s' % sysroot_usr_subdir))
 
             apply_regex_substitutions(setup_py_fn, regex_subs)
-            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
-            orig_libpath =  r'libpath = os.environ.get\(\'LD_LIBRARY_PATH\'\)'
-            if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
-                updated_libpath = """
-                        libpath = []
-                        if os.getenv('LIBRARY_PATH'):
-                            libpath.append(os.getenv('LIBRARY_PATH'))
-                            libpath.extend([{sysroot_lib_dirs}])
-                        libpath = ':'.join(libpath)
-                """.format( sysroot_lib_dirs=sysroot_lib_dirs)
-            else:
-                updated_libpath = """
-                        libpath = [{sysroot_lib_dirs}]
-                """.format( sysroot_lib_dirs=sysroot_lib_dirs)
-                
-            test_updated_libpath = textwrap.indent(textwrap.dedent(updated_libpath), '            ')
-            apply_regex_substitutions(
-                ctypes_util_py,
-                [(orig_libpath, test_updated_libpath)],
-                on_missing_match=ERROR
-                )
+            
+            #ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+            #orig_libpath =  r'libpath = os.environ.get\(\'LD_LIBRARY_PATH\'\)'
+            #if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
+            #    updated_libpath = """
+            #            libpath = []
+            #            if os.getenv('LIBRARY_PATH'):
+            #                libpath.append(os.getenv('LIBRARY_PATH'))
+            #                libpath.extend([{sysroot_lib_dirs}])
+            #            libpath = ':'.join(libpath)
+            #    """.format( sysroot_lib_dirs=sysroot_lib_dirs)
+            #else:
+            #    updated_libpath = """
+            #            libpath = [{sysroot_lib_dirs}]
+            #    """.format( sysroot_lib_dirs=sysroot_lib_dirs)
+            #    
+            #test_updated_libpath = textwrap.indent(textwrap.dedent(updated_libpath), '            ')
+            #apply_regex_substitutions(
+            #    ctypes_util_py,
+            #    [(orig_libpath, test_updated_libpath)],
+            #    on_missing_match=ERROR
+            #    )
             
         else:
             ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
@@ -507,6 +508,7 @@ class EB_Python(ConfigureMake):
                 match_all=True, 
                 on_missing_match=ERROR
             )
+            # write substitution for regex and regex post processing to return complete path as name
             
 
     def prepare_for_extensions(self):
