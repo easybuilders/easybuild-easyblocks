@@ -76,6 +76,11 @@ DEFAULT_TARGETS_MAP = {
     X86_64: ['X86'],
 }
 
+AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS = [
+    'cuda',
+    'amdgpu'
+]
+
 remove_gcc_dependency_opts = {
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
@@ -501,13 +506,9 @@ class EB_LLVM(CMakeMake):
                 # Force dlopen of the GPU libraries at runtime, not using existing libraries
                 if LooseVersion(self.version) >= LooseVersion('19'):
                     self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
-                    dlopen_plugin_list = []
-                    if self.amdgpu_target_cond:
-                        dlopen_plugin_list += ['amdgpu']
-                    if self.nvptx_target_cond:
-                        dlopen_plugin_list += ['cuda']
-                    if dlopen_plugin_list:
-                        self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = "'%s'" % ';'.join(dlopen_plugin_list)
+                    dlopen_plugins = set(self.offload_targets) & set(AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS)
+                    if dlopen_plugins:
+                        self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = "'%s'" % ';'.join(dlopen_plugins)
                 else:
                     if self.amdgpu_target_cond:
                         self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBHSA'] = 'ON'
