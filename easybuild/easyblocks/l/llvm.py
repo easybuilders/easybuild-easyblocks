@@ -333,7 +333,7 @@ class EB_LLVM(CMakeMake):
                 raise EasyBuildError("Building OpenMP offload requires building OpenMP runtime")
             # LLVM 19 added a new runtime target for explicit offloading
             # https://discourse.llvm.org/t/llvm-19-1-0-no-library-libomptarget-nvptx-sm-80-bc-found/81343
-            if LooseVersion(self.version) >= LooseVersion('19'):
+            if LooseVersion(self.version) >= '19':
                 self.log.debug("Explicitly enabling OpenMP offloading for LLVM >= 19")
                 self.final_runtimes.append('offload')
             else:
@@ -367,13 +367,13 @@ class EB_LLVM(CMakeMake):
             self.final_projects.append('bolt')
 
         # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3689
-        if LooseVersion(self.version) < LooseVersion('16'):
+        if LooseVersion(self.version) < '16':
             self.general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
 
         # Sysroot
         self.sysroot = build_option('sysroot')
         if self.sysroot:
-            if LooseVersion(self.version) < LooseVersion('19'):
+            if LooseVersion(self.version) < '19':
                 raise EasyBuildError("Using sysroot is not supported by EasyBuild for LLVM < 19")
             self.general_opts['DEFAULT_SYSROOT'] = self.sysroot
             self.general_opts['CMAKE_SYSROOT'] = self.sysroot
@@ -458,9 +458,9 @@ class EB_LLVM(CMakeMake):
         # Enable offload targets for LLVM >= 18
         self.cuda_cc = []
         self.amd_gfx = []
-        if self.cfg['build_openmp_offload'] and LooseVersion(self.version) >= LooseVersion('18'):
+        if self.cfg['build_openmp_offload'] and LooseVersion(self.version) >= '18':
             if self.nvptx_target_cond:
-                if LooseVersion(self.version) < LooseVersion('20') and not cuda_cc_list:
+                if LooseVersion(self.version) < '20' and not cuda_cc_list:
                     raise EasyBuildError(
                         f"LLVM < 20 requires 'cuda_compute_capabilities' to build with {BUILD_TARGET_NVPTX}"
                     )
@@ -468,7 +468,7 @@ class EB_LLVM(CMakeMake):
                 self.offload_targets += ['cuda']
                 self.log.debug("Enabling `cuda` offload target")
             if self.amdgpu_target_cond:
-                if LooseVersion(self.version) < LooseVersion('20') and not amd_gfx_list:
+                if LooseVersion(self.version) < '20' and not amd_gfx_list:
                     raise EasyBuildError(f"LLVM < 20 requires 'amd_gfx_list' to build with {BUILD_TARGET_AMDGPU}")
                 self.amd_gfx = amd_gfx_list
                 self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
@@ -528,7 +528,7 @@ class EB_LLVM(CMakeMake):
         if 'openmp' in self.final_projects:
             if self.cfg['build_openmp_offload']:
                 # Force dlopen of the GPU libraries at runtime, not using existing libraries
-                if LooseVersion(self.version) >= LooseVersion('19'):
+                if LooseVersion(self.version) >= '19':
                     self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
                     dlopen_plugins = set(self.offload_targets) & set(AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS)
                     if dlopen_plugins:
@@ -608,7 +608,7 @@ class EB_LLVM(CMakeMake):
             # For LLVM 18+ config files should be used and this option is deprecated and causes an error in 19
             # But the --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
             # https://github.com/llvm/llvm-project/pull/87360
-            if LooseVersion(self.version) < LooseVersion('19'):
+            if LooseVersion(self.version) < '19':
                 self.log.debug("Using GCC_INSTALL_PREFIX")
                 self.general_opts['GCC_INSTALL_PREFIX'] = gcc_root
             else:
@@ -671,7 +671,7 @@ class EB_LLVM(CMakeMake):
         new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
 
         # See https://github.com/llvm/llvm-project/issues/140024
-        if LooseVersion(self.version) <= LooseVersion('20.1.5'):
+        if LooseVersion(self.version) <= '20.1.5':
             new_ignore_patterns.append('LLVM :: CodeGen/Hexagon/isel/pfalse-v4i1.ll')
 
         self.ignore_patterns += new_ignore_patterns
@@ -682,12 +682,12 @@ class EB_LLVM(CMakeMake):
         Install extra tools in bin/; enable zlib if it is a dep; optionally enable rtti; and set the build target
         """
         # Allow running with older versions of LLVM for minimal builds in order to replace EB_LLVM easyblock
-        if not self.cfg['minimal'] and LooseVersion(self.version) < LooseVersion('18.1.6'):
+        if not self.cfg['minimal'] and LooseVersion(self.version) < '18.1.6':
             raise EasyBuildError("LLVM version %s is not supported, please use version 18.1.6 or newer", self.version)
 
         # Allow running with older versions of GCC for minimal builds in order to replace EB_LLVM easyblock
         gcc_version = get_software_version('GCCcore')
-        if not self.cfg['minimal'] and LooseVersion(gcc_version) < LooseVersion('13'):
+        if not self.cfg['minimal'] and LooseVersion(gcc_version) < '13':
             raise EasyBuildError("LLVM %s requires GCC 13 or newer, found %s", self.version, gcc_version)
 
         # Lit is needed for running tests-suite
@@ -797,7 +797,7 @@ class EB_LLVM(CMakeMake):
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
-        if self.cfg['build_openmp_offload'] and LooseVersion('19') <= LooseVersion(self.version) < LooseVersion('20'):
+        if self.cfg['build_openmp_offload'] and '19' <= LooseVersion(self.version) < '20':
             gpu_archs = []
             gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
             gpu_archs += self.amd_gfx
@@ -874,7 +874,7 @@ class EB_LLVM(CMakeMake):
         self._set_gcc_prefix()
 
         # This is only needed for LLVM >= 19, as the --gcc-install-dir option was introduced then
-        if LooseVersion(self.version) < LooseVersion('19'):
+        if LooseVersion(self.version) < '19':
             return
 
         bin_dir = os.path.join(installdir, 'bin')
@@ -1321,6 +1321,7 @@ class EB_LLVM(CMakeMake):
         shlib_ext = '.' + get_shared_lib_ext()
 
         resdir_version = self.version.split('.')[0]
+        version = LooseVersion(self.version)
 
         arch = get_cpu_architecture()
         # Check architecture explicitly since Clang uses potentially different names
@@ -1377,7 +1378,7 @@ class EB_LLVM(CMakeMake):
             ]
             check_dirs += ['include/clang-tidy']
         if 'flang' in self.final_projects:
-            if LooseVersion(self.version) < LooseVersion('19'):
+            if version < '19':
                 check_bin_files += ['bbc', 'flang-new', 'flang-to-external-fc', 'f18-parse-demo', 'fir-opt', 'tco']
             else:
                 check_bin_files += ['bbc', 'flang-new', 'f18-parse-demo', 'fir-opt', 'tco']
@@ -1447,35 +1448,35 @@ class EB_LLVM(CMakeMake):
                 if version < '19':
                     omp_lib_files += [f'libomptarget.rtl.{arch}.so']
                 if self.nvptx_target_cond:
-                    if LooseVersion(self.version) < LooseVersion('19'):
+                    if version < '19':
                         omp_lib_files += ['libomptarget.rtl.cuda.so']
-                    if LooseVersion(self.version) < LooseVersion('20'):
+                    elif version < '20':
                         omp_lib_files += [f'libomptarget-nvptx-sm_{cc}.bc' for cc in self.cuda_cc]
                     else:
                         omp_lib_files += ['libomptarget-nvptx.bc']
                 if self.amdgpu_target_cond:
-                    if LooseVersion(self.version) < LooseVersion('19'):
+                    if version < '19':
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
-                    if LooseVersion(self.version) < LooseVersion('20'):
+                    elif version < '20':
                         omp_lib_files += [f'libomptarget-amdgpu-{gfx}.bc' for gfx in self.amd_gfx]
                     else:
                         omp_lib_files += ['libomptarget-amdgpu.bc']
 
-                if LooseVersion(self.version) < LooseVersion('19'):
+                if version < '19':
                     # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
                     check_lib_files += omp_lib_files
                 else:
                     # Starting from LLVM 19, omp related libraries are installed the runtime library directory
                     check_librt_files += omp_lib_files
                     check_bin_files += ['llvm-omp-kernel-replay']
-                    if LooseVersion(self.version) < LooseVersion('20'):
+                    if version < '20':
                         check_bin_files += ['llvm-omp-device-info']
                     else:
                         check_bin_files += ['llvm-offload-device-info']
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
-            if LooseVersion(self.version) < LooseVersion('19'):
+            if version < '19':
                 check_lib_files += ['libarcher.so']
             else:
                 check_librt_files += ['libarcher.so']
