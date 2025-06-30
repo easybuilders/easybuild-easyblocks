@@ -75,6 +75,7 @@ class EB_MPICH(ConfigureMake):
         """
         env_vars = ['CFLAGS', 'CPPFLAGS', 'CXXFLAGS', 'FCFLAGS', 'FFLAGS', 'LDFLAGS', 'LIBS']
         vars_to_unset = ['F90', 'F90FLAGS']
+        vars_to_keep = []
         for envvar in env_vars:
             envvar_val = os.getenv(envvar)
             if envvar_val:
@@ -88,6 +89,15 @@ class EB_MPICH(ConfigureMake):
                 else:
                     raise EasyBuildError("Both $%s and $%s set, can I overwrite $%s with $%s (%s) ?",
                                          envvar, new_envvar, new_envvar, envvar, envvar_val)
+
+        # With MPICH 3.4.2-GCCcore-10.3.0 the configure script will fail complaining that `-fallow-argument-mismatch`
+        # is not present in the FFLAGS variable.
+        version = LooseVersion(self.version)
+        if version < LooseVersion('4'):
+            vars_to_keep.append('FFLAGS')
+
+        vars_to_unset = list(set(vars_to_unset) - set(vars_to_keep))
+
         env.unset_env_vars(vars_to_unset)
 
     def add_mpich_configopts(self):
