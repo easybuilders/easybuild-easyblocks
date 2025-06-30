@@ -43,6 +43,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.modules import get_software_root
 
+DEVICES_WITH_UCX_SUPPORT = ['ch4']
 
 class EB_MPICH(ConfigureMake):
     """
@@ -56,6 +57,7 @@ class EB_MPICH(ConfigureMake):
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
             'debug': [False, "Enable debug build (which is slower)", CUSTOM],
+            'device': ['ch4', "Device to use for MPICH (e.g. ch4, ch3)", CUSTOM],
             'mpi_abi': [False, "Enable build with MPI ABI compatibility", CUSTOM],
         })
         return extra_vars
@@ -111,8 +113,18 @@ class EB_MPICH(ConfigureMake):
                 add_configopts.append('--enable-error-checking=no')
                 add_configopts.append('--enable-timing=none')
 
+        device = self.cfg['device']
+
         ucx_root = get_software_root('UCX')
         if ucx_root:
+            if ':' in device:
+                raise EasyBuildError("Device channel already manually specified in device = '%s'.", device)
+            elif device not in DEVICES_WITH_UCX_SUPPORT:
+                raise EasyBuildError(
+                    "Device '%s' does not support UCX, please use one of %s.",
+                    device, ', '.join(DEVICES_WITH_UCX_SUPPORT)
+                )
+            device += ':ucx'
             add_configopts.append('--with-ucx=%s' % ucx_root)
             self.log.info("Enabling UCX support, using UCX root: %s", ucx_root)
 
@@ -122,12 +134,21 @@ class EB_MPICH(ConfigureMake):
             self.log.info("Enabling MPI ABI compatibility")
             add_configopts.append('--enable-mpi-abi')
 
+        cuda_root = get_software_root('CUDA')
+        if cuda_root:
+            self.log.info("CUDA dependency detected, enabling CUDA support")
+            if LooseVersion(self.version) < LooseVersion('4'):
+                raise EasyBuildError("CUDA support is not available in MPICH < 4.x")
+            add_configopts.append(f'--with-cuda={cuda_root}')
+
         # enable shared libraries, using GCC and GNU ld options
         add_configopts.append('--enable-shared')
         # enable static libraries
         add_configopts.append('--enable-static')
         # enable Fortran 77/90 and C++ bindings
         add_configopts.extend(['--enable-fortran=all', '--enable-cxx'])
+
+        add_configopts.append(f'--with-device={device}')
 
         self.cfg.update('configopts', ' '.join(add_configopts))
 
