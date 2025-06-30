@@ -76,6 +76,11 @@ DEFAULT_TARGETS_MAP = {
     X86_64: ['X86'],
 }
 
+AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS = [
+    'cuda',
+    'amdgpu'
+]
+
 remove_gcc_dependency_opts = {
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
@@ -508,8 +513,18 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['LIBOMP_HWLOC_INSTALL_DIR'] = hwloc_root
 
         if 'openmp' in self.final_projects:
-            if LooseVersion(self.version) >= LooseVersion('19') and self.cfg['build_openmp_offload']:
-                self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
+            if self.cfg['build_openmp_offload']:
+                # Force dlopen of the GPU libraries at runtime, not using existing libraries
+                if LooseVersion(self.version) >= LooseVersion('19'):
+                    self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
+                    dlopen_plugins = set(self.offload_targets) & set(AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS)
+                    if dlopen_plugins:
+                        self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = "'%s'" % ';'.join(dlopen_plugins)
+                else:
+                    if self.amdgpu_target_cond:
+                        self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBHSA'] = 'ON'
+                    if self.nvptx_target_cond:
+                        self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
             if not self.cfg['build_openmp_tools']:
