@@ -37,7 +37,6 @@ import os
 from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
-import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
@@ -122,16 +121,6 @@ class EB_MPICH(ConfigureMake):
                 raise EasyBuildError("MPI ABI compatibility is not supported in MPICH < 4.3")
             self.log.info("Enabling MPI ABI compatibility")
             add_configopts.append('--enable-mpi-abi')
-
-            # TODO https://github.com/llvm/llvm-project/issues/56760
-            # #pragma weak ...  cannot be used which leads `c_binding_abi.c` to use types such as
-            # ABI_Comm_copy_attr_function which are not defined.
-
-            comp_fam = self.toolchain.comp_family()
-            if comp_fam == toolchain.LLVMtc:
-                # LLVM toolchain requires additional flags or to do something else?
-                pass
-
 
         # enable shared libraries, using GCC and GNU ld options
         add_configopts.append('--enable-shared')
