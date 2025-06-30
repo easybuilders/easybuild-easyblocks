@@ -253,10 +253,12 @@ class EB_LLVM(CMakeMake):
         self.llvm_obj_dir_stage3 = None
         self.intermediate_projects = ['llvm', 'clang']
         self.intermediate_runtimes = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
-        if not self.cfg['minimal']:
-            self.final_projects = ['llvm', 'mlir', 'clang', 'flang']
-        else:
+        if self.cfg['minimal']:
             self.final_projects = ['llvm']
+        else:
+            self.final_projects = ['llvm', 'mlir', 'clang', 'flang']
+            # Bypass the .mod file check for GCCcore installs
+            self.cfg['skip_mod_files_sanity_check'] = True
         self.final_runtimes = []
         self.gcc_prefix = None
         self.runtimes_cmake_args = {
