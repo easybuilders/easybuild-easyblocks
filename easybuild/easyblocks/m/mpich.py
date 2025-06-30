@@ -45,6 +45,7 @@ from easybuild.tools.modules import get_software_root
 
 DEVICES_WITH_UCX_SUPPORT = ['ch4']
 
+
 class EB_MPICH(ConfigureMake):
     """
     Support for building the MPICH MPI library and derivatives.
