@@ -392,7 +392,7 @@ class Bundle(EasyBlock):
                                          cfg['name'], cfg['version'])
             else:
                 # Explicit call required as adding step to 'install_step' is not sufficient
-                # for module-only build.Set fake arg to True, as module components should
+                # for module-only build. Set fake arg to True, as module components should
                 # not try to create their own module.
                 comp.make_module_step(*args, **dict(kwargs, fake=True))
 
