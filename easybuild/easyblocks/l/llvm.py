@@ -383,10 +383,7 @@ class EB_LLVM(CMakeMake):
         return self.start_dir
 
     def _configure_build_targets(self):
-        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-        # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-        cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities'] or []
+        cuda_cc_list = self.cfg.get_cuda_cc_template_value("cuda_cc_space_sep", required=False).split()
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         amd_gfx_list = self.cfg['amd_gfx_list'] or []
 
@@ -803,9 +800,9 @@ class EB_LLVM(CMakeMake):
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
-        if self.cfg['build_openmp_offload'] and '19' <= LooseVersion(self.version) < '20':
-            gpu_archs = []
-            gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
+        # 20.1+ uses a generic IR for OpenMP DeviceRTL
+        if self.cfg['build_openmp_offload'] and LooseVersion(self.version) < '20.1':
+            gpu_archs = self.cfg.get_cuda_cc_template_value("cuda_sm_space_sep", required=False).split()
             gpu_archs += self.amd_gfx
             if gpu_archs:
                 self._cmakeopts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
