@@ -1333,6 +1333,8 @@ class EB_LLVM(CMakeMake):
             arch = 'ppc64'
         elif arch == AARCH64:
             arch = 'aarch64'
+        else:
+            print_warning("Unknown CPU architecture (%s) for OpenMP and runtime libraries check!" % arch, log=self.log)
 
         check_files = []
         check_bin_files = []
