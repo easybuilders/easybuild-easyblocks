@@ -94,6 +94,7 @@ class EB_MPICH(ConfigureMake):
         # is not present in the FFLAGS variable.
         version = LooseVersion(self.version)
         if version < LooseVersion('4'):
+            self.log.info("MPICH version < 4, not unsetting FFLAGS to avoid configure failure")
             vars_to_keep.append('FFLAGS')
 
         vars_to_unset = list(set(vars_to_unset) - set(vars_to_keep))
