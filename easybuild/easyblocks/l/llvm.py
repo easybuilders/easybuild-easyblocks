@@ -184,7 +184,7 @@ class EB_LLVM(CMakeMake):
         'bootstrap',
         'full_llvm',
         'python_bindings',
-        'usepolly',
+        'use_polly',
     ]
 
     # Create symlink between equivalent host triples, useful so that other build processes that relies on older
@@ -230,7 +230,8 @@ class EB_LLVM(CMakeMake):
             'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
             'use_pic': [True, "Build with Position Independent Code (PIC)", CUSTOM],
-            'usepolly': [False, "Build Clang with polly", CUSTOM],
+            'usepolly': [None, "DEPRECATED, alias for 'use_polly'", CUSTOM],
+            'use_polly': [False, "Build Clang with polly", CUSTOM],
         })
 
         return extra_vars
@@ -238,6 +239,10 @@ class EB_LLVM(CMakeMake):
     def __init__(self, *args, **kwargs):
         """Initialize LLVM-specific variables."""
         super().__init__(*args, **kwargs)
+
+        if self.cfg['usepolly'] is not None:
+            self.log.deprecated("Use of easyconfig parameter 'usepolly', replace by 'use_polly'", '6.0')
+            self.cfg['use_polly'] = self.cfg['usepolly']
 
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
@@ -332,7 +337,7 @@ class EB_LLVM(CMakeMake):
             if not self.cfg['build_openmp']:
                 raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
 
-        if self.cfg['usepolly']:
+        if self.cfg['use_polly']:
             self.final_projects.append('polly')
 
         if self.cfg['build_clang_extras']:
@@ -548,7 +553,7 @@ class EB_LLVM(CMakeMake):
             lit_args += ['--max-time', str(timeout_total)]
         self._cmakeopts['LLVM_LIT_ARGS'] = '"%s"' % ' '.join(lit_args)
 
-        if self.cfg['usepolly']:
+        if self.cfg['use_polly']:
             self._cmakeopts['LLVM_POLLY_LINK_INTO_TOOLS'] = 'ON'
         if not self.cfg['skip_all_tests']:
             self._cmakeopts['LLVM_INCLUDE_TESTS'] = 'ON'
