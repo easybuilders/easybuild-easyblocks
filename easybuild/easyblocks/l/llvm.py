@@ -795,7 +795,8 @@ class EB_LLVM(CMakeMake):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
         # 20.1+ uses a generic IR for OpenMP DeviceRTL
-        if self.cfg['build_openmp_offload'] and LooseVersion(self.version) < '20.1':
+        # Using the default ("all") for LLVM < 19 to keep behavior of previous versions of the easyblock
+        if self.cfg['build_openmp_offload'] and '19' <= LooseVersion(self.version) < '20.1':
             gpu_archs = self.cfg.get_cuda_cc_template_value("cuda_sm_space_sep", required=False).split()
             gpu_archs += self.amd_gfx
             if gpu_archs:
