@@ -293,8 +293,8 @@ class EB_OpenFOAM(EasyBlock):
         # make sure lib/include dirs for dependencies are found
         openfoam_extend_v3 = self.is_extend and self.looseversion >= LooseVersion('3.0')
         if self.looseversion < LooseVersion("2") or openfoam_extend_v3:
-            self.log.debug("List of deps: %s" % self.cfg.dependencies())
-            for dep in self.cfg.dependencies():
+            self.log.debug("List of deps: %s" % self.cfg.dependencies(runtime_only=True))
+            for dep in self.cfg.dependencies(runtime_only=True):
                 dep_name = dep['name'].upper(),
                 dep_root = get_software_root(dep['name'])
                 env.setvar("%s_SYSTEM" % dep_name, "1")
