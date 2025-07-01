@@ -859,6 +859,11 @@ class EB_LLVM(CMakeMake):
     def _create_compiler_config_file(self, installdir):
         """Create a config file for the compiler to point to the correct GCC installation."""
         self._set_gcc_prefix()
+
+        # This is only needed for LLVM >= 19, as the --gcc-install-dir option was introduced then
+        if LooseVersion(self.version) < LooseVersion('19'):
+            return
+
         bin_dir = os.path.join(installdir, 'bin')
         opts = [f'--gcc-install-dir={self.gcc_prefix}']
 
@@ -952,13 +957,11 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['CMAKE_ASM_COMPILER'] = clang
             self._cmakeopts['CMAKE_ASM_COMPILER_ID'] = 'Clang'
 
-            # Also runs of the intermediate step compilers should be made aware of the GCC installation
-            if LooseVersion(self.version) >= LooseVersion('19'):
-                self._create_compiler_config_file(prev_dir)
-                # also pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
-                # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
-                # runtimes (which would otherwise use the system default dynamic linker)
-                self._create_compiler_config_file(stage_dir)
+            self._create_compiler_config_file(prev_dir)
+            # also pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
+            # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
+            # runtimes (which would otherwise use the system default dynamic linker)
+            self._create_compiler_config_file(stage_dir)
 
             self.add_cmake_opts()
 
@@ -1146,8 +1149,7 @@ class EB_LLVM(CMakeMake):
         """Run tests on final stage (unless disabled)."""
         if not self.cfg['skip_all_tests']:
             # Also runs of test suite compilers should be made aware of the GCC installation
-            if LooseVersion(self.version) >= LooseVersion('19'):
-                self._create_compiler_config_file(self.final_dir)
+            self._create_compiler_config_file(self.final_dir)
 
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
             pxtas_path = which('ptxas', on_error=IGNORE)
@@ -1202,10 +1204,9 @@ class EB_LLVM(CMakeMake):
             python_bindings_source_dir = os.path.join(self.start_dir, 'mlir', 'python')
             copy_dir(python_bindings_source_dir, python_bindins_target_dir, dirs_exist_ok=True)
 
-        if LooseVersion(self.version) >= LooseVersion('19'):
-            # For GCC aware installation create config files in order to point to the correct GCC installation
-            # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
-            self._create_compiler_config_file(self.installdir)
+        # For GCC aware installation create config files in order to point to the correct GCC installation
+        # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
+        self._create_compiler_config_file(self.installdir)
 
         # This is needed as some older build system will select a different naming scheme for the library leading to
         # The correct target <__config_site> and libclang_rt.builtins.a not being found
