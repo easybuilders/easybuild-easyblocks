@@ -123,6 +123,7 @@ KOKKOS_CPU_MAPPING = {
     'ivybridge': 'SNB',
     'haswell': 'HSW',
     'broadwell': 'BDW',
+    'skylake': 'SKL',
     'skylake_avx512': 'SKX',
     'cascadelake': 'SKX',
     'icelake': 'SKX',
