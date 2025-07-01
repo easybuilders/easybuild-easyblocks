@@ -43,7 +43,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion
 from easybuild.tools.utilities import trace_msg
-from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
 from easybuild.tools.config import ERROR, IGNORE, SEARCH_PATH_LIB_DIRS, build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, adjust_permissions
@@ -231,7 +231,7 @@ class EB_LLVM(CMakeMake):
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
             'use_pic': [True, "Build with Position Independent Code (PIC)", CUSTOM],
             'usepolly': [None, "DEPRECATED, alias for 'use_polly'", CUSTOM],
-            'use_polly': [False, "Build Clang with polly", CUSTOM],
+            'use_polly': [None, "Build Clang with polly, disabled by default", CUSTOM],
         })
 
         return extra_vars
@@ -242,7 +242,11 @@ class EB_LLVM(CMakeMake):
 
         if self.cfg['usepolly'] is not None:
             self.log.deprecated("Use of easyconfig parameter 'usepolly', replace by 'use_polly'", '6.0')
-            self.cfg['use_polly'] = self.cfg['usepolly']
+            if self.cfg['use_polly'] is None:
+                self.cfg['use_polly'] = self.cfg['usepolly']
+            else:
+                # Do not overwrite value set via the new name
+                print_warning("Both 'usepolly' and 'use_polly' are set, please use only 'use_polly'")
 
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
