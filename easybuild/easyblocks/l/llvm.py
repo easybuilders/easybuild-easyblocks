@@ -477,9 +477,6 @@ class EB_LLVM(CMakeMake):
         self.general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         self.general_opts['LLVM_TARGETS_TO_BUILD'] = self.list_to_cmake_arg(build_targets)
 
-        self._cmakeopts = {}
-        self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
-
     def prepare_step(self, *args, **kwargs):
         """Prepare step, modified to ensure install dir is deleted before building"""
         super().prepare_step(*args, **kwargs)
