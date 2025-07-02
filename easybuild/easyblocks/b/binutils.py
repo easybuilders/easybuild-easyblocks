@@ -37,7 +37,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, copy_file, move_file, symlink
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, move_file, remove_dir, symlink
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, get_cpu_family, get_gcc_version, get_shared_lib_ext
@@ -232,10 +232,12 @@ class EB_binutils(ConfigureMake):
             libiberty_static_lib = 'libiberty.a'
             if os.path.exists(lib64_path) and os.listdir(lib64_path) == [libiberty_static_lib]:
                 lib_path = os.path.join(self.installdir, 'lib')
-                self.log.info(f"Found only{libiberty_static_lib} in {lib64_path}, moving it to {lib_path}")
+                self.log.info(f"Found only {libiberty_static_lib} in {lib64_path}, moving it to {lib_path}")
                 src_path = os.path.join(lib64_path, libiberty_static_lib)
                 target_path = os.path.join(lib_path, libiberty_static_lib)
                 move_file(src_path, target_path)
+                self.log.info(f"Removing (now empty) {lib64_path} directory")
+                remove_dir(lib64_path)
 
     def sanity_check_step(self):
         """Custom sanity check for binutils."""
