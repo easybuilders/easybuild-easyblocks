@@ -253,10 +253,12 @@ class EB_LLVM(CMakeMake):
         self.llvm_obj_dir_stage3 = None
         self.intermediate_projects = ['llvm', 'clang']
         self.intermediate_runtimes = ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
-        if not self.cfg['minimal']:
-            self.final_projects = ['llvm', 'mlir', 'clang', 'flang']
-        else:
+        if self.cfg['minimal']:
             self.final_projects = ['llvm']
+        else:
+            self.final_projects = ['llvm', 'mlir', 'clang', 'flang']
+            # Bypass the .mod file check for GCCcore installs
+            self.cfg['skip_mod_files_sanity_check'] = True
         self.final_runtimes = []
         self.gcc_prefix = None
         self.runtimes_cmake_args = {
@@ -331,15 +333,14 @@ class EB_LLVM(CMakeMake):
                 raise EasyBuildError("Building OpenMP offload requires building OpenMP runtime")
             # LLVM 19 added a new runtime target for explicit offloading
             # https://discourse.llvm.org/t/llvm-19-1-0-no-library-libomptarget-nvptx-sm-80-bc-found/81343
-            if LooseVersion(self.version) >= LooseVersion('19'):
+            if LooseVersion(self.version) >= '19':
                 self.log.debug("Explicitly enabling OpenMP offloading for LLVM >= 19")
                 self.final_runtimes.append('offload')
             else:
                 self.log.warning("OpenMP offloading is included with the OpenMP runtime for LLVM < 19")
 
-        if self.cfg['build_openmp_tools']:
-            if not self.cfg['build_openmp']:
-                raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
+        if self.cfg['build_openmp_tools'] and not self.cfg['build_openmp']:
+            raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
 
         if self.cfg['use_polly']:
             self.final_projects.append('polly')
@@ -366,7 +367,7 @@ class EB_LLVM(CMakeMake):
             self.final_projects.append('bolt')
 
         # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3689
-        if LooseVersion(self.version) < LooseVersion('16'):
+        if LooseVersion(self.version) < '16':
             self.general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
 
         self.log.info("Final projects to build: %s", ', '.join(self.final_projects))
@@ -458,9 +459,9 @@ class EB_LLVM(CMakeMake):
         # Enable offload targets for LLVM >= 18
         self.cuda_cc = []
         self.amd_gfx = []
-        if self.cfg['build_openmp_offload'] and LooseVersion(self.version) >= LooseVersion('18'):
+        if self.cfg['build_openmp_offload'] and LooseVersion(self.version) >= '18':
             if self.nvptx_target_cond:
-                if LooseVersion(self.version) < LooseVersion('20') and not cuda_cc_list:
+                if LooseVersion(self.version) < '20' and not cuda_cc_list:
                     raise EasyBuildError(
                         f"LLVM < 20 requires 'cuda_compute_capabilities' to build with {BUILD_TARGET_NVPTX}"
                     )
@@ -468,7 +469,7 @@ class EB_LLVM(CMakeMake):
                 self.offload_targets += ['cuda']
                 self.log.debug("Enabling `cuda` offload target")
             if self.amdgpu_target_cond:
-                if LooseVersion(self.version) < LooseVersion('20') and not amd_gfx_list:
+                if LooseVersion(self.version) < '20' and not amd_gfx_list:
                     raise EasyBuildError(f"LLVM < 20 requires 'amd_gfx_list' to build with {BUILD_TARGET_AMDGPU}")
                 self.amd_gfx = amd_gfx_list
                 self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
@@ -519,7 +520,7 @@ class EB_LLVM(CMakeMake):
         if 'openmp' in self.final_projects:
             if self.cfg['build_openmp_offload']:
                 # Force dlopen of the GPU libraries at runtime, not using existing libraries
-                if LooseVersion(self.version) >= LooseVersion('19'):
+                if LooseVersion(self.version) >= '19':
                     self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
                     dlopen_plugins = set(self.offload_targets) & set(AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS)
                     if dlopen_plugins:
@@ -530,7 +531,7 @@ class EB_LLVM(CMakeMake):
                     if self.nvptx_target_cond:
                         self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
-            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'OFF'
+            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'ON'
             if not self.cfg['build_openmp_tools']:
                 self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
 
@@ -596,16 +597,17 @@ class EB_LLVM(CMakeMake):
         if self.gcc_prefix is None:
             gcc_root, gcc_prefix = self._get_gcc_prefix()
 
-            # --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
+            # For LLVM 18+ config files should be used and this option is deprecated and causes an error in 19
+            # But the --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
             # https://github.com/llvm/llvm-project/pull/87360
-            if LooseVersion(self.version) < LooseVersion('19'):
+            if LooseVersion(self.version) < '19':
                 self.log.debug("Using GCC_INSTALL_PREFIX")
                 self.general_opts['GCC_INSTALL_PREFIX'] = gcc_root
             else:
                 # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
                 self.log.debug("Using '--gcc-install-dir' in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
-                self.runtimes_cmake_args['CMAKE_C_FLAGS'] += ['--gcc-install-dir=%s' % gcc_prefix]
-                self.runtimes_cmake_args['CMAKE_CXX_FLAGS'] += ['--gcc-install-dir=%s' % gcc_prefix]
+                self.runtimes_cmake_args['CMAKE_C_FLAGS'].append(f'--gcc-install-dir={gcc_prefix}')
+                self.runtimes_cmake_args['CMAKE_CXX_FLAGS'].append(f'--gcc-install-dir={gcc_prefix}')
 
             self.gcc_prefix = gcc_prefix
         self.log.debug("Using %s as the gcc install location", self.gcc_prefix)
@@ -663,7 +665,7 @@ class EB_LLVM(CMakeMake):
         new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
 
         # See https://github.com/llvm/llvm-project/issues/140024
-        if LooseVersion(self.version) <= LooseVersion('20.1.5'):
+        if LooseVersion(self.version) <= '20.1.5':
             new_ignore_patterns.append('LLVM :: CodeGen/Hexagon/isel/pfalse-v4i1.ll')
 
         self.ignore_patterns += new_ignore_patterns
@@ -674,19 +676,18 @@ class EB_LLVM(CMakeMake):
         Install extra tools in bin/; enable zlib if it is a dep; optionally enable rtti; and set the build target
         """
         # Allow running with older versions of LLVM for minimal builds in order to replace EB_LLVM easyblock
-        if not self.cfg['minimal'] and LooseVersion(self.version) < LooseVersion('18.1.6'):
+        if not self.cfg['minimal'] and LooseVersion(self.version) < '18.1.6':
             raise EasyBuildError("LLVM version %s is not supported, please use version 18.1.6 or newer", self.version)
 
-        # Allow running with older versions of LLVM for minimal builds in order to replace EB_LLVM easyblock
+        # Allow running with older versions of GCC for minimal builds in order to replace EB_LLVM easyblock
         gcc_version = get_software_version('GCCcore')
-        if not self.cfg['minimal'] and LooseVersion(gcc_version) < LooseVersion('13'):
+        if not self.cfg['minimal'] and LooseVersion(gcc_version) < '13':
             raise EasyBuildError("LLVM %s requires GCC 13 or newer, found %s", self.version, gcc_version)
 
         # Lit is needed for running tests-suite
         lit_root = get_software_root('lit')
-        if not lit_root:
-            if not self.cfg['skip_all_tests']:
-                raise EasyBuildError("Can't find 'lit', needed for running tests-suite")
+        if not lit_root and not self.cfg['skip_all_tests']:
+            raise EasyBuildError("Can't find 'lit', needed for running tests-suite")
 
         timeouts = self.cfg['test_suite_timeout_single'] or self.cfg['test_suite_timeout_total']
         if not self.cfg['skip_all_tests'] and timeouts:
@@ -704,7 +705,7 @@ class EB_LLVM(CMakeMake):
         # Sysroot
         self.sysroot = build_option('sysroot')
         if self.sysroot:
-            if LooseVersion(self.version) < LooseVersion('19'):
+            if LooseVersion(self.version) < '19':
                 raise EasyBuildError("Using sysroot is not supported by EasyBuild for LLVM < 19")
             self.general_opts['DEFAULT_SYSROOT'] = self.sysroot
             self.general_opts['CMAKE_SYSROOT'] = self.sysroot
@@ -802,7 +803,7 @@ class EB_LLVM(CMakeMake):
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
-        if self.cfg['build_openmp_offload'] and LooseVersion('19') <= LooseVersion(self.version) < LooseVersion('20'):
+        if self.cfg['build_openmp_offload'] and '19' <= LooseVersion(self.version) < '20':
             gpu_archs = []
             gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
             gpu_archs += self.amd_gfx
@@ -879,7 +880,7 @@ class EB_LLVM(CMakeMake):
         self._set_gcc_prefix()
 
         # This is only needed for LLVM >= 19, as the --gcc-install-dir option was introduced then
-        if LooseVersion(self.version) < LooseVersion('19'):
+        if LooseVersion(self.version) < '19':
             return
 
         bin_dir = os.path.join(installdir, 'bin')
@@ -958,11 +959,9 @@ class EB_LLVM(CMakeMake):
             if self.full_llvm:
                 # See  https://github.com/llvm/llvm-project/issues/111667
                 to_add = '--unwindlib=none'
-                # for flags in ['CMAKE_C_FLAGS', 'CMAKE_CXX_FLAGS']:
-                for flags in ['CMAKE_EXE_LINKER_FLAGS']:
-                    ptr = self.runtimes_cmake_args[flags]
-                    if to_add not in ptr:
-                        ptr.append(to_add)
+                flags = self.runtimes_cmake_args['CMAKE_EXE_LINKER_FLAGS']
+                if to_add not in flags:
+                    flags.append(to_add)
 
                 self._add_cmake_runtime_args()
 
@@ -1092,11 +1091,11 @@ class EB_LLVM(CMakeMake):
         basedir = self.final_dir
 
         # From grep -E "^[A-Z]+: " LOG_FILE | cut -d: -f1 | sort | uniq
-        OUTCOMES_LOG = [
+        OUTCOME_FAIL = [
             'FAIL',
             'TIMEOUT',
         ]
-        # OUTCOMES_OK = [
+        # OUTCOME_OK = [
         #     'PASS',
         #     'UNSUPPORTED',
         #     'XFAIL',
@@ -1124,7 +1123,7 @@ class EB_LLVM(CMakeMake):
         failed_pattern_matches = 0
         if ignore_patterns:
             for line in out.splitlines():
-                if any(line.startswith(f'{x}: ') for x in OUTCOMES_LOG):
+                if any(line.startswith(f'{x}: ') for x in OUTCOME_FAIL):
                     if any(patt in line for patt in ignore_patterns):
                         self.log.info("Ignoring test failure: %s", line)
                         ignored_pattern_matches += 1
@@ -1154,7 +1153,7 @@ class EB_LLVM(CMakeMake):
 
         if num_failed != failed_pattern_matches:
             msg = f"Number of failed tests ({num_failed}) does not match "
-            msg += f"number identified va line-by-line pattern matching: {failed_pattern_matches}"
+            msg += f"Number identified via line-by-line pattern matching: {failed_pattern_matches}"
             self.log.warning(msg)
 
         if num_failed is not None and ignored_pattern_matches:
@@ -1170,15 +1169,14 @@ class EB_LLVM(CMakeMake):
             self._create_compiler_config_file(self.final_dir)
 
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
-            pxtas_path = which('ptxas', on_error=IGNORE)
-            if self.nvptx_target_cond and not pxtas_path:
+            if not which('ptxas', on_error=IGNORE):
                 self.ignore_patterns += ['nvptx64-nvidia-cuda', 'nvptx64-nvidia-cuda-LTO']
                 self.log.warning("PTXAS not found in PATH, ignoring failing tests for NVPTX target")
             # If the AMDGPU target is built, tests will be run if libhsa-runtime64.so is found.
             # However, this can cause issues if the system libraries are used, due to other loaded modules.
             # Therefore, ignore failing tests if ROCr-Runtime is not in the dependencies and
             # warn about this in the logs.
-            if self.amdgpu_target_cond and 'rocr-runtime' not in self.deps:
+            if 'rocr-runtime' not in self.deps:
                 self.ignore_patterns += ['amdgcn-amd-amdhsa']
                 self.log.warning("ROCr-Runtime not in dependencies, ignoring failing tests for AMDGPU target.")
 
@@ -1247,8 +1245,7 @@ class EB_LLVM(CMakeMake):
             # Attempt using the glob based detection of the runtime library directory for runs of
             # --sanity-check-only/--module-only where the configure step is not used
             arch = get_arch_prefix()
-            glob_pattern = os.path.join(base_dir, 'lib', f'{arch}-*')
-            matches = glob.glob(glob_pattern)
+            matches = glob.glob(os.path.join(base_dir, 'lib', f'{arch}-*'))
             if matches:
                 self.host_triple = os.path.basename(matches[0])
             else:
@@ -1321,7 +1318,7 @@ class EB_LLVM(CMakeMake):
             for suffix in ('.c', '.o', '.x'):
                 remove_file(f'{test_fn}{suffix}')
 
-    def sanity_check_step(self, custom_paths=None, custom_commands=None, extension=False, extra_modules=None):
+    def sanity_check_step(self, custom_paths=None, custom_commands=None, *args, **kwargs):
         """Perform sanity checks on the installed LLVM."""
         lib_dir_runtime = None
         if self.cfg['build_runtimes']:
@@ -1329,8 +1326,8 @@ class EB_LLVM(CMakeMake):
         shlib_ext = '.' + get_shared_lib_ext()
 
         resdir_version = self.version.split('.')[0]
+        version = LooseVersion(self.version)
 
-        # Detect OpenMP support for CPU architecture
         arch = get_cpu_architecture()
         # Check architecture explicitly since Clang uses potentially different names
         if arch == X86_64:
@@ -1339,6 +1336,8 @@ class EB_LLVM(CMakeMake):
             arch = 'ppc64'
         elif arch == AARCH64:
             arch = 'aarch64'
+        else:
+            print_warning("Unknown CPU architecture (%s) for OpenMP and runtime libraries check!" % arch, log=self.log)
 
         check_files = []
         check_bin_files = []
@@ -1384,7 +1383,7 @@ class EB_LLVM(CMakeMake):
             ]
             check_dirs += ['include/clang-tidy']
         if 'flang' in self.final_projects:
-            if LooseVersion(self.version) < LooseVersion('19'):
+            if version < '19':
                 check_bin_files += ['bbc', 'flang-new', 'flang-to-external-fc', 'f18-parse-demo', 'fir-opt', 'tco']
             else:
                 check_bin_files += ['bbc', 'flang-new', 'f18-parse-demo', 'fir-opt', 'tco']
@@ -1446,59 +1445,57 @@ class EB_LLVM(CMakeMake):
             check_lib_files += ['libbolt_rt_instr.a']
             custom_commands += ['llvm-bolt --help']
         if 'openmp' in self.final_projects:
-            omp_lib_files = []
-            omp_lib_files += ['libomp.so', 'libompd.so']
+            omp_lib_files = ['libomp.so', 'libompd.so']
             if self.cfg['build_openmp_offload']:
-                # Judging from the build process/logs of LLVM 19, the omptarget plugins (rtl.<device>.so) are now built
-                # as static libraries and linked into the libomptarget.so shared library
                 omp_lib_files += ['libomptarget.so']
-                if LooseVersion(self.version) < LooseVersion('19'):
-                    omp_lib_files += ['libomptarget.rtl.%s.so' % arch]
+                # In LLVM 19, the omptarget plugins (rtl.<device>.so) are built as static libraries
+                # and linked into the libomptarget.so shared library
+                if version < '19':
+                    omp_lib_files += [f'libomptarget.rtl.{arch}.so']
                 if self.nvptx_target_cond:
-                    if LooseVersion(self.version) < LooseVersion('19'):
+                    if version < '19':
                         omp_lib_files += ['libomptarget.rtl.cuda.so']
-                    if LooseVersion(self.version) < LooseVersion('20'):
-                        omp_lib_files += ['libomptarget-nvptx-sm_%s.bc' % cc for cc in self.cuda_cc]
+                    if version < '20':
+                        omp_lib_files += [f'libomptarget-nvptx-sm_{cc}.bc' for cc in self.cuda_cc]
                     else:
                         omp_lib_files += ['libomptarget-nvptx.bc']
                 if self.amdgpu_target_cond:
-                    if LooseVersion(self.version) < LooseVersion('19'):
+                    if version < '19':
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
-                    if LooseVersion(self.version) < LooseVersion('20'):
-                        omp_lib_files += ['libomptarget-amdgpu-%s.bc' % gfx for gfx in self.amd_gfx]
+                    if version < '20':
+                        omp_lib_files += [f'libomptarget-amdgpu-{gfx}.bc' for gfx in self.amd_gfx]
                     else:
                         omp_lib_files += ['libomptarget-amdgpu.bc']
 
-                if LooseVersion(self.version) < LooseVersion('19'):
+                if version < '19':
                     # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
                     check_lib_files += omp_lib_files
                 else:
                     # Starting from LLVM 19, omp related libraries are installed the runtime library directory
                     check_librt_files += omp_lib_files
                     check_bin_files += ['llvm-omp-kernel-replay']
-                    if LooseVersion(self.version) < LooseVersion('20'):
+                    if version < '20':
                         check_bin_files += ['llvm-omp-device-info']
                     else:
                         check_bin_files += ['llvm-offload-device-info']
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
-            if LooseVersion(self.version) < LooseVersion('19'):
+            if version < '19':
                 check_lib_files += ['libarcher.so']
-            elif LooseVersion(self.version) >= LooseVersion('19'):
+            else:
                 check_librt_files += ['libarcher.so']
         if self.cfg['python_bindings']:
             custom_commands += ["python -c 'import clang'"]
             custom_commands += ["python -c 'import mlir'"]
 
-        check_files += [os.path.join('bin', x) for x in check_bin_files]
-        check_files += [os.path.join('lib', x) for x in check_lib_files]
-        check_files += [os.path.join(lib_dir_runtime, x) for x in check_librt_files]
-        check_files += [os.path.join('include', x) for x in check_inc_files]
+        check_files.extend(os.path.join('bin', x) for x in check_bin_files)
+        check_files.extend(os.path.join('lib', x) for x in check_lib_files)
+        check_files.extend(os.path.join(lib_dir_runtime, x) for x in check_librt_files)
+        check_files.extend(os.path.join('include', x) for x in check_inc_files)
 
-        for libso in check_files:
-            if not libso.endswith('.so'):
-                continue
+        so_libs = [lib for lib in check_files if lib.endswith('.so')]
+        for libso in so_libs:
             libext = libso.replace('.so', shlib_ext)
             if libext not in check_files:
                 check_files.remove(libso)
@@ -1519,7 +1516,7 @@ class EB_LLVM(CMakeMake):
             self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
             self._sanity_check_dynamic_linker()
 
-        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands, *args, **kwargs)
 
     def make_module_step(self, *args, **kwargs):
         """
