@@ -1450,14 +1450,14 @@ class EB_LLVM(CMakeMake):
                 if self.nvptx_target_cond:
                     if version < '19':
                         omp_lib_files += ['libomptarget.rtl.cuda.so']
-                    elif version < '20':
+                    if version < '20':
                         omp_lib_files += [f'libomptarget-nvptx-sm_{cc}.bc' for cc in self.cuda_cc]
                     else:
                         omp_lib_files += ['libomptarget-nvptx.bc']
                 if self.amdgpu_target_cond:
                     if version < '19':
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
-                    elif version < '20':
+                    if version < '20':
                         omp_lib_files += [f'libomptarget-amdgpu-{gfx}.bc' for gfx in self.amd_gfx]
                     else:
                         omp_lib_files += ['libomptarget-amdgpu.bc']
