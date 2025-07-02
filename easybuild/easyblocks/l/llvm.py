@@ -381,24 +381,6 @@ class EB_LLVM(CMakeMake):
         # LLVM is the first source so we already have this in start_dir. Might be changed later
         return self.start_dir
 
-    def prepare_step(self, *args, **kwargs):
-        """Prepare step, modified to ensure install dir is deleted before building"""
-        super().prepare_step(*args, **kwargs)
-        # re-create installation dir (deletes old installation),
-        # Needed to ensure hardcoded rpath do not point to old installation during runtime builds and testing
-        self.make_installdir()
-
-    def _add_cmake_runtime_args(self):
-        """Generate the value for 'RUNTIMES_CMAKE_ARGS' and add it to the cmake options."""
-        if self.runtimes_cmake_args:
-            args = []
-            for key, val in self.runtimes_cmake_args.items():
-                if isinstance(val, list):
-                    val = ' '.join(val)
-                if val:
-                    args.append('-D%s=%s' % (key, val))
-            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(args)
-
     def _configure_build_targets(self):
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
