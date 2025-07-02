@@ -137,8 +137,19 @@ class EB_MPICH(ConfigureMake):
                     device, ', '.join(DEVICES_WITH_UCX_SUPPORT)
                 )
             device += ':ucx'
-            add_configopts.append('--with-ucx=%s' % ucx_root)
+            add_configopts.append(f'--with-ucx={ucx_root}')
             self.log.info("Enabling UCX support, using UCX root: %s", ucx_root)
+
+        hwloc_root = get_software_root('hwloc')
+        if hwloc_root:
+            if LooseVersion(self.version) < LooseVersion('4'):
+                add_configopts.append(f'--with-hwloc-prefix={hwloc_root}')
+            else:
+                add_configopts.append(f'--with-hwloc={hwloc_root}')
+            self.log.info("Enabling hwloc support, using hwloc root: %s", hwloc_root)
+        else:
+            add_configopts.append('--without-hwloc')
+            self.log.info("hwloc dependency not found, disabling hwloc support")
 
         if self.cfg['mpi_abi']:
             if LooseVersion(self.version) < LooseVersion('4.3'):
