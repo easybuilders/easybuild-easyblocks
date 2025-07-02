@@ -43,7 +43,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools import LooseVersion
 from easybuild.tools.utilities import trace_msg
-from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
 from easybuild.tools.config import ERROR, IGNORE, SEARCH_PATH_LIB_DIRS, build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, adjust_permissions
@@ -81,7 +81,7 @@ AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS = [
     'amdgpu'
 ]
 
-remove_gcc_dependency_opts = {
+GCC_DEPENDENCY_OPTS_DEFAULT = {
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
     # Moved to general_opts for ease of building with openmp offload (or other multi-stage builds)
@@ -117,7 +117,7 @@ remove_gcc_dependency_opts = {
     'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'On',
 }
 
-disable_werror = {
+DISABLE_WERROR_OPTS = {
     'BENCHMARK_ENABLE_WERROR': 'Off',
     'COMPILER_RT_ENABLE_WERROR': 'Off',
     'FLANG_ENABLE_WERROR': 'Off',
@@ -128,7 +128,7 @@ disable_werror = {
     'OPENMP_ENABLE_WERROR': 'Off',
 }
 
-general_opts = {
+GENERAL_OPTS = {
     'CMAKE_VERBOSE_MAKEFILE': 'ON',
     'LLVM_INCLUDE_BENCHMARKS': 'OFF',
     'LLVM_INSTALL_UTILS': 'ON',
@@ -184,7 +184,7 @@ class EB_LLVM(CMakeMake):
         'bootstrap',
         'full_llvm',
         'python_bindings',
-        'usepolly',
+        'use_polly',
     ]
 
     # Create symlink between equivalent host triples, useful so that other build processes that relies on older
@@ -230,7 +230,8 @@ class EB_LLVM(CMakeMake):
             'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
             'use_pic': [True, "Build with Position Independent Code (PIC)", CUSTOM],
-            'usepolly': [False, "Build Clang with polly", CUSTOM],
+            'usepolly': [None, "DEPRECATED, alias for 'use_polly'", CUSTOM],
+            'use_polly': [None, "Build Clang with polly, disabled by default", CUSTOM],
         })
 
         return extra_vars
@@ -238,6 +239,14 @@ class EB_LLVM(CMakeMake):
     def __init__(self, *args, **kwargs):
         """Initialize LLVM-specific variables."""
         super().__init__(*args, **kwargs)
+
+        if self.cfg['usepolly'] is not None:
+            self.log.deprecated("Use of easyconfig parameter 'usepolly', replace by 'use_polly'", '6.0')
+            if self.cfg['use_polly'] is None:
+                self.cfg['use_polly'] = self.cfg['usepolly']
+            else:
+                # Do not overwrite value set via the new name
+                print_warning("Both 'usepolly' and 'use_polly' are set, please use only 'use_polly'")
 
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
@@ -283,11 +292,13 @@ class EB_LLVM(CMakeMake):
         if self.cfg['use_pic']:
             on_opts.append('CMAKE_POSITION_INDEPENDENT_CODE')
 
+        self.general_opts = GENERAL_OPTS.copy()
+
         for opt in on_opts:
-            general_opts[opt] = 'ON'
+            self.general_opts[opt] = 'ON'
 
         for opt in off_opts:
-            general_opts[opt] = 'OFF'
+            self.general_opts[opt] = 'OFF'
 
         self.full_llvm = self.cfg['full_llvm']
 
@@ -307,7 +318,7 @@ class EB_LLVM(CMakeMake):
             self.log.info("Building LLVM without any GCC dependency")
 
         if self.cfg['disable_werror']:
-            general_opts.update(disable_werror)
+            self.general_opts.update(DISABLE_WERROR_OPTS)
 
         if self.cfg['build_runtimes']:
             self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
@@ -330,7 +341,7 @@ class EB_LLVM(CMakeMake):
             if not self.cfg['build_openmp']:
                 raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
 
-        if self.cfg['usepolly']:
+        if self.cfg['use_polly']:
             self.final_projects.append('polly')
 
         if self.cfg['build_clang_extras']:
@@ -340,30 +351,31 @@ class EB_LLVM(CMakeMake):
             self.intermediate_projects.append('lld')
             self.final_projects.append('lld')
             # This should be the default to make offload multi-stage compilations easier
-            general_opts['CLANG_DEFAULT_LINKER'] = 'lld'
-            general_opts['FLANG_DEFAULT_LINKER'] = 'lld'
+            self.general_opts['CLANG_DEFAULT_LINKER'] = 'lld'
+            self.general_opts['FLANG_DEFAULT_LINKER'] = 'lld'
 
+        self.remove_gcc_dependency_opts = GCC_DEPENDENCY_OPTS_DEFAULT.copy()
         if self.cfg['build_lldb']:
             self.final_projects.append('lldb')
             if self.full_llvm:
-                remove_gcc_dependency_opts['LLDB_ENABLE_LIBXML2'] = 'Off'
-                remove_gcc_dependency_opts['LLDB_ENABLE_LZMA'] = 'Off'
-                remove_gcc_dependency_opts['LLDB_ENABLE_PYTHON'] = 'Off'
+                self.remove_gcc_dependency_opts['LLDB_ENABLE_LIBXML2'] = 'Off'
+                self.remove_gcc_dependency_opts['LLDB_ENABLE_LZMA'] = 'Off'
+                self.remove_gcc_dependency_opts['LLDB_ENABLE_PYTHON'] = 'Off'
 
         if self.cfg['build_bolt']:
             self.final_projects.append('bolt')
 
         # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3689
         if LooseVersion(self.version) < LooseVersion('16'):
-            general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
+            self.general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
 
         # Sysroot
         self.sysroot = build_option('sysroot')
         if self.sysroot:
             if LooseVersion(self.version) < LooseVersion('19'):
                 raise EasyBuildError("Using sysroot is not supported by EasyBuild for LLVM < 19")
-            general_opts['DEFAULT_SYSROOT'] = self.sysroot
-            general_opts['CMAKE_SYSROOT'] = self.sysroot
+            self.general_opts['DEFAULT_SYSROOT'] = self.sysroot
+            self.general_opts['CMAKE_SYSROOT'] = self.sysroot
             self._set_dynamic_linker()
             trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {self.sysroot}")
 
@@ -461,8 +473,8 @@ class EB_LLVM(CMakeMake):
                 self.offload_targets += ['amdgpu']  # Used for LLVM >= 19
                 self.log.debug("Enabling `amdgpu` offload target")
 
-        general_opts['CMAKE_BUILD_TYPE'] = self.build_type
-        general_opts['LLVM_TARGETS_TO_BUILD'] = '"%s"' % ';'.join(build_targets)
+        self.general_opts['CMAKE_BUILD_TYPE'] = self.build_type
+        self.general_opts['LLVM_TARGETS_TO_BUILD'] = self.list_to_cmake_arg(build_targets)
 
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
@@ -475,36 +487,36 @@ class EB_LLVM(CMakeMake):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare step, modified to ensure install dir is deleted before building"""
-        super(EB_LLVM, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         # re-create installation dir (deletes old installation),
         # Needed to ensure hardcoded rpath do not point to old installation during runtime builds and testing
         self.make_installdir()
 
     def _add_cmake_runtime_args(self):
         """Generate the value for 'RUNTIMES_CMAKE_ARGS' and add it to the cmake options."""
-        if self.runtimes_cmake_args:
-            args = []
-            for key, val in self.runtimes_cmake_args.items():
-                if isinstance(val, list):
-                    val = ' '.join(val)
-                if val:
-                    args.append('-D%s=%s' % (key, val))
-            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = '"%s"' % ';'.join(args)
+        args = []
+        for key, val in self.runtimes_cmake_args.items():
+            if isinstance(val, list):
+                val = ' '.join(val)
+            if val:
+                args.append(f'-D{key}={val}')
+        if args:
+            self._cmakeopts['RUNTIMES_CMAKE_ARGS'] = self.list_to_cmake_arg(args)
 
     def _configure_general_build(self):
         """General configuration step for LLVM."""
-        self._cmakeopts.update(general_opts)
+        self._cmakeopts.update(self.general_opts)
         self._add_cmake_runtime_args()
 
     def _configure_intermediate_build(self):
         """Configure the intermediate stages of the build."""
-        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.intermediate_projects)
-        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.intermediate_runtimes)
+        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = self.list_to_cmake_arg(self.intermediate_projects)
+        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = self.list_to_cmake_arg(self.intermediate_runtimes)
 
     def _configure_final_build(self):
         """Configure the final stage of the build."""
-        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = '"%s"' % ';'.join(self.final_projects)
-        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = '"%s"' % ';'.join(self.final_runtimes)
+        self._cmakeopts['LLVM_ENABLE_PROJECTS'] = self.list_to_cmake_arg(self.final_projects)
+        self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = self.list_to_cmake_arg(self.final_runtimes)
 
         hwloc_root = get_software_root('hwloc')
         if hwloc_root:
@@ -519,7 +531,7 @@ class EB_LLVM(CMakeMake):
                     self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
                     dlopen_plugins = set(self.offload_targets) & set(AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS)
                     if dlopen_plugins:
-                        self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = "'%s'" % ';'.join(dlopen_plugins)
+                        self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = self.list_to_cmake_arg(dlopen_plugins)
                 else:
                     if self.amdgpu_target_cond:
                         self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBHSA'] = 'ON'
@@ -545,7 +557,7 @@ class EB_LLVM(CMakeMake):
             lit_args += ['--max-time', str(timeout_total)]
         self._cmakeopts['LLVM_LIT_ARGS'] = '"%s"' % ' '.join(lit_args)
 
-        if self.cfg['usepolly']:
+        if self.cfg['use_polly']:
             self._cmakeopts['LLVM_POLLY_LINK_INTO_TOOLS'] = 'ON'
         if not self.cfg['skip_all_tests']:
             self._cmakeopts['LLVM_INCLUDE_TESTS'] = 'ON'
@@ -596,7 +608,7 @@ class EB_LLVM(CMakeMake):
             # https://github.com/llvm/llvm-project/pull/87360
             if LooseVersion(self.version) < LooseVersion('19'):
                 self.log.debug("Using GCC_INSTALL_PREFIX")
-                general_opts['GCC_INSTALL_PREFIX'] = gcc_root
+                self.general_opts['GCC_INSTALL_PREFIX'] = gcc_root
             else:
                 # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
                 self.log.debug("Using '--gcc-install-dir' in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
@@ -696,7 +708,7 @@ class EB_LLVM(CMakeMake):
         # CMAKE_INSTALL_PREFIX and LLVM start directory are set here instead of in __init__ to
         # ensure this easyblock can be used as a Bundle component, see
         # https://github.com/easybuilders/easybuild-easyblocks/issues/3680
-        general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
+        self.general_opts['CMAKE_INSTALL_PREFIX'] = self.installdir
 
         # Bootstrap
         self.llvm_obj_dir_stage1 = os.path.join(self.builddir, 'llvm.obj.1')
@@ -711,7 +723,7 @@ class EB_LLVM(CMakeMake):
             self.log.info("Initialising for single stage build.")
             self.final_dir = self.llvm_obj_dir_stage1
 
-        general_opts['LLVM_ENABLE_ASSERTIONS'] = 'ON' if self.cfg['assertions'] else 'OFF'
+        self.general_opts['LLVM_ENABLE_ASSERTIONS'] = 'ON' if self.cfg['assertions'] else 'OFF'
 
         # Dependencies based persistent options (should be reused across stages)
         # Libxml2
@@ -720,36 +732,36 @@ class EB_LLVM(CMakeMake):
         if xml2_root:
             if self.full_llvm:
                 self.log.warning("LLVM is being built in 'full_llvm' mode, libxml2 will not be used")
-                general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
+                self.general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
             else:
-                general_opts['LLVM_ENABLE_LIBXML2'] = 'ON'
+                self.general_opts['LLVM_ENABLE_LIBXML2'] = 'ON'
         else:
-            general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
+            self.general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
 
         # If 'ON', risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
         # to errors during compilation of 'offload.tools.kernelreplay' due to the inclusion of LLVMSupport (19.x)
-        general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if get_software_root('zlib') else 'OFF'
-        general_opts['LLVM_ENABLE_ZSTD'] = 'ON' if get_software_root('zstd') else 'OFF'
+        self.general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if get_software_root('zlib') else 'OFF'
+        self.general_opts['LLVM_ENABLE_ZSTD'] = 'ON' if get_software_root('zstd') else 'OFF'
         # Should not use system SWIG if present
-        general_opts['LLDB_ENABLE_SWIG'] = 'ON' if get_software_root('SWIG') else 'OFF'
+        self.general_opts['LLDB_ENABLE_SWIG'] = 'ON' if get_software_root('SWIG') else 'OFF'
 
         # Avoid using system `gdb` in case it is not provided as a dependency
         # This could cause the wrong sysroot/dynamic linker being picked up in a sysroot build causing tests to fail
-        general_opts['LIBOMP_OMPD_GDB_SUPPORT'] = 'ON' if get_software_root('GDB') else 'OFF'
+        self.general_opts['LIBOMP_OMPD_GDB_SUPPORT'] = 'ON' if get_software_root('GDB') else 'OFF'
 
         z3_root = get_software_root("Z3")
         if z3_root:
             self.log.info("Using %s as Z3 root", z3_root)
-            general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'ON'
-            general_opts['LLVM_Z3_INSTALL_DIR'] = z3_root
+            self.general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'ON'
+            self.general_opts['LLVM_Z3_INSTALL_DIR'] = z3_root
         else:
-            general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'OFF'
+            self.general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'OFF'
 
         # update ignore patterns for ignorable test failures
         self._update_test_ignore_patterns()
 
         python_opts = get_cmake_python_config_dict()
-        general_opts.update(python_opts)
+        self.general_opts.update(python_opts)
         self.runtimes_cmake_args.update(python_opts)
 
         if self.cfg['bootstrap']:
@@ -789,7 +801,7 @@ class EB_LLVM(CMakeMake):
             gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
             gpu_archs += self.amd_gfx
             if gpu_archs:
-                self.runtimes_cmake_args['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = '%s' % '|'.join(gpu_archs)
+                self._cmakeopts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
 
         self._configure_general_build()
         self.add_cmake_opts()
@@ -818,7 +830,7 @@ class EB_LLVM(CMakeMake):
                 self._prepare_runtimes_rpath_wrappers(self.llvm_obj_dir_stage1)
                 self.add_cmake_opts()
                 trace_msg("Reconfiguring LLVM to use the RPATH wrappers for the runtimes")
-                super(EB_LLVM, self).configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
+                super().configure_step(builddir=self.llvm_obj_dir_stage1, srcdir=src_dir)
             # Pre-create the CFG files in the `build_stage/bin` directory to enforce using the correct dynamic
             # linker in case of sysroot builds, and to ensure the correct GCC installation is used also for the
             # runtimes (which would otherwise use the system default dynamic linker)
@@ -843,7 +855,7 @@ class EB_LLVM(CMakeMake):
         self._configure_general_build()
         self._configure_intermediate_build()
         if self.full_llvm:
-            self._cmakeopts.update(remove_gcc_dependency_opts)
+            self._cmakeopts.update(self.remove_gcc_dependency_opts)
 
     def configure_step3(self):
         """Configure the third stage of the bootstrap."""
@@ -854,7 +866,7 @@ class EB_LLVM(CMakeMake):
         # changed when configuring the final build arguments
         self._add_cmake_runtime_args()
         if self.full_llvm:
-            self._cmakeopts.update(remove_gcc_dependency_opts)
+            self._cmakeopts.update(self.remove_gcc_dependency_opts)
 
     def _create_compiler_config_file(self, installdir):
         """Create a config file for the compiler to point to the correct GCC installation."""
