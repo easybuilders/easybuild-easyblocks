@@ -1071,11 +1071,11 @@ class EB_LLVM(CMakeMake):
         basedir = self.final_dir
 
         # From grep -E "^[A-Z]+: " LOG_FILE | cut -d: -f1 | sort | uniq
-        OUTCOMES_LOG = [
+        OUTCOME_FAIL = [
             'FAIL',
             'TIMEOUT',
         ]
-        # OUTCOMES_OK = [
+        # OUTCOME_OK = [
         #     'PASS',
         #     'UNSUPPORTED',
         #     'XFAIL',
@@ -1103,7 +1103,7 @@ class EB_LLVM(CMakeMake):
         failed_pattern_matches = 0
         if ignore_patterns:
             for line in out.splitlines():
-                if any(line.startswith(f'{x}: ') for x in OUTCOMES_LOG):
+                if any(line.startswith(f'{x}: ') for x in OUTCOME_FAIL):
                     if any(patt in line for patt in ignore_patterns):
                         self.log.info("Ignoring test failure: %s", line)
                         ignored_pattern_matches += 1
@@ -1133,7 +1133,7 @@ class EB_LLVM(CMakeMake):
 
         if num_failed != failed_pattern_matches:
             msg = f"Number of failed tests ({num_failed}) does not match "
-            msg += f"number identified va line-by-line pattern matching: {failed_pattern_matches}"
+            msg += f"Number identified via line-by-line pattern matching: {failed_pattern_matches}"
             self.log.warning(msg)
 
         if num_failed is not None and ignored_pattern_matches:
@@ -1150,15 +1150,14 @@ class EB_LLVM(CMakeMake):
                 self._create_compiler_config_file(self.final_dir)
 
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
-            pxtas_path = which('ptxas', on_error=IGNORE)
-            if self.nvptx_target_cond and not pxtas_path:
+            if not which('ptxas', on_error=IGNORE):
                 self.ignore_patterns += ['nvptx64-nvidia-cuda', 'nvptx64-nvidia-cuda-LTO']
                 self.log.warning("PTXAS not found in PATH, ignoring failing tests for NVPTX target")
             # If the AMDGPU target is built, tests will be run if libhsa-runtime64.so is found.
             # However, this can cause issues if the system libraries are used, due to other loaded modules.
             # Therefore, ignore failing tests if ROCr-Runtime is not in the dependencies and
             # warn about this in the logs.
-            if self.amdgpu_target_cond and 'rocr-runtime' not in self.deps:
+            if 'rocr-runtime' not in self.deps:
                 self.ignore_patterns += ['amdgcn-amd-amdhsa']
                 self.log.warning("ROCr-Runtime not in dependencies, ignoring failing tests for AMDGPU target.")
 
