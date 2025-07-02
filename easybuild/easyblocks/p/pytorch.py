@@ -900,8 +900,8 @@ def parse_test_cases(test_suite_el: ET.Element) -> List[TestCase]:
         num_reruns = len(testcase.findall("rerun"))
 
         if skipped:
-            if num_reruns > 0 or failed or errored:
-                raise ValueError(f"Invalid state for testcase '{test_name}'")
+            if failed or errored:
+                raise ValueError(f"Invalid state for testcase '{test_name}': Both skipped and failed/errored")
             state = TestState.SKIPPED
         else:
             state = TestState.FAILURE if failed else TestState.ERROR if errored else TestState.SUCCESS
@@ -959,7 +959,7 @@ def determine_suite_name(xml_file: Path, test_suite_xml: List[ET.Element]) -> st
         # We can remove possible class names by only using the common part
         suite_name = os.path.commonpath(possible_paths)
         # Strip of common prefix to all classes, but keep the last part for uniqueness
-        non_classname_prefix = os.path.dirname(suite_name).replace(os.path.sep, '.') + '.'
+        non_classname_prefix = 'test.' + os.path.dirname(suite_name).replace(os.path.sep, '.') + '.'
         for testcase in test_cases:
             classname = testcase.attrib["classname"]
             if classname.startswith(non_classname_prefix):
@@ -987,7 +987,12 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
     :return: A list of TestSuite objects representing the parsed structure.
     """
     try:
-        root = ET.parse(xml_file).getroot()
+        try:
+            root = ET.parse(xml_file).getroot()
+        except ET.ParseError:
+            if '<test' not in xml_file.read_text():
+                return []  # Empty file, no test results
+            raise
 
         # Normalize root to be a list of test suite elements
         if root.tag == "testsuites":

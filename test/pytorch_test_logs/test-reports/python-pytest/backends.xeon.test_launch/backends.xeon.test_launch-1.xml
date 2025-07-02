@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="1" failures="3" skipped="3" tests="7" time="4.2">
+    <testcase classname="TestTorchrun" name="test_reshape_cpu_float64" time="4.2" file="test_nestedtensor.py">
+      <failure message="...">[snip]</failure>
+    </testcase>
+    <testcase classname="TestTorchrun" name="test_cpu_info" time="4.2" file="backends/xeon/test_launch.py">
+      <failure message="...">[snip]</failure>
+    </testcase>
+    <testcase classname="TestTorchrun" name="test_foo" time="4.2" file="backends/xeon/test_launch.py">
+      <skipped message="...">[snip]</skipped>
+    </testcase>
+    <testcase classname="TestTorchrun" name="test_foo2" time="4.2" file="backends/xeon/test_launch.py">
+      <skipped message="...">[snip]</skipped>
+    </testcase>
+    <testcase classname="TestTorchrun" name="test_foo3" time="4.2" file="backends/xeon/test_launch.py">
+      <skipped message="...">[snip]</skipped>
+    </testcase>
+    <testcase classname="TestTorchrun" name="test_bar" time="4.2" file="backends/xeon/test_launch.py">
+      <error message="...">[snip]</error>
+    </testcase>
+    <testcase classname="TestTorchrun" name="test_baz" time="4.2" file="backends/xeon/test_launch.py">
+      <failure message="...">[snip]</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
