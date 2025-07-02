@@ -366,6 +366,6 @@ class EB_ABAQUS(Binary):
         txt = super().make_module_extra()
         license_file = os.getenv('EB_ABAQUS_LICENSE_FILE', None)
         if license_file is not None:
-            txt += self.module_generator.prepend_paths('ABAQUSLM_LICENSE_FILE', [license_file], allow_abs=True)
+            txt += self.module_generator.prepend_paths('LM_LICENSE_FILE', [license_file], allow_abs=True)
 
         return txt
