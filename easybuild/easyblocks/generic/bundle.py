@@ -348,6 +348,11 @@ class Bundle(EasyBlock):
                                 new_val = path
                             env.setvar(envvar, new_val)
             else:
+                # Explicit call as EasyBlocks might set additional environment variables in
+                # the make_module step, which may be required for later component builds.
+                # Set fake arg to True, as module components should not try to create their own module.
+                comp.make_module_step(fake=True)
+
                 # Update current environment with component environment to ensure stuff provided
                 # by this component can be picked up by installation of subsequent components
                 # - this is a stripped down version of EasyBlock.make_module_req for fake modules
@@ -400,6 +405,11 @@ class Bundle(EasyBlock):
                     raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
                                          cfg['name'], cfg['version'])
             else:
+                # Explicit call required as adding step to 'install_step' is not sufficient
+                # for module-only build. Set fake arg to True, as module components should
+                # not try to create their own module.
+                comp.make_module_step(*args, **dict(kwargs, fake=True))
+
                 for env_var_name, env_var_val in comp.module_load_environment.items():
                     if env_var_name in self.module_load_environment:
                         getattr(self.module_load_environment, env_var_name).extend(env_var_val)
