@@ -40,7 +40,7 @@ import os
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_dir, extract_file, remove_dir
+from easybuild.tools.filetools import copy_dir, extract_file, empty_dir, remove_dir
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -102,27 +102,23 @@ class Tarball(ExtensionEasyBlock):
         if self.cfg['install_type'] == 'subdir':
             # Wipe and install in a sub-directory with the name of the package
             install_path = os.path.join(self.installdir, self.name.lower())
-            dirs_exist_ok = False
             install_logmsg = "Copying tarball contents of %s to sub-directory %s..."
+            remove_dir(install_path)
         elif self.cfg['install_type'] == 'merge':
             # Enable merging with root of existing installdir
             install_path = self.installdir
-            dirs_exist_ok = True
             install_logmsg = "Merging tarball contents of %s into %s..."
         elif self.cfg['install_type'] is None:
-            # Wipe and copy root of installation directory (default)
+            # Empty and copy root of installation directory (default)
             install_path = self.installdir
-            dirs_exist_ok = False
-            install_logmsg = "Copying tarball contents of %s into %s after wiping it..."
+            install_logmsg = "Copying tarball contents of %s into %s after emptying it..."
+            empty_dir(install_path)
         else:
             raise EasyBuildError("Unknown option '%s' for index_type.", self.cfg['install_type'])
 
         self.log.info(install_logmsg, self.name, install_path)
 
-        if not dirs_exist_ok:
-            remove_dir(install_path)
-
-        copy_dir(source_path, install_path, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=dirs_exist_ok)
+        copy_dir(source_path, install_path, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=True)
 
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
