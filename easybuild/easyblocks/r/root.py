@@ -110,7 +110,6 @@ class EB_ROOT(CMakeMake):
             python_root = get_software_root('Python')
             if python_root:
                 pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-                self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s' % os.path.join(python_root, 'bin', 'python'))
                 python_inc_dir = find_glob_pattern(os.path.join(python_root, 'include', 'python%s*' % pyshortver))
                 self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % python_inc_dir)
                 python_lib = find_glob_pattern(
@@ -124,7 +123,7 @@ class EB_ROOT(CMakeMake):
             if sysroot:
                 self.cfg.update('configopts', '-DDEFAULT_SYSROOT=%s' % sysroot)
 
-            CMakeMake.configure_step(self)
+            super().configure_step()
         else:
             if self.cfg['arch'] is None:
                 raise EasyBuildError("No architecture specified to pass to configure script")
