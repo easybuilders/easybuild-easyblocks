@@ -318,7 +318,7 @@ class EB_CUDA(Binary):
             for cupti_subdir in ['include', 'lib64']:
                 cupti_target_dir = os.path.join(self.installdir, cupti_subdir)
                 cwd = change_dir(cupti_target_dir)
-                for cupti_file in glob(os.path.join(self.installdir, 'extras', 'CUPTI', cupti_subdir, '*')):
+                for cupti_file in glob(os.path.join(cupti_dir, cupti_subdir, '*')):
                     cupti_link_src = os.path.relpath(os.path.realpath(cupti_file), os.path.realpath(cupti_target_dir))
                     symlink(cupti_link_src, os.path.basename(cupti_file), use_abspath_source=False)
                 change_dir(cwd)
