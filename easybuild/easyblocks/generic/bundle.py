@@ -35,6 +35,7 @@ EasyBuild support for installing a bundle of modules, implemented as a generic e
 """
 import copy
 import os
+from datetime import datetime
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
@@ -45,7 +46,17 @@ from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
 from easybuild.tools.hooks import TEST_STEP
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.utilities import nub
+from easybuild.tools.utilities import nub, time2str
+
+
+# Description and step name run during component installation
+COMPONENT_INSTALL_STEPS = [
+    ('patching', 'patch'),
+    ('configuring', 'configure'),
+    ('building', 'build'),
+    ('testing', 'test'),
+    ('installing', 'install'),
+]
 
 
 class Bundle(EasyBlock):
@@ -265,14 +276,39 @@ class Bundle(EasyBlock):
         """Do nothing."""
         pass
 
+    def _install_component(self, comp):
+        """Run the installation steps for a single component"""
+        # run relevant steps
+        for descr, step_name in COMPONENT_INSTALL_STEPS:
+            if step_name in comp.cfg['skipsteps']:
+                comp.log.info("Skipping '%s' step for component %s v%s", step_name, comp.name, comp.version)
+            elif build_option('skip_test_step') and step_name == TEST_STEP:
+                comp.log.info("Skipping %s step for component %s v%s, as requested via skip-test-step", step_name,
+                              comp.name, comp.version)
+            else:
+                msg = f'   {descr} component {comp.name}...'
+                if self.dry_run:
+                    self.dry_run_msg("%s [DRY RUN]\n", msg)
+                else:
+                    print_msg(msg, log=self.log, silent=self.silent)
+                start_time = datetime.now()
+                try:
+                    comp.run_step(step_name, [lambda x: getattr(x, '%s_step' % step_name)])
+                finally:
+                    if not self.dry_run:
+                        step_duration = datetime.now() - start_time
+                        if step_duration.total_seconds() >= 1:
+                            print_msg("   ... (took %s)", time2str(step_duration), log=self.log, silent=self.silent)
+                        elif self.logdebug or build_option('trace'):
+                            print_msg("   ... (took < 1 sec)", log=self.log, silent=self.silent)
+
     def install_step(self):
         """Install components, if specified."""
         comp_cnt = len(self.cfg['components'])
         for idx, (cfg, comp) in enumerate(self.comp_instances):
-
             print_msg("installing bundle component %s v%s (%d/%d)..." %
-                      (cfg['name'], cfg['version'], idx + 1, comp_cnt))
-            self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
+                      (comp.name, comp.version, idx + 1, comp_cnt))
+            self.log.info("Installing component %s v%s using easyblock %s", comp.name, comp.version, cfg.easyblock)
 
             # correct build/install dirs
             comp.builddir = self.builddir
@@ -317,18 +353,10 @@ class Bundle(EasyBlock):
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
 
             # check if sanity checks are enabled for the component
-            if self.cfg['sanity_check_all_components'] or comp.cfg['name'] in self.cfg['sanity_check_components']:
+            if self.cfg['sanity_check_all_components'] or comp.name in self.cfg['sanity_check_components']:
                 self.comp_cfgs_sanity_check.append(comp)
 
-            # run relevant steps
-            for step_name in ['patch', 'configure', 'build', 'test', 'install']:
-                if step_name in cfg['skipsteps']:
-                    comp.log.info("Skipping '%s' step for component %s v%s", step_name, cfg['name'], cfg['version'])
-                elif build_option('skip_test_step') and step_name == TEST_STEP:
-                    comp.log.info("Skipping %s step for component %s v%s, as requested via skip-test-step", step_name,
-                                  cfg['name'], cfg['version'])
-                else:
-                    comp.run_step(step_name, [lambda x: getattr(x, '%s_step' % step_name)])
+            self._install_component(comp)
 
             if comp.make_module_req_guess.__qualname__ != 'EasyBlock.make_module_req_guess':
                 depr_msg = f"Easyblock used to install component {comp.name} still uses make_module_req_guess"
@@ -381,13 +409,13 @@ class Bundle(EasyBlock):
         as this is done in the generic EasyBlock while creating
         the module file already.
         """
-        for cfg, comp in self.comp_instances:
-            self.log.info("Gathering module paths for component %s v%s", cfg['name'], cfg['version'])
+        for _, comp in self.comp_instances:
+            self.log.info("Gathering module paths for component %s v%s", comp.name, comp.version)
 
             # take into account that easyblock used for component may not be migrated yet to module_load_environment
             if comp.make_module_req_guess.__qualname__ != 'EasyBlock.make_module_req_guess':
 
-                depr_msg = f"Easyblock used to install component {cfg['name']} still uses make_module_req_guess"
+                depr_msg = f"Easyblock used to install component {comp.name} still uses make_module_req_guess"
                 self.log.deprecated(depr_msg, '6.0')
 
                 reqs = comp.make_module_req_guess()
@@ -403,7 +431,7 @@ class Bundle(EasyBlock):
                             setattr(self.module_load_environment, key, value)
                 except AttributeError:
                     raise EasyBuildError("Cannot process module requirements of bundle component %s v%s",
-                                         cfg['name'], cfg['version'])
+                                         comp.name, comp.version)
             else:
                 # Explicit call required as adding step to 'install_step' is not sufficient
                 # for module-only build. Set fake arg to True, as module components should
@@ -445,8 +473,7 @@ class Bundle(EasyBlock):
         # run sanity checks for specific components
         cnt = len(self.comp_cfgs_sanity_check)
         for idx, comp in enumerate(self.comp_cfgs_sanity_check):
-            comp_name, comp_ver = comp.cfg['name'], comp.cfg['version']
-            print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp_name, comp_ver, idx + 1, cnt)
-            self.log.info("Starting sanity check step for component %s v%s", comp_name, comp_ver)
+            print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp.name, comp.version, idx + 1, cnt)
+            self.log.info("Starting sanity check step for component %s v%s", comp.name, comp.version)
 
             comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
