@@ -370,18 +370,19 @@ class EB_LLVM(CMakeMake):
         if LooseVersion(self.version) < '16':
             self.general_opts['LLVM_INCLUDE_GO_TESTS'] = 'OFF'
 
-        # Sysroot
-        self.sysroot = build_option('sysroot')
-        if self.sysroot:
-            if LooseVersion(self.version) < '19':
-                raise EasyBuildError("Using sysroot is not supported by EasyBuild for LLVM < 19")
-            self.general_opts['DEFAULT_SYSROOT'] = self.sysroot
-            self.general_opts['CMAKE_SYSROOT'] = self.sysroot
-            self._set_dynamic_linker()
-            trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {self.sysroot}")
+        self.log.info("Final projects to build: %s", ', '.join(self.final_projects))
+        self.log.info("Final runtimes to build: %s", ', '.join(self.final_runtimes))
 
-        self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
+        self._cmakeopts = {}
+        self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
 
+    @property
+    def llvm_src_dir(self):
+        """Return root source directory of LLVM (containing all components)"""
+        # LLVM is the first source so we already have this in start_dir. Might be changed later
+        return self.start_dir
+
+    def _configure_build_targets(self):
         # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
         # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
@@ -476,15 +477,6 @@ class EB_LLVM(CMakeMake):
 
         self.general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         self.general_opts['LLVM_TARGETS_TO_BUILD'] = self.list_to_cmake_arg(build_targets)
-
-        self._cmakeopts = {}
-        self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
-
-    @property
-    def llvm_src_dir(self):
-        """Return root source directory of LLVM (containing all components)"""
-        # LLVM is the first source so we already have this in start_dir. Might be changed later
-        return self.start_dir
 
     def prepare_step(self, *args, **kwargs):
         """Prepare step, modified to ensure install dir is deleted before building"""
@@ -637,6 +629,8 @@ class EB_LLVM(CMakeMake):
     def _update_test_ignore_patterns(self):
         """Update the ignore patterns based on known ignorable test failures when running with specific LLVM versions
         or with specific dependencies/options."""
+        self.ignore_patterns = self.cfg['test_suite_ignore_patterns'] or []
+
         new_ignore_patterns = []
         if self.sysroot:
             # Some tests will run a FileCheck on the output of `clang -v` for `-internal-externc-isystem /usr/include`
@@ -705,6 +699,18 @@ class EB_LLVM(CMakeMake):
         self.make_parallel_opts = ""
         if self.cfg.parallel:
             self.make_parallel_opts = f"-j {self.cfg.parallel}"
+
+        self._configure_build_targets()
+
+        # Sysroot
+        self.sysroot = build_option('sysroot')
+        if self.sysroot:
+            if LooseVersion(self.version) < '19':
+                raise EasyBuildError("Using sysroot is not supported by EasyBuild for LLVM < 19")
+            self.general_opts['DEFAULT_SYSROOT'] = self.sysroot
+            self.general_opts['CMAKE_SYSROOT'] = self.sysroot
+            self._set_dynamic_linker()
+            trace_msg(f"Using '{self.dynamic_linker}' as dynamic linker from sysroot {self.sysroot}")
 
         # CMAKE_INSTALL_PREFIX and LLVM start directory are set here instead of in __init__ to
         # ensure this easyblock can be used as a Bundle component, see
