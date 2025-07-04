@@ -88,44 +88,44 @@ GCC_DEPENDENCY_OPTS_DEFAULT = {
     # 'CLANG_DEFAULT_LINKER': 'lld',
     'CLANG_DEFAULT_UNWINDLIB': 'libunwind',
 
-    'COMPILER_RT_BUILD_GWP_ASAN': 'Off',
-    'COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER': 'On',
-    'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'On',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
-    'COMPILER_RT_USE_BUILTINS_LIBRARY': 'On',
-    'COMPILER_RT_USE_LIBCXX': 'On',
-    'COMPILER_RT_USE_LLVM_UNWINDER': 'On',
+    'COMPILER_RT_BUILD_GWP_ASAN': 'OFF',
+    'COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER': 'ON',
+    'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'ON',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
+    'COMPILER_RT_USE_BUILTINS_LIBRARY': 'ON',
+    'COMPILER_RT_USE_LIBCXX': 'ON',
+    'COMPILER_RT_USE_LLVM_UNWINDER': 'ON',
 
     'LIBCXX_CXX_ABI': 'libcxxabi',
     'LIBCXX_DEFAULT_ABI_LIBRARY': 'libcxxabi',
     # Needed as libatomic could not be present on the system (compilation and tests will succeed because of the
     # GCCcore builddep, but usage/sanity check will fail due to missing libatomic)
-    'LIBCXX_HAS_ATOMIC_LIB': 'NO',
-    'LIBCXX_HAS_GCC_S_LIB': 'Off',
-    'LIBCXX_USE_COMPILER_RT': 'On',
+    'LIBCXX_HAS_ATOMIC_LIB': 'OFF',
+    'LIBCXX_HAS_GCC_S_LIB': 'OFF',
+    'LIBCXX_USE_COMPILER_RT': 'ON',
 
-    'LIBCXXABI_HAS_GCC_S_LIB': 'Off',
-    'LIBCXXABI_USE_LLVM_UNWINDER': 'On',
-    'LIBCXXABI_USE_COMPILER_RT': 'On',
+    'LIBCXXABI_HAS_GCC_S_LIB': 'OFF',
+    'LIBCXXABI_USE_LLVM_UNWINDER': 'ON',
+    'LIBCXXABI_USE_COMPILER_RT': 'ON',
 
-    'LIBUNWIND_HAS_GCC_S_LIB': 'Off',
-    'LIBUNWIND_USE_COMPILER_RT': 'On',
+    'LIBUNWIND_HAS_GCC_S_LIB': 'OFF',
+    'LIBUNWIND_USE_COMPILER_RT': 'ON',
 
     # Libxml2 from system gets automatically detected and linked in bringing dependencies from stdc++, gcc_s, icuuc, etc
     # Moved to a check at the configure step. See https://github.com/easybuilders/easybuild-easyconfigs/issues/22491
-    # 'LLVM_ENABLE_LIBXML2': 'Off',
+    # 'LLVM_ENABLE_LIBXML2': 'OFF',
 
-    'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'On',
+    'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'ON',
 }
 
 DISABLE_WERROR_OPTS = {
-    'BENCHMARK_ENABLE_WERROR': 'Off',
-    'COMPILER_RT_ENABLE_WERROR': 'Off',
-    'FLANG_ENABLE_WERROR': 'Off',
-    'LIBC_WNO_ERROR': 'On',
-    'LIBCXX_ENABLE_WERROR': 'Off',
-    'LIBUNWIND_ENABLE_WERROR': 'Off',
-    'LLVM_ENABLE_WERROR': 'Off',
-    'OPENMP_ENABLE_WERROR': 'Off',
+    'BENCHMARK_ENABLE_WERROR': 'OFF',
+    'COMPILER_RT_ENABLE_WERROR': 'OFF',
+    'FLANG_ENABLE_WERROR': 'OFF',
+    'LIBC_WNO_ERROR': 'ON',
+    'LIBCXX_ENABLE_WERROR': 'OFF',
+    'LIBUNWIND_ENABLE_WERROR': 'OFF',
+    'LLVM_ENABLE_WERROR': 'OFF',
+    'OPENMP_ENABLE_WERROR': 'OFF',
 }
 
 GENERAL_OPTS = {
@@ -369,9 +369,9 @@ class EB_LLVM(CMakeMake):
         if self.cfg['build_lldb']:
             self.final_projects.append('lldb')
             if self.full_llvm:
-                self.remove_gcc_dependency_opts['LLDB_ENABLE_LIBXML2'] = 'Off'
-                self.remove_gcc_dependency_opts['LLDB_ENABLE_LZMA'] = 'Off'
-                self.remove_gcc_dependency_opts['LLDB_ENABLE_PYTHON'] = 'Off'
+                self.remove_gcc_dependency_opts['LLDB_ENABLE_LIBXML2'] = 'OFF'
+                self.remove_gcc_dependency_opts['LLDB_ENABLE_LZMA'] = 'OFF'
+                self.remove_gcc_dependency_opts['LLDB_ENABLE_PYTHON'] = 'OFF'
 
         if self.cfg['build_bolt']:
             self.final_projects.append('bolt')
