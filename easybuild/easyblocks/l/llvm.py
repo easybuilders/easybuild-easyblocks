@@ -338,7 +338,7 @@ class EB_LLVM(CMakeMake):
                 self.log.debug("Explicitly enabling OpenMP offloading for LLVM >= 19")
                 self.final_runtimes.append('offload')
             else:
-                self.log.warning("OpenMP offloading is included with the OpenMP runtime for LLVM < 19")
+                self.log.debug("OpenMP offloading is included with the OpenMP runtime for LLVM < 19")
 
         if self.cfg['build_openmp_tools'] and not self.cfg['build_openmp']:
             raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
