@@ -328,10 +328,22 @@ class EB_LLVM(CMakeMake):
 
         if self.cfg['build_openmp']:
             self.final_projects.append('openmp')
+        else:
+            errors = []
+            # check for all options that depend on OpenMP being enabled
+            if self.cfg['build_openmp_tools']:
+                errors.append("Building OpenMP tools requires building OpenMP runtime")
+
+            if self.cfg['build_openmp_offload']:
+                errors.append("Building OpenMP offload requires building OpenMP runtime")
+
+            if self.cfg['build_openmp_library_aliases']:
+                errors.append("Installing OpenMP library aliases requires building OpenMP runtime")
+
+            if errors:
+                raise EasyBuildError('\n'.join(errors), exit_code=EasyBuildExit.EASYCONFIG_ERROR)
 
         if self.cfg['build_openmp_offload']:
-            if not self.cfg['build_openmp']:
-                raise EasyBuildError("Building OpenMP offload requires building OpenMP runtime")
             # LLVM 19 added a new runtime target for explicit offloading
             # https://discourse.llvm.org/t/llvm-19-1-0-no-library-libomptarget-nvptx-sm-80-bc-found/81343
             if LooseVersion(self.version) >= '19':
@@ -339,9 +351,6 @@ class EB_LLVM(CMakeMake):
                 self.final_runtimes.append('offload')
             else:
                 self.log.debug("OpenMP offloading is included with the OpenMP runtime for LLVM < 19")
-
-        if self.cfg['build_openmp_tools'] and not self.cfg['build_openmp']:
-            raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
 
         if self.cfg['use_polly']:
             self.final_projects.append('polly')
