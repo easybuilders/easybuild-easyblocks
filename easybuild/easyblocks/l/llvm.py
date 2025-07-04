@@ -383,10 +383,7 @@ class EB_LLVM(CMakeMake):
         return self.start_dir
 
     def _configure_build_targets(self):
-        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-        # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-        cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities'] or []
+        cuda_cc_list = self.cfg.get_cuda_cc_template_value("cuda_cc_space_sep", required=False).split()
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         amd_gfx_list = self.cfg['amd_gfx_list'] or []
 
@@ -521,7 +518,7 @@ class EB_LLVM(CMakeMake):
             if self.cfg['build_openmp_offload']:
                 # Force dlopen of the GPU libraries at runtime, not using existing libraries
                 if LooseVersion(self.version) >= '19':
-                    self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
+                    self._cmakeopts['LIBOMPTARGET_PLUGINS_TO_BUILD'] = self.list_to_cmake_arg(self.offload_targets)
                     dlopen_plugins = set(self.offload_targets) & set(AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS)
                     if dlopen_plugins:
                         self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = self.list_to_cmake_arg(dlopen_plugins)
@@ -803,9 +800,9 @@ class EB_LLVM(CMakeMake):
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
-        if self.cfg['build_openmp_offload'] and '19' <= LooseVersion(self.version) < '20':
-            gpu_archs = []
-            gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
+        # 20.1+ uses a generic IR for OpenMP DeviceRTL
+        if self.cfg['build_openmp_offload'] and LooseVersion(self.version) < '20.1':
+            gpu_archs = self.cfg.get_cuda_cc_template_value("cuda_sm_space_sep", required=False).split()
             gpu_archs += self.amd_gfx
             if gpu_archs:
                 self._cmakeopts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
@@ -1466,18 +1463,17 @@ class EB_LLVM(CMakeMake):
                         omp_lib_files += [f'libomptarget-amdgpu-{gfx}.bc' for gfx in self.amd_gfx]
                     else:
                         omp_lib_files += ['libomptarget-amdgpu.bc']
-
-                if version < '19':
-                    # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
-                    check_lib_files += omp_lib_files
+                check_bin_files += ['llvm-omp-kernel-replay']
+                if version < '20':
+                    check_bin_files += ['llvm-omp-device-info']
                 else:
-                    # Starting from LLVM 19, omp related libraries are installed the runtime library directory
-                    check_librt_files += omp_lib_files
-                    check_bin_files += ['llvm-omp-kernel-replay']
-                    if version < '20':
-                        check_bin_files += ['llvm-omp-device-info']
-                    else:
-                        check_bin_files += ['llvm-offload-device-info']
+                    check_bin_files += ['llvm-offload-device-info']
+            if version < '19':
+                # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
+                check_lib_files += omp_lib_files
+            else:
+                # Starting from LLVM 19, omp related libraries are installed the runtime library directory
+                check_librt_files += omp_lib_files
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
