@@ -212,6 +212,7 @@ class EB_LLVM(CMakeMake):
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
             'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
             'build_openmp': [True, "Build the LLVM OpenMP runtime", CUSTOM],
+            'build_openmp_library_aliases': [False, "Install symlinks to libomp (e.g. libgomp, libiomp5)", CUSTOM],
             'build_openmp_offload': [True, "Build the LLVM OpenMP offload runtime", CUSTOM],
             'build_openmp_tools': [True, "Build the LLVM OpenMP tools interface", CUSTOM],
             'build_runtimes': [False, "Build the LLVM runtimes (compiler-rt, libunwind, libcxx, libcxxabi)", CUSTOM],
@@ -531,7 +532,7 @@ class EB_LLVM(CMakeMake):
                     if self.nvptx_target_cond:
                         self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
-            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'ON'
+            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'ON' if self.cfg['build_openmp_library_aliases'] else 'OFF'
             if not self.cfg['build_openmp_tools']:
                 self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
 
