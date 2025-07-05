@@ -3,7 +3,67 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at https://docs.easybuild.io/release-notes .
 
-The latest version of easybuild-easyblocks provides 199 software-specific easyblocks and 45 generic easyblocks.
+The latest version of easybuild-easyblocks provides 200 software-specific easyblocks and 45 generic easyblocks.
+
+
+v5.1.1 (5 July 2025)
+--------------------
+
+update/bugfix release
+
+- new easyblocks:
+  - add custom easyblock for BLIS, which can also be used for AOCL-BLAS (#3773)
+- enhancements:
+  - add support for iterative build of OpenBLAS with 64-bit integers (#2753)
+  - add Kokkos mapping for AMD zen4 and NVIDIA Grace to LAMMPS easyblock (#3742)
+  - enhance LLVM easyblock to use `dlopen` for AMDGPU/CUDA libomptarget / offload target libraries (#3747)
+  - enhance Rust easyblock to allow specifying channel to use (stable vs nightly) (#3749)
+  - enhance `run_pip_check` function to respect EasyBuild configuration option to ignore unversioned (0.0.0) Python packages (#3753)
+  - enhance SuperLU easyblock to set configure options for ParMETIS (or disable it if ParMETIS is not a dependency) (#3767)
+  - symlink CUPTI files to standard locations in CUDA installation (#3791)
+  - enhance` PythonPackage` to allow specifying location to temporary installation used in test step + also update `$PATH` to pick up on binaries/scripts from it (#3797)
+  - add support for `UCX`, `CUDA` and `mpi_abi` directly in MPICH easyblock (#3807)
+  - refactor LLVM easyblock and install OpenMP library symlinks (#3815)
+  - enhance `Bundle` generic easyblock to also run test step for each bundle component (#3748, #3752, #3775)
+- updates:
+  - remove `2to3` file from sanity check in Anaconda easyblock (no longer there in recent versions) (#3761)
+  - update numpy easyblock to support installing numpy >= 2.0 (#3777)
+  - update Mesa easyblock to use not use removed `swrast` as gallium driver for Mesa versions >= 25.x (#3790)
+- bug fixes:
+  - bug fixes for custom easyblock for LLVM:
+    - ensure sysroot dynamic linker is used + add ignore patterns for failing tests that can be ignored in LLVM easyblock (#3741)
+    - fix configuration option for OpenMP offload target + logic in sanity check step in LLVM easyblock (#3755)
+    - use `self.start_dir` in LLVM easyblock (#3770)
+    - moved logic from the constructor to `configure_step` in LLVM easyblock (so it can be used to install bundle component) (#3781)
+    - fix LLVM easyblock to allow building with multiple versions at once (#3812)
+    - do not create compiler configs for LLVM < 19 (#3817)
+    - fix condition to ignore failed LLVM GPU tests (#3819)
+  - fix/simplify use of `self.cfg.dependencies()` in various easyblocks: `CMake` (#3810), `OpenFOAM` (#3814), `PETSc` (#3813), `SLEPc` (#3811), `Term::ReadLine::Gnu` (#3808)
+  - take into account that `f90wrap_version` may be `None` in MetalWalls easyblock (#3468)
+  - fix `enhance_sanity_check` for `PythonPackage` (#3477)
+  - improve reliability of PyTorch test reporting (#3723)
+  - also install OpenCOSMORS for ORCA versions >= 6.0 (#3726)
+  - fix missed f-string in `PythonPackage` easyblock (#3729)
+  - use `--enable-install-libiberty` to enable `libiberty` for `binutils` + move `libiberty.a` binutils library to `lib` subdirectory if it's the only file in `lib64` subdirectory (#3736, #3822)
+  - make sure RPATH wrappers shipped via `buildenv` are world executable (#3743)
+  - take into account that `$PYTHONPATH` and `$PATH` may be unset in configure step of custom easyblock for scipy (#3744)
+  - set `$HOME` to temporary folder for TensorFlow build and tests  (#3751)
+  - fix unbound variable `install_args` in Conda easyblock (#3763)
+  - set `$CARGO_NET_OFFLINE` to `true` in `set_cargo_vars` method of `Cargo` easyblock (only if `offline` mode is used), so it's set for every extension when `CargoPythonBundle` easyblock is used (#3764)
+  - fix test step for `CMakeNinja` easyblock by customizing `test_cmd` and `runtest` easyconfig parameters (#3771)
+  - use `parallel` property rather than value of (deprecated) `parallel` easyconfig parameter in ORCA easyblock (#3772)
+  - (re)set environment variables used by `cargo` in prepare step of `Cargo` easyblock (#3774)
+  - don't forcibly set `$LD_LIBRARY_PATH` in LAMMPS sanity check (#3776)
+  - add missing call to `make_module_step` for components in `Bundle` easyblock (#3801)
+  - add support for hwloc to MPICH easyblock (#3821)
+- enhancements and fixes for test suite:
+  - allow test case filtering and other `unittest` arguments (#3653)
+- other changes:
+  - disable trace output when unpacking crates in Cargo easyblock (#3750)
+  - update Rust easyblock to disable installations of docs via `--disable-docs` configure option (#3768)
+  - simplify remaining `super()` calls (#3780)
+  - handle `$PATH` environment variable with `module_load_environment` in init of `Binary` easyblock (#3787)
+  - change ABAQUS easyblock to use `LM_LICENSE_FILE` instead of `ABAQUSLM_LICENSE_FILE` (#3794)
 
 
 v5.1.0 (26 May 2025)
