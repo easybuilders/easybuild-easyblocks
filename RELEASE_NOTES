@@ -38,7 +38,7 @@ update/bugfix release
     - fix LLVM easyblock to allow building with multiple versions at once (#3812)
     - do not create compiler configs for LLVM < 19 (#3817)
     - fix condition to ignore failed LLVM GPU tests (#3819)
-  - fix/simplify use of `self.cfg.dependencies()` in various easyblocks: `CMake` (#3810), `OpenFOAM` (#3814), `PETSc) (#3813), `SLEPc` (#3811), `Term::ReadLine::Gnu` (#3808)
+  - fix/simplify use of `self.cfg.dependencies()` in various easyblocks: `CMake` (#3810), `OpenFOAM` (#3814), `PETSc` (#3813), `SLEPc` (#3811), `Term::ReadLine::Gnu` (#3808)
   - take into account that `f90wrap_version` may be `None` in MetalWalls easyblock (#3468)
   - fix `enhance_sanity_check` for `PythonPackage` (#3477)
   - improve reliability of PyTorch test reporting (#3723)
