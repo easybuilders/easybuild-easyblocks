@@ -255,6 +255,10 @@ class Cargo(ExtensionEasyBlock):
         env.setvar('RUST_LOG', 'DEBUG')
         env.setvar('RUST_BACKTRACE', '1')
 
+        # Use environment variable since it would also be passed along to builds triggered via python packages
+        if self.cfg['offline']:
+            env.setvar('CARGO_NET_OFFLINE', 'true')
+
     @property
     def crates(self):
         """Return the crates as defined in the EasyConfig"""
@@ -328,7 +332,7 @@ class Cargo(ExtensionEasyBlock):
             self.log.info("Unpacking source of %s", src['name'])
             existing_dirs = set(os.listdir(extraction_dir))
             src_dir = extract_file(src['path'], extraction_dir, cmd=src['cmd'],
-                                   extra_options=self.cfg['unpack_options'], change_into_dir=False)
+                                   extra_options=self.cfg['unpack_options'], change_into_dir=False, trace=False)
             new_extracted_dirs = set(os.listdir(extraction_dir)) - existing_dirs
 
             if len(new_extracted_dirs) == 0:
@@ -410,9 +414,6 @@ class Cargo(ExtensionEasyBlock):
                     append=True
                 )
 
-        # Use environment variable since it would also be passed along to builds triggered via python packages
-        env.setvar('CARGO_NET_OFFLINE', 'true')
-
     def _get_crate_git_repo_branch(self, crate_name):
         """
         Find the dependency definition for given crate in all Cargo.toml files of sources
@@ -446,6 +447,14 @@ class Cargo(ExtensionEasyBlock):
                     return git_branch_crate.group(1)
 
         return None
+
+    def prepare_step(self, *args, **kwargs):
+        """
+        Custom prepare step: set environment variable for Rust/cargo after setting up build environment.
+        """
+        super().prepare_step(*args, **kwargs)
+
+        self.set_cargo_vars()
 
     def configure_step(self):
         """Empty configuration step."""

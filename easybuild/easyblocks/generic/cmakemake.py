@@ -161,6 +161,11 @@ class CMakeMake(ConfigureMake):
         })
         return extra_vars
 
+    @staticmethod
+    def list_to_cmake_arg(lst):
+        """Convert iterable of strings to a value that can be passed as a CLI argument to CMake resulting in a list"""
+        return "'%s'" % ';'.join(lst)
+
     def __init__(self, *args, **kwargs):
         """Constructor for CMakeMake easyblock"""
         super().__init__(*args, **kwargs)
@@ -356,7 +361,7 @@ class CMakeMake(ConfigureMake):
             options['CMAKE_CUDA_COMPILER'] = which('nvcc')
             cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
             if cuda_cc:
-                options['CMAKE_CUDA_ARCHITECTURES'] = '"%s"' % ';'.join([cc.replace('.', '') for cc in cuda_cc])
+                options['CMAKE_CUDA_ARCHITECTURES'] = self.list_to_cmake_arg(cc.replace('.', '') for cc in cuda_cc)
             else:
                 raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
                                      'cuda_compute_capabilities easyconfig parameter or via '

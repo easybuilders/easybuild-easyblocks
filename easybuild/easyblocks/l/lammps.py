@@ -228,6 +228,10 @@ class EB_LAMMPS(CMakeMake):
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
             self.kokkos_cpu_mapping['icelake'] = 'ICX'
             self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('4Feb2025')):
+            self.kokkos_cpu_mapping['neoverse_v2'] = 'ARMv9-Grace'
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Apr2025')):
+            self.kokkos_cpu_mapping['zen4'] = 'ZEN4'
 
     @staticmethod
     def extra_options(**kwargs):
@@ -568,13 +572,7 @@ class EB_LAMMPS(CMakeMake):
         if self.toolchain.options.get('usempi', None):
             custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
 
-        # Requires liblammps.so to be findable by the runtime linker (which it might not be if using
-        # rpath and filtering out LD_LIBRARY_PATH)
-        set_ld_library_path = ''
-        if self.installdir not in os.getenv('LD_LIBRARY_PATH', default=''):
-            # Use LIBRARY_PATH to set it
-            set_ld_library_path = "LD_LIBRARY_PATH=$LIBRARY_PATH:$LD_LIBRARY_PATH "
-        custom_commands = ["cd %s && " % execution_dir + set_ld_library_path + cmd for cmd in custom_commands]
+        custom_commands = ["cd %s && " % execution_dir + cmd for cmd in custom_commands]
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
