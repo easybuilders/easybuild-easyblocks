@@ -6,7 +6,7 @@ These release notes can also be consulted at https://docs.easybuild.io/release-n
 The latest version of easybuild-easyblocks provides 200 software-specific easyblocks and 45 generic easyblocks.
 
 
-v5.1.1 (5 July 2025)
+v5.1.1 (6 July 2025)
 --------------------
 
 update/bugfix release
@@ -21,7 +21,7 @@ update/bugfix release
   - enhance `run_pip_check` function to respect EasyBuild configuration option to ignore unversioned (0.0.0) Python packages (#3753)
   - enhance SuperLU easyblock to set configure options for ParMETIS (or disable it if ParMETIS is not a dependency) (#3767)
   - symlink CUPTI files to standard locations in CUDA installation (#3791)
-  - enhance` PythonPackage` to allow specifying location to temporary installation used in test step + also update `$PATH` to pick up on binaries/scripts from it (#3797)
+  - enhance `PythonPackage` to allow specifying location to temporary installation used in test step + also update `$PATH` to pick up on binaries/scripts from it (#3797)
   - add support for `UCX`, `CUDA` and `mpi_abi` directly in MPICH easyblock (#3807)
   - refactor LLVM easyblock and install OpenMP library symlinks (#3815)
   - enhance `Bundle` generic easyblock to also run test step for each bundle component (#3748, #3752, #3775)
