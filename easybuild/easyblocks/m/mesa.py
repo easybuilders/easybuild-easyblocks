@@ -43,7 +43,7 @@ class EB_Mesa(MesonNinja):
     """Custom easyblock for building and installing Mesa."""
 
     def __init__(self, *args, **kwargs):
-        """Constructor for custom Mesa easyblock: figure out which values to pass to swr-arches configuration option."""
+        """Constructor for custom Mesa easyblock: figure out some config options."""
 
         super().__init__(*args, **kwargs)
 
@@ -65,12 +65,18 @@ class EB_Mesa(MesonNinja):
         if not gallium_drivers:
             # Add appropriate Gallium drivers for current architecture
             arch = get_cpu_architecture()
+            if LooseVersion(self.version) >= LooseVersion('25'):
+                default_renderer = 'llvmpipe'
+            else:
+                default_renderer = 'swrast'
+
             arch_gallium_drivers = {
-                X86_64: ['swrast'],
-                POWER: ['swrast'],
-                AARCH64: ['swrast'],
-                RISCV64: ['swrast'],
+                X86_64: [default_renderer],
+                POWER: [default_renderer],
+                AARCH64: [default_renderer],
+                RISCV64: [default_renderer],
             }
+
             if LooseVersion(self.version) < LooseVersion('22'):
                 # swr driver support removed in Mesa 22.0
                 arch_gallium_drivers[X86_64].append('swr')
