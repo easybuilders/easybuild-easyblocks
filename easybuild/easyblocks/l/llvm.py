@@ -391,8 +391,9 @@ class EB_LLVM(CMakeMake):
 
     def _set_gcc_prefix_probs(self):
         """Set properties of currently loaded GCC installation"""
-        self._gcc_root, self._gcc_prefix = self._get_gcc_prefix()
-        self.log.debug("Using %s as the gcc install location", self._gcc_prefix)
+        if self._gcc_root is None:
+            self._gcc_root, self._gcc_prefix = self._get_gcc_prefix()
+            self.log.debug("Using %s as the gcc install location", self._gcc_prefix)
 
     @property
     def llvm_src_dir(self):
