@@ -389,7 +389,7 @@ class EB_LLVM(CMakeMake):
         # Similar rules apply for AMDGCN capabilities
         cuda_cc_list = self.cfg.get_cuda_cc_template_value("cuda_cc_space_sep", required=False).split()
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
-        amd_gfx_list = build_option('amdgcn_capabilities') or self.cfg['amdgcn_capabilities'] or []
+        amd_gfx_list = self.cfg.get_amdgcn_cc_template_value("amdgcn_cc_space_sep", required=False).split()
         if self.cfg['amd_gfx_list'] is not None:
             self.log.deprecated("Use of easyconfig parameter 'amd_gfx_list', "
                                 "replace by build option 'amdgcn_capabilities'", '6.0')
