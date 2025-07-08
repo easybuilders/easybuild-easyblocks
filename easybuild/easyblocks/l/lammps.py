@@ -417,6 +417,10 @@ class EB_LAMMPS(CMakeMake):
             if '-DFFT_PACK=' not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 
+        # RPATH
+        if build_option('rpath'):
+            self.cfg.update('configopts', '-DLAMMPS_INSTALL_RPATH=ON')
+
         # https://lammps.sandia.gov/doc/Build_extras.html
         # KOKKOS
         if self.cfg['kokkos']:
