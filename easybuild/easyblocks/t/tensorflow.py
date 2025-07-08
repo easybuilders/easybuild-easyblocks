@@ -424,8 +424,8 @@ class EB_TensorFlow(PythonPackage):
                 libpaths.append(os.path.join(openssl_root, libpath))
 
         if ignored_system_deps:
-            print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. Check the log for details.',
-                          len(ignored_system_deps))
+            print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. '
+                          "Search the log for 'TF_SYSTEM_LIBS' for details.", len(ignored_system_deps))
             self.log.warning('For the following $TF_SYSTEM_LIBS dependencies TensorFlow will download a copy ' +
                              'because an EB dependency was not found: \n%s\n' +
                              'EC Dependencies: %s\n' +
@@ -575,7 +575,6 @@ class EB_TensorFlow(PythonPackage):
             'TF_NEED_CUDA': ('0', '1')[self._with_cuda],
             'TF_NEED_OPENCL': ('0', '1')[bool(opencl_root)],
             'TF_NEED_ROCM': '0',
-            'TF_NEED_TENSORRT': '0',
             'TF_SET_ANDROID_WORKSPACE': '0',
             'TF_SYSTEM_LIBS': ','.join(self.system_libs_info[0]),
         }
@@ -721,6 +720,7 @@ class EB_TensorFlow(PythonPackage):
                     })
             else:
                 raise EasyBuildError("TensorFlow has a strict dependency on cuDNN if CUDA is enabled")
+
             if nccl_root:
                 nccl_version = get_software_version('NCCL')
                 # Ignore the PKG_REVISION identifier if it exists (i.e., report 2.4.6 for 2.4.6-1 or 2.4.6-2)
@@ -736,6 +736,7 @@ class EB_TensorFlow(PythonPackage):
                 repo_env['TF_NCCL_VERSION'] = nccl_version
             else:
                 config_env_vars['TF_NCCL_VERSION'] = nccl_version
+
             if tensorrt_root:
                 tensorrt_version = get_software_version('TensorRT')
                 tensor_rt_vars = {
@@ -745,9 +746,13 @@ class EB_TensorFlow(PythonPackage):
                 }
                 if LooseVersion(self.version) >= '2.18':
                     repo_env['TF_CUDA_PATHS'] += ',' + tensorrt_root
-                    repo_env.update(tensor_rt_vars)
-                else:
-                    config_env_vars.update(tensor_rt_vars)
+            else:
+                tensor_rt_vars = {'TF_NEED_TENSORRT': '0'}
+            if LooseVersion(self.version) >= '2.18':
+                repo_env.update(tensor_rt_vars)
+            else:
+                config_env_vars.update(tensor_rt_vars)
+
             nvshmem_root = get_software_root('NVSHMEM')
             if nvshmem_root and LooseVersion(self.version) >= '2.18':
                 repo_env['LOCAL_NVSHMEM_PATH'] = nvshmem_root
