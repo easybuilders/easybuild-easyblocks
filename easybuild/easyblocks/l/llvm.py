@@ -87,40 +87,40 @@ GCC_DEPENDENCY_OPTS_DEFAULT = {
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
     'CLANG_DEFAULT_UNWINDLIB': 'libunwind',
 
-    'COMPILER_RT_BUILD_GWP_ASAN': 'Off',
-    'COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER': 'On',
-    'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'On',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
-    'COMPILER_RT_USE_BUILTINS_LIBRARY': 'On',
-    'COMPILER_RT_USE_LIBCXX': 'On',
-    'COMPILER_RT_USE_LLVM_UNWINDER': 'On',
+    'COMPILER_RT_BUILD_GWP_ASAN': 'OFF',
+    'COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER': 'ON',
+    'COMPILER_RT_ENABLE_STATIC_UNWINDER': 'ON',  # https://lists.llvm.org/pipermail/llvm-bugs/2016-July/048424.html
+    'COMPILER_RT_USE_BUILTINS_LIBRARY': 'ON',
+    'COMPILER_RT_USE_LIBCXX': 'ON',
+    'COMPILER_RT_USE_LLVM_UNWINDER': 'ON',
 
     'LIBCXX_CXX_ABI': 'libcxxabi',
     'LIBCXX_DEFAULT_ABI_LIBRARY': 'libcxxabi',
     # Needed as libatomic could not be present on the system (compilation and tests will succeed because of
     # a possible GCCcore builddep, but usage/sanity check will fail due to missing libatomic)
-    'LIBCXX_HAS_ATOMIC_LIB': 'NO',
-    'LIBCXX_HAS_GCC_S_LIB': 'Off',
-    'LIBCXX_USE_COMPILER_RT': 'On',
+    'LIBCXX_HAS_ATOMIC_LIB': 'OFF',
+    'LIBCXX_HAS_GCC_S_LIB': 'OFF',
+    'LIBCXX_USE_COMPILER_RT': 'ON',
 
-    'LIBCXXABI_HAS_GCC_S_LIB': 'Off',
-    'LIBCXXABI_USE_LLVM_UNWINDER': 'On',
-    'LIBCXXABI_USE_COMPILER_RT': 'On',
+    'LIBCXXABI_HAS_GCC_S_LIB': 'OFF',
+    'LIBCXXABI_USE_LLVM_UNWINDER': 'ON',
+    'LIBCXXABI_USE_COMPILER_RT': 'ON',
 
-    'LIBUNWIND_HAS_GCC_S_LIB': 'Off',
-    'LIBUNWIND_USE_COMPILER_RT': 'On',
+    'LIBUNWIND_HAS_GCC_S_LIB': 'OFF',
+    'LIBUNWIND_USE_COMPILER_RT': 'ON',
 
-    'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'On',
+    'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'ON',
 }
 
 DISABLE_WERROR_OPTS = {
-    'BENCHMARK_ENABLE_WERROR': 'Off',
-    'COMPILER_RT_ENABLE_WERROR': 'Off',
-    'FLANG_ENABLE_WERROR': 'Off',
-    'LIBC_WNO_ERROR': 'On',
-    'LIBCXX_ENABLE_WERROR': 'Off',
-    'LIBUNWIND_ENABLE_WERROR': 'Off',
-    'LLVM_ENABLE_WERROR': 'Off',
-    'OPENMP_ENABLE_WERROR': 'Off',
+    'BENCHMARK_ENABLE_WERROR': 'OFF',
+    'COMPILER_RT_ENABLE_WERROR': 'OFF',
+    'FLANG_ENABLE_WERROR': 'OFF',
+    'LIBC_WNO_ERROR': 'ON',
+    'LIBCXX_ENABLE_WERROR': 'OFF',
+    'LIBUNWIND_ENABLE_WERROR': 'OFF',
+    'LLVM_ENABLE_WERROR': 'OFF',
+    'OPENMP_ENABLE_WERROR': 'OFF',
 }
 
 GENERAL_OPTS = {
@@ -207,6 +207,7 @@ class EB_LLVM(CMakeMake):
             'build_lld': [False, "Build the LLVM lld linker", CUSTOM],
             'build_lldb': [False, "Build the LLVM lldb debugger", CUSTOM],
             'build_openmp': [True, "Build the LLVM OpenMP runtime", CUSTOM],
+            'build_openmp_library_aliases': [False, "Install symlinks to libomp (e.g. libgomp, libiomp5)", CUSTOM],
             'build_openmp_offload': [True, "Build the LLVM OpenMP offload runtime", CUSTOM],
             'build_openmp_tools': [True, "Build the LLVM OpenMP tools interface", CUSTOM],
             'build_runtimes': [False, "Build the LLVM runtimes (compiler-rt, libunwind, libcxx, libcxxabi)", CUSTOM],
@@ -322,20 +323,29 @@ class EB_LLVM(CMakeMake):
 
         if self.cfg['build_openmp']:
             self.final_projects.append('openmp')
+        else:
+            errors = []
+            # check for all options that depend on OpenMP being enabled
+            if self.cfg['build_openmp_tools']:
+                errors.append("Building OpenMP tools requires building OpenMP runtime")
+
+            if self.cfg['build_openmp_offload']:
+                errors.append("Building OpenMP offload requires building OpenMP runtime")
+
+            if self.cfg['build_openmp_library_aliases']:
+                errors.append("Installing OpenMP library aliases requires building OpenMP runtime")
+
+            if errors:
+                raise EasyBuildError('\n'.join(errors), exit_code=EasyBuildExit.EASYCONFIG_ERROR)
 
         if self.cfg['build_openmp_offload']:
-            if not self.cfg['build_openmp']:
-                raise EasyBuildError("Building OpenMP offload requires building OpenMP runtime")
             # LLVM 19 added a new runtime target for explicit offloading
             # https://discourse.llvm.org/t/llvm-19-1-0-no-library-libomptarget-nvptx-sm-80-bc-found/81343
             if LooseVersion(self.version) >= '19':
                 self.log.debug("Explicitly enabling OpenMP offloading for LLVM >= 19")
                 self.final_runtimes.append('offload')
             else:
-                self.log.warning("OpenMP offloading is included with the OpenMP runtime for LLVM < 19")
-
-        if self.cfg['build_openmp_tools'] and not self.cfg['build_openmp']:
-            raise EasyBuildError("Building OpenMP tools requires building OpenMP runtime")
+                self.log.debug("OpenMP offloading is included with the OpenMP runtime for LLVM < 19")
 
         if self.cfg['use_polly']:
             self.final_projects.append('polly')
@@ -380,10 +390,7 @@ class EB_LLVM(CMakeMake):
         return self.start_dir
 
     def _configure_build_targets(self):
-        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-        # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-        cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities'] or []
+        cuda_cc_list = self.cfg.get_cuda_cc_template_value("cuda_cc_space_sep", required=False).split()
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         amd_gfx_list = self.cfg['amd_gfx_list'] or []
 
@@ -518,7 +525,7 @@ class EB_LLVM(CMakeMake):
             if self.cfg['build_openmp_offload']:
                 # Force dlopen of the GPU libraries at runtime, not using existing libraries
                 if LooseVersion(self.version) >= '19':
-                    self.runtimes_cmake_args['LIBOMPTARGET_PLUGINS_TO_BUILD'] = '%s' % '|'.join(self.offload_targets)
+                    self._cmakeopts['LIBOMPTARGET_PLUGINS_TO_BUILD'] = self.list_to_cmake_arg(self.offload_targets)
                     dlopen_plugins = set(self.offload_targets) & set(AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS)
                     if dlopen_plugins:
                         self._cmakeopts['LIBOMPTARGET_DLOPEN_PLUGINS'] = self.list_to_cmake_arg(dlopen_plugins)
@@ -528,7 +535,7 @@ class EB_LLVM(CMakeMake):
                     if self.nvptx_target_cond:
                         self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
-            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'ON'
+            self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'ON' if self.cfg['build_openmp_library_aliases'] else 'OFF'
             if not self.cfg['build_openmp_tools']:
                 self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
 
@@ -800,9 +807,9 @@ class EB_LLVM(CMakeMake):
         if not get_software_root('CUDA'):
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
-        if self.cfg['build_openmp_offload'] and '19' <= LooseVersion(self.version) < '20':
-            gpu_archs = []
-            gpu_archs += ['sm_%s' % cc for cc in self.cuda_cc]
+        # 20.1+ uses a generic IR for OpenMP DeviceRTL
+        if self.cfg['build_openmp_offload'] and LooseVersion(self.version) < '20.1':
+            gpu_archs = self.cfg.get_cuda_cc_template_value("cuda_sm_space_sep", required=False).split()
             gpu_archs += self.amd_gfx
             if gpu_archs:
                 self._cmakeopts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
@@ -1463,18 +1470,17 @@ class EB_LLVM(CMakeMake):
                         omp_lib_files += [f'libomptarget-amdgpu-{gfx}.bc' for gfx in self.amd_gfx]
                     else:
                         omp_lib_files += ['libomptarget-amdgpu.bc']
-
-                if version < '19':
-                    # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
-                    check_lib_files += omp_lib_files
+                check_bin_files += ['llvm-omp-kernel-replay']
+                if version < '20':
+                    check_bin_files += ['llvm-omp-device-info']
                 else:
-                    # Starting from LLVM 19, omp related libraries are installed the runtime library directory
-                    check_librt_files += omp_lib_files
-                    check_bin_files += ['llvm-omp-kernel-replay']
-                    if version < '20':
-                        check_bin_files += ['llvm-omp-device-info']
-                    else:
-                        check_bin_files += ['llvm-offload-device-info']
+                    check_bin_files += ['llvm-offload-device-info']
+            if version < '19':
+                # Before LLVM 19, omp related libraries are installed under 'ROOT/lib''
+                check_lib_files += omp_lib_files
+            else:
+                # Starting from LLVM 19, omp related libraries are installed the runtime library directory
+                check_librt_files += omp_lib_files
 
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
