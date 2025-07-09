@@ -354,7 +354,8 @@ class EB_LAMMPS(CMakeMake):
         else:
             self.kokkos_prefix = 'KOKKOS'
             # title case GPU arch names
-            KOKKOS_GPU_ARCH_TABLE = {cc: kkarch.title() for cc, kkarch in KOKKOS_GPU_ARCH_TABLE.items()}
+            for cc in list(KOKKOS_GPU_ARCH_TABLE.keys()):
+                KOKKOS_GPU_ARCH_TABLE[cc] = KOKKOS_GPU_ARCH_TABLE[cc].title()
 
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
         self.update_kokkos_cpu_mapping()
