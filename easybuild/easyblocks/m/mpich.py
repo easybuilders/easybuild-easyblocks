@@ -41,6 +41,9 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.modules import get_software_root
+
+DEVICES_WITH_UCX_SUPPORT = ['ch4']
 
 
 class EB_MPICH(ConfigureMake):
@@ -55,6 +58,8 @@ class EB_MPICH(ConfigureMake):
         extra_vars = ConfigureMake.extra_options(extra_vars)
         extra_vars.update({
             'debug': [False, "Enable debug build (which is slower)", CUSTOM],
+            'device': ['ch4', "Device to use for MPICH (e.g. ch4, ch3)", CUSTOM],
+            'mpi_abi': [False, "Enable build with MPI ABI compatibility", CUSTOM],
         })
         return extra_vars
 
@@ -70,6 +75,7 @@ class EB_MPICH(ConfigureMake):
         """
         env_vars = ['CFLAGS', 'CPPFLAGS', 'CXXFLAGS', 'FCFLAGS', 'FFLAGS', 'LDFLAGS', 'LIBS']
         vars_to_unset = ['F90', 'F90FLAGS']
+        vars_to_keep = []
         for envvar in env_vars:
             envvar_val = os.getenv(envvar)
             if envvar_val:
@@ -83,6 +89,16 @@ class EB_MPICH(ConfigureMake):
                 else:
                     raise EasyBuildError("Both $%s and $%s set, can I overwrite $%s with $%s (%s) ?",
                                          envvar, new_envvar, new_envvar, envvar, envvar_val)
+
+        # With MPICH 3.4.2-GCCcore-10.3.0 the configure script will fail complaining that `-fallow-argument-mismatch`
+        # is not present in the FFLAGS variable.
+        version = LooseVersion(self.version)
+        if version < LooseVersion('4'):
+            self.log.info("MPICH version < 4, not unsetting FFLAGS to avoid configure failure")
+            vars_to_keep.append('FFLAGS')
+
+        vars_to_unset = list(set(vars_to_unset) - set(vars_to_keep))
+
         env.unset_env_vars(vars_to_unset)
 
     def add_mpich_configopts(self):
@@ -109,12 +125,53 @@ class EB_MPICH(ConfigureMake):
                 add_configopts.append('--enable-error-checking=no')
                 add_configopts.append('--enable-timing=none')
 
+        device = self.cfg['device']
+
+        ucx_root = get_software_root('UCX')
+        if ucx_root:
+            if ':' in device:
+                raise EasyBuildError("Device channel already manually specified in device = '%s'.", device)
+            elif device not in DEVICES_WITH_UCX_SUPPORT:
+                raise EasyBuildError(
+                    "Device '%s' does not support UCX, please use one of %s.",
+                    device, ', '.join(DEVICES_WITH_UCX_SUPPORT)
+                )
+            device += ':ucx'
+            add_configopts.append(f'--with-ucx={ucx_root}')
+            self.log.info("Enabling UCX support, using UCX root: %s", ucx_root)
+
+        hwloc_root = get_software_root('hwloc')
+        if hwloc_root:
+            if LooseVersion(self.version) < LooseVersion('4'):
+                add_configopts.append(f'--with-hwloc-prefix={hwloc_root}')
+            else:
+                add_configopts.append(f'--with-hwloc={hwloc_root}')
+            self.log.info("Enabling hwloc support, using hwloc root: %s", hwloc_root)
+        else:
+            add_configopts.append('--without-hwloc')
+            self.log.info("hwloc dependency not found, disabling hwloc support")
+
+        if self.cfg['mpi_abi']:
+            if LooseVersion(self.version) < LooseVersion('4.3'):
+                raise EasyBuildError("MPI ABI compatibility is not supported in MPICH < 4.3")
+            self.log.info("Enabling MPI ABI compatibility")
+            add_configopts.append('--enable-mpi-abi')
+
+        cuda_root = get_software_root('CUDA')
+        if cuda_root:
+            self.log.info("CUDA dependency detected, enabling CUDA support")
+            if LooseVersion(self.version) < LooseVersion('4'):
+                raise EasyBuildError("CUDA support is not available in MPICH < 4.x")
+            add_configopts.append(f'--with-cuda={cuda_root}')
+
         # enable shared libraries, using GCC and GNU ld options
         add_configopts.append('--enable-shared')
         # enable static libraries
         add_configopts.append('--enable-static')
         # enable Fortran 77/90 and C++ bindings
         add_configopts.extend(['--enable-fortran=all', '--enable-cxx'])
+
+        add_configopts.append(f'--with-device={device}')
 
         self.cfg.update('configopts', ' '.join(add_configopts))
 
@@ -163,6 +220,9 @@ class EB_MPICH(ConfigureMake):
         binaries = ['mpicc', 'mpicxx', 'mpif77', 'mpif90']
         if check_launchers:
             binaries.extend(['mpiexec', 'mpiexec.hydra', 'mpirun'])
+
+        if self.cfg['mpi_abi']:
+            libnames.append('mpi_abi')
 
         bins = [os.path.join('bin', x) for x in binaries]
         headers = [os.path.join('include', x) for x in ['mpi.h', 'mpicxx.h', 'mpif.h']]

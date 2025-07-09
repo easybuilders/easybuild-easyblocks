@@ -48,13 +48,13 @@ class BuildEnv(Bundle):
         # passed to toolchain.prepare to specify location for RPATH wrapper scripts (if RPATH linking is enabled)
         self.rpath_wrappers_dir = self.builddir
 
-        super(BuildEnv, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def install_step(self, *args, **kwargs):
         """
         Custom install step for buildenv: copy RPATH wrapper scripts to install dir, if desired
         """
-        super(BuildEnv, self).install_step(*args, **kwargs)
+        super().install_step(*args, **kwargs)
 
         # copy RPATH wrapper scripts to install directory (if they exist)
         wrappers_dir = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
@@ -85,4 +85,4 @@ class BuildEnv(Bundle):
         if os.path.exists(wrappers_dir):
             self.module_load_environment.PATH = [os.path.join(wrappers_dir, d) for d in os.listdir(wrappers_dir)]
 
-        return super(BuildEnv, self).make_module_step(fake=fake)
+        return super().make_module_step(fake=fake)

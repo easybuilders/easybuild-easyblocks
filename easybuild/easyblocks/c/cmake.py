@@ -105,7 +105,7 @@ class EB_CMake(ConfigureMake):
         cmake_include_path = []
 
         available_system_options = ['BZIP2', 'CURL', 'EXPAT', 'LIBARCHIVE', 'ZLIB']
-        for dep in self.cfg.dependencies():
+        for dep in self.cfg.dependencies(runtime_only=True):
             dep_name = dep['name']
             dep_root = get_software_root(dep_name)
             if not dep_root:

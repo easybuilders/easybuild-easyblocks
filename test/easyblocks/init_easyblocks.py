@@ -54,7 +54,7 @@ class InitTest(TestCase):
     """ Baseclass for easyblock testcases """
 
     # initialize configuration (required for e.g. default modules_tool setting)
-    eb_go = eboptions.parse_options()
+    eb_go = eboptions.parse_options(args=[])
     config.init(eb_go.options, eb_go.get_options_by_section('config'))
     build_options = {
         'suffix_modules_path': GENERAL_CLASS,
@@ -207,7 +207,7 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=N
         self.assertTrue(False, "Class found in easyblock %s" % easyblock)
 
 
-def suite():
+def suite(loader):
     """Return all easyblock initialisation tests."""
     def make_inner_test(easyblock, **kwargs):
         def innertest(self):
@@ -263,9 +263,9 @@ def suite():
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
         setattr(InitTest, innertest.__name__, innertest)
 
-    return TestLoader().loadTestsFromTestCase(InitTest)
+    return loader.loadTestsFromTestCase(InitTest)
 
 
 if __name__ == '__main__':
-    res = TextTestRunner(verbosity=1).run(suite())
+    res = TextTestRunner(verbosity=1).run(suite(TestLoader()))
     sys.exit(len(res.failures))

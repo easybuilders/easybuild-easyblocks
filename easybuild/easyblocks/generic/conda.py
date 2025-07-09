@@ -103,6 +103,8 @@ class Conda(Binary):
 
         else:
 
+            install_args = ""
+
             if self.cfg['requirements']:
 
                 install_args = f"-y {self.cfg['requirements']} "

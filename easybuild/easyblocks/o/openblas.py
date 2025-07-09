@@ -45,7 +45,7 @@ class EB_OpenBLAS(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """ Ensure iterative build if also building with 64-bit integer support """
-        super(EB_OpenBLAS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.cfg['enable_ilp64']:
             if not isinstance(self.cfg['buildopts'], list):
@@ -168,7 +168,7 @@ class EB_OpenBLAS(ConfigureMake):
 
     def install_step(self):
         """Fix libsuffix in openblas64.pc if it exists"""
-        super(EB_OpenBLAS, self).install_step()
+        super().install_step()
         if self.iter_idx > 0 and self.cfg['enable_ilp64'] and self.cfg['ilp64_lib_suffix']:
             filepath = os.path.join(self.installdir, 'lib', 'pkgconfig', 'openblas64.pc')
             if os.path.exists(filepath):

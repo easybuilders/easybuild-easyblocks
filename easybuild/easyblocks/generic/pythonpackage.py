@@ -450,6 +450,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.sitecfglibdir = None
         self.sitecfgincdir = None
         self.testinstall = self.cfg['testinstall']
+        self.pypkg_test_installdir = None
         self.testcmd = None
         self.unpack_options = self.cfg['unpack_options']
 
@@ -816,7 +817,6 @@ class PythonPackage(ExtensionEasyBlock):
 
         if self.cfg['runtest'] and self.testcmd is not None:
             extrapath = ""
-            test_installdir = None
 
             out, ec = (None, None)
 
@@ -824,14 +824,15 @@ class PythonPackage(ExtensionEasyBlock):
                 # install in test directory and export PYTHONPATH
 
                 try:
-                    test_installdir = tempfile.mkdtemp()
+                    if self.pypkg_test_installdir is None:
+                        self.pypkg_test_installdir = tempfile.mkdtemp()
 
                     # if posix_local is the active installation scheme there will be
                     # a 'local' subdirectory in the specified prefix;
                     if self.using_local_py_install_scheme():
-                        actual_installdir = os.path.join(test_installdir, 'local')
+                        actual_installdir = os.path.join(self.pypkg_test_installdir, 'local')
                     else:
-                        actual_installdir = test_installdir
+                        actual_installdir = self.pypkg_test_installdir
                     # Export the temporary installdir as an environment variable
                     # Some tests (e.g. for astropy) require to be run in the installdir
                     env.setvar('EB_PYTHONPACKAGE_TEST_INSTALLDIR', actual_installdir)
@@ -845,13 +846,16 @@ class PythonPackage(ExtensionEasyBlock):
                 # print Python search path (just debugging purposes)
                 run_shell_cmd("%s -c 'import sys; print(sys.path)'" % self.python_cmd, hidden=True)
 
+                # add install location to both $PYTHONPATH and $PATH
                 abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
-                extrapath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
+                extrapath = "export PYTHONPATH=%s && " % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
 
-                cmd = self.compose_install_command(test_installdir, extrapath=extrapath)
+                extrapath += "export PATH=%s:$PATH && " % os.path.join(actual_installdir, 'bin')
+
+                cmd = self.compose_install_command(self.pypkg_test_installdir, extrapath=extrapath)
                 run_shell_cmd(cmd)
 
-                self.py_post_install_shenanigans(test_installdir)
+                self.py_post_install_shenanigans(self.pypkg_test_installdir)
 
             if self.testcmd:
                 testcmd = self.testcmd % {'python': self.python_cmd}
@@ -870,8 +874,8 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     run_shell_cmd(cmd)
 
-            if test_installdir:
-                remove_dir(test_installdir)
+            if self.pypkg_test_installdir:
+                remove_dir(self.pypkg_test_installdir)
 
             if return_output_ec:
                 return (out, ec)
@@ -999,15 +1003,15 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             self.log.debug("Detection of downloaded dependencies not enabled")
 
-        # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths,
+        # Use directory usually containing the python packages by default
         # but only for stand-alone installations, not for extensions;
         # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
-        if not self.is_extension and not self.cfg['sanity_check_paths'] and kwargs.get('custom_paths') is None:
-            self.cfg['sanity_check_paths'] = {
+        if not self.is_extension:
+            kwargs.setdefault('custom_paths', {
                 'files': [],
                 'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
-            }
+            })
 
         # make sure 'exts_filter' is defined, which is used for sanity check
         if self.multi_python:
