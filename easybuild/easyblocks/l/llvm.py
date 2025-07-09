@@ -81,11 +81,10 @@ AVAILABLE_OFFLOAD_DLOPEN_PLUGIN_OPTIONS = [
     'amdgpu'
 ]
 
+# Used for full_llvm=True to remove any dependency on GCC/GCCcore
 GCC_DEPENDENCY_OPTS_DEFAULT = {
     'CLANG_DEFAULT_CXX_STDLIB': 'libc++',
     'CLANG_DEFAULT_RTLIB': 'compiler-rt',
-    # Moved to general_opts for ease of building with openmp offload (or other multi-stage builds)
-    # 'CLANG_DEFAULT_LINKER': 'lld',
     'CLANG_DEFAULT_UNWINDLIB': 'libunwind',
 
     'COMPILER_RT_BUILD_GWP_ASAN': 'OFF',
@@ -97,8 +96,8 @@ GCC_DEPENDENCY_OPTS_DEFAULT = {
 
     'LIBCXX_CXX_ABI': 'libcxxabi',
     'LIBCXX_DEFAULT_ABI_LIBRARY': 'libcxxabi',
-    # Needed as libatomic could not be present on the system (compilation and tests will succeed because of the
-    # GCCcore builddep, but usage/sanity check will fail due to missing libatomic)
+    # Needed as libatomic could not be present on the system (compilation and tests will succeed because of
+    # a possible GCCcore builddep, but usage/sanity check will fail due to missing libatomic)
     'LIBCXX_HAS_ATOMIC_LIB': 'OFF',
     'LIBCXX_HAS_GCC_S_LIB': 'OFF',
     'LIBCXX_USE_COMPILER_RT': 'ON',
@@ -109,10 +108,6 @@ GCC_DEPENDENCY_OPTS_DEFAULT = {
 
     'LIBUNWIND_HAS_GCC_S_LIB': 'OFF',
     'LIBUNWIND_USE_COMPILER_RT': 'ON',
-
-    # Libxml2 from system gets automatically detected and linked in bringing dependencies from stdc++, gcc_s, icuuc, etc
-    # Moved to a check at the configure step. See https://github.com/easybuilders/easybuild-easyconfigs/issues/22491
-    # 'LLVM_ENABLE_LIBXML2': 'OFF',
 
     'SANITIZER_USE_STATIC_LLVM_UNWINDER': 'ON',
 }
@@ -365,13 +360,15 @@ class EB_LLVM(CMakeMake):
             self.general_opts['CLANG_DEFAULT_LINKER'] = 'lld'
             self.general_opts['FLANG_DEFAULT_LINKER'] = 'lld'
 
+        # Used for full_llvm=True to remove any dependency on GCC/GCCcore
         self.remove_gcc_dependency_opts = GCC_DEPENDENCY_OPTS_DEFAULT.copy()
         if self.cfg['build_lldb']:
             self.final_projects.append('lldb')
-            if self.full_llvm:
-                self.remove_gcc_dependency_opts['LLDB_ENABLE_LIBXML2'] = 'OFF'
-                self.remove_gcc_dependency_opts['LLDB_ENABLE_LZMA'] = 'OFF'
-                self.remove_gcc_dependency_opts['LLDB_ENABLE_PYTHON'] = 'OFF'
+            self.remove_gcc_dependency_opts.update({
+                'LLDB_ENABLE_LIBXML2': 'OFF',
+                'LLDB_ENABLE_LZMA': 'OFF',
+                'LLDB_ENABLE_PYTHON': 'OFF',
+            })
 
         if self.cfg['build_bolt']:
             self.final_projects.append('bolt')
