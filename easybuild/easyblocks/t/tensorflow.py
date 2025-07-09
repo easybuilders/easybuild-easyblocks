@@ -170,7 +170,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         'com_github_googleapis_googleapis': '2.0.0:2.5.0',
         'com_github_googlecloudplatform_google_cloud_cpp': '2.0.0:',  # Not used due to $TF_NEED_GCP=0
         'com_github_grpc_grpc': '2.2.0:',
-        'com_googlesource_code_re2': '2.0.0:',  # Requires the RE2 version with Abseil (or 2023-06-01+)
+        'com_googlesource_code_re2': '2.0.0:',  # Requires  or 2023-06-01+ and building TF with system Abseil
         'grpc': '2.0.0:2.2.0',
     }
     # Python packages installed as extensions or in the Python module
