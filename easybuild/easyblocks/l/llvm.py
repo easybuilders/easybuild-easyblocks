@@ -256,7 +256,8 @@ class EB_LLVM(CMakeMake):
             # Bypass the .mod file check for GCCcore installs
             self.cfg['skip_mod_files_sanity_check'] = True
         self.final_runtimes = []
-        self.gcc_prefix = None
+        self._gcc_prefix = None
+        self._gcc_root = None
         self.runtimes_cmake_args = {
             'CMAKE_C_COMPILER': [],
             'CMAKE_C_FLAGS': [],
@@ -382,6 +383,24 @@ class EB_LLVM(CMakeMake):
 
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
+
+    @property
+    def gcc_prefix(self):
+        """Return the GCC prefix (versioned folder in <gcc_root>/lib)."""
+        self._set_gcc_prefix_probs()
+        return self._gcc_prefix
+
+    @property
+    def gcc_root(self):
+        """Return the GCC root folder from dependencies/toolchain."""
+        self._set_gcc_prefix_probs()
+        return self._gcc_root
+
+    def _set_gcc_prefix_probs(self):
+        """Set properties of currently loaded GCC installation"""
+        if self._gcc_root is None:
+            self._gcc_root, self._gcc_prefix = self._get_gcc_prefix()
+            self.log.debug("Using %s as the gcc install location", self._gcc_prefix)
 
     @property
     def llvm_src_dir(self):
@@ -596,26 +615,6 @@ class EB_LLVM(CMakeMake):
                 return ''
         return os.path.join(gcc_root, 'lib64')
 
-    def _set_gcc_prefix(self):
-        """Set the GCC prefix for the build."""
-        if self.gcc_prefix is None:
-            gcc_root, gcc_prefix = self._get_gcc_prefix()
-
-            # For LLVM 18+ config files should be used and this option is deprecated and causes an error in 19
-            # But the --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
-            # https://github.com/llvm/llvm-project/pull/87360
-            if LooseVersion(self.version) < '19':
-                self.log.debug("Using GCC_INSTALL_PREFIX")
-                self.general_opts['GCC_INSTALL_PREFIX'] = gcc_root
-            else:
-                # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
-                self.log.debug("Using '--gcc-install-dir' in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
-                self.runtimes_cmake_args['CMAKE_C_FLAGS'].append(f'--gcc-install-dir={gcc_prefix}')
-                self.runtimes_cmake_args['CMAKE_CXX_FLAGS'].append(f'--gcc-install-dir={gcc_prefix}')
-
-            self.gcc_prefix = gcc_prefix
-        self.log.debug("Using %s as the gcc install location", self.gcc_prefix)
-
     def _set_dynamic_linker(self):
         """Set the dynamic linker for the build if not the default one."""
         if self.sysroot:
@@ -799,7 +798,17 @@ class EB_LLVM(CMakeMake):
         ]
         apply_regex_substitutions(lit_cfg_file, regex_subs)
 
-        self._set_gcc_prefix()
+        # For LLVM 18+ config files should be used and this option is deprecated and causes an error in 19
+        # But the --gcc-toolchain and --gcc-install-dir for flang are not supported before LLVM 19
+        # https://github.com/llvm/llvm-project/pull/87360
+        if LooseVersion(self.version) < '19':
+            self.log.debug("Using GCC_INSTALL_PREFIX")
+            self.general_opts['GCC_INSTALL_PREFIX'] = self.gcc_root
+        else:
+            # See https://github.com/llvm/llvm-project/pull/85891#issuecomment-2021370667
+            self.log.debug("Using '--gcc-install-dir' in CMAKE_C_FLAGS and CMAKE_CXX_FLAGS")
+            self.runtimes_cmake_args['CMAKE_C_FLAGS'] += [f'--gcc-install-dir={self.gcc_prefix}']
+            self.runtimes_cmake_args['CMAKE_CXX_FLAGS'] += [f'--gcc-install-dir={self.gcc_prefix}']
 
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
         # using the environment variable which is used as-is and later checked for a falsy value when determining
@@ -881,7 +890,6 @@ class EB_LLVM(CMakeMake):
 
     def _create_compiler_config_file(self, installdir):
         """Create a config file for the compiler to point to the correct GCC installation."""
-        self._set_gcc_prefix()
 
         # This is only needed for LLVM >= 19, as the --gcc-install-dir option was introduced then
         if LooseVersion(self.version) < '19':
@@ -1509,7 +1517,6 @@ class EB_LLVM(CMakeMake):
             'dirs': check_dirs,
         }
 
-        self._set_gcc_prefix()
         if lib_dir_runtime:
             # Required for 'clang -v' to work if linked to LLVM runtimes
             with _wrap_env(ld_path=os.path.join(self.installdir, lib_dir_runtime)):
