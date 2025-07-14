@@ -31,14 +31,11 @@ EasyBuild support for ROOT, implemented as an easyblock
 import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import find_glob_pattern
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
-from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ROOT(CMakeMake):
