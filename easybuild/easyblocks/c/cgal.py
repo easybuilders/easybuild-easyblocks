@@ -42,12 +42,6 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_CGAL(CMakeMake):
     """Support for building CGAL."""
 
-    @staticmethod
-    def extra_options():
-        extra_vars = CMakeMake.extra_options()
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
-
     def configure_step(self):
         """Set some extra environment variables before configuring."""
 
