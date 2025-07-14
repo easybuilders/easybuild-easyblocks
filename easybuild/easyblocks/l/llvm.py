@@ -669,6 +669,16 @@ class EB_LLVM(CMakeMake):
         # Can give different behavior based on system Scrt1.o
         new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
 
+	# Creation of watchpoints is not supported in lldb for RISC-V, so we ignore all the tests that try to do it
+        if get_cpu_architecture() == RISCV64:
+	    new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-child-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-parent-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/fork-follow-child-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/fork-follow-parent-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-child-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-parent-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Watchpoint/ExpressionLanguage.test')
+
         # See https://github.com/llvm/llvm-project/issues/140024
         if LooseVersion(self.version) <= '20.1.5':
             new_ignore_patterns.append('LLVM :: CodeGen/Hexagon/isel/pfalse-v4i1.ll')
