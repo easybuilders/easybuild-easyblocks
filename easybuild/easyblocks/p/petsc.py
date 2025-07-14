@@ -147,8 +147,8 @@ class EB_PETSc(ConfigureMake):
         super().prepare_step(*args, **kwargs)
 
         # build with Python support if Python is loaded as a non-build (runtime) dependency
-        build_deps = self.cfg.dependencies(build_only=True)
-        if get_software_root('Python') and not any(x['name'] == 'Python' for x in build_deps):
+        runtime_dep_names = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+        if get_software_root('Python') and 'Python' in runtime_dep_names:
             self.with_python = True
             self.module_load_environment.PYTHONPATH = self.bin_dir
             self.log.info("Python included as runtime dependency, so enabling Python support")
@@ -259,9 +259,8 @@ class EB_PETSc(ConfigureMake):
         # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
         if (LooseVersion(self.version) >= LooseVersion("3.17")):
             sep_deps.append('SCOTCH')
-        depfilter = [d['name'] for d in self.cfg.builddependencies()] + sep_deps
 
-        deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
+        deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True) if not dep['name'] in sep_deps]
         for dep in deps:
             if isinstance(dep, str):
                 dep = (dep, dep)

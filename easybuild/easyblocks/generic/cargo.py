@@ -332,7 +332,7 @@ class Cargo(ExtensionEasyBlock):
             self.log.info("Unpacking source of %s", src['name'])
             existing_dirs = set(os.listdir(extraction_dir))
             src_dir = extract_file(src['path'], extraction_dir, cmd=src['cmd'],
-                                   extra_options=self.cfg['unpack_options'], change_into_dir=False)
+                                   extra_options=self.cfg['unpack_options'], change_into_dir=False, trace=False)
             new_extracted_dirs = set(os.listdir(extraction_dir)) - existing_dirs
 
             if len(new_extracted_dirs) == 0:
@@ -447,6 +447,14 @@ class Cargo(ExtensionEasyBlock):
                     return git_branch_crate.group(1)
 
         return None
+
+    def prepare_step(self, *args, **kwargs):
+        """
+        Custom prepare step: set environment variable for Rust/cargo after setting up build environment.
+        """
+        super().prepare_step(*args, **kwargs)
+
+        self.set_cargo_vars()
 
     def configure_step(self):
         """Empty configuration step."""

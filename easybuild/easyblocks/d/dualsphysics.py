@@ -48,8 +48,6 @@ class EB_DualSPHysics(CMakeMakeCp):
         """Extra easyconfig parameters for DualSPHysics."""
         extra_vars = CMakeMakeCp.extra_options()
 
-        extra_vars['separate_build_dir'][0] = True
-
         # files_to_copy is not mandatory here since we set it in the easyblock
         extra_vars['files_to_copy'][2] = CUSTOM
         return extra_vars
@@ -66,7 +64,7 @@ class EB_DualSPHysics(CMakeMakeCp):
         super().prepare_step(*args, **kwargs)
 
         if get_software_root('CUDA'):
-            self.dsph_target = 'GPU'
+            self.dsph_target = ''
         else:
             self.dsph_target = 'CPU'
 
@@ -128,7 +126,7 @@ class EB_DualSPHysics(CMakeMakeCp):
 
         # repeated here in case other steps are skipped (e.g. due to --sanity-check-only)
         if get_software_root('CUDA'):
-            self.dsph_target = 'GPU'
+            self.dsph_target = ''
         else:
             self.dsph_target = 'CPU'
 
