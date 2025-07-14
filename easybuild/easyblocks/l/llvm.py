@@ -1,4 +1,3 @@
-ISCV64
 # Copyright 2020-2025 Ghent University
 #
 # This file is part of EasyBuild,
@@ -669,7 +668,8 @@ class EB_LLVM(CMakeMake):
         # Can give different behavior based on system Scrt1.o
         new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
 
-        # Creation of hardware watchpoints is not supported in lldb for RISC-V, so we ignore all the tests that try to do it
+        # Creation of hardware watchpoints is not supported in lldb for RISC-V, 
+        # so we ignore all the tests that try to do it
         if get_cpu_architecture() == RISCV64:
             new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-child-wp.test')
             new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-parent-wp.test')
