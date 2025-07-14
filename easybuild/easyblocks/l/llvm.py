@@ -669,7 +669,7 @@ class EB_LLVM(CMakeMake):
         new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
 
         # Some extra tests need to be ignored for RISC-V
-        if get_cpu_architecture() == RISCV64: 
+        if get_cpu_architecture() == RISCV64:
             # Creation of hardware watchpoints is not supported in lldb for RISC-V,
             # so we ignore all the tests that try to do it
             new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-child-wp.test')
@@ -685,11 +685,21 @@ class EB_LLVM(CMakeMake):
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-static-data-member-access.test')
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-relative-filename-only-binary-dir.c')
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-missing-error.test')
-            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-relative-compdir.c')
-            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-absolute-compdir.c')
-            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-relative-compdir.c')
-            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-dwoname-absolute-compdir.c')
-            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-path-symlink-relative-compdir.c')
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-relative-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-absolute-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-relative-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-dwoname-absolute-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-path-symlink-relative-compdir.c'
+            )
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwarf5-lazy-dwo.c')
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/debug-types-expressions.test')
 
