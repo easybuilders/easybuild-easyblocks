@@ -719,6 +719,16 @@ class EB_LLVM(CMakeMake):
             new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: msan.test')
             new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: sigint.test')
 
+            # LLVM's JIT engine does not support relocation type 53 for the RISC-V target (as of LLVM 20.1.5)
+            # This error arises specifically during execution of the 'mlir-runner' test for 'async-error.mlir',
+            # which uses LLVM's JIT infrastructure (ORC/RuntimeDyld)
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-error.mlir')
+
+            # Following tests fail because of missing support for RISC-V relocation type '55' in LLVM JIT
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-group.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/unranked-memref.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/async.mlir')
+
         # See https://github.com/llvm/llvm-project/issues/140024
         if LooseVersion(self.version) <= '20.1.5':
             new_ignore_patterns.append('LLVM :: CodeGen/Hexagon/isel/pfalse-v4i1.ll')
