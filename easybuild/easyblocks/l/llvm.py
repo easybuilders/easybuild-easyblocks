@@ -734,9 +734,10 @@ class EB_LLVM(CMakeMake):
             # 'EM_RISCV (243) - RISC-V architecture'
             # Support for RISC-V in LLDB is still incomplete upstream
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/anon_class_w_and_wo_export_symbols.ll')
-            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/clang-ast-from-dwarf-unamed-and-anon-structs.cpp')
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/clang-ast-from-dwarf-unamed-and-anon-structs.cpp'
+            )
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/clang-gmodules-type-lookup.c')
-            
 
         # See https://github.com/llvm/llvm-project/issues/140024
         if LooseVersion(self.version) <= '20.1.5':
