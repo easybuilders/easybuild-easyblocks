@@ -679,6 +679,7 @@ class EB_LLVM(CMakeMake):
             new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-child-wp.test')
             new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-parent-wp.test')
             new_ignore_patterns.append('lldb-shell :: Watchpoint/ExpressionLanguage.test')
+
             # Use of flag -gsplit-dwarf gives the error (as the compiler does relaxation by default):
             # clang: error: -gsplit-dwarf is unsupported with RISC-V linker relaxation (-mrelax)
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/split-dwarf-expression-eval-bug.cpp')
@@ -702,6 +703,21 @@ class EB_LLVM(CMakeMake):
             )
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwarf5-lazy-dwo.c')
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/debug-types-expressions.test')
+
+            # The following tests fail because RISC-V doesn't support MemorySanitizer, and the combination
+            #  with '-fsanitize=memory,fuzzer' (used in all the following tests) leads to a backend crash.
+            new_ignore_patterns.append('libFuzzer-riscv64-default-Linux :: msan-custom-mutator.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-default-Linux :: msan-param-unpoison.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-default-Linux :: msan.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-default-Linux :: sigint.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-libcxx-Linux :: msan-custom-mutator.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-libcxx-Linux :: msan-param-unpoison.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-libcxx-Linux :: msan.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-libcxx-Linux :: sigint.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: msan-custom-mutator.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: msan-param-unpoison.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: msan.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: sigint.test')
 
         # See https://github.com/llvm/llvm-project/issues/140024
         if LooseVersion(self.version) <= '20.1.5':
