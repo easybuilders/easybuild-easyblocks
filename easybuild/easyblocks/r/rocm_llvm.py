@@ -55,7 +55,11 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
             'LIBOMP_COPY_EXPORTS': 'OFF',
         })
 
-        amd_gfx_list = build_option('amdgcn_capabilities') or self.cfg['amdgcn_capabilities'] or []
+        amd_gfx_list = build_option('amdgcn_capabilities', default=[])
+        if not amd_gfx_list and 'amdgcn_capabilities' in self.cfg:
+            amd_gfx_list = self.cfg['amdgcn_capabilities']
+        if not amd_gfx_list and 'AMDGCN_CAPABILITIES' in os.environ:
+            amd_gfx_list = os.environ.get('AMDGCN_CAPABILITIES').split(',')
         if not amd_gfx_list:
             raise EasyBuildError("Expected amdgcn_capabilities to be set to build this EasyConfig. "
                                  "Please specify either --amdgcn_capabilities, or set amdgcn_capabilities "
