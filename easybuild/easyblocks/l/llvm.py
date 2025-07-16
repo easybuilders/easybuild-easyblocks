@@ -748,6 +748,12 @@ class EB_LLVM(CMakeMake):
         else:
             self.general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
 
+        libffi_root = get_software_root('libffi')
+        self.general_opts['LLVM_ENABLE_LIBFFI'] = 'ON' if libffi_root else 'OFF'
+        if libffi_root:
+            self.general_opts['FFI_INCLUDE_DIR'] = os.path.join(libffi_root, 'include')
+            self.general_opts['FFI_LIBRARY_DIR'] = os.path.join(libffi_root, 'lib64')
+
         # If 'ON', risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
         # to errors during compilation of 'offload.tools.kernelreplay' due to the inclusion of LLVMSupport (19.x)
         self.general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if get_software_root('zlib') else 'OFF'
