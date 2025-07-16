@@ -749,7 +749,7 @@ class EB_LLVM(CMakeMake):
             self.general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
 
         libffi_root = get_software_root('libffi')
-        self.general_opts['LLVM_ENABLE_LIBFFI'] = 'ON' if libffi_root else 'OFF'
+        self.general_opts['LLVM_ENABLE_FFI'] = 'ON' if libffi_root else 'OFF'
         if libffi_root:
             self.general_opts['FFI_INCLUDE_DIR'] = os.path.join(libffi_root, 'include')
             self.general_opts['FFI_LIBRARY_DIR'] = os.path.join(libffi_root, 'lib64')
