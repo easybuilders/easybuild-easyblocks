@@ -126,7 +126,7 @@ class EB_DualSPHysics(CMakeMakeCp):
 
         # repeated here in case other steps are skipped (e.g. due to --sanity-check-only)
         if get_software_root('CUDA'):
-            self.dsph_target = 'GPU'
+            self.dsph_target = ''
         else:
             self.dsph_target = 'CPU'
 
@@ -136,7 +136,7 @@ class EB_DualSPHysics(CMakeMakeCp):
                 'GenCase', 'PartVTK', 'IsoSurface', 'MeasureTool',
                 'DualSPHysics%sCPU' % self.shortver
             ]
-            if self.dsph_target == 'GPU':
+            if self.dsph_target == '':
                 bins.append('DualSPHysics%s' % self.shortver)
         else:
             bins = [
