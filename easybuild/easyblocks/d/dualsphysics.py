@@ -38,6 +38,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd
+from easybuild.tools import LooseVersion
 
 
 class EB_DualSPHysics(CMakeMakeCp):
@@ -130,10 +131,23 @@ class EB_DualSPHysics(CMakeMakeCp):
         else:
             self.dsph_target = 'CPU'
 
-        bins = ['GenCase', 'PartVTK', 'IsoSurface', 'MeasureTool', 'GenCase_MkWord', 'DualSPHysics4.0_LiquidGas',
-                'DualSPHysics4.0_LiquidGasCPU', 'DualSPHysics%s' % self.shortver,
-                'DualSPHysics%s%s' % (self.shortver, self.dsph_target), 'DualSPHysics%s_NNewtonian' % self.shortver,
-                'DualSPHysics%s_NNewtonianCPU' % self.shortver]
+        # Determine which binaries to check based on version
+        if LooseVersion(self.version) >= LooseVersion('5.4.0'):
+            bins = [
+                'GenCase', 'PartVTK', 'IsoSurface', 'MeasureTool',
+                'DualSPHysics%sCPU' % self.shortver
+            ]
+            if self.dsph_target == '':
+                bins.append('DualSPHysics%s' % self.shortver)
+        else:
+            bins = [
+                'GenCase', 'PartVTK', 'IsoSurface', 'MeasureTool', 'GenCase_MkWord',
+                'DualSPHysics4.0_LiquidGas', 'DualSPHysics4.0_LiquidGasCPU',
+                'DualSPHysics%s' % self.shortver,
+                'DualSPHysics%s%s' % (self.shortver, self.dsph_target),
+                'DualSPHysics%s_NNewtonian' % self.shortver,
+                'DualSPHysics%s_NNewtonianCPU' % self.shortver,
+            ]
 
         custom_paths = {
             'files': ['bin/%s_linux64' % x for x in bins],
