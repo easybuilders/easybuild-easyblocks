@@ -62,7 +62,7 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
             amd_gfx_list = os.environ.get('AMDGCN_CAPABILITIES').split(',')
         if not amd_gfx_list:
             raise EasyBuildError("Expected amdgcn_capabilities to be set to build this EasyConfig. "
-                                 "Please specify either --amdgcn_capabilities, or set amdgcn_capabilities "
+                                 "Please specify either --amdgcn-capabilities, or set amdgcn_capabilities "
                                  "in the EasyConfig!")
         if LooseVersion('19') <= LooseVersion(self.version) < LooseVersion('20'):
             self.runtimes_cmake_args['LIBOMPTARGET_AMDGCN_GFXLIST'] = '%s' % '|'.join(amd_gfx_list)
