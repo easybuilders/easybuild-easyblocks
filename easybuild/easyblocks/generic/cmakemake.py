@@ -161,6 +161,11 @@ class CMakeMake(ConfigureMake):
         })
         return extra_vars
 
+    @staticmethod
+    def list_to_cmake_arg(lst):
+        """Convert iterable of strings to a value that can be passed as a CLI argument to CMake resulting in a list"""
+        return "'%s'" % ';'.join(lst)
+
     def __init__(self, *args, **kwargs):
         """Constructor for CMakeMake easyblock"""
         super().__init__(*args, **kwargs)
@@ -356,7 +361,7 @@ class CMakeMake(ConfigureMake):
             options['CMAKE_CUDA_COMPILER'] = which('nvcc')
             cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
             if cuda_cc:
-                options['CMAKE_CUDA_ARCHITECTURES'] = '"%s"' % ';'.join([cc.replace('.', '') for cc in cuda_cc])
+                options['CMAKE_CUDA_ARCHITECTURES'] = self.list_to_cmake_arg(cc.replace('.', '') for cc in cuda_cc)
             else:
                 raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
                                      'cuda_compute_capabilities easyconfig parameter or via '
@@ -402,15 +407,16 @@ class CMakeMake(ConfigureMake):
 
     def check_python_paths(self):
         """Check that there are no detected Python paths outside the Python dependency provided by EasyBuild"""
-        if not os.path.exists('CMakeCache.txt'):
-            self.log.warning("CMakeCache.txt not found. Python paths checks skipped.")
+        cache_file_path = os.path.join(os.getcwd(), 'CMakeCache.txt')
+        if not os.path.exists(cache_file_path):
+            self.log.warning(f"{cache_file_path} not found. Python paths checks skipped.")
             return
-        cmake_cache = read_file('CMakeCache.txt')
+        cmake_cache = read_file(cache_file_path)
         if not cmake_cache:
-            self.log.warning("CMake Cache could not be read. Python paths checks skipped.")
+            self.log.warning(f"CMake Cache ({cache_file_path}) could not be read. Python paths checks skipped.")
             return
 
-        self.log.info("Checking Python paths")
+        self.log.info(f"Checking Python paths found by CMake in {cache_file_path}")
 
         python_paths = {
             "executable": [],
@@ -433,7 +439,7 @@ class CMakeMake(ConfigureMake):
 
         ebrootpython_path = get_software_root("Python")
         if not ebrootpython_path:
-            if any(python_paths.values()) and not self.toolchain.comp_family() == toolchain.SYSTEM:
+            if any(python_paths.values()) and self.toolchain.comp_family() != toolchain.SYSTEM:
                 self.log.warning("Found Python paths in CMake cache but Python is not a dependency")
             # Can't do the check
             return
@@ -451,8 +457,12 @@ class CMakeMake(ConfigureMake):
         if errors:
             # Combine all errors into a single message
             error_message = "\n".join(errors)
-            raise EasyBuildError("Python path errors:\n" + error_message)
-        self.log.info("Python check successful")
+            raise EasyBuildError("CMake configure of {self.name} picked up (likely) wrong Python paths:\n"
+                                 f"{error_message}\n"
+                                 "Verify that Python is a dependency. "
+                                 "Otherwise, the sources might need patching "
+                                 "to pick up the Python provided by EasyBuild.")
+        self.log.info("Check for Python paths in CMake cache successful")
 
     def test_step(self):
         """CMake specific test setup"""

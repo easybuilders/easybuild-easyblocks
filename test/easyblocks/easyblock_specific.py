@@ -61,7 +61,7 @@ class EasyBlockSpecificTest(TestCase):
     """ Baseclass for easyblock testcases """
 
     # initialize configuration (required for e.g. default modules_tool setting)
-    eb_go = eboptions.parse_options()
+    eb_go = eboptions.parse_options(args=[])
     config.init(eb_go.options, eb_go.get_options_by_section('config'))
     build_options = {
         'suffix_modules_path': GENERAL_CLASS,
@@ -379,6 +379,28 @@ class EasyBlockSpecificTest(TestCase):
         with self.mocked_stdout_stderr():
             python.run_pip_check(python_cmd=sys.executable)
 
+        # test ignored of unversioned Python packages
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip check" in cmd:
+                output = "No broken requirements found."
+            elif "pip list" in cmd:
+                output = '[{"name": "zero", "version": "0.0.0"}]'
+            elif "pip --version" in cmd:
+                output = "pip 20.0"
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        with self.mocked_stdout_stderr():
+            python.run_pip_check(python_cmd=sys.executable, unversioned_packages=('zero', ))
+
+        with self.mocked_stdout_stderr():
+            python.run_pip_check(python_cmd=sys.executable, unversioned_packages=set(['zero']))
+
         # inject all possible errors
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
             if "pip check" in cmd:
@@ -487,11 +509,11 @@ class EasyBlockSpecificTest(TestCase):
         self.assertEqual(lammps.translate_lammps_version('devel', path=self.tmpdir), '2025.04.02')
 
 
-def suite():
+def suite(loader):
     """Return all easyblock-specific tests."""
-    return TestLoader().loadTestsFromTestCase(EasyBlockSpecificTest)
+    return loader.loadTestsFromTestCase(EasyBlockSpecificTest)
 
 
 if __name__ == '__main__':
-    res = TextTestRunner(verbosity=1).run(suite())
+    res = TextTestRunner(verbosity=1).run(suite(TestLoader()))
     sys.exit(len(res.failures))

@@ -75,7 +75,6 @@ class EB_GROMACS(CMakeMake):
             'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
                        "True or False forces behaviour.", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
