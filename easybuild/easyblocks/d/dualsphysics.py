@@ -40,6 +40,7 @@ from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools import LooseVersion
 
+
 class EB_DualSPHysics(CMakeMakeCp):
     """Support for building/installing DualSPHysics."""
 
