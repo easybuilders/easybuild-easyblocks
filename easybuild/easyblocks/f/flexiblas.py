@@ -63,7 +63,6 @@ class EB_FlexiBLAS(CMakeMake):
                          "'imkl', which does not need to be a (build)dependency." +
                          "If not defined, use the list of dependencies.", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
