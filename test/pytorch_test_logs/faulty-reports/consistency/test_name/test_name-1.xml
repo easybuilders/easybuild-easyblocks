@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <testsuites>
   <!-- 'tests' attribute is to low -->
-  <testsuite name="pytest" errors="1" failures="1" skipped="1" tests="2" time="4.2">
+  <testsuite name="pytest" errors="2" failures="1" skipped="1" tests="2" time="4.2">
     <testcase classname="TestName" name="test1" time="4.2" file="test_name.py">
       <skipped message=""/>
     </testcase>
@@ -9,6 +9,9 @@
       <failure message="...">[snip]</failure>
     </testcase>
     <testcase classname="TestName" name="test3" time="4.2" file="test_name.py">
+      <error message="...">[snip]</error>
+    </testcase>
+    <testcase classname="TestName" name="test4" time="4.2" file="test_name.py">
       <error message="...">[snip]</error>
     </testcase>
   </testsuite>

@@ -1022,9 +1022,10 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
             # when unittest's `subTest` is used: https://github.com/xmlrunner/unittest-xml-reporting/issues/292
             num_tests = int(test_suite.attrib["tests"])
             # But it needs to be at least consistent with the "non-passing" test numbers
-            if num_tests < failures + skipped + errors:
+            # A test that failed AND errored might not be counted twice, so don't add failures and errors
+            if num_tests < max(failures, errors) + skipped:
                 raise ValueError(f"Invalid test count: "
-                                 f"{num_tests} tests, {failures} failures, {skipped} skipped, {errors} errors")
+                                 f"{num_tests} tests vs {failures} failures, {skipped} skipped, {errors} errors")
 
             parsed_test_cases = parse_test_cases(test_suite)
             if not parsed_test_cases:
@@ -1035,9 +1036,15 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
 
             test_cases: Dict[str, TestCase] = {}
             for test_case in parsed_test_cases:
-                if test_case.name in test_cases:
-                    raise ValueError(f"Duplicate test case '{test_case}' in test suite {suite_name}")
-                test_cases[test_case.name] = test_case
+                try:
+                    old_test_case = test_cases[test_case.name]
+                except KeyError:
+                    # No test with that name yet, so add it
+                    test_cases[test_case.name] = test_case
+                else:
+                    # Ignore the case where a test failed and errored which might happen if teardown fails
+                    if {old_test_case.state, test_case.state} != {TestState.ERROR, TestState.FAILURE}:
+                        raise ValueError(f"Duplicate test case '{test_case}' in test suite {suite_name}")
 
             test_suites.append(
                 TestSuite(name=suite_name, test_cases=test_cases,
