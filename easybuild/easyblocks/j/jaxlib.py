@@ -78,14 +78,14 @@ class EB_jaxlib(PythonPackage):
         # Collect options for the build script
         # Used only by the build script
         options = []
-        
+
         # update build command for jaxlib-0.6 to build.py build
         if LooseVersion(self.version) >= LooseVersion('0.6.0'):
             options.append('build')
-        
+
         # C++ flags are set through copt below
         options.append('--target_cpu_features=default')
-            
+
         # Passed directly to bazel
         bazel_startup_options = [
             '--output_user_root=%s' % tempfile.mkdtemp(suffix='-bazel', dir=self.builddir),
