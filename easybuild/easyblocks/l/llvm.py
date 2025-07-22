@@ -743,7 +743,7 @@ class EB_LLVM(CMakeMake):
             # With binutils >= 2.41, this test would work
             if LooseVersion(get_software_version('binutils')) < '2.41':
                 new_ignore_patterns.append("Flang :: Driver/save-mlir-temps.f90",)
-    
+
             # All these tests use a relocation type not supported on RISC-V
             new_ignore_patterns.append("MLIR :: mlir-runner/async-group.mlir",)
             new_ignore_patterns.append("MLIR :: mlir-runner/async-error.mlir",)
