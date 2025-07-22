@@ -72,8 +72,10 @@ def format_xml(path: Path) -> bool:
             stderr=subprocess.STDOUT,
         )
     except subprocess.CalledProcessError as e:
-        print(f'\nError formatting {path}: {e.output}', file=sys.stderr)
-        return False
+        # Ignore error "Start tag expected" for empty files
+        if '<!-- Empty' not in path.read_text(encoding='utf-8'):
+            print(f'\nError formatting {path}: {e.output}', file=sys.stderr)
+            return False
     return True
 
 
