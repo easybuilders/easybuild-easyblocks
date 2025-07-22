@@ -77,17 +77,19 @@ replace-with = "vendored-sources"
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
 
 
-def get_virtual_workspace_members(crate_dir):
-    """Find all members of a cargo virtual workspace in crate_dir.
+def get_workspace_members(crate_dir):
+    """Find all members of a cargo workspace in crate_dir.
 
     (Minimally) parse the Cargo.toml file.
-    If it is a virtual workspace ([workspace] and no [package]) return all members (subfolder names).
-    Otherwise return None.
+
+    Return a tuple: (has_package, workspace-members).
+    has_package determines if the manifest contains a '[package]' section and hence is not a virtual manifest.
+    workspace-members are all members (subfolder names) if it is a workspace, otherwise None
     """
     cargo_toml = os.path.join(crate_dir, 'Cargo.toml')
     lines = [line.strip() for line in read_file(cargo_toml).splitlines()]
-    if '[package]' in lines:
-        return None
+    # A virtual (workspace) manifest has no [package], but only a [workspace] section.
+    has_package = '[package]' in lines
 
     # We are looking for this:
     # [workspace]
@@ -100,7 +102,7 @@ def get_virtual_workspace_members(crate_dir):
     try:
         start_idx = lines.index('[workspace]')
     except ValueError:
-        return None
+        return has_package, None
     # Find "members = [" and concatenate the value, stop at end of section or file
     member_str = None
     for line in lines[start_idx + 1:]:
@@ -127,7 +129,7 @@ def get_virtual_workspace_members(crate_dir):
     if invalid_members:
         raise EasyBuildError('Failed to parse %s: Found seemingly invalid members: %s',
                              cargo_toml, ', '.join(invalid_members))
-    return members
+    return has_package, members
 
 
 def get_checksum(src, log):
@@ -360,13 +362,15 @@ class Cargo(ExtensionEasyBlock):
                 self.log.debug(f'No source found for {crate_dir}. Using nul-checksum for vendoring')
                 checksum = 'null'
             # Sources might contain multiple crates/folders in a so-called "workspace".
-            # If there isn't a main package (Only "[workspace]" section and no "[package]" section) we have to move
-            # the individual packages out of the workspace or cargo fails with
+            # We have to move the individual packages out of the workspace so cargo can find them.
+            # If there is a main package it should to used too,
+            # otherwise (Only "[workspace]" section and no "[package]" section)
+            # we have to remove the top-level folder or cargo fails with:
             # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
-            member_dirs = get_virtual_workspace_members(crate_dir)
+            has_package, member_dirs = get_workspace_members(crate_dir)
             if member_dirs:
-                self.log.info(f'Found virtual manifest in {crate_dir}. Members: ' + ', '.join(member_dirs))
-                crate_dirs = []
+                self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(member_dirs))
+                cargo_pkg_dirs = []
                 tmp_crate_dir = os.path.join(tmp_dir, os.path.basename(crate_dir))
                 shutil.move(crate_dir, tmp_crate_dir)
                 for crate in member_dirs:
@@ -376,13 +380,22 @@ class Cargo(ExtensionEasyBlock):
                                              f'as target path {target_path} exists')
                     # Use copy_dir to resolve symlinks that might point to the parent folder
                     copy_dir(os.path.join(tmp_crate_dir, crate), target_path, symlinks=False)
-                    crate_dirs.append(target_path)
-                remove_dir(tmp_crate_dir)
+                    cargo_pkg_dirs.append(target_path)
+                if has_package:
+                    # Remove the copied crate folders
+                    for crate in member_dirs:
+                        remove_dir(os.path.join(tmp_crate_dir, crate))
+                    # Keep the main package in the original location
+                    shutil.move(tmp_crate_dir, crate_dir)
+                    cargo_pkg_dirs.append(crate_dir)
+                else:
+                    self.log.info(f'Virtual manifest found in {crate_dir}, removing it')
+                    remove_dir(tmp_crate_dir)
             else:
-                crate_dirs = [crate_dir]
-            for crate_dir in crate_dirs:
-                self.log.info('creating .cargo-checksums.json file for %s', os.path.basename(crate_dir))
-                chkfile = os.path.join(crate_dir, '.cargo-checksum.json')
+                cargo_pkg_dirs = [crate_dir]
+            for pkg_dir in cargo_pkg_dirs:
+                self.log.info('creating .cargo-checksums.json file for %s', os.path.basename(pkg_dir))
+                chkfile = os.path.join(pkg_dir, '.cargo-checksum.json')
                 write_file(chkfile, CARGO_CHECKSUM_JSON.format(checksum=checksum))
 
         self.log.debug("Writting config.toml entry for vendored crates from crate.io")
