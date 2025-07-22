@@ -291,6 +291,10 @@ class EB_LLVM(CMakeMake):
         if self.cfg['use_pic']:
             on_opts.append('CMAKE_POSITION_INDEPENDENT_CODE')
 
+        # General options being passed to every build stage.
+        # Here, options that will be required in all build stages should be added.
+        # Update _cmakeopts in _configure_{general,intermediate,final}_build if
+        # build option is only relevant for a single build step.
         self.general_opts = GENERAL_OPTS.copy()
 
         for opt in on_opts:
@@ -381,6 +385,9 @@ class EB_LLVM(CMakeMake):
         self.log.info("Final projects to build: %s", ', '.join(self.final_projects))
         self.log.info("Final runtimes to build: %s", ', '.join(self.final_runtimes))
 
+        # CMake options passed to each building stage.
+        # Will be cleared between stages. If arguments are needed in multiple stages,
+        # consider adding them to general_opts instead.
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
 
