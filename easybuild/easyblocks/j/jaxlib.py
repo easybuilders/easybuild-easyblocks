@@ -77,10 +77,15 @@ class EB_jaxlib(PythonPackage):
 
         # Collect options for the build script
         # Used only by the build script
-
+        options = []
+        
+        # update build command for jaxlib-0.6 to build.py build
+        if LooseVersion(self.version) >= LooseVersion('0.6.0'):
+            options.append('build')
+        
         # C++ flags are set through copt below
-        options = ['--target_cpu_features=default']
-
+        options.append('--target_cpu_features=default')
+            
         # Passed directly to bazel
         bazel_startup_options = [
             '--output_user_root=%s' % tempfile.mkdtemp(suffix='-bazel', dir=self.builddir),
@@ -125,13 +130,15 @@ class EB_jaxlib(PythonPackage):
                     options.append('--noenable_nccl')
 
             config_env_vars['GCC_HOST_COMPILER_PATH'] = which(os.getenv('CC'))
-        else:
+        elif LooseVersion(self.version) <= LooseVersion('0.6.0'):
             options.append('--noenable_cuda')
 
-        if self.cfg['use_mkl_dnn']:
-            options.append('--enable_mkl_dnn')
+        if self.cfg["use_mkl_dnn"] and LooseVersion(self.version) <= LooseVersion("0.6.0"):
+            options.append("--enable_mkl_dnn")
+        elif LooseVersion(self.version) <= LooseVersion("0.6.0"):
+            options.append("--noenable_mkl_dnn")
         else:
-            options.append('--noenable_mkl_dnn')
+            options.append("--disable_mkl_dnn")
 
         # Prepend to buildopts so users can overwrite this
         self.cfg['buildopts'] = ' '.join(
