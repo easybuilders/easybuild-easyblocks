@@ -385,7 +385,7 @@ class EB_LLVM(CMakeMake):
         self.log.info("Final projects to build: %s", ', '.join(self.final_projects))
         self.log.info("Final runtimes to build: %s", ', '.join(self.final_runtimes))
 
-        # CMake options passed to each building stage.
+        # CMake options passed to each build stage.
         # Will be cleared between stages. If arguments are needed in multiple stages,
         # consider adding them to general_opts instead.
         self._cmakeopts = {}
