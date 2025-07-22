@@ -739,6 +739,28 @@ class EB_LLVM(CMakeMake):
             )
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/clang-gmodules-type-lookup.c')
 
+            # binutils 2.40 is too old and doesn't recognize the 'zaamo' ISA extension used in the test.
+            # With binutils >= 2.41, this test would work
+            if LooseVersion(get_software_version('binutils')) < '2.41':
+                new_ignore_patterns.append("Flang :: Driver/save-mlir-temps.f90",)
+    
+            # All these tests use a relocation type not supported on RISC-V
+            new_ignore_patterns.append("MLIR :: mlir-runner/async-group.mlir",)
+            new_ignore_patterns.append("MLIR :: mlir-runner/async-error.mlir",)
+            new_ignore_patterns.append("MLIR :: mlir-runner/async.mlir",)
+            new_ignore_patterns.append("MLIR :: mlir-runner/global-memref.mlir",)
+            new_ignore_patterns.append("MLIR :: mlir-runner/unranked-memref.mlir",)
+            new_ignore_patterns.append("MLIR :: mlir-runner/utils.mlir",)
+
+            # All these tests crash due to incomplete JIT support for RISC-V
+            new_ignore_patterns.append("mlir-runner/simple.mlir",)
+            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/6/12",)
+            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/7/12",)
+            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/8/12",)
+            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/9/12",)
+            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/10/12",)
+            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/11/12",)
+
         # See https://github.com/llvm/llvm-project/issues/140024
         if LooseVersion(self.version) <= '20.1.5':
             new_ignore_patterns.append('LLVM :: CodeGen/Hexagon/isel/pfalse-v4i1.ll')
