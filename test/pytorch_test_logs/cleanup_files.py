@@ -45,7 +45,7 @@ def shorten_content(path: Path):
     remove_output: bool = int(md5(str(path.name).encode('utf-8')).hexdigest(), 16) % 2 == 0
 
     # Shorten output shown between various tags
-    for tag in ["failure", "skipped", "system-out", "system-err", "rerun"]:
+    for tag in ["error", "failure", "skipped", "system-out", "system-err", "rerun"]:
         # Beware of multiline content in tags and empty tags (<tag/> or <tag key="value"/>)
         pattern = re.compile(
             rf'(<{tag}([^>/]*?)>)(.*?)</{tag}>',
