@@ -821,7 +821,7 @@ class EB_LLVM(CMakeMake):
             gpu_archs = self.cfg.get_cuda_cc_template_value("cuda_sm_space_sep", required=False).split()
             gpu_archs += self.amd_gfx
             if gpu_archs:
-                self._cmakeopts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
+                self.general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
 
         self._configure_general_build()
         self.add_cmake_opts()
