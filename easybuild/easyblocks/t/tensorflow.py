@@ -614,10 +614,7 @@ class EB_TensorFlow(PythonPackage):
         # Hermetic python version since 2.14.0
         if LooseVersion(self.version) > LooseVersion('2.13'):
             pyver = det_python_version(self.python_cmd)
-            if LooseVersion(self.version) > '2.18':
-                repo_env['TF_PYTHON_VERSION'] = '.'.join(pyver.split('.')[:2])
-            else:
-                config_env_vars['TF_PYTHON_VERSION'] = '.'.join(pyver.split('.')[:2])
+            repo_env['TF_PYTHON_VERSION'] = '.'.join(pyver.split('.')[:2])
 
         if self._with_cuda:
             cuda_version = get_software_version('CUDA')
