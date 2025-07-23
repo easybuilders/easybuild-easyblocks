@@ -374,7 +374,9 @@ class Cargo(ExtensionEasyBlock):
                 tmp_crate_dir = os.path.join(tmp_dir, os.path.basename(crate_dir))
                 shutil.move(crate_dir, tmp_crate_dir)
                 for crate in member_dirs:
-                    target_path = os.path.join(self.vendor_dir, crate)
+                    # A member crate might be in a subfolder, e.g. 'components/foo',
+                    # which we need to ignore and make the crate a top-level folder.
+                    target_path = os.path.join(self.vendor_dir, os.path.basename(crate))
                     if os.path.exists(target_path):
                         raise EasyBuildError(f'Cannot move {crate} out of {os.path.basename(crate_dir)} '
                                              f'as target path {target_path} exists')
