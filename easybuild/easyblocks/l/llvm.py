@@ -742,24 +742,37 @@ class EB_LLVM(CMakeMake):
             # binutils 2.40 is too old and doesn't recognize the 'zaamo' ISA extension used in the test.
             # With binutils >= 2.41, this test would work
             if LooseVersion(get_software_version('binutils')) < '2.41':
-                new_ignore_patterns.append("Flang :: Driver/save-mlir-temps.f90",)
+                new_ignore_patterns.append("Flang :: Driver/save-mlir-temps.f90")
 
             # All these tests use a relocation type not supported on RISC-V
-            new_ignore_patterns.append("MLIR :: mlir-runner/async-group.mlir",)
-            new_ignore_patterns.append("MLIR :: mlir-runner/async-error.mlir",)
-            new_ignore_patterns.append("MLIR :: mlir-runner/async.mlir",)
-            new_ignore_patterns.append("MLIR :: mlir-runner/global-memref.mlir",)
-            new_ignore_patterns.append("MLIR :: mlir-runner/unranked-memref.mlir",)
-            new_ignore_patterns.append("MLIR :: mlir-runner/utils.mlir",)
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-group.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-error.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/async.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/global-memref.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/unranked-memref.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/utils.mlir')
 
             # All these tests crash due to incomplete JIT support for RISC-V
-            new_ignore_patterns.append("mlir-runner/simple.mlir",)
-            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/6/12",)
-            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/7/12",)
-            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/8/12",)
-            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/9/12",)
-            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/10/12",)
-            new_ignore_patterns.append("MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/11/12",)
+            new_ignore_patterns.append('mlir-runner/simple.mlir')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/6/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/7/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/8/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/9/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/10/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/11/12')
+
+            # These tests fail due to memory allocator corruption of mismatch, likely due to incomplete or
+            # buggy support in the LLVM runtime for RISC-V under '-std=c++26'
+            new_ignore_patterns.append(
+                'llvm-libc++-shared.cfg.in :: std/input.output/string.streams/istringstream/istringstream.assign/'
+            )
+            new_ignore_patterns.append(
+                'llvm-libc++-shared.cfg.in :: std/utilities/variant/variant.visit/visit_return_type.pass.cpp'
+            )
+            new_ignore_patterns.append(
+                'llvm-libc++-shared.cfg.in :: std/utilities/format/format.formatter/format.formatter.spec/'
+            )
+            new_ignore_patterns.append('llvm-libc++-shared.cfg.in :: benchmarks/variant_visit_3.bench.cpp')
 
         # See https://github.com/llvm/llvm-project/issues/140024
         if LooseVersion(self.version) <= '20.1.5':
