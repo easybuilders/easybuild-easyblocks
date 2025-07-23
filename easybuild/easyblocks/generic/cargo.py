@@ -562,7 +562,13 @@ def generate_crate_list(sourcedir):
                 qs = parse_qs(parsed_url.query)
                 rev_qs = qs.get('rev', [None])[0]
                 if rev_qs is not None and rev_qs != rev:
-                    raise ValueError(f"Found different revision in query of URL {url}: {rev_qs} (expected: {rev})")
+                    # It is not an error if one is the short version of the other
+                    # E.g. https://github.com/astral/lsp-types.git?rev=3512a9f#3512a9f33eadc5402cfab1b8f7340824c8ca1439
+                    if (rev_qs and rev.startswith(rev_qs)) or rev_qs.startswith(rev):
+                        # The query value is the relevant one if both are present
+                        rev = rev_qs
+                    else:
+                        raise ValueError(f"Found different revision in query of URL {url}: {rev_qs} (expected: {rev})")
                 crates.append((name, version, url, rev))
     return app_in_cratesio, crates, other_crates
 
