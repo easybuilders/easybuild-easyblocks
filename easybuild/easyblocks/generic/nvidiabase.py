@@ -46,7 +46,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
-from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, remove, symlink, write_file
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
@@ -91,7 +91,7 @@ class NvidiaBase(PackedBinary):
     @staticmethod
     def extra_options():
         extra_vars = {
-            'default_cuda_version':      [None, "CUDA Version to be used as default (eg. 12.6)", CUSTOM],
+            'default_cuda_version':      [None, "CUDA version used by default in this toolchain", CUSTOM],
             'module_add_cuda':           [False, "Add NVHPC's CUDA to module", CUSTOM],
             'module_add_math_libs':      [False, "Add NVHPC's math libraries to module", CUSTOM],
             'module_add_nccl':           [False, "Add NVHPC's NCCL library to module", CUSTOM],
@@ -102,8 +102,15 @@ class NvidiaBase(PackedBinary):
         }
         return PackedBinary.extra_options(extra_vars)
 
-    def _get_default_cuda(self):
-        """Return suitable default CUDA version for this installation"""
+    def _get_active_cuda(self):
+        """
+        Return the active single version of CUDA for this installation
+        Preference order:
+        1. CUDA version set by nvidia-compilers
+        2. CUDA version of external CUDA
+        3. CUDA version set by option 'default_cuda_version'
+        4. CUDA version supported by current install (if obvious)
+        """
         # determine supported CUDA versions from sources
         cuda_subdir_glob = os.path.join(self.install_subdir, 'cuda', self.CUDA_VERSION_GLOB)
         cuda_builddir_glob = os.path.join(self.builddir, 'nvhpc_*', 'install_components', cuda_subdir_glob)
@@ -163,12 +170,12 @@ class NvidiaBase(PackedBinary):
 
         # default CUDA version undefined, pick one if obvious
         if len(supported_cuda_versions) == 1:
-            default_cuda_version = supported_cuda_versions[0]
+            active_cuda_version = supported_cuda_versions[0]
             self.log.info(
-                f"Missing 'default_cuda_version' or CUDA dependency. Using CUDA version '{default_cuda_version}' "
+                f"Missing 'default_cuda_version' or CUDA dependency. Using CUDA version '{active_cuda_version}' "
                 f"as it is the only version supported by {self.name}-{self.version}."
             )
-            return default_cuda_version
+            return active_cuda_version
 
         error_msg = f"Missing 'default_cuda_version' or CUDA dependency for {self.name}. "
         error_msg += "Either add CUDA as dependency or manually define 'default_cuda_version'."
@@ -177,33 +184,38 @@ class NvidiaBase(PackedBinary):
         raise EasyBuildError(error_msg)
 
     def _get_default_compute_capability(self):
-        """Return suitable CUDA compute capability for this installation"""
-        # Parse default_compute_capability from different sources (CLI has priority)
-        ec_default_compute_capability = self.cfg['cuda_compute_capabilities']
-        cfg_default_compute_capability = build_option('cuda_compute_capabilities')
-        if cfg_default_compute_capability is not None:
-            default_compute_capability = cfg_default_compute_capability
-        elif ec_default_compute_capability and ec_default_compute_capability is not None:
-            default_compute_capability = ec_default_compute_capability
-        else:
-            error_msg = "Missing CUDA Compute Capability for installation of NVHPC."
-            error_msg += "Please provide it in the easyconfig file with 'cuda_compute_capabilities=\"x.x\"',"
-            error_msg += "or use 'eb --cuda-compute-capabilities=x.x' from the command line."
-            raise EasyBuildError(error_msg)
+        """
+        Return list of suitable CUDA compute capabilities for this installation
+        Preference order:
+        1. CC set by nvidia-compilers
+        2. CC set by option 'cuda_compute_capabilities'
+        3. CC set by easyconfig parameter 'cuda_compute_capabilities'
+        """
+        default_compute_capability = None
+        # CUDA compute capability from environment (e.g. defined by nvidia-compilers)
+        nvcomp_cuda_cc = os.getenv('EBNVHPCCUDACC', None)
+        if nvcomp_cuda_cc:
+            nvcomp_cuda_cc = nvcomp_cuda_cc.split(',')
+        # CUDA compute capability defined by easyconfig/cli
+        cfg_compute_capability = self.cfg['cuda_compute_capabilities']
+        opt_compute_capability = build_option('cuda_compute_capabilities')
+        user_cuda_cc = opt_compute_capability if opt_compute_capability else cfg_compute_capability
+        if isinstance(user_cuda_cc, str):
+            user_cuda_cc = [user_cuda_cc]  # keep compatibility with pre-nvidia-compilers NVHPC easyconfigs
 
-        # NVHPC needs a single value as default CC
-        if isinstance(default_compute_capability, list):
-            _before_default_compute_capability = default_compute_capability
-            default_compute_capability = _before_default_compute_capability[0]
-            if len(_before_default_compute_capability) > 1:
-                warning_msg = f"Replaced list of compute capabilities {_before_default_compute_capability} "
-                warning_msg += f"with first element of list: {default_compute_capability}"
-                print_warning(warning_msg)
-        if not isinstance(default_compute_capability, str):
-            errmsg = f"Unexpected non-string value encountered for compute capability: {default_compute_capability}"
-            raise EasyBuildError(errmsg)
+        if nvcomp_cuda_cc and user_cuda_cc and nvcomp_cuda_cc != user_cuda_cc:
+            raise EasyBuildError(
+                f"Given CUDA compute capabilities {user_cuda_cc} in {self.name}-{self.version} "
+                f"do not match those set by the NVHPC toolchain {nvcomp_cuda_cc}"
+            )
 
-        self.log.info(f"Using CUDA compute capability '{default_compute_capability}' for {self.name}-{self.version}")
+        default_compute_capability = user_cuda_cc
+        if nvcomp_cuda_cc:
+            default_compute_capability = nvcomp_cuda_cc
+
+        if default_compute_capability is not None:
+            self.log.info(f"CUDA compute capabilities used by default in NVHPC: '{default_compute_capability}'")
+
         return default_compute_capability
 
     def _update_nvhpc_environment(self):
@@ -226,7 +238,7 @@ class NvidiaBase(PackedBinary):
         # replicate the environment generated by module file: "$NVHPC/comm_libs/<cuda>/hpcx/latest/modulefiles/hpcx"
         if self.cfg['module_nvhpc_own_mpi']:
             mpi_basedir = os.path.join(self.install_subdir, "comm_libs", "mpi")
-            hpcx_dir = os.path.join(self.install_subdir, "comm_libs", self.default_cuda_version, 'hpcx', 'latest')
+            hpcx_dir = os.path.join(self.install_subdir, "comm_libs", self.active_cuda_version, 'hpcx', 'latest')
             hpcx_abs_dir = os.path.join(self.installdir, hpcx_dir)
 
             hpcx_environment_vars = {
@@ -347,7 +359,7 @@ class NvidiaBase(PackedBinary):
                 if self.cfg['module_nvhpc_own_mpi']:
                     # needed to use external CUDA with MPI in NVHPC
                     comm_libs_home = os.path.join(self.installdir, self.install_subdir, "comm_libs",
-                                                  self.default_cuda_version)
+                                                  self.active_cuda_version)
                     self.cfg.update('modextravars', {'NVCOMPILER_COMM_LIBS_HOME': comm_libs_home})
 
         # In the end, set LIBRARY_PATH equal to LD_LIBRARY_PATH
@@ -372,7 +384,7 @@ class NvidiaBase(PackedBinary):
         nv_sys_tag = f'Linux_{nv_arch_tag}'
         self.install_subdir = os.path.join(nv_sys_tag, self.version)
 
-        self.default_cuda_version = None
+        self.active_cuda_version = None
         self.default_compute_capability = None
 
     def prepare_step(self, *args, **kwargs):
@@ -387,11 +399,13 @@ class NvidiaBase(PackedBinary):
                 "Option 'module_add_cuda' is not compatible with CUDA loaded through dependencies"
             )
 
-        self.default_cuda_version = self._get_default_cuda()
-        self.cfg.update('modextravars', {'EBNVHPCCUDAVER': self.default_cuda_version})
+        self.active_cuda_version = self._get_active_cuda()
+        self.cfg.update('modextravars', {'EBNVHPCCUDAVER': self.active_cuda_version})
 
         self.default_compute_capability = self._get_default_compute_capability()
-        self.cfg.update('modextravars', {'EBNVHPCCUDACC': self.default_compute_capability})
+        if self.default_compute_capability:
+            ebnvhpc_cudacc_var = ','.join(self.default_compute_capability)
+            self.cfg.update('modextravars', {'EBNVHPCCUDACC': ebnvhpc_cudacc_var})
 
         self.cfg.update('modextravars', {'NVHPC': self.installdir})
 
@@ -403,10 +417,15 @@ class NvidiaBase(PackedBinary):
         nvhpc_env_vars = {
             'NVHPC_INSTALL_DIR': self.installdir,
             'NVHPC_SILENT': 'true',
-            'NVHPC_DEFAULT_CUDA': str(self.default_cuda_version),  # e.g. 10.2, 11.0
-            # NVHPC_STDPAR_CUDACC uses single value CC without dot-divider (e.g. 70, 80)
-            'NVHPC_STDPAR_CUDACC': str(self.default_compute_capability.replace('.', ''))
+            'NVHPC_DEFAULT_CUDA': str(self.active_cuda_version),  # e.g. 10.2, 11.0
             }
+        # NVHPC can set single valued CUDA compute capabilities as default
+        if len(self.default_compute_capability) == 1:
+            nvhpc_env_vars.update({
+                # NVHPC_STDPAR_CUDACC uses single value CC without dot-divider (e.g. 70, 80)
+                'NVHPC_STDPAR_CUDACC': self.default_compute_capability[0].replace('.', ''),
+            })
+
         cmd_env = ' '.join([f'{name}={value}' for name, value in sorted(nvhpc_env_vars.items())])
         run_shell_cmd(f"{cmd_env} ./install")
 
@@ -510,8 +529,8 @@ class NvidiaBase(PackedBinary):
             ])
         if self.cfg['module_add_cuda']:
             nvhpc_files.extend([
-                os.path.join(prefix, 'cuda', self.default_cuda_version, 'bin', 'cuda-gdb'),
-                os.path.join(prefix, 'cuda', self.default_cuda_version, 'lib64', f'libcudart.{shlib_ext}'),
+                os.path.join(prefix, 'cuda', self.active_cuda_version, 'bin', 'cuda-gdb'),
+                os.path.join(prefix, 'cuda', self.active_cuda_version, 'lib64', f'libcudart.{shlib_ext}'),
             ])
 
         custom_paths = {
@@ -537,7 +556,7 @@ class NvidiaBase(PackedBinary):
             mpi_compiler_names = ['mpicc', 'mpicxx', 'mpifort', 'mpif90']
             custom_commands.extend([f"{comp} --version" for comp in mpi_compiler_names])
             # Build MPI test binary
-            hpcx_dir = os.path.join(self.installdir, prefix, 'comm_libs', self.default_cuda_version, 'hpcx')
+            hpcx_dir = os.path.join(self.installdir, prefix, 'comm_libs', self.active_cuda_version, 'hpcx')
             mpi_hello_src = os.path.join(hpcx_dir, 'latest', 'ompi', 'tests', 'examples', 'hello_c.c')
             mpi_hello_exe = os.path.join(tmpdir, 'mpi_test_' + os.path.splitext(os.path.basename(mpi_hello_src))[0])
             self.log.info("Adding minimal MPI test program to sanity checks: %s", mpi_hello_exe)
