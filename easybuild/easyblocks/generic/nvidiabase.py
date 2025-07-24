@@ -46,7 +46,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, remove, symlink, write_file
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
@@ -119,20 +119,25 @@ class NvidiaBase(PackedBinary):
             # try install dir in case of module-only installs
             cuda_installdir_glob = os.path.join(self.installdir, cuda_subdir_glob)
             supported_cuda_versions = [os.path.basename(cuda_dir) for cuda_dir in glob.glob(cuda_installdir_glob)]
-            if not supported_cuda_versions:
-                raise EasyBuildError(f"Failed to determine supported versions of CUDA in {self.name}-{self.version}")
 
-        supported_cuda_commasep = ', '.join(supported_cuda_versions)
-        self.log.debug(
-            f"Found the following supported CUDA versions by {self.name}-{self.version}: {supported_cuda_commasep}"
-        )
+        if supported_cuda_versions:
+            supported_cuda_commasep = ', '.join(supported_cuda_versions)
+            self.log.debug(
+                f"Found the following supported CUDA versions by {self.name}-{self.version}: {supported_cuda_commasep}"
+            )
+        else:
+            # we cannot error out here, otherwise it forces having the sources of NVHPC to test this easyblock
+            print_warning(
+                f"Failed to determine supported versions of CUDA in {self.name}-{self.version}."
+                "Continuing installation without further checks on CUDA version."
+            )
 
         # default CUDA version from nvidia-compilers
         if get_software_version("nvidia-compilers"):
             nvcomp_cuda_version = os.getenv("EBNVHPCCUDAVER", None)
             if nvcomp_cuda_version is None:
                 raise EasyBuildError("Missing $EBNVHPCCUDAVER in environment from 'nvidia-compilers' module")
-            if nvcomp_cuda_version not in supported_cuda_versions:
+            if supported_cuda_versions and nvcomp_cuda_version not in supported_cuda_versions:
                 raise EasyBuildError(
                     f"CUDA version '{nvcomp_cuda_version}' in 'nvidia-compilers' not supported by "
                     f"{self.name}-{self.version}: {supported_cuda_commasep}"
@@ -147,7 +152,7 @@ class NvidiaBase(PackedBinary):
         cuda_dependency_version = get_software_version("CUDA")
         if cuda_dependency_version:
             external_cuda_version = '.'.join(cuda_dependency_version.split('.')[:2])
-            if external_cuda_version not in supported_cuda_versions:
+            if supported_cuda_versions and external_cuda_version not in supported_cuda_versions:
                 raise EasyBuildError(
                     f"CUDA version '{external_cuda_version}' from external CUDA not supported by "
                     f"{self.name}-{self.version}: {supported_cuda_commasep}"
@@ -161,7 +166,7 @@ class NvidiaBase(PackedBinary):
         # default CUDA version set in configuration
         default_cuda_version = self.cfg['default_cuda_version']
         if default_cuda_version is not None:
-            if default_cuda_version not in supported_cuda_versions:
+            if supported_cuda_versions and default_cuda_version not in supported_cuda_versions:
                 raise EasyBuildError(
                     f"Selecte default CUDA version '{default_cuda_version}' not supported by "
                     f"{self.name}-{self.version}: {supported_cuda_commasep}"
