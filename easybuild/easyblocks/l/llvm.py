@@ -742,7 +742,7 @@ class EB_LLVM(CMakeMake):
             # binutils 2.40 is too old and doesn't recognize the 'zaamo' ISA extension used in the test.
             # With binutils >= 2.41, this test would work
             binutils_ver = get_software_version('binutils')
-            if LooseVersion(binutils_ver) < LooseVersion('2.41'):
+            if binutils_ver is None or LooseVersion(binutils_ver) < LooseVersion('2.41'):
                 new_ignore_patterns.append("Flang :: Driver/save-mlir-temps.f90")
 
             # All these tests use a relocation type not supported on RISC-V
