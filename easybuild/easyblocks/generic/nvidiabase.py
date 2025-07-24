@@ -153,8 +153,9 @@ class NvidiaBase(PackedBinary):
         if cuda_dependency_version:
             external_cuda_version = '.'.join(cuda_dependency_version.split('.')[:2])
             if supported_cuda_versions and external_cuda_version not in supported_cuda_versions:
-                raise EasyBuildError(
-                    f"CUDA version '{external_cuda_version}' from external CUDA not supported by "
+                # we cannot error out here to avoid breaking existing easyconfigs
+                print_warning(
+                    f"CUDA version '{external_cuda_version}' from external CUDA might not be supported by "
                     f"{self.name}-{self.version}: {supported_cuda_commasep}"
                 )
             self.log.info(
