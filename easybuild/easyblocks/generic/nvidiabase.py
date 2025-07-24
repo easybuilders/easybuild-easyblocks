@@ -480,11 +480,13 @@ class NvidiaBase(PackedBinary):
         if not self.cfg['module_add_nccl']:
             nccl_dir_glob = os.path.join(abs_install_subdir, 'comm_libs', self.CUDA_VERSION_GLOB, 'nccl')
             remove(glob.glob(nccl_dir_glob))
-            remove(os.path.join(abs_install_subdir, 'comm_libs',  'nccl'))
+            if LooseVersion(self.version) >= LooseVersion('25.0'):
+                remove(os.path.join(abs_install_subdir, 'comm_libs',  'nccl'))
         if not self.cfg['module_add_nvshmem']:
             shmem_dir_glob = os.path.join(abs_install_subdir, 'comm_libs', self.CUDA_VERSION_GLOB, 'nvshmem')
             remove(glob.glob(shmem_dir_glob))
-            remove(os.path.join(abs_install_subdir, 'comm_libs',  'nvshmem'))
+            if LooseVersion(self.version) >= LooseVersion('25.0'):
+                remove(os.path.join(abs_install_subdir, 'comm_libs',  'nvshmem'))
         if not self.cfg['module_add_math_libs']:
             remove(os.path.join(abs_install_subdir, 'math_libs'))
         if not self.cfg['module_add_profilers']:
