@@ -575,8 +575,13 @@ class EB_LLVM(CMakeMake):
                         self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'ON' if self.cfg['build_openmp_library_aliases'] else 'OFF'
-            if not self.cfg['build_openmp_tools']:
-                self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
+            # OpenMP Tools interface
+            ompt_value = 'ON' if self.cfg['build_openmp_tools'] else 'OFF'
+            self._cmakeopts['LIBOMP_OMPT_SUPPORT'] = ompt_value
+            if self.cfg['build_openmp_offload']:
+                self._cmakeopts['LIBOMPTARGET_OMPT_SUPPORT'] = ompt_value
+            # OMPT based tools
+            self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = ompt_value
 
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
