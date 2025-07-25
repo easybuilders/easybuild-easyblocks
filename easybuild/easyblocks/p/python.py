@@ -365,7 +365,6 @@ class EB_Python(ConfigureMake):
         if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
             ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
             orig_gcc_so_name = None
-            
             # Let's do this incrementally since we are going back in time
             # if LooseVersion(self.version) >= "3.9.1":
             #    # From 3.9.1 to at least v3.12.4 there is only one match for this line
