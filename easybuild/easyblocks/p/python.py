@@ -50,7 +50,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, ERROR, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
-from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file, open_file
+from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import trace_msg
