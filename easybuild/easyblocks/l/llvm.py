@@ -327,7 +327,7 @@ class EB_LLVM(CMakeMake):
             self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
 
         if self.cfg['build_openmp']:
-            self.final_projects.append('openmp')
+            self.final_runtimes.append('openmp')
         else:
             errors = []
             # check for all options that depend on OpenMP being enabled
@@ -560,7 +560,7 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['LIBOMP_USE_HWLOC'] = 'ON'
             self._cmakeopts['LIBOMP_HWLOC_INSTALL_DIR'] = hwloc_root
 
-        if 'openmp' in self.final_projects:
+        if 'openmp' in self.final_runtimes:
             if self.cfg['build_openmp_offload']:
                 # Force dlopen of the GPU libraries at runtime, not using existing libraries
                 if LooseVersion(self.version) >= '19':
@@ -1144,6 +1144,16 @@ class EB_LLVM(CMakeMake):
             gcc_lib = self._get_gcc_libpath(strict=True)
             lib_path = ':'.join(filter(None, [gcc_lib, lib_path]))
 
+        # After switching `openmp` to a runtime build, libomp.so is not produced inside `<builddir>/lib` anymore but
+        # in `<builddir>/runtimes/runtimes-bins/openmp/runtime/src/libomp.so`
+        # This causes the `libomptarget` tests to fail because the compiler cannot find `libomp.so`.
+        check_libomp = os.path.join(basedir, 'runtimes', 'runtimes-bins', 'openmp', 'runtime', 'src', 'libomp.so')
+        needed_libomp = os.path.join(basedir, 'lib', 'libomp.so')
+        if os.path.exists(check_libomp) and not os.path.exists(needed_libomp):
+            # Create a symlink to the libomp.so in the runtimes directory
+            mkdir(os.path.dirname(needed_libomp), parents=True)
+            symlink(check_libomp, needed_libomp)
+
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
             cmd = f"make -j {parallel} check-all"
             res = run_shell_cmd(cmd, fail_on_error=False)
@@ -1476,7 +1486,7 @@ class EB_LLVM(CMakeMake):
             check_bin_files += ['llvm-bolt', 'llvm-boltdiff', 'llvm-bolt-heatmap']
             check_lib_files += ['libbolt_rt_instr.a']
             custom_commands += ['llvm-bolt --help']
-        if 'openmp' in self.final_projects:
+        if 'openmp' in self.final_runtimes:
             omp_lib_files = ['libomp.so', 'libompd.so']
             if self.cfg['build_openmp_offload']:
                 omp_lib_files += ['libomptarget.so']
