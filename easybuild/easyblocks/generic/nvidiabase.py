@@ -143,7 +143,7 @@ class NvidiaBase(PackedBinary):
                     f"{self.name}-{self.version}: {supported_cuda_commasep}"
                 )
             self.log.info(
-                f"Using version '{nvcomp_cuda_version}' of loaded nvidia-compilers dependency "
+                f"Using CUDA version '{nvcomp_cuda_version}' from nvidia-compilers dependency "
                 f"as 'default_cuda_version' of {self.name}"
             )
             return nvcomp_cuda_version
@@ -197,7 +197,6 @@ class NvidiaBase(PackedBinary):
         2. CC set by option 'cuda_compute_capabilities'
         3. CC set by easyconfig parameter 'cuda_compute_capabilities'
         """
-        default_compute_capability = None
         # CUDA compute capability from environment (e.g. defined by nvidia-compilers)
         nvcomp_cuda_cc = os.getenv('EBNVHPCCUDACC', None)
         if nvcomp_cuda_cc:
@@ -206,7 +205,7 @@ class NvidiaBase(PackedBinary):
         cfg_compute_capability = self.cfg['cuda_compute_capabilities']
         opt_compute_capability = build_option('cuda_compute_capabilities')
         user_cuda_cc = opt_compute_capability if opt_compute_capability else cfg_compute_capability
-        if isinstance(user_cuda_cc, str):
+        if user_cuda_cc and isinstance(user_cuda_cc, str):
             user_cuda_cc = [user_cuda_cc]  # keep compatibility with pre-nvidia-compilers NVHPC easyconfigs
 
         if nvcomp_cuda_cc and user_cuda_cc and nvcomp_cuda_cc != user_cuda_cc:
@@ -219,7 +218,7 @@ class NvidiaBase(PackedBinary):
         if nvcomp_cuda_cc:
             default_compute_capability = nvcomp_cuda_cc
 
-        if default_compute_capability is not None:
+        if default_compute_capability:
             self.log.info(f"CUDA compute capabilities used by default in NVHPC: '{default_compute_capability}'")
 
         return default_compute_capability
