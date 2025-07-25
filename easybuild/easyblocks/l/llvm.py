@@ -199,7 +199,7 @@ class EB_LLVM(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'amd_gfx_list': [None, "List of AMDGPU targets to build for.", CUSTOM],
+            'amd_gfx_list': [None, "DEPRECATED, list of AMDGPU targets to build for.", CUSTOM],
             'assertions': [False, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'bootstrap': [True, "Build LLVM-Clang using itself", CUSTOM],
             'build_bolt': [False, "Build the LLVM bolt binary optimizer", CUSTOM],
@@ -416,9 +416,22 @@ class EB_LLVM(CMakeMake):
         return self.start_dir
 
     def _configure_build_targets(self):
+        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+        # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+        # Similar rules apply for AMDGCN capabilities
         cuda_cc_list = self.cfg.get_cuda_cc_template_value("cuda_cc_space_sep", required=False).split()
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
-        amd_gfx_list = self.cfg['amd_gfx_list'] or []
+        amd_gfx_list = self.cfg.get_amdgcn_cc_template_value("amdgcn_cc_space_sep", required=False).split()
+        if self.cfg['amd_gfx_list'] is not None:
+            self.log.deprecated("Use of easyconfig parameter 'amd_gfx_list', "
+                                "replace by build option 'amdgcn_capabilities'", '6.0')
+            if not amd_gfx_list:
+                amd_gfx_list = self.cfg['amd_gfx_list']
+            else:
+                # Do not overwrite value set via the new build option
+                print_warning("Both 'amd_gfx_list' and build option 'amdgcn_capabilities' "
+                              "are set, please use only the build option 'amdgcn_capabilities'")
 
         # List of (lower-case) dependencies
         self.deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
