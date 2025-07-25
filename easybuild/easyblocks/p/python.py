@@ -50,7 +50,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, ERROR, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
-from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
+from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file, open_file
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import trace_msg
@@ -366,24 +366,23 @@ class EB_Python(ConfigureMake):
             ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
             orig_gcc_so_name = None
             # Let's do this incrementally since we are going back in time
-            if LooseVersion(self.version) >= "3.9.1":
-                # From 3.9.1 to at least v3.12.4 there is only one match for this line
-                orig_gcc_so_name = "_get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))"
-            if orig_gcc_so_name:
-                orig_gcc_so_name_regex = r'(\s*)' + re.escape(orig_gcc_so_name) + r'(\s*)'
-                # _get_soname() takes the full path as an argument and uses objdump to get the SONAME field from
-                # the shared object file. The presence or absence of the SONAME field in the ELF header of a shared
-                # library is influenced by how the library is compiled and linked. For manually built libraries we
-                # may be lacking this field, this approach also solves that problem.
-                updated_gcc_so_name = (
-                    "_findLib_gcc(name) or _findLib_ld(name)"
-                )
-                apply_regex_substitutions(
-                    ctypes_util_py,
-                    [(orig_gcc_so_name_regex, r'\1' + updated_gcc_so_name + r'\2')],
-                    on_missing_match=ERROR
-                )
-
+            #if LooseVersion(self.version) >= "3.9.1":
+            #    # From 3.9.1 to at least v3.12.4 there is only one match for this line
+            #    orig_gcc_so_name = "_get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))"
+            #if orig_gcc_so_name:
+            #    orig_gcc_so_name_regex = r'(\s*)' + re.escape(orig_gcc_so_name) + r'(\s*)'
+            #    # _get_soname() takes the full path as an argument and uses objdump to get the SONAME field from
+            #    # the shared object file. The presence or absence of the SONAME field in the ELF header of a shared
+            #    # library is influenced by how the library is compiled and linked. For manually built libraries we
+            #    # may be lacking this field, this approach also solves that problem.
+            #    updated_gcc_so_name = (
+            #        "_findLib_gcc(name) or _findLib_ld(name)"
+            #    )
+            #    apply_regex_substitutions(
+            #        ctypes_util_py,
+            #        [(orig_gcc_so_name_regex, r'\1' + updated_gcc_so_name + r'\2')],
+            #        on_missing_match=ERROR
+            #    )
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
         # this fixes problems like not being able to build the _ssl module ("Could not build the ssl module")
