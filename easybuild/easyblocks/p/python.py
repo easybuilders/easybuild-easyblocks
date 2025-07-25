@@ -365,11 +365,12 @@ class EB_Python(ConfigureMake):
         if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
             ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
             orig_gcc_so_name = None
+            
             # Let's do this incrementally since we are going back in time
-            #if LooseVersion(self.version) >= "3.9.1":
+            # if LooseVersion(self.version) >= "3.9.1":
             #    # From 3.9.1 to at least v3.12.4 there is only one match for this line
             #    orig_gcc_so_name = "_get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))"
-            #if orig_gcc_so_name:
+            # if orig_gcc_so_name:
             #    orig_gcc_so_name_regex = r'(\s*)' + re.escape(orig_gcc_so_name) + r'(\s*)'
             #    # _get_soname() takes the full path as an argument and uses objdump to get the SONAME field from
             #    # the shared object file. The presence or absence of the SONAME field in the ELF header of a shared
