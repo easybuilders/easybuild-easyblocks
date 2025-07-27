@@ -32,7 +32,7 @@ EasyBuild support for building and installing ROCm-LLVM, AMD's fork of the LLVM 
 import os
 
 from easybuild.tools import LooseVersion
-from easybuild.easyblocks.llvm import EB_LLVM
+from easybuild.easyblocks.llvm import EB_LLVM, BUILD_TARGET_AMDGPU
 from easybuild.tools.filetools import apply_regex_substitutions, remove_dir, which
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
@@ -53,6 +53,7 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
             'CLANG_DEFAULT_UNWINDLIB': 'libgcc',
             'DEFAULT_ROCM_PATH': self.installdir,
             'LIBOMP_COPY_EXPORTS': 'OFF',
+            'CLANG_ENABLE_AMDCLANG': 'ON',
         })
 
         amd_gfx_list = build_option('amdgcn_capabilities', default=[])
@@ -65,7 +66,14 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
                                  "Please specify either --amdgcn-capabilities, or set amdgcn_capabilities "
                                  "in the EasyConfig!")
         if LooseVersion('19') <= LooseVersion(self.version) < LooseVersion('20'):
-            self.runtimes_cmake_args['LIBOMPTARGET_AMDGCN_GFXLIST'] = '%s' % '|'.join(amd_gfx_list)
+            self.general_opts['LIBOMPTARGET_AMDGCN_GFXLIST'] = self.list_to_cmake_arg(amd_gfx_list)
+
+        # If, for some reason, AMDGPU is missing from LLVM_TARGETS_TO_BUILD, ensure that it is added.
+        # If it is missing, the build will fail later on, as the target is expected to exist.
+        if BUILD_TARGET_AMDGPU not in self._cmakeopts['LLVM_TARGETS_TO_BUILD']:
+            if not self._cmakeopts['LLVM_TARGETS_TO_BUILD'][-1] == ";":
+                self._cmakeopts['LLVM_TARGETS_TO_BUILD'] += ";"
+            self._cmakeopts['LLVM_TARGETS_TO_BUILD'] += 'AMDGPU'
 
         intermediate_stage_dir = self.llvm_obj_dir_stage2 if self.cfg['bootstrap'] else self.llvm_obj_dir_stage1
         self.runtimes_cmake_args['AMDDeviceLibs_DIR'] = os.path.join(
@@ -118,7 +126,6 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
         super(EB_ROCm_minus_LLVM, self)._configure_final_build()
         self._cmakeopts.update({
             'LIBOMP_OMPD_SUPPORT': 'ON',
-            'CLANG_ENABLE_AMDCLANG': 'ON',
             # Explicitly disable LIBOMPTARGET_FORCE_DLOPEN_LIBHSA, as this breaks the offload build with OMPT
             # otherwise.
             'LIBOMPTARGET_FORCE_DLOPEN_LIBHSA': 'OFF',
