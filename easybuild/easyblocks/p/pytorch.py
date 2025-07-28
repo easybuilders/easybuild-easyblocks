@@ -645,8 +645,17 @@ class EB_PyTorch(PythonPackage):
                 else:
                     msg = f'Failed to find any test report files at {test_reports_path}'
                 raise EasyBuildError(msg)
+
+            def suite_is_in_xml_results(suite_name):
+                """Check if the suite is in the XML results"""
+                if suite_name in xml_results:
+                    return True
+                # Handle variants like dist-nccl/test_c10d_nccl
+                return any(xml_suite_name.split(os.path.sep, maxsplit=1)[-1] == suite_name
+                           for xml_suite_name in xml_results if xml_suite_name.startswith('dist-'))
+
             missing_suites = [suite.name for suite in parsed_test_result.failed_suites
-                              if suite.name not in xml_results]
+                              if not suite_is_in_xml_results(suite.name)]
             if missing_suites:
                 raise EasyBuildError('Parsing the test result files missed the following failed suites: %s',
                                      ', '.join(sorted(missing_suites)))
