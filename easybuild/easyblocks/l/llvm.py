@@ -199,7 +199,7 @@ class EB_LLVM(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'amd_gfx_list': [None, "List of AMDGPU targets to build for.", CUSTOM],
+            'amd_gfx_list': [None, "DEPRECATED, list of AMDGPU targets to build for.", CUSTOM],
             'assertions': [False, "Enable assertions.  Helps to catch bugs in Clang.", CUSTOM],
             'bootstrap': [True, "Build LLVM-Clang using itself", CUSTOM],
             'build_bolt': [False, "Build the LLVM bolt binary optimizer", CUSTOM],
@@ -291,6 +291,10 @@ class EB_LLVM(CMakeMake):
         if self.cfg['use_pic']:
             on_opts.append('CMAKE_POSITION_INDEPENDENT_CODE')
 
+        # General options being passed to every build stage.
+        # Here, options that will be required in all build stages should be added.
+        # Update _cmakeopts in _configure_{general,intermediate,final}_build if
+        # build option is only relevant for a single build step.
         self.general_opts = GENERAL_OPTS.copy()
 
         for opt in on_opts:
@@ -323,7 +327,7 @@ class EB_LLVM(CMakeMake):
             self.final_runtimes += ['compiler-rt', 'libunwind', 'libcxx', 'libcxxabi']
 
         if self.cfg['build_openmp']:
-            self.final_projects.append('openmp')
+            self.final_runtimes.append('openmp')
         else:
             errors = []
             # check for all options that depend on OpenMP being enabled
@@ -381,6 +385,9 @@ class EB_LLVM(CMakeMake):
         self.log.info("Final projects to build: %s", ', '.join(self.final_projects))
         self.log.info("Final runtimes to build: %s", ', '.join(self.final_runtimes))
 
+        # CMake options passed to each build stage.
+        # Will be cleared between stages. If arguments are needed in multiple stages,
+        # consider adding them to general_opts instead.
         self._cmakeopts = {}
         self._cfgopts = list(filter(None, self.cfg.get('configopts', '').split()))
 
@@ -409,9 +416,22 @@ class EB_LLVM(CMakeMake):
         return self.start_dir
 
     def _configure_build_targets(self):
+        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
+        # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
+        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
+        # Similar rules apply for AMDGCN capabilities
         cuda_cc_list = self.cfg.get_cuda_cc_template_value("cuda_cc_space_sep", required=False).split()
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
-        amd_gfx_list = self.cfg['amd_gfx_list'] or []
+        amd_gfx_list = self.cfg.get_amdgcn_cc_template_value("amdgcn_cc_space_sep", required=False).split()
+        if self.cfg['amd_gfx_list'] is not None:
+            self.log.deprecated("Use of easyconfig parameter 'amd_gfx_list', "
+                                "replace by build option 'amdgcn_capabilities'", '6.0')
+            if not amd_gfx_list:
+                amd_gfx_list = self.cfg['amd_gfx_list']
+            else:
+                # Do not overwrite value set via the new build option
+                print_warning("Both 'amd_gfx_list' and build option 'amdgcn_capabilities' "
+                              "are set, please use only the build option 'amdgcn_capabilities'")
 
         # List of (lower-case) dependencies
         self.deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
@@ -540,7 +560,7 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts['LIBOMP_USE_HWLOC'] = 'ON'
             self._cmakeopts['LIBOMP_HWLOC_INSTALL_DIR'] = hwloc_root
 
-        if 'openmp' in self.final_projects:
+        if 'openmp' in self.final_runtimes:
             if self.cfg['build_openmp_offload']:
                 # Force dlopen of the GPU libraries at runtime, not using existing libraries
                 if LooseVersion(self.version) >= '19':
@@ -748,6 +768,12 @@ class EB_LLVM(CMakeMake):
         else:
             self.general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
 
+        libffi_root = get_software_root('libffi')
+        self.general_opts['LLVM_ENABLE_FFI'] = 'ON' if libffi_root else 'OFF'
+        if libffi_root:
+            self.general_opts['FFI_INCLUDE_DIR'] = os.path.join(libffi_root, 'include')
+            self.general_opts['FFI_LIBRARY_DIR'] = os.path.join(libffi_root, 'lib64')
+
         # If 'ON', risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
         # to errors during compilation of 'offload.tools.kernelreplay' due to the inclusion of LLVMSupport (19.x)
         self.general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if get_software_root('zlib') else 'OFF'
@@ -821,7 +847,7 @@ class EB_LLVM(CMakeMake):
             gpu_archs = self.cfg.get_cuda_cc_template_value("cuda_sm_space_sep", required=False).split()
             gpu_archs += self.amd_gfx
             if gpu_archs:
-                self._cmakeopts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
+                self.general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
 
         self._configure_general_build()
         self.add_cmake_opts()
@@ -1123,6 +1149,16 @@ class EB_LLVM(CMakeMake):
             # libstdc++ and libgcc_s.so are used for tests
             gcc_lib = self._get_gcc_libpath(strict=True)
             lib_path = ':'.join(filter(None, [gcc_lib, lib_path]))
+
+        # After switching `openmp` to a runtime build, libomp.so is not produced inside `<builddir>/lib` anymore but
+        # in `<builddir>/runtimes/runtimes-bins/openmp/runtime/src/libomp.so`
+        # This causes the `libomptarget` tests to fail because the compiler cannot find `libomp.so`.
+        check_libomp = os.path.join(basedir, 'runtimes', 'runtimes-bins', 'openmp', 'runtime', 'src', 'libomp.so')
+        needed_libomp = os.path.join(basedir, 'lib', 'libomp.so')
+        if os.path.exists(check_libomp) and not os.path.exists(needed_libomp):
+            # Create a symlink to the libomp.so in the runtimes directory
+            mkdir(os.path.dirname(needed_libomp), parents=True)
+            symlink(check_libomp, needed_libomp)
 
         with _wrap_env(os.path.join(basedir, 'bin'), lib_path):
             cmd = f"make -j {parallel} check-all"
@@ -1456,7 +1492,7 @@ class EB_LLVM(CMakeMake):
             check_bin_files += ['llvm-bolt', 'llvm-boltdiff', 'llvm-bolt-heatmap']
             check_lib_files += ['libbolt_rt_instr.a']
             custom_commands += ['llvm-bolt --help']
-        if 'openmp' in self.final_projects:
+        if 'openmp' in self.final_runtimes:
             omp_lib_files = ['libomp.so', 'libompd.so']
             if self.cfg['build_openmp_offload']:
                 omp_lib_files += ['libomptarget.so']
