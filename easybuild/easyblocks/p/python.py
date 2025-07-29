@@ -302,6 +302,10 @@ class EB_Python(ConfigureMake):
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
                         "If None: auto-detect based on toolchain compiler (version)", CUSTOM],
+            'patches_filter_ld_library_path': [[], "Patches to apply when EasyBuild is configured to filter "
+                                               "LD_LIBRARY_PATH.", CUSTOM]
+            'checksums_filter_ld_library_path': [[], "Checksums to use for validating the patches listed in "
+                                                 "patches_filter_ld_library_path.", CUSTOM]
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -351,6 +355,31 @@ class EB_Python(ConfigureMake):
         * patch setup.py when --sysroot EasyBuild configuration setting is used
         """
 
+        # If EasyBuild is configured to filter LD_LIBRARY_PATH (but not LIBRARY_PATH)
+        # add any patches listed in `patches_filter_ld_library_path` to the list of patches
+        # Also, add the checksums_filter_ld_library_path to the checksums list in that case.
+        # This mechanism e.g. makes sure we can patch ctypes, which normally strongly relies on LD_LIBRARY_PATH to find
+        # libraries. But, we want to do the patching conditional on EasyBuild configuration (i.e. which env vars
+        # are filtered)
+        filtered_env_vars = build_option('filter_env_vars') or []
+        additional_patches = self.cfg['patches_filter_ld_library_path']
+        additional_checksums = self.cfg['checksums_filter_ld_library_path']
+        if ('LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars and
+            len(additional_patches) > 0):
+            # Some sanity checking so we can raise an early and clear error if needed
+            if len(additional_patches) == len(additional_checksums):
+                msg = "EasyBuild was configured to filter LD_LIBRARY_PATH (and not to filter LIBRARY_PATH). "
+                msg += "The ctypes module relies heavily on LD_LIBRARY_PATH for locating its libraries. "
+                msg += "The following patches will be applied to make sure ctypes.CDLL, ctypes.cdll.LoadLibrary "
+                msg += f"and ctypes.util.find_library will still work correctly: {additional_patches}."
+                self.log.info(msg)
+                self.cfg['patches'].extend(additional_patches)
+                self.cfg['checksums'].extend(additional_checksums)
+            else:
+                msg = f"The length of patches_filter_ld_library_path (%s) "
+                msg += f"is not equal to the length of checksums_filter_ld_library_path(%s)."
+                raise EasyBuildError(msg, len(additional_patches), len(additional_checksums))
+
         super().patch_step(*args, **kwargs)
 
         if self.install_pip:
@@ -361,10 +390,10 @@ class EB_Python(ConfigureMake):
         # libraries installed with EasyBuild (see https://github.com/EESSI/software-layer/issues/192).
         # ctypes is using GCC (and therefore LIBRARY_PATH) to figure out the full location but then only returns the
         # soname, instead let's return the full path in this particular scenario
-        filtered_env_vars = build_option('filter_env_vars') or []
-        if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
-            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
-            orig_gcc_so_name = None
+        # filtered_env_vars = build_option('filter_env_vars') or []
+        # if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
+            # ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
+            # orig_gcc_so_name = None
             # Let's do this incrementally since we are going back in time
             # if LooseVersion(self.version) >= "3.9.1":
             #    # From 3.9.1 to at least v3.12.4 there is only one match for this line
