@@ -303,9 +303,9 @@ class EB_Python(ConfigureMake):
             'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
                         "If None: auto-detect based on toolchain compiler (version)", CUSTOM],
             'patches_filter_ld_library_path': [[], "Patches to apply when EasyBuild is configured to filter "
-                                               "LD_LIBRARY_PATH.", CUSTOM]
+                                               "LD_LIBRARY_PATH.", CUSTOM],
             'checksums_filter_ld_library_path': [[], "Checksums to use for validating the patches listed in "
-                                                 "patches_filter_ld_library_path.", CUSTOM]
+                                                 "patches_filter_ld_library_path.", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
