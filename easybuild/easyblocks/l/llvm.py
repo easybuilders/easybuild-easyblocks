@@ -805,11 +805,6 @@ class EB_LLVM(CMakeMake):
         self.general_opts.update(python_opts)
         self.runtimes_cmake_args.update(python_opts)
 
-        if self.cfg['bootstrap']:
-            self._configure_intermediate_build()
-        else:
-            self._configure_final_build()
-
         if self.cfg['skip_sanitizer_tests'] and build_option('strict') != ERROR:
             self.log.info("Disabling the sanitizer tests")
             self.disable_sanitizer_tests()
@@ -855,6 +850,11 @@ class EB_LLVM(CMakeMake):
                 self.general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
 
         self._configure_general_build()
+        if self.cfg['bootstrap']:
+            self._configure_intermediate_build()
+        else:
+            self._configure_final_build()
+
         self.add_cmake_opts()
 
         src_dir = os.path.join(self.start_dir, 'llvm')
