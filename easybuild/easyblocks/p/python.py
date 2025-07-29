@@ -349,12 +349,13 @@ class EB_Python(ConfigureMake):
                 return ext[1]
         return None
 
-    def patch_step(self, *args, **kwargs):
-        """
-        Custom patch step for Python:
-        * patch setup.py when --sysroot EasyBuild configuration setting is used
-        """
 
+    def fetch_step(self, *args, **kwargs):
+        """
+        Custom fetch step for Python: add patches from patches_filter_ld_library_path to 'patches' if
+        EasyBuild is configured to filter LD_LIBRARY_PATH (and is configured not to filter LIBRARY_PATH).
+        This needs to be done in (or before) the fetch step to ensure that those patches are also fetched.
+        """
         # If EasyBuild is configured to filter LD_LIBRARY_PATH (but not LIBRARY_PATH)
         # add any patches listed in `patches_filter_ld_library_path` to the list of patches
         # Also, add the checksums_filter_ld_library_path to the checksums list in that case.
@@ -382,6 +383,15 @@ class EB_Python(ConfigureMake):
                 msg = f"The length of patches_filter_ld_library_path (%s) "
                 msg += f"is not equal to the length of checksums_filter_ld_library_path(%s)."
                 raise EasyBuildError(msg, len(additional_patches), len(additional_checksums))
+
+        super().fetch_step(*args, **kwargs)
+
+
+    def patch_step(self, *args, **kwargs):
+        """
+        Custom patch step for Python:
+        * patch setup.py when --sysroot EasyBuild configuration setting is used
+        """
 
         super().patch_step(*args, **kwargs)
 
