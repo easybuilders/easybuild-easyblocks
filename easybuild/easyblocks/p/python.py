@@ -373,8 +373,11 @@ class EB_Python(ConfigureMake):
                 msg += "The following patches will be applied to make sure ctypes.CDLL, ctypes.cdll.LoadLibrary "
                 msg += f"and ctypes.util.find_library will still work correctly: {additional_patches}."
                 self.log.info(msg)
-                self.cfg['patches'].extend(additional_patches)
-                self.cfg['checksums'].extend(additional_checksums)
+                self.log.info(f"Original list of patches: {self.cfg['patches']}")
+                self.log.info(f"List of patches to be added: {additional_patches}")
+                self.cfg.update('patches', additional_patches)
+                self.cfg.update('checksums', additional_checksums)
+                self.log.info(f"Updated list of patches: {self.cfg['patches']}")
             else:
                 msg = f"The length of patches_filter_ld_library_path (%s) "
                 msg += f"is not equal to the length of checksums_filter_ld_library_path(%s)."
