@@ -874,7 +874,7 @@ class EB_LLVM(CMakeMake):
                 self.log.warning("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
 
         if not self.cfg['bootstrap']:
-            if build_option('rpath') and self._cmakeopts['LLVM_ENABLE_RUNTIMES'] != '""':
+            if build_option('rpath') and self._cmakeopts['LLVM_ENABLE_RUNTIMES'] not in ('""', "''", ''):
                 # Ensure RPATH wrappers are used for the runtimes also at the first stage
                 # Call configure again now that the host triple is known from the previous configure call
                 remove_dir(self.llvm_obj_dir_stage1)
