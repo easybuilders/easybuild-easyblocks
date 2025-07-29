@@ -51,7 +51,7 @@ class SCons(EasyBlock):
         else:
             self.prefix = ''
 
-    def build_step(self, verbose=False):
+    def build_step(self):
         """
         Build with SCons
         """

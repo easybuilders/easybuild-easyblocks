@@ -42,7 +42,7 @@ class EB_BLAT(MakeCp):
         """Configure build: just create a 'bin' directory."""
         mkdir("bin")
 
-    def build_step(self, verbose=False):
+    def build_step(self):
         """Build BLAT using make and the appropriate options (e.g. BINDIR=)."""
         self.cfg.update('prebuildopts', "MACHTYPE=x86_64")
         bindir = os.path.join(os.getcwd(), "bin")

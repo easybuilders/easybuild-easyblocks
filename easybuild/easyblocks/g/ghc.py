@@ -37,7 +37,7 @@ class EB_GHC(ConfigureMake):
     Support for building and installing applications with configure/make/make install
     """
 
-    def build_step(self, verbose=False):
+    def build_step(self):
         """
         Support for a binary 6.12.x installation. Starting there,
         later GHC versions are build from source and thus require
