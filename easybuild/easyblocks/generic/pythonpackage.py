@@ -870,7 +870,6 @@ class PythonPackage(ExtensionEasyBlock):
                     res = run_shell_cmd(cmd, fail_on_error=False)
                     # need to retrieve ec by not failing on error
                     (out, ec) = (res.output, res.exit_code)
-                    self.log.info("cmd '%s' exited with exit code %s and output:\n%s", cmd, ec, out)
                 else:
                     run_shell_cmd(cmd)
 
