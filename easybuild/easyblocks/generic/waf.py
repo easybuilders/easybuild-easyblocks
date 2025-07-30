@@ -52,7 +52,7 @@ class Waf(EasyBlock):
 
         return res.output
 
-    def build_step(self, verbose=False, path=None):
+    def build_step(self, path=None, *args, **kwargs):
         """
         Build with ./waf build
         """

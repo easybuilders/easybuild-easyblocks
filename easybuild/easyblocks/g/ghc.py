@@ -37,7 +37,7 @@ class EB_GHC(ConfigureMake):
     Support for building and installing applications with configure/make/make install
     """
 
-    def build_step(self):
+    def build_step(self, *args, **kwargs):
         """
         Support for a binary 6.12.x installation. Starting there,
         later GHC versions are build from source and thus require
@@ -46,4 +46,4 @@ class EB_GHC(ConfigureMake):
         if LooseVersion(self.version) < LooseVersion("7.0"):
             pass
         else:
-            super().build_step()
+            super().build_step(*args, **kwargs)
