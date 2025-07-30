@@ -352,7 +352,6 @@ class EB_Python(ConfigureMake):
                 return ext[1]
         return None
 
-
     def fetch_step(self, *args, **kwargs):
         """
         Custom fetch step for Python: add patches from patches_filter_ld_library_path to 'patches' if
