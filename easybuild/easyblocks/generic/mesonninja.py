@@ -130,7 +130,7 @@ class MesonNinja(EasyBlock):
         res = run_shell_cmd(cmd)
         return res.output
 
-    def build_step(self, path=None, *args, **kwargs):
+    def build_step(self, *args, **kwargs):
         """
         Build with Ninja.
         """
