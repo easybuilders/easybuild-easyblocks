@@ -360,10 +360,10 @@ class EB_Python(ConfigureMake):
         """
         # If we filter out LD_LIBRARY_PATH (not unusual when using rpath), ctypes is not able to dynamically load
         # libraries installed with EasyBuild (see https://github.com/EESSI/software-layer/issues/192).
-        # If EasyBuild is configured to filter LD_LIBRARY_PATHm any patches listed in `patches_filter_ld_library_path`
-        # to the list of patches. Also, add the checksums_filter_ld_library_path to the checksums list in that case.
+        # If EasyBuild is configured to filter LD_LIBRARY_PATH any patches listed in `patches_filter_ld_library_path` are
+        # added to the list of patches. Also, we add the checksums_filter_ld_library_path to the checksums list in that case.
         # This mechanism e.g. makes sure we can patch ctypes, which normally strongly relies on LD_LIBRARY_PATH to find
-        # libraries. But, we want to do the patching conditional on EasyBuild configuration (i.e. which env vars
+        # libraries. But, we want to do the patching conditionally on EasyBuild configuration (i.e. which env vars
         # are filtered), hence this setup based on the custom config option 'patches_filter_ld_library_path'
         filtered_env_vars = build_option('filter_env_vars') or []
         additional_patches = self.cfg['patches_filter_ld_library_path']
