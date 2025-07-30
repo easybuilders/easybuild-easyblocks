@@ -1371,7 +1371,7 @@ class EB_LLVM(CMakeMake):
             for suffix in ('.c', '.o', '.x'):
                 remove_file(f'{test_fn}{suffix}')
 
-    def sanity_check_step(self, *args, custom_paths=None, custom_commands=None, **kwargs):
+    def sanity_check_step(self, custom_paths=None, custom_commands=None, *args, **kwargs):
         """Perform sanity checks on the installed LLVM."""
         lib_dir_runtime = None
         if self.cfg['build_runtimes']:
