@@ -729,8 +729,13 @@ class EB_CP2K(EasyBlock):
             # location of do_regtest script
             cfg_fn = 'cp2k_regtest.cfg'
 
-            regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest')
-            regtest_cmd = [regtest_script, '-nobuild', '-config', cfg_fn]
+            if LooseVersion(self.version) > LooseVersion('2024.0'):
+                regtest_script = os.path.join(self.cfg['start_dir'], 'tests', 'do_regtest.py')
+                regtest_cmd = ['python', regtest_script, '--maxtasks 1 --mpiranks 1 --ompthreads 1', self.typearch, self.cfg['type']]
+            else:
+                regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest')
+                regtest_cmd = [regtest_script, '-nobuild', '-config', cfg_fn]
+
             if LooseVersion(self.version) < LooseVersion('7.1'):
                 # -nosvn option was removed in CP2K 7.1
                 regtest_cmd.insert(1, '-nosvn')
