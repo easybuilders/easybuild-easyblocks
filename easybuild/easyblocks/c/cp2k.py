@@ -731,7 +731,9 @@ class EB_CP2K(EasyBlock):
 
             if LooseVersion(self.version) > LooseVersion('2024.0'):
                 regtest_script = os.path.join(self.cfg['start_dir'], 'tests', 'do_regtest.py')
-                regtest_cmd = ['python', regtest_script, '--maxtasks 1 --mpiranks 1 --ompthreads 1', self.typearch, self.cfg['type']]
+                regtest_cmd = [
+                    'python', regtest_script, '--maxtasks 1 --mpiranks 1 --ompthreads 1', self.typearch, self.cfg['type']
+                ]
             else:
                 regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest')
                 regtest_cmd = [regtest_script, '-nobuild', '-config', cfg_fn]
