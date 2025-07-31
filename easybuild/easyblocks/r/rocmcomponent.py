@@ -28,23 +28,17 @@ implemented as an easyblock
 
 @author: Jan Andre Reuter (jan@zyten.de)
 """
-import contextlib
 import os
-import tempfile
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.toolchains.compiler.clang import Clang
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import mkdir, which
+from easybuild.tools.filetools import which
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.environment import setvar
 
-
-def list_to_cmake_arg(lst):
-    """Convert iterable of strings to a value that can be passed as a CLI argument to CMake resulting in a list"""
-    return "'%s'" % ';'.join(lst)
 
 HIP_PLATFORM_AMD = "amd"
 HIP_PLATFORM_NVIDIA = "nvidia"
@@ -52,6 +46,7 @@ HIP_PLATFORM_NVIDIA = "nvidia"
 TOOLCHAIN_ROCM_LLVM = "rocm-llvm"
 TOOLCHAIN_HIPCC = "hipcc"
 TOOLCHAIN_DEFAULT = "default"
+
 
 class EB_ROCmComponent(CMakeMake):
     """Support for building ROCm components"""
@@ -61,8 +56,11 @@ class EB_ROCmComponent(CMakeMake):
         """Extra easyconfig parameters for ROCmComponent"""
         extra_vars = CMakeMake.extra_options(extra_vars)
         extra_vars.update({
-            'compiler_toolchain': [TOOLCHAIN_ROCM_LLVM, f"Select toolchain to build the package. Allowed values: {TOOLCHAIN_DEFAULT}, {TOOLCHAIN_ROCM_LLVM}, {TOOLCHAIN_HIPCC}", CUSTOM],
-            'hip_platform': [HIP_PLATFORM_AMD, f"Specify HIP platform. Allowed values: {HIP_PLATFORM_AMD}, {HIP_PLATFORM_NVIDIA}", CUSTOM],
+            'compiler_toolchain': [TOOLCHAIN_ROCM_LLVM, f"Select toolchain to build the package. "
+                                                        f"Allowed values: {TOOLCHAIN_DEFAULT}, {TOOLCHAIN_ROCM_LLVM}, "
+                                                        f"{TOOLCHAIN_HIPCC}", CUSTOM],
+            'hip_platform': [HIP_PLATFORM_AMD, f"Specify HIP platform. "
+                                               f"Allowed values: {HIP_PLATFORM_AMD}, {HIP_PLATFORM_NVIDIA}", CUSTOM],
         })
         return extra_vars
 
@@ -79,7 +77,7 @@ class EB_ROCmComponent(CMakeMake):
             if not rocm_llvm_root:
                 raise EasyBuildError(f"ROCm-LLVM is required to build {self.cfg.name} with AMD GPU support!")
         else:
-            raise EasyBuildError(f"hip_platform parameter contains non-allowed value.")
+            raise EasyBuildError("hip_platform parameter contains non-allowed value.")
 
         if self.cfg['compiler_toolchain'] != TOOLCHAIN_DEFAULT:
             if build_option('rpath'):
@@ -112,6 +110,6 @@ class EB_ROCmComponent(CMakeMake):
         amd_gfx_list = build_option('amdgcn_capabilities') or self.cfg['amdgcn_capabilities'] or []
         if amd_gfx_list and self.cfg['hip_platform'] == HIP_PLATFORM_AMD:
             # For now, pass both AMDGPU_TARGETS and GPU_TARGETS, until AMD finally drops the former for all packages.
-            self.cfg['configopts'] += f'-DAMDGPU_TARGETS={list_to_cmake_arg(amd_gfx_list)} '
-            self.cfg['configopts'] += f'-DGPU_TARGETS={list_to_cmake_arg(amd_gfx_list)} '
+            self.cfg['configopts'] += f'-DAMDGPU_TARGETS={self.list_to_cmake_arg(amd_gfx_list)} '
+            self.cfg['configopts'] += f'-DGPU_TARGETS={self.list_to_cmake_arg(amd_gfx_list)} '
         super().configure_step(srcdir, builddir)
