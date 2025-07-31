@@ -1,4 +1,3 @@
-##
 # Copyright 2020-2025 Ghent University
 #
 # This file is part of EasyBuild,
@@ -159,6 +158,8 @@ def get_arch_prefix():
             return 'powerpc64le'
         else:
             return 'powerpc64'
+    elif arch == RISCV64:
+        return 'riscv64'
     else:
         return arch.lower()
 
@@ -691,6 +692,113 @@ class EB_LLVM(CMakeMake):
 
         # Can give different behavior based on system Scrt1.o
         new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
+
+        # Some extra tests need to be ignored for RISC-V
+        if get_cpu_architecture() == RISCV64:
+            # Creation of hardware watchpoints is not supported in lldb for RISC-V,
+            # so we ignore all the tests that try to do it
+            new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-child-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-parent-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/fork-follow-child-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/fork-follow-parent-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-child-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-parent-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Watchpoint/ExpressionLanguage.test')
+
+            # Use of flag -gsplit-dwarf gives the error (as the compiler does relaxation by default):
+            # clang: error: -gsplit-dwarf is unsupported with RISC-V linker relaxation (-mrelax)
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/split-dwarf-expression-eval-bug.cpp')
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-static-data-member-access.test')
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-relative-filename-only-binary-dir.c')
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-missing-error.test')
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-relative-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-absolute-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-relative-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-dwoname-absolute-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-path-symlink-relative-compdir.c'
+            )
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwarf5-lazy-dwo.c')
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/debug-types-expressions.test')
+
+            # The following tests fail because RISC-V doesn't support MemorySanitizer, and the combination
+            #  with '-fsanitize=memory,fuzzer' (used in all the following tests) leads to a backend crash.
+            new_ignore_patterns.append('libFuzzer-riscv64-default-Linux :: msan-custom-mutator.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-default-Linux :: msan-param-unpoison.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-default-Linux :: msan.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-default-Linux :: sigint.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-libcxx-Linux :: msan-custom-mutator.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-libcxx-Linux :: msan-param-unpoison.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-libcxx-Linux :: msan.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-libcxx-Linux :: sigint.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: msan-custom-mutator.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: msan-param-unpoison.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: msan.test')
+            new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: sigint.test')
+
+            # LLVM's JIT engine does not support relocation type 53 for the RISC-V target (as of LLVM 20.1.5)
+            # This error arises specifically during execution of the 'mlir-runner' test for 'async-error.mlir',
+            # which uses LLVM's JIT infrastructure (ORC/RuntimeDyld)
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-error.mlir')
+
+            # Following tests fail because of missing support for RISC-V relocation type '55' in LLVM JIT
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-group.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/unranked-memref.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/async.mlir')
+
+            # Following tests produce the error "unsupported 64-bit ELF machine arch: 243"
+            # because LLDB is unable to process an ELF file because architecture ID 243 corresponds to:
+            # 'EM_RISCV (243) - RISC-V architecture'
+            # Support for RISC-V in LLDB is still incomplete upstream
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/anon_class_w_and_wo_export_symbols.ll')
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/clang-ast-from-dwarf-unamed-and-anon-structs.cpp'
+            )
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/clang-gmodules-type-lookup.c')
+
+            # binutils 2.40 is too old and doesn't recognize the 'zaamo' ISA extension used in the test.
+            # With binutils >= 2.41, this test would work
+            binutils_ver = get_software_version('binutils')
+            if binutils_ver is None or LooseVersion(binutils_ver) < LooseVersion('2.41'):
+                new_ignore_patterns.append("Flang :: Driver/save-mlir-temps.f90")
+
+            # All these tests use a relocation type not supported on RISC-V
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-group.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-error.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/async.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/global-memref.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/unranked-memref.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/utils.mlir')
+
+            # All these tests crash due to incomplete JIT support for RISC-V
+            new_ignore_patterns.append('mlir-runner/simple.mlir')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/6/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/7/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/8/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/9/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/10/12')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/11/12')
+
+            # These tests fail due to memory allocator corruption of mismatch, likely due to incomplete or
+            # buggy support in the LLVM runtime for RISC-V under '-std=c++26'
+            new_ignore_patterns.append(
+                'llvm-libc++-shared.cfg.in :: std/input.output/string.streams/istringstream/istringstream.assign/'
+            )
+            new_ignore_patterns.append(
+                'llvm-libc++-shared.cfg.in :: std/utilities/variant/variant.visit/visit_return_type.pass.cpp'
+            )
+            new_ignore_patterns.append(
+                'llvm-libc++-shared.cfg.in :: std/utilities/format/format.formatter/format.formatter.spec/'
+            )
+            new_ignore_patterns.append('llvm-libc++-shared.cfg.in :: benchmarks/variant_visit_3.bench.cpp')
 
         # See https://github.com/llvm/llvm-project/issues/140024
         if LooseVersion(self.version) <= '20.1.5':
