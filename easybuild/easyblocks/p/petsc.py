@@ -181,9 +181,9 @@ class EB_PETSc(ConfigureMake):
         # Don't build with MPI c++ bindings as this leads to a hard dependency
         # on libmpi and libmpi_cxx even for C code and non-MPI code
         cxxflags = os.getenv('CXXFLAGS') + ' ' + NO_MPI_CXX_EXT_FLAGS
-        self.cfg.update('configopts', '--CFLAGS="%s"' % os.getenv('CFLAGS'))
-        self.cfg.update('configopts', '--CXXFLAGS="%s"' % cxxflags)
-        self.cfg.update('configopts', '--FFLAGS="%s"' % os.getenv('F90FLAGS'))
+        self.cfg.update('configopts', '--COPTFLAGS="%s"' % os.getenv('CFLAGS'))
+        self.cfg.update('configopts', '--CXXOPTFLAGS="%s"' % cxxflags)
+        self.cfg.update('configopts', '--FOPTFLAGS="%s"' % os.getenv('F90FLAGS'))
 
         if not self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             self.cfg.update('configopts', '--with-gnu-compilers=0')
