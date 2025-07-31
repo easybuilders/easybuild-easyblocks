@@ -575,8 +575,13 @@ class EB_LLVM(CMakeMake):
                         self._cmakeopts['LIBOMPTARGET_FORCE_DLOPEN_LIBCUDA'] = 'ON'
             self._cmakeopts['OPENMP_ENABLE_LIBOMPTARGET'] = 'ON'
             self._cmakeopts['LIBOMP_INSTALL_ALIASES'] = 'ON' if self.cfg['build_openmp_library_aliases'] else 'OFF'
-            if not self.cfg['build_openmp_tools']:
-                self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = 'OFF'
+            # OpenMP Tools interface
+            ompt_value = 'ON' if self.cfg['build_openmp_tools'] else 'OFF'
+            self._cmakeopts['LIBOMP_OMPT_SUPPORT'] = ompt_value
+            if self.cfg['build_openmp_offload']:
+                self._cmakeopts['LIBOMPTARGET_OMPT_SUPPORT'] = ompt_value
+            # OMPT based tools
+            self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = ompt_value
 
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
@@ -800,11 +805,6 @@ class EB_LLVM(CMakeMake):
         self.general_opts.update(python_opts)
         self.runtimes_cmake_args.update(python_opts)
 
-        if self.cfg['bootstrap']:
-            self._configure_intermediate_build()
-        else:
-            self._configure_final_build()
-
         if self.cfg['skip_sanitizer_tests'] and build_option('strict') != ERROR:
             self.log.info("Disabling the sanitizer tests")
             self.disable_sanitizer_tests()
@@ -850,6 +850,11 @@ class EB_LLVM(CMakeMake):
                 self.general_opts['LIBOMPTARGET_DEVICE_ARCHITECTURES'] = self.list_to_cmake_arg(gpu_archs)
 
         self._configure_general_build()
+        if self.cfg['bootstrap']:
+            self._configure_intermediate_build()
+        else:
+            self._configure_final_build()
+
         self.add_cmake_opts()
 
         src_dir = os.path.join(self.start_dir, 'llvm')
@@ -869,7 +874,7 @@ class EB_LLVM(CMakeMake):
                 self.log.warning("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
 
         if not self.cfg['bootstrap']:
-            if build_option('rpath') and self._cmakeopts['LLVM_ENABLE_RUNTIMES'] != '""':
+            if build_option('rpath') and self.final_runtimes:  # Check for final runtimes as we are not bootstrapping
                 # Ensure RPATH wrappers are used for the runtimes also at the first stage
                 # Call configure again now that the host triple is known from the previous configure call
                 remove_dir(self.llvm_obj_dir_stage1)
