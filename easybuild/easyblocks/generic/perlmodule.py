@@ -84,7 +84,9 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
 
             ConfigureMake.build_step(self)
             if not build_option('skip_test_step'):
-                ConfigureMake.test_step(self)
+                # Intentionally call _test_step instead of test_step
+                # to use Framework handling of --ignore-test-failure
+                ConfigureMake._test_step(self)
             ConfigureMake.install_step(self)
 
         elif os.path.exists('Build.PL'):

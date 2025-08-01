@@ -398,7 +398,7 @@ class ConfigureMake(EasyBlock):
                 runtest = ''
             # Compose command filtering out empty values
             cmd = ' '.join([x for x in (self.cfg['pretestopts'], test_cmd, runtest, self.cfg['testopts']) if x])
-            res = run_shell_cmd(cmd, fail_on_error=not build_option('ignore_test_failure'))
+            res = run_shell_cmd(cmd)
 
             return res.output
 
