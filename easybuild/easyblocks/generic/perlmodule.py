@@ -36,7 +36,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.run import run_shell_cmd, RunShellCmdError
 from easybuild.tools.environment import unset_env_vars
 
 
@@ -84,9 +84,19 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
 
             ConfigureMake.build_step(self)
             if not build_option('skip_test_step'):
-                # Intentionally call _test_step instead of test_step
+                # Intentionally copy content of EasyBlocks _test_step
                 # to use Framework handling of --ignore-test-failure
-                ConfigureMake._test_step(self)
+                # Just calling ConfigureMake._test_step(self) fails to actually
+                # run tests, as it calls into PerlModule.test_step()
+                try:
+                    ConfigureMake.test_step(self)
+                except EasyBuildError as err:
+                    self.report_test_failure(f"An error was raised during test step: {err}")
+                except RunShellCmdError as err:
+                    err.print()
+                    ec_path = os.path.basename(self.cfg.path)
+                    error_msg = f"shell command '{err.cmd_name} ...' failed in test step for {ec_path}"
+                    self.report_test_failure(error_msg)
             ConfigureMake.install_step(self)
 
         elif os.path.exists('Build.PL'):
