@@ -125,7 +125,7 @@ class EB_FlexiBLAS(CMakeMake):
             if blas_lib == 'imkl':
                 # For MKL there is gf_lp64 vs. intel_lp64 and gnu_thread vs. intel_thread (vs. sequential)
                 # For gf_lp64 vs intel_lp64 the difference is in the ABI for [sz]dot[uc], which FlexiBLAS
-                # can transparenly wrap.
+                # can transparently wrap.
                 # gnu_thread vs intel_thread links to libgomp vs. libiomp5 for the OpenMP library.
                 mkl_gnu_libs = "mkl_gf_lp64;mkl_gnu_thread;mkl_core;gomp;pthread;m;dl"
                 mkl_intel_libs = "mkl_intel_lp64;mkl_intel_thread;mkl_core;iomp5;pthread;m;dl"
@@ -140,6 +140,11 @@ class EB_FlexiBLAS(CMakeMake):
                     configopts[key] = mkl_compiler_mapping[comp_family]
                 except KeyError:
                     raise EasyBuildError("Compiler family not supported yet: %s", comp_family)
+            elif blas_lib == "NVPL":
+                # NVPL libraries do not explicitly link any OpenMP runtime,
+                # but try to lazily and dynamically find the OpenMP runtime in the
+                # built program. Supported are libgomp, libomp and libnvomp.
+                configopts[key] = "nvpl_blas_lp64_gomp;nvpl_blas_core"
             elif blas_lib == 'AOCL_mt':
                 configopts[key] = 'blis-mt'
             else:
