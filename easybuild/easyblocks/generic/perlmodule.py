@@ -35,6 +35,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.environment import unset_env_vars
 
@@ -82,7 +83,8 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
             run_shell_cmd(install_cmd)
 
             ConfigureMake.build_step(self)
-            ConfigureMake.test_step(self)
+            if not build_option('skip_test_step'):
+                ConfigureMake.test_step(self)
             ConfigureMake.install_step(self)
 
         elif os.path.exists('Build.PL'):
