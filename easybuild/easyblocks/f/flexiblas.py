@@ -31,7 +31,7 @@ import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools import toolchain
+from easybuild.tools import toolchain, LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
@@ -98,6 +98,8 @@ class EB_FlexiBLAS(CMakeMake):
         }
 
         supported_blas_libs = ['AOCL-BLAS', 'BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
+        if LooseVersion(self.version) >= LooseVersion('3.4.5'):
+            supported_blas_libs += ['NVPL']
 
         # make sure that default backend is a supported library
         flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
