@@ -286,7 +286,10 @@ class EB_Amber(CMakeMake):
         build_targets = [('', 'test')]
 
         if self.with_mpi:
-            build_targets.append((self.mpi_option, 'test.parallel'))
+            if self.name == 'Amber':
+                build_targets.append((self.mpi_option, 'test.parallel'))
+            elif self.name == 'AmberTools':
+                build_targets.append((self.mpi_option, 'test.parallel.at'))
             # hardcode to 4 MPI processes, minimal required to run all tests
             env.setvar('DO_PARALLEL', self.toolchain.mpi_cmd_for('', 4))
 
@@ -342,6 +345,8 @@ class EB_Amber(CMakeMake):
 
             # serial tests
             run_shell_cmd("%s && make test.serial" % pretestcommands)
+            if self.name == 'AmberTools':
+                run_shell_cmd("%s && make test.serial.gem.pmemd" % pretestcommands)
             if self.with_cuda:
                 res = run_shell_cmd(f"{pretestcommands} && make {testname_cs}")
                 if res.exit_code > 0:
@@ -350,7 +355,10 @@ class EB_Amber(CMakeMake):
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
-                res = run_shell_cmd(f"{pretestcommands} && make test.parallel")
+                if self.name == 'Amber':
+                    res = run_shell_cmd(f"{pretestcommands} && make test.parallel")
+                else:
+                    res = run_shell_cmd(f"{pretestcommands} && make test.parallel.at && make test.parallel.gem.pmemd")
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
@@ -373,11 +381,15 @@ class EB_Amber(CMakeMake):
                         binaries.append('pmemd.cuda.MPI')
                     else:
                         binaries.append('pmemd.cuda_DPFP.MPI')
+        if self.name == 'AmberTools':
+            binaries.append('gem.pmemd')
 
         if self.with_mpi:
             binaries.extend(['sander.MPI'])
             if self.name == 'Amber':
                 binaries.append('pmemd.MPI')
+            if self.name == 'AmberTools':
+                binaries.append('gem.pmemd.MPI')
 
         custom_paths = {
             'files': [os.path.join(self.installdir, 'bin', binary) for binary in binaries],
