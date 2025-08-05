@@ -361,7 +361,7 @@ class EB_Amber(CMakeMake):
                     res = run_shell_cmd(f"{pretestcommands} && make test.parallel.at && make test.parallel.gem.pmemd")
                 elif self.name == 'AmberTools':
                     res = run_shell_cmd(f"{pretestcommands} && make test.parallel.at")
-                
+
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
