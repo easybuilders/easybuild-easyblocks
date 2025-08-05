@@ -345,7 +345,7 @@ class EB_Amber(CMakeMake):
 
             # serial tests
             run_shell_cmd("%s && make test.serial" % pretestcommands)
-            if self.name == 'AmberTools':
+            if self.name == 'AmberTools' and LooseVersion(self.version) >= LooseVersion('24'):
                 run_shell_cmd("%s && make test.serial.gem.pmemd" % pretestcommands)
             if self.with_cuda:
                 res = run_shell_cmd(f"{pretestcommands} && make {testname_cs}")
@@ -357,8 +357,11 @@ class EB_Amber(CMakeMake):
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
                 if self.name == 'Amber':
                     res = run_shell_cmd(f"{pretestcommands} && make test.parallel")
-                else:
+                elif self.name == 'AmberTools' and LooseVersion(self.version) >= LooseVersion('24'):
                     res = run_shell_cmd(f"{pretestcommands} && make test.parallel.at && make test.parallel.gem.pmemd")
+                elif self.name == 'AmberTools':
+                    res = run_shell_cmd(f"{pretestcommands} && make test.parallel.at")
+                
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
