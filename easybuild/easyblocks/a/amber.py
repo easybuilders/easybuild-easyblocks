@@ -286,10 +286,7 @@ class EB_Amber(CMakeMake):
         build_targets = [('', 'test')]
 
         if self.with_mpi:
-            if self.name == 'Amber':
-                build_targets.append((self.mpi_option, 'test.parallel'))
-            elif self.name == 'AmberTools':
-                build_targets.append((self.mpi_option, 'test.parallel.at'))
+            build_targets.append((self.mpi_option, 'test.parallel'))
             # hardcode to 4 MPI processes, minimal required to run all tests
             env.setvar('DO_PARALLEL', self.toolchain.mpi_cmd_for('', 4))
 
@@ -331,10 +328,13 @@ class EB_Amber(CMakeMake):
 
         super().install_step()
 
-        # Run the tests located in the build directory
+        # Run the tests
         if self.cfg['runtest']:
             if LooseVersion(self.version) >= LooseVersion('24'):
-                testdir = os.path.join(self.builddir, 'test')
+                if self.name == 'AmberTools':
+                    testdir = os.path.join(self.builddir, 'AmberTools', 'test')
+                elif self.name == 'Amber':
+                    testdir = os.path.join(self.builddir, 'test')
                 testname_cs = 'test.cuda.serial'
                 testname_cp = 'test.cuda.parallel'
             else:
@@ -344,24 +344,20 @@ class EB_Amber(CMakeMake):
             pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, testdir)
 
             # serial tests
-            run_shell_cmd("%s && make test.serial" % pretestcommands)
-            if self.name == 'AmberTools' and LooseVersion(self.version) >= LooseVersion('24'):
-                run_shell_cmd("%s && make test.serial.gem.pmemd" % pretestcommands)
+            if LooseVersion(self.version) >= LooseVersion('24'):
+                run_shell_cmd("%s && make test" % pretestcommands)
+            else:
+                run_shell_cmd("%s && make test.serial" % pretestcommands)
             if self.with_cuda:
                 res = run_shell_cmd(f"{pretestcommands} && make {testname_cs}")
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
+            # parallel tests
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
-                if self.name == 'Amber':
-                    res = run_shell_cmd(f"{pretestcommands} && make test.parallel")
-                elif self.name == 'AmberTools' and LooseVersion(self.version) >= LooseVersion('24'):
-                    res = run_shell_cmd(f"{pretestcommands} && make test.parallel.at && make test.parallel.gem.pmemd")
-                elif self.name == 'AmberTools':
-                    res = run_shell_cmd(f"{pretestcommands} && make test.parallel.at")
-
+                res = run_shell_cmd(f"{pretestcommands} && make test.parallel")
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
