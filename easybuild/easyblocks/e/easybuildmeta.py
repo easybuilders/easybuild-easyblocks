@@ -189,6 +189,9 @@ class EB_EasyBuildMeta(PythonPackage):
     def sanity_check_step(self):
         """Custom sanity check for EasyBuild."""
 
+        if self.python_cmd is None:
+            self.prepare_python()
+
         # check whether easy-install.pth contains correct entries
         easy_install_pth = os.path.join(self.installdir, self.pylibdir, 'easy-install.pth')
         if os.path.exists(easy_install_pth):
