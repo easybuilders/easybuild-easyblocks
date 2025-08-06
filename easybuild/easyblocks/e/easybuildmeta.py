@@ -31,6 +31,7 @@ import copy
 import os
 import re
 import sys
+import tempfile
 from collections import OrderedDict
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
@@ -293,7 +294,10 @@ class EB_EasyBuildMeta(PythonPackage):
             val = self.initial_environ.pop(key)
             self.log.info("$%s found in environment, unset for running sanity check (was: %s)", key, val)
 
-        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        with tempfile.TemporaryDirectory() as tempdir:
+            #  Similar avoid a custom config being used which might define options unknown to that EasyBuild version
+            self.initial_environ['XDG_CONFIG_HOME'] = tempdir
+            super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """
