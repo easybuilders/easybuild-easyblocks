@@ -754,14 +754,14 @@ class EB_CP2K(EasyBlock):
                 if LooseVersion(self.version) < LooseVersion('7.1'):
                     # -nosvn option was removed in CP2K 7.1
                     regtest_cmd.insert(1, '-nosvn')
-    
+
                 # older version of CP2K
                 if not os.path.exists(regtest_script):
                     regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'do_regtest')
                     regtest_cmd = [regtest_script, '-nocvs', '-quick', '-nocompile', '-config', cfg_fn]
-    
+
                 regtest_cmd = ' '.join(regtest_cmd)
-    
+
                 # patch do_regtest so that reference output is used
                 if regtest_refdir:
                     self.log.info("Using reference output available in %s" % regtest_refdir)
@@ -771,7 +771,7 @@ class EB_CP2K(EasyBlock):
                             sys.stdout.write(line)
                     except IOError as err:
                         raise EasyBuildError("Failed to modify '%s': %s", regtest_script, err)
-    
+
                 else:
                     self.log.info("No reference output found for regression test, just continuing without it...")
 
@@ -781,7 +781,7 @@ class EB_CP2K(EasyBlock):
                     raise EasyBuildError("Cannot run MPI tests as not enough cores (< %s) are available", test_core_cnt)
                 else:
                     self.log.info("Using %s cores for the MPI tests" % test_core_cnt)
-    
+
                 # configure regression test
                 cfg_txt = '\n'.join([
                     'FORT_C_NAME="%(f90)s"',
@@ -802,10 +802,10 @@ class EB_CP2K(EasyBlock):
                     'maxtasks': self.cfg['maxtasks'],
                     'mpicmd_prefix': self.toolchain.mpi_cmd_for('', test_core_cnt),
                 }
-    
+
                 write_file(cfg_fn, cfg_txt)
                 self.log.debug("Contents of %s: %s" % (cfg_fn, cfg_txt))
-    
+
             # run regression test
             regtest = run_shell_cmd(regtest_cmd, fail_on_error=False)
 
