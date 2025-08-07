@@ -159,6 +159,19 @@ class EB_OpenCV(CMakeMake):
             self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
         else:
             self.cfg.update('configopts', '-DWITH_GTK=OFF')
+        flexiblas_root = get_software_root('FlexiBLAS')
+        if flexiblas_root:
+            # Fixes https://github.com/easybuilders/easybuild-easyblocks/issues/3873
+            if LooseVersion(self.version) < '3.3':
+                msg = "Using custom LAPACK/BLAS is only supported since OpenCV 3.3. FlexiBLAS will not be used."
+                self.log.warning(msg)
+            else:
+                self.log.info("Explicitly using FlexiBLAS at %s", flexiblas_root)
+                self.cfg.update('configopts', f'-DLAPACK_LIBRARIES="{flexiblas_root}/lib/libflexiblas.so;-lm;-ldl"')
+                self.cfg.update('configopts', f'-DLAPACK_INCLUDE_DIR={flexiblas_root}/include/flexiblas')
+                self.cfg.update('configopts', '-DLAPACK_CBLAS_H=cblas.h')
+                self.cfg.update('configopts', '-DLAPACK_LAPACKE_H=lapacke.h')
+                self.cfg.update('configopts', '-DLAPACK_IMPL=flexiblas')
 
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options
