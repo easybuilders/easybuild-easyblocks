@@ -103,6 +103,11 @@ class EB_CP2K(EasyBlock):
             'plumed': [None, "Enable PLUMED support", CUSTOM],
             'type': ['popt', "Type of build ('popt' or 'psmp')", CUSTOM],
             'typeopt': [True, "Enable optimization", CUSTOM],
+            'tests_maxtasks': [1, "--maxtasks in regtest command", CUSTOM],
+            'tests_mpiranks': [1, "--mpiranks in regtest command", CUSTOM],
+            'tests_ompthreads': [1, "--ompthreads in regtest command", CUSTOM],
+            'tests_maxerrors': [10000, "--maxerrors in regtest command", CUSTOM],
+            'tests_timeout': [1000, "--timeout in regtest command", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -734,7 +739,11 @@ class EB_CP2K(EasyBlock):
                 regtest_cmd = [
                     'python',
                     regtest_script,
-                    '--maxtasks 1 --mpiranks 1 --ompthreads 1',
+                    f'--maxtasks {self.cfg['tests_maxtasks']}',
+                    f'--mpiranks {self.cfg['tests_mpiranks']}',
+                    f'--ompthreads {self.cfg['tests_mpiranks']}',
+                    f'--maxerrors {self.cfg['tests_maxerrors']}',
+                    f'--timeout {self.cfg['tests_timeout']}',
                     self.typearch,
                     self.cfg['type'],
                 ]
