@@ -739,11 +739,11 @@ class EB_CP2K(EasyBlock):
                 regtest_cmd = [
                     'python',
                     regtest_script,
-                    f'--maxtasks {self.cfg['tests_maxtasks']}',
-                    f'--mpiranks {self.cfg['tests_mpiranks']}',
-                    f'--ompthreads {self.cfg['tests_mpiranks']}',
-                    f'--maxerrors {self.cfg['tests_maxerrors']}',
-                    f'--timeout {self.cfg['tests_timeout']}',
+                    f"--maxtasks {self.cfg['tests_maxtasks']}",
+                    f"--mpiranks {self.cfg['tests_mpiranks']}",
+                    f"--ompthreads {self.cfg['tests_mpiranks']}",
+                    f"--maxerrors {self.cfg['tests_maxerrors']}",
+                    f"--timeout {self.cfg['tests_timeout']}",
                     self.typearch,
                     self.cfg['type'],
                 ]
