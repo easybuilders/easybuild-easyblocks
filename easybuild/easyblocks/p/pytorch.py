@@ -539,11 +539,16 @@ class EB_PyTorch(PythonPackage):
         self.cfg.update('preinstallopts', ' '.join(unique_options) + ' ')
 
     def _set_cache_dir(self):
-        """Set $XDG_CACHE_HOME to avoid PyTorch defaulting to $HOME"""
+        """Set $XDG_CACHE_HOME and $TRITON_HOME to avoid PyTorch defaulting to $HOME"""
         cache_dir = os.path.join(self.tmpdir, '.cache')
         # The path must exist!
         mkdir(cache_dir, parents=True)
         env.setvar('XDG_CACHE_HOME', cache_dir)
+        # Triton also uses a path defaulting to $HOME
+        # Isolate against user-set variables
+        env.unset_env_vars(var for var in os.environ if var.startswith('TRITON_'))
+        triton_home = os.path.join(self.tmpdir, '.triton_home')
+        env.setvar('TRITON_HOME', triton_home)
 
     def _compare_test_results(self, old_result, xml_result, old_failed_test_names, xml_failed_test_names):
         """Compare test results parsed from stdout and XML files"""
