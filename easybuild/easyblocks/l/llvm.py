@@ -1355,7 +1355,7 @@ class EB_LLVM(CMakeMake):
                 self.log.warning("ROCr-Runtime not in dependencies, ignoring failing tests for AMDGPU target.")
 
             max_failed = self.cfg['test_suite_max_failed']
-            if LooseVersion(get_software_version("CMake")) >= '3.19' and LooseVersion(self.version) >= '14':
+            if LooseVersion(get_software_version("CMake")) >= '3.19':
                 parallel = self.cfg.parallel
             else:
                 parallel = 1
