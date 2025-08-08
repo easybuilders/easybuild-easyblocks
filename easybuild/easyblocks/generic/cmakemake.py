@@ -232,7 +232,7 @@ class CMakeMake(ConfigureMake):
                 elif isinstance(separate_build_dir, str):
                     # Note that the join returns separate_build_dir if it is absolute
                     self.separate_build_dir = os.path.join(self.builddir, separate_build_dir)
-                    mkdir(self.separate_build_dir)
+                    mkdir(self.separate_build_dir, parents=True)
                 else:
                     raise EasyBuildError('Invalid value for separate_build_dir: %s (type %s)',
                                          separate_build_dir, type(separate_build_dir))
