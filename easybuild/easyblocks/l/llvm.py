@@ -923,6 +923,19 @@ class EB_LLVM(CMakeMake):
         regex_subs.append((r'add_subdirectory\(bindings/python/tests\)', ''))
         apply_regex_substitutions(cmakelists_tests, regex_subs)
 
+        # Avoid concurrency issue in tests, see https://github.com/llvm/llvm-project/pull/151313
+        llvm_version = LooseVersion(self.version)
+        if llvm_version < '20.1':
+            regex_subs = [(r'cmake_policy\(SET CMP0114 OLD\)', 'cmake_policy(SET CMP0114 NEW)')]
+            tgt_file = os.path.join('llvm', 'CMakeLists.txt')
+            if llvm_version >= '16':
+                # 16.x moved the policy settings to a new file
+                tgt_file = os.path.join('cmake', 'Modules', 'CMakePolicy.cmake')
+            elif llvm_version < '15':
+                # Earlier versions didn't set this policy -> add line
+                regex_subs = [(r'(project\(LLVM)', r'if(POLICY CMP0114)\n  cmake_policy(SET CMP0114 NEW)\nendif()\n\1')]
+            apply_regex_substitutions(tgt_file, regex_subs, on_missing_match=ERROR)
+
         # Remove flags disabling the use of configuration files during compiler-rt tests as we in general rely on them
         # (see https://github.com/easybuilders/easybuild-easyblocks/pull/3741#issuecomment-2939404304)
         lit_cfg_file = os.path.join(self.start_dir, 'compiler-rt', 'test', 'lit.common.cfg.py')
@@ -1342,7 +1355,11 @@ class EB_LLVM(CMakeMake):
                 self.log.warning("ROCr-Runtime not in dependencies, ignoring failing tests for AMDGPU target.")
 
             max_failed = self.cfg['test_suite_max_failed']
-            num_failed = self._para_test_step(parallel=1)
+            if LooseVersion(get_software_version("CMake")) >= '3.19' and LooseVersion(self.version) >= '14':
+                parallel = self.cfg.parallel
+            else:
+                parallel = 1
+            num_failed = self._para_test_step(parallel=parallel)
             if num_failed is None:
                 self.report_test_failure("Failed to extract test results from output")
                 return
