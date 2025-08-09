@@ -1680,7 +1680,7 @@ class EB_LLVM(CMakeMake):
             self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
             self._sanity_check_dynamic_linker()
 
-        # Check if a simple test program can be build when we link all LLVM libraries.
+        # Check if a simple test program can be built when we link all LLVM libraries.
         # This can reveal dependencies we missed to add. We can use GCC for this,
         # as this doesn't require any LLVM specific flags.
         tmpdir = tempfile.mkdtemp()
