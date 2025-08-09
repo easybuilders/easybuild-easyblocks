@@ -99,7 +99,9 @@ class EB_pybind11(CMakePythonPackage):
             ],
         }
 
-        return PythonPackage.sanity_check_step(self, custom_paths=custom_paths)
+        res = PythonPackage.sanity_check_step(self, custom_paths=custom_paths)
 
         if fake_mod_data:
             self.clean_up_fake_module(fake_mod_data)
+
+        return res
