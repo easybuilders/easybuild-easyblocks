@@ -30,10 +30,11 @@ EasyBuild support for building and installing ROCm-LLVM, AMD's fork of the LLVM 
 @author: Jan Andre Reuter (jan@zyten.de)
 """
 import os
+from tempfile import mkdtemp
 
 from easybuild.tools import LooseVersion
 from easybuild.easyblocks.llvm import EB_LLVM, BUILD_TARGET_AMDGPU
-from easybuild.tools.filetools import apply_regex_substitutions, remove_dir, which
+from easybuild.tools.filetools import apply_regex_substitutions, remove_dir, which, copy_file
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 
@@ -42,6 +43,10 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
     """
     Support for building the ROCm-LLVM compilers with some modifications on top of the LLVM easyblock.
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Path where the CMakeLists.txt of the 'amdllvm' tool is copied to
+        self.amdllvm_cmakelists_copy_path = None
 
     def _configure_general_build(self):
         super(EB_ROCm_minus_LLVM, self)._configure_general_build()
@@ -104,6 +109,10 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
         if build_option('rpath'):
             self._prepare_runtimes_rpath_wrappers(self.llvm_obj_dir_stage1)
             amdllvm_cmakelists = os.path.join(self.llvm_src_dir, 'clang-tools-extra', 'amdllvm', 'CMakeLists.txt')
+            # Copy the original CMakeLists.txt, so that we can restore it in following stages
+            tmpdir = mkdtemp("amdllvm-cmakelists-txt-store")
+            self.amdllvm_cmakelists_copy_path = f"{tmpdir}/CMakeLists.txt"
+            copy_file(amdllvm_cmakelists, self.amdllvm_cmakelists_copy)
             mock_clangxx = which('clang++')
             apply_regex_substitutions(amdllvm_cmakelists,
                                       [(r'set\(CMAKE_CXX_COMPILER ${CMAKE_BINARY_DIR}/bin/clang\+\+\)',
@@ -115,7 +124,9 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
         if build_option('rpath'):
             self._prepare_runtimes_rpath_wrappers(stage_dir)
             mock_clangxx = which('clang++')
+            # Restore the original file, so that we can replace the Clang with the current stages Clang
             amdllvm_cmakelists = os.path.join(self.llvm_src_dir, 'clang-tools-extra', 'amdllvm', 'CMakeLists.txt')
+            copy_file(self.amdllvm_cmakelists_copy_path, amdllvm_cmakelists)
             apply_regex_substitutions(amdllvm_cmakelists,
                                       [(r'set\(CMAKE_CXX_COMPILER ${CMAKE_BINARY_DIR}/bin/clang\+\+\)',
                                         'set(CMAKE_CXX_COMPILER %s)' % mock_clangxx)])
