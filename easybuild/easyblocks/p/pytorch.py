@@ -546,7 +546,7 @@ class EB_PyTorch(PythonPackage):
         env.setvar('XDG_CACHE_HOME', cache_dir)
         # Triton also uses a path defaulting to $HOME
         # Isolate against user-set variables
-        env.unset_env_vars(var for var in os.environ if var.startswith('TRITON_'))
+        env.unset_env_vars(('TRITON_DUMP_DIR', 'TRITON_OVERRIDE_DIR', 'TRITON_CACHE_DIR'))
         triton_home = os.path.join(self.tmpdir, '.triton_home')
         env.setvar('TRITON_HOME', triton_home)
 
