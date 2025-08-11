@@ -71,9 +71,13 @@ class EB_torchvision(PythonPackage):
             if cuda_cc:
                 env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
 
-        libjpeg_root = get_software_root('libjpeg-turbo')
-        if libjpeg_root and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
-            env.setvar('TORCHVISION_INCLUDE', os.path.join(libjpeg_root, 'include'))
+        includes = []
+        for lib in ['libjpeg-turbo', 'libwebp']:
+            libroot = get_software_root(lib)
+            if libroot and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
+                includes.append(os.path.join(libroot, 'include'))
+        if includes:
+            env.setvar('TORCHVISION_INCLUDE', os.path.pathsep.join(includes))
 
         super().configure_step()
 
