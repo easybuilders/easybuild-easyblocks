@@ -443,7 +443,9 @@ class EB_LAMMPS(CMakeMake):
                 self.cfg.update('configopts', '-DEigen3_DIR=%s/share/eigen3/cmake/' % get_software_root('Eigen'))
 
         # LAMMPS Configuration Options
-        # https://github.com/lammps/lammps/blob/master/cmake/README.md#lammps-configuration-options
+        # https://docs.lammps.org/Build_basics.html
+        # https://docs.lammps.org/Build_settings.html
+        # https://docs.lammps.org/Build_package.html
         if self.cfg['general_packages']:
             for package in self.cfg['general_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_prefix, package))
@@ -460,7 +462,8 @@ class EB_LAMMPS(CMakeMake):
         # grab the architecture so we can check if we have Intel hardware (also used for Kokkos below)
         processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
 
-        if processor_arch in INTEL_PACKAGE_ARCH_LIST:
+        if processor_arch in INTEL_PACKAGE_ARCH_LIST or \
+           (processor_arch == 'NATIVE' and self.kokkos_cpu_mapping.get(get_cpu_arch()) in INTEL_PACKAGE_ARCH_LIST):
             # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
             pkg_user_intel = '-D%sINTEL=' % self.pkg_user_prefix
             if pkg_user_intel not in self.cfg['configopts']:
