@@ -106,7 +106,7 @@ class EB_CP2K(EasyBlock):
             'tests_maxtasks': [1, "--maxtasks in regtest command", CUSTOM],
             'tests_mpiranks': [1, "--mpiranks in regtest command", CUSTOM],
             'tests_ompthreads': [1, "--ompthreads in regtest command", CUSTOM],
-            'tests_maxerrors': [10000, "--maxerrors in regtest command", CUSTOM],
+            'tests_maxerrors': [1000, "--maxerrors in regtest command", CUSTOM],
             'tests_timeout': [1000, "--timeout in regtest command", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
@@ -731,23 +731,25 @@ class EB_CP2K(EasyBlock):
                     regtest_refdir = d
                     break
 
-            # location of do_regtest script
-            cfg_fn = 'cp2k_regtest.cfg'
-
             if LooseVersion(self.version) > LooseVersion('2024.0'):
                 regtest_script = os.path.join(self.cfg['start_dir'], 'tests', 'do_regtest.py')
                 regtest_cmd = [
-                    'python',
+                    f"{get_software_root('python')}/bin/python",
                     regtest_script,
                     f"--maxtasks {self.cfg['tests_maxtasks']}",
                     f"--mpiranks {self.cfg['tests_mpiranks']}",
                     f"--ompthreads {self.cfg['tests_ompthreads']}",
                     f"--maxerrors {self.cfg['tests_maxerrors']}",
                     f"--timeout {self.cfg['tests_timeout']}",
+                    "--debug",
                     self.typearch,
                     self.cfg['type'],
                 ]
+
             else:
+                # configuration file for CP2K's test suite
+                cfg_fn = 'cp2k_regtest.cfg'
+                
                 regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest')
                 regtest_cmd = [regtest_script, '-nobuild', '-config', cfg_fn]
 
@@ -759,8 +761,6 @@ class EB_CP2K(EasyBlock):
                 if not os.path.exists(regtest_script):
                     regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'do_regtest')
                     regtest_cmd = [regtest_script, '-nocvs', '-quick', '-nocompile', '-config', cfg_fn]
-
-                regtest_cmd = ' '.join(regtest_cmd)
 
                 # patch do_regtest so that reference output is used
                 if regtest_refdir:
@@ -807,10 +807,12 @@ class EB_CP2K(EasyBlock):
                 self.log.debug("Contents of %s: %s" % (cfg_fn, cfg_txt))
 
             # run regression test
+            regtest_cmd = ' '.join(regtest_cmd)
             regtest = run_shell_cmd(regtest_cmd, fail_on_error=False)
-
-            if regtest.exit_code == 0:
+            if regtest.exit_code == 0 and regtest.output:
                 self.log.info("Regression test output:\n%s" % regtest.output)
+            elif regtest.exit_code == 0:
+                raise EasyBuildError("Regression test failed: there is no output, tests probably did not run.")
             else:
                 raise EasyBuildError("Regression test failed (non-zero exit code): %s", regtest.output)
 
