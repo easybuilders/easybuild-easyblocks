@@ -385,7 +385,7 @@ class EB_GROMACS(CMakeMake):
                 if 'sve' in cpu_features:
                     self.cfg.update('configopts', "-DGMX_SIMD=ARM_NEON_ASIMD")
                     # print warning, since this may need to be revised for future GROMACS versions
-                    msg = "Sticking to NEON even though SVE is supported to improve performance, "
+                    msg = "Sticking to NEON to improve performance (even though SVE is supported), "
                     msg += "see https://gitlab.com/gromacs/gromacs/-/issues/5284"
                     print_warning(msg, log=self.log)
 
