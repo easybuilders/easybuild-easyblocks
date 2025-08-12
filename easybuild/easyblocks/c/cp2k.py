@@ -749,7 +749,7 @@ class EB_CP2K(EasyBlock):
             else:
                 # configuration file for CP2K's test suite
                 cfg_fn = 'cp2k_regtest.cfg'
-                
+
                 regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest')
                 regtest_cmd = [regtest_script, '-nobuild', '-config', cfg_fn]
 
