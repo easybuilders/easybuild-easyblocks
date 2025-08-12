@@ -1000,6 +1000,8 @@ class EB_LLVM(CMakeMake):
         cmakelists_tests = os.path.join(self.start_dir, 'compiler-rt', 'test', 'CMakeLists.txt')
         regex_subs = [(r'compiler_rt_test_runtime.*san.*', '')]
         apply_regex_substitutions(cmakelists_tests, regex_subs)
+        if LooseVersion(self.version) >= '20.1.0':
+            self.general_opts['OPENMP_TEST_ENABLE_TSAN'] = 'OFF'
 
     def add_cmake_opts(self):
         """Add LLVM-specific CMake options."""
