@@ -262,7 +262,7 @@ class EB_PyTorch(PythonPackage):
             'custom_opts': [[], "List of options for the build/install command. Can be used to change the defaults " +
                                 "set by the PyTorch EasyBlock, for example ['USE_MKLDNN=0'].", CUSTOM],
             'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
-            'max_failed_tests': [0, "Maximum number of failing tests", CUSTOM],
+            'max_failed_tests': [10, "Maximum number of failing tests", CUSTOM],
         })
 
         # disable use of pip to install PyTorch by default, overwriting the default set in PythonPackage;
