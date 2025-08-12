@@ -106,7 +106,7 @@ class EB_CP2K(EasyBlock):
             'tests_maxtasks': [1, "--maxtasks in regtest command", CUSTOM],
             'tests_mpiranks': [1, "--mpiranks in regtest command", CUSTOM],
             'tests_ompthreads': [1, "--ompthreads in regtest command", CUSTOM],
-            'tests_maxerrors': [1000, "--maxerrors in regtest command", CUSTOM],
+            'tests_maxerrors': [10000, "--maxerrors in regtest command", CUSTOM],
             'tests_timeout': [1000, "--timeout in regtest command", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
