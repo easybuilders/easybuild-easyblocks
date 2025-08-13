@@ -96,6 +96,11 @@ class Bundle(EasyBlock):
         # disable templating to avoid premature resolving of template values
         # Note that self.cfg.update also resolves templates!
         with self.cfg.disable_templating():
+            # Clear current top-level checksums (can only be of postinstall patches)
+            # to append later on to component patches
+            orig_checksums = self.cfg['checksums']
+            self.cfg['checksums'] = []
+
             # list of checksums for patches (must be included after checksums for sources)
             checksums_patches = []
 
@@ -172,7 +177,8 @@ class Bundle(EasyBlock):
                 comp_cfg['easyblock'] = None
 
                 # reset list of sources/source_urls/checksums
-                comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = comp_cfg['patches'] = []
+                comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = []
+                comp_cfg['patches'] = comp_cfg['postinstallpatches'] = []
 
                 for key in self.cfg['default_component_specs']:
                     comp_cfg[key] = self.cfg['default_component_specs'][key]
@@ -218,12 +224,15 @@ class Bundle(EasyBlock):
 
                 with comp_cfg.allow_unresolved_templates():
                     comp_patches = comp_cfg['patches']
+                    comp_postinstall_patches = comp_cfg['postinstallpatches']
                 if comp_patches:
                     self.cfg.update('patches', comp_patches)
+                    # Patch step is skipped so adding postinstall patches of components here is harmless
+                    self.cfg.update('patches', comp_postinstall_patches)
 
                 self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
 
-            self.cfg.update('checksums', checksums_patches)
+            self.cfg.update('checksums', checksums_patches + orig_checksums)
 
         # restore general sanity checks if using component-specific sanity checks
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
