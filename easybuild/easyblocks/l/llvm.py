@@ -37,6 +37,7 @@ import glob
 import os
 import re
 import stat
+import tempfile
 
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
@@ -129,6 +130,10 @@ GENERAL_OPTS = {
     # If EB is launched from a venv, avoid giving priority to the venv's python
     'Python3_FIND_VIRTUALENV': 'STANDARD',
 }
+
+LLVM_MINIMAL_CPP_EXAMPLE = """
+int main(int argc, char** argv){ return 0; }
+"""
 
 
 @contextlib.contextmanager
@@ -1693,6 +1698,16 @@ class EB_LLVM(CMakeMake):
         else:
             self._sanity_check_gcc_prefix(gcc_prefix_compilers, self.gcc_prefix, self.installdir)
             self._sanity_check_dynamic_linker()
+
+        # Check if a simple test program can be built when we link all LLVM libraries.
+        # This can reveal dependencies we missed to add. We can use GCC for this,
+        # as this doesn't require any LLVM specific flags.
+        tmpdir = tempfile.mkdtemp()
+        write_file(os.path.join(tmpdir, 'minimal.cpp'), LLVM_MINIMAL_CPP_EXAMPLE)
+        minimal_cpp_compiler_cmd = "cd %s && g++ minimal.cpp -o minimal_cpp " % tmpdir
+        # Here, we add the system libraries LLVM expects to find
+        minimal_cpp_compiler_cmd += "$(llvm-config --link-static --system-libs all)"
+        custom_commands.append(minimal_cpp_compiler_cmd)
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands, *args, **kwargs)
 
