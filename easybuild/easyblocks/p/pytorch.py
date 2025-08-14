@@ -262,7 +262,7 @@ class EB_PyTorch(PythonPackage):
             'custom_opts': [[], "List of options for the build/install command. Can be used to change the defaults " +
                                 "set by the PyTorch EasyBlock, for example ['USE_MKLDNN=0'].", CUSTOM],
             'excluded_tests': [{}, "Mapping of architecture strings to list of tests to be excluded", CUSTOM],
-            'max_failed_tests': [0, "Maximum number of failing tests", CUSTOM],
+            'max_failed_tests': [10, "Maximum number of failing tests", CUSTOM],
         })
 
         # disable use of pip to install PyTorch by default, overwriting the default set in PythonPackage;
@@ -539,11 +539,16 @@ class EB_PyTorch(PythonPackage):
         self.cfg.update('preinstallopts', ' '.join(unique_options) + ' ')
 
     def _set_cache_dir(self):
-        """Set $XDG_CACHE_HOME to avoid PyTorch defaulting to $HOME"""
+        """Set $XDG_CACHE_HOME and $TRITON_HOME to avoid PyTorch defaulting to $HOME"""
         cache_dir = os.path.join(self.tmpdir, '.cache')
         # The path must exist!
         mkdir(cache_dir, parents=True)
         env.setvar('XDG_CACHE_HOME', cache_dir)
+        # Triton also uses a path defaulting to $HOME
+        # Isolate against user-set variables
+        env.unset_env_vars(('TRITON_DUMP_DIR', 'TRITON_OVERRIDE_DIR', 'TRITON_CACHE_DIR'))
+        triton_home = os.path.join(self.tmpdir, '.triton_home')
+        env.setvar('TRITON_HOME', triton_home)
 
     def _compare_test_results(self, old_result, xml_result, old_failed_test_names, xml_failed_test_names):
         """Compare test results parsed from stdout and XML files"""

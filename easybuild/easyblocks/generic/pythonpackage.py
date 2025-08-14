@@ -967,6 +967,18 @@ class PythonPackage(ExtensionEasyBlock):
         super().load_module(*args, **kwargs)
         set_py_env_vars(self.log)
 
+    def sanity_check_load_module(self, *args, **kwargs):
+        """
+        Load module to prepare environment for sanity check.
+        Also make sure that Python command to use has been figured out.
+        """
+        mod_data = super().sanity_check_load_module(*args, **kwargs)
+
+        if self.python_cmd is None:
+            self.prepare_python()
+
+        return mod_data
+
     def sanity_check_step(self, *args, **kwargs):
         """
         Custom sanity check for Python packages
@@ -1003,15 +1015,15 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             self.log.debug("Detection of downloaded dependencies not enabled")
 
-        # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths,
+        # Use directory usually containing the python packages by default
         # but only for stand-alone installations, not for extensions;
         # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
-        if not self.is_extension and not self.cfg['sanity_check_paths'] and kwargs.get('custom_paths') is None:
-            self.cfg['sanity_check_paths'] = {
+        if not self.is_extension:
+            kwargs.setdefault('custom_paths', {
                 'files': [],
                 'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
-            }
+            })
 
         # make sure 'exts_filter' is defined, which is used for sanity check
         if self.multi_python:

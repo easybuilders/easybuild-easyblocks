@@ -57,8 +57,6 @@ class EB_Geant4(CMakeMake):
             'PhotonEvaporationVersion': [None, "PhotonEvaporation version", CUSTOM],
             'G4RadioactiveDecayVersion': [None, "G4RadioactiveDecay version", CUSTOM],
         })
-        # Requires out-of-source build
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def make_module_extra(self):

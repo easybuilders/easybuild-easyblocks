@@ -47,7 +47,6 @@ class EB_OpenBabel(CMakeMake):
         extra_vars.update({
             'with_python_bindings': [True, "Try to build Open Babel's Python bindings. (-DPYTHON_BINDINGS=ON)", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
