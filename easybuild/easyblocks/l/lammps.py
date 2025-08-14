@@ -66,20 +66,26 @@ INTEL_PACKAGE_ARCH_LIST = [
 ]
 
 KOKKOS_CPU_ARCH_LIST = [
-    'NATIVE'  # Local CPU architecture (available since LAMMPS 2Aug2023)
+    'NATIVE'  # Local CPU architecture, available since LAMMPS 2Aug2023
     'AMDAVX',  # AMD 64-bit x86 CPU (AVX 1)
     'ZEN',  # AMD Zen class CPU (AVX 2)
     'ZEN2',  # AMD Zen2 class CPU (AVX 2)
     'ZEN3',  # AMD Zen3 class CPU (AVX 2)
+    'ZEN4',  # AMD Zen4 class CPU (AVX-512), since LAMMPS 2Apr2025
+    'ZEN5',  # AMD Zen5 class CPU (AVX-512), since LAMMPS 22Jul2025
     'ARMV80',  # ARMv8.0 Compatible CPU
     'ARMV81',  # ARMv8.1 Compatible CPU
     'ARMV8_THUNDERX',  # ARMv8 Cavium ThunderX CPU
     'ARMV8_THUNDERX2',  # ARMv8 Cavium ThunderX2 CPU
     'A64FX',  # ARMv8.2 with SVE Support
+    'ARMV9_GRACE',  # ARMv9 NVIDIA Grace CPU, since LAMMPS 4Feb2025
     'BGQ',  # IBM Blue Gene/Q CPU
     'POWER7',  # IBM POWER7 CPU
     'POWER8',  # IBM POWER8 CPU
     'POWER9',  # IBM POWER9 CPU
+    'RISCV_SG2042',  # RISC-V SG2042 CPU, since LAMMPS 4Feb2025
+    'RISCV_RVA22V',  # RISC-V RVA22V CPU, since LAMMPS 4Feb2025
+
     'KEPLER30',  # NVIDIA Kepler generation CC 3.0 GPU
     'KEPLER32',  # NVIDIA Kepler generation CC 3.2 GPU
     'KEPLER35',  # NVIDIA Kepler generation CC 3.5 GPU
@@ -96,12 +102,24 @@ KOKKOS_CPU_ARCH_LIST = [
     'AMPERE86',  # NVIDIA Ampere generation CC 8.6 GPU
     'ADA89',  # NVIDIA Ada Lovelace generation CC 8.9 GPU
     'HOPPER90',  # NVIDIA Hopper generation CC 9.0 GPU
+    'BLACKWELL100',  # NVIDIA Blackwell generation CC 10.0 GPU, since LAMMPS 22Jul2025
+    'BLACKWELL120',  # NVIDIA Blackwell generation CC 12.0 GPU, since LAMMPS 22Jul2025
+
     'VEGA900',  # AMD GPU MI25 GFX900
     'VEGA906',  # AMD GPU MI50/MI60 GFX906
     'VEGA908',  # AMD GPU MI100 GFX908
     'VEGA90A',  # AMD GPU MI200 GFX90A
     'NAVI1030',  # AMD GPU MI200 GFX90A
     'NAVI1100',  # AMD GPU RX7900XTX
+    'AMD_GFX906',  # AMD GPU MI50/MI60, since LAMMPS 29Aug2024
+    'AMD_GFX908',  # AMD GPU MI100, since LAMMPS 29Aug2024
+    'AMD_GFX90A',  # AMD GPU MI200, since LAMMPS 29Aug2024
+    'AMD_GFX942',  # AMD GPU MI300, since LAMMPS 29Aug2024
+    'AMD_GFX942_APU',  # AMD APU MI300A, since LAMMPS 4Feb2025
+    'AMD_GFX1030',  # AMD GPU V620/W6800, since LAMMPS 29Aug2024
+    'AMD_GFX1100',  # AMD GPU RX7900XTX, since LAMMPS 29Aug2024
+    'AMD_GFX1103',  # AMD APU Phoenix, since LAMMPS 29Aug2024
+
     'INTEL_GEN',  # Intel GPUs Gen9+
     'INTEL_DG1',  # Intel Iris XeMAX GPU
     'INTEL_GEN9',  # Intel GPU Gen9
@@ -109,6 +127,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'INTEL_GEN12LP',  # Intel GPU Gen12LP
     'INTEL_XEHP',  # Intel GPUs Xe-HP
     'INTEL_PVC',  # Intel GPU Ponte Vecchio
+    'INTEL_DG2',  # Intel GPU DG2, since LAMMPS 22Jul2025
 ] + INTEL_PACKAGE_ARCH_LIST
 
 KOKKOS_LEGACY_ARCH_MAPPING = {
@@ -150,7 +169,10 @@ KOKKOS_GPU_ARCH_TABLE = {
     '7.5': 'TURING75',  # NVIDIA Turing generation CC 7.5
     '8.0': 'AMPERE80',  # NVIDIA Ampere generation CC 8.0
     '8.6': 'AMPERE86',  # NVIDIA Ampere generation CC 8.6
+    '8.9': 'ADA89',  # NVIDIA Ada Lovelace generation CC 8.9
     '9.0': 'HOPPER90',  # NVIDIA Hopper generation CC 9.0
+    '10.0': 'BLACKWELL100',  # NVIDIA Blackwell generation CC 10.0
+    '12.0': 'BLACKWELL120',  # NVIDIA Blackwell generation CC 12.0
 }
 
 # lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
@@ -230,9 +252,11 @@ class EB_LAMMPS(CMakeMake):
             self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
             self.kokkos_cpu_mapping['skylake'] = 'SKL'
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('4Feb2025')):
-            self.kokkos_cpu_mapping['neoverse_v2'] = 'ARMv9-Grace'
+            self.kokkos_cpu_mapping['neoverse_v2'] = 'ARMV9_GRACE'
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Apr2025')):
             self.kokkos_cpu_mapping['zen4'] = 'ZEN4'
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('22Jul2025')):
+            self.kokkos_cpu_mapping['zen5'] = 'ZEN5'
 
     def get_kokkos_arch(self, cuda_cc, kokkos_arch):
         """
@@ -271,6 +295,8 @@ class EB_LAMMPS(CMakeMake):
         # If kokkos_arch was not set...
         elif LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
             # for LAMMPS >= 2Aug2023: use native CPU arch
+            # If we specify a CPU arch, Kokkos' CMake will add the correspondent -march and -mtune flags to the
+            # compilation line, possibly overriding the ones set by EasyBuild.
             processor_arch = 'NATIVE'
         else:
             # for old versions: try to auto-detect CPU arch
