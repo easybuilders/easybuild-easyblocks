@@ -138,6 +138,17 @@ class EB_SuperLU(CMakeMake):
         """
         if self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'test'
+
+        # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
+        # to avoid that some tests fail if only a handful of cores are available
+        ompi_ver = get_software_version('OpenMPI')
+        if LooseVersion(ompi_ver) >= LooseVersion('5.0'):
+            if 'PRTE_MCA_rmaps_default_mapping_policy' not in self.cfg['pretestopts']:
+                self.cfg.update('pretestopts', "export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe && ")
+        elif LooseVersion(ompi_ver) >= LooseVersion('3.0'):
+            if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
+                self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
+
         super().test_step()
 
     def install_step(self):
