@@ -93,7 +93,7 @@ class EB_CP2K(EasyBlock):
         extra_vars = {
             'extracflags': ['', "Extra CFLAGS to be added", CUSTOM],
             'extradflags': ['', "Extra DFLAGS to be added", CUSTOM],
-            'ignore_regtest_fails': [ False, "Ignore failures in regression test", CUSTOM],
+            'ignore_regtest_fails': [False, "Ignore failures in regression test", CUSTOM],
             'library': [False, "Also build CP2K as a library", CUSTOM],
             'maxtasks': [4, ("Maximum number of CP2K instances run at " "the same time during testing"), CUSTOM],
             'modinc': [[], ("List of modinc's to use (*.f90], or 'True' to use " "all found at given prefix"), CUSTOM],
@@ -664,7 +664,6 @@ class EB_CP2K(EasyBlock):
     def configure_MKL(self, options):
         """Configure for Intel Math Kernel Library (MKL)"""
 
-        cp2k_version = LooseVersion(self.version)
         options['INTEL_INC'] = '$(MKLROOT)/include'
         options['DFLAGS'] += ' -D__FFTW3'
 
