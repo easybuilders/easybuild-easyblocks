@@ -40,7 +40,7 @@ import os
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_dir, extract_file, empty_dir, remove_dir
+from easybuild.tools.filetools import clean_dir, copy_dir, extract_file, remove_dir
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -112,7 +112,7 @@ class Tarball(ExtensionEasyBlock):
             # Empty and copy root of installation directory (default)
             install_path = self.installdir
             install_logmsg = "Copying tarball contents of %s into %s after emptying it..."
-            empty_dir(install_path)
+            clean_dir(install_path)
         else:
             raise EasyBuildError("Unknown option '%s' for index_type.", self.cfg['install_type'])
 

@@ -42,7 +42,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.filetools import empty_dir, which
+from easybuild.tools.filetools import clean_dir, which
 
 
 class EB_Amber(CMakeMake):
@@ -129,7 +129,7 @@ class EB_Amber(CMakeMake):
 
         # CMake will search a previous install directory for Amber-compiled libs. We will therefore
         # manually empty the install directory prior to configuration.
-        empty_dir(self.installdir)
+        clean_dir(self.installdir)
 
         external_libs_list = []
 

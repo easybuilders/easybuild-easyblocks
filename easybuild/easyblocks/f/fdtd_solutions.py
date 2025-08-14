@@ -64,7 +64,7 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
     def install_step(self):
         """Install FDTD Solutions using copy tree."""
         fdtd_dir = os.path.join(self.cfg['start_dir'], 'opt', 'lumerical', 'fdtd')
-        copy_dir(fdtd_dir, self.installdir, symlinks=self.cfg['keepsymlinks'])
+        copy_dir(fdtd_dir, self.installdir, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=True)
 
     def sanity_check_step(self):
         """Custom sanity check for FDTD Solutions."""
