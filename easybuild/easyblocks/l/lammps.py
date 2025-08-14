@@ -324,7 +324,6 @@ class EB_LAMMPS(CMakeMake):
             'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
             'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def prepare_step(self, *args, **kwargs):

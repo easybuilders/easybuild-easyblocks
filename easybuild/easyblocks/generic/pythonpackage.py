@@ -967,6 +967,18 @@ class PythonPackage(ExtensionEasyBlock):
         super().load_module(*args, **kwargs)
         set_py_env_vars(self.log)
 
+    def sanity_check_load_module(self, *args, **kwargs):
+        """
+        Load module to prepare environment for sanity check.
+        Also make sure that Python command to use has been figured out.
+        """
+        mod_data = super().sanity_check_load_module(*args, **kwargs)
+
+        if self.python_cmd is None:
+            self.prepare_python()
+
+        return mod_data
+
     def sanity_check_step(self, *args, **kwargs):
         """
         Custom sanity check for Python packages

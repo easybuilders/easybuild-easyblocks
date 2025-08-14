@@ -578,21 +578,37 @@ class EB_Python(ConfigureMake):
             tclver = get_software_version('Tcl')
             tkver = get_software_version('Tk')
             tcltk_maj_min_ver = '.'.join(tclver.split('.')[:2])
+            tcltk_maj_ver = tkver.split('.')[0]
             if tcltk_maj_min_ver != '.'.join(tkver.split('.')[:2]):
                 raise EasyBuildError("Tcl and Tk major/minor versions don't match: %s vs %s", tclver, tkver)
 
             tcl_libdir = os.path.join(tcl, get_software_libdir('Tcl'))
             tk_libdir = os.path.join(tk, get_software_libdir('Tk'))
-            tcltk_libs = "-L%(tcl_libdir)s -L%(tk_libdir)s -ltcl%(maj_min_ver)s -ltk%(maj_min_ver)s" % {
+            if LooseVersion(tkver) > '9.0':
+                tk_libname = f'tcl{tcltk_maj_ver}tk{tcltk_maj_min_ver}'
+            else:
+                tk_libname = f'tk{tcltk_maj_min_ver}'
+            tcltk_libs = f"-L%(tcl_libdir)s -L%(tk_libdir)s -ltcl%(maj_min_ver)s -l{tk_libname}" % {
                 'tcl_libdir': tcl_libdir,
                 'tk_libdir': tk_libdir,
                 'maj_min_ver': tcltk_maj_min_ver,
             }
+            # Determine if we need to pass -DTCL_WITH_EXTERNAL_TOMMATH
+            # by checking if libtommath has a software root. If we don't,
+            # loading Tkinter will fail, causing the module to be deleted
+            # before installation. This would typically be handled by
+            # pkg-config.
+            libtommath = get_software_root('libtommath')
+            libtommath_define = ''
+            if libtommath:
+                libtommath_define += '-DTCL_WITH_EXTERNAL_TOMMATH'
+
             if LooseVersion(self.version) < '3.11':
-                self.cfg.update('configopts', "--with-tcltk-includes='-I%s/include -I%s/include'" % (tcl, tk))
+                self.cfg.update('configopts',
+                                "--with-tcltk-includes='-I%s/include -I%s/include %s'" % (tcl, tk, libtommath_define))
                 self.cfg.update('configopts', "--with-tcltk-libs='%s'" % tcltk_libs)
             else:
-                env.setvar('TCLTK_CFLAGS', '-I%s/include -I%s/include' % (tcl, tk))
+                env.setvar('TCLTK_CFLAGS', '-I%s/include -I%s/include %s' % (tcl, tk, libtommath_define))
                 env.setvar('TCLTK_LIBS', tcltk_libs)
 
         # This matters e.g. when python installs the bundled pip & setuptools (for >= 3.4)
