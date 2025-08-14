@@ -128,7 +128,7 @@ class EB_Amber(CMakeMake):
             return
 
         # CMake will search a previous install directory for Amber-compiled libs. We will therefore
-        # manually empty the install directory prior to configuration.
+        # manually clean the install directory prior to configuration.
         clean_dir(self.installdir)
 
         external_libs_list = []

@@ -109,9 +109,9 @@ class Tarball(ExtensionEasyBlock):
             install_path = self.installdir
             install_logmsg = "Merging tarball contents of %s into %s..."
         elif self.cfg['install_type'] is None:
-            # Empty and copy root of installation directory (default)
+            # Clean and copy root of installation directory (default)
             install_path = self.installdir
-            install_logmsg = "Copying tarball contents of %s into %s after emptying it..."
+            install_logmsg = "Copying tarball contents of %s into %s after cleaning it..."
             clean_dir(install_path)
         else:
             raise EasyBuildError("Unknown option '%s' for index_type.", self.cfg['install_type'])
