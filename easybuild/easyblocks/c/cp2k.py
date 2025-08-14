@@ -601,7 +601,7 @@ class EB_CP2K(EasyBlock):
                 }
             )
             options['FCFLAGSOPT'] = (
-                '-O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp ' 
+                '-O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp '
                 '-fPIC $(FREE) $(DFLAGS) -fmax-stack-var-size=32768'
             )
             options['FCFLAGSOPT2'] = options['FCFLAGSOPT'].replace('-O3', '-O2')
