@@ -95,7 +95,6 @@ class EB_CP2K(EasyBlock):
             'extradflags': ['', "Extra DFLAGS to be added", CUSTOM],
             'ignore_regtest_fails': [False, "Ignore failures in regression test", CUSTOM],
             'library': [False, "Also build CP2K as a library", CUSTOM],
-            'maxtasks': [4, ("Maximum number of CP2K instances run at " "the same time during testing"), CUSTOM],
             'modinc': [[], ("List of modinc's to use (*.f90], or 'True' to use " "all found at given prefix"), CUSTOM],
             'modincprefix': ['', "Intel MKL prefix for modinc include dir", CUSTOM],
             'runtest': [True, "Build and run CP2K tests", CUSTOM],
@@ -875,7 +874,7 @@ class EB_CP2K(EasyBlock):
                     'cp2k_version': self.cfg['type'],
                     'triplet': self.typearch,
                     'cp2k_dir': os.path.basename(os.path.normpath(self.cfg['start_dir'])),
-                    'maxtasks': self.cfg['maxtasks'],
+                    'maxtasks': self.cfg['tests_maxtasks'],
                     'mpicmd_prefix': self.toolchain.mpi_cmd_for('', test_core_cnt),
                 }
 
