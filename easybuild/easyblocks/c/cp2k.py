@@ -102,7 +102,7 @@ class EB_CP2K(EasyBlock):
             'plumed': [None, "Enable PLUMED support", CUSTOM],
             'type': ['popt', "Type of build ('popt' or 'psmp')", CUSTOM],
             'typeopt': [True, "Enable optimization", CUSTOM],
-            'tests_maxtasks': [1, "--maxtasks in regtest command", CUSTOM],
+            'tests_maxtasks': [4, "--maxtasks in regtest command", CUSTOM],
             'tests_mpiranks': [1, "--mpiranks in regtest command", CUSTOM],
             'tests_ompthreads': [1, "--ompthreads in regtest command", CUSTOM],
             'tests_maxerrors': [10000, "--maxerrors in regtest command", CUSTOM],
