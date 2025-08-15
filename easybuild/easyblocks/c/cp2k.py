@@ -95,7 +95,7 @@ class EB_CP2K(EasyBlock):
             'extradflags': ['', "Extra DFLAGS to be added", CUSTOM],
             'ignore_regtest_fails': [False, "Ignore failures in regression test", CUSTOM],
             'library': [False, "Also build CP2K as a library", CUSTOM],
-            'modinc': [[], ("List of modinc's to use (*.f90), or 'True' to use " " all found at given prefix"), CUSTOM],
+            'modinc': [[], ("List of modinc's to use (*.f90), or 'True' to use all found at given prefix"), CUSTOM],
             'modincprefix': ['', "Intel MKL prefix for modinc include dir", CUSTOM],
             'runtest': [True, "Build and run CP2K tests", CUSTOM],
             'omp_num_threads': [None, "Value to set $OMP_NUM_THREADS to during testing", CUSTOM],
@@ -227,6 +227,29 @@ class EB_CP2K(EasyBlock):
         if plumed and (self.cfg['plumed'] or self.cfg['plumed'] is None):
             options['LIBS'] += ' -lplumed'
             options['DFLAGS'] += ' -D__PLUMED2'
+
+        # SIRIUS
+        sirius = get_software_root('SIRIUS')
+        if sirius:
+            options['DFLAGS'] += ' -D__SIRIUS'
+
+            # includes for sirius.mod
+            include_dir = os.path.join(sirius, 'include', 'sirius')
+            if os.path.isdir(include_dir):
+                options['INCS'] += f' -I{include_dir}'
+            else:
+                options['INCS'] += f" -I{os.path.join(sirius, 'include')}"
+
+            # ensure C++ linker flags are OK
+            if not options.get('CXX'):
+                options['CXX'] = os.getenv('MPICXX') or 'mpicxx'
+
+            # library search paths
+            for libdir in (os.path.join(sirius, 'lib'), os.path.join(sirius, 'lib64')):
+                if os.path.isdir(libdir):
+                    options['LDFLAGS'] += f' -L{libdir}'
+
+            options['LIBS'] += ' -lsirius -lstdc++ -ldl'
 
         # ELPA
         elpa = get_software_root('ELPA')
@@ -418,6 +441,7 @@ class EB_CP2K(EasyBlock):
             if os.path.isdir(lib64):
                 options['LDFLAGS'] += f' -L{lib64}'
 
+        # LIBINT
         libint = get_software_root('LibInt')
         if libint:
             options['DFLAGS'] += ' -D__LIBINT'
@@ -472,6 +496,7 @@ class EB_CP2K(EasyBlock):
             # throw a warning, since CP2K without Libint doesn't make much sense
             self.log.warning("Libint module not loaded, so building without Libint support")
 
+        # LIBXC
         libxc = get_software_root('libxc')
         if libxc:
             cur_libxc_version = get_software_version('libxc')
@@ -501,46 +526,6 @@ class EB_CP2K(EasyBlock):
                 options['INCS'] += f' -I{inc_sub}'
         else:
             self.log.info("libxc module not loaded, so building without libxc support")
-
-        # SIRIUS (plane-wave/AE/USPP/PAW engine)
-        sirius = get_software_root('SIRIUS')
-        if sirius:
-            options['DFLAGS'] += ' -D__SIRIUS'
-
-            # includes for sirius.mod
-            for inc in (os.path.join(sirius, 'include'), os.path.join(sirius, 'include', 'sirius')):
-                if os.path.isdir(inc):
-                    options['INCS'] += f' -I{inc}'
-
-            # ensure C++ linker flags are OK
-            if 'CXX' not in options or not options['CXX']:
-                options['CXX'] = os.getenv('MPICXX') or 'mpicxx'
-
-            # library search paths
-            for libdir in (os.path.join(sirius, 'lib'), os.path.join(sirius, 'lib64')):
-                if os.path.isdir(libdir):
-                    options['LDFLAGS'] += f' -L{libdir}'
-
-            # prefer pkg-config if present
-            pcdir = os.path.join(sirius, 'lib', 'pkgconfig')
-            pcflags = ''
-            pclibs = ''
-            if os.path.isdir(pcdir):
-                env = os.environ.copy()
-                env['PKG_CONFIG_PATH'] = pcdir + (':' + env['PKG_CONFIG_PATH'] if env.get('PKG_CONFIG_PATH') else '')
-                res = run_shell_cmd("pkg-config --cflags sirius", env=env, fail_on_error=False, hidden=True)
-                if res.exit_code == 0:
-                    pcflags = res.output.strip()
-                res = run_shell_cmd("pkg-config --libs sirius", env=env, fail_on_error=False, hidden=True)
-                if res.exit_code == 0:
-                    pclibs = res.output.strip()
-
-            if pcflags:
-                options['INCS'] += ' ' + pcflags
-            if pclibs:
-                options['LIBS'] += ' ' + pclibs
-            else:
-                options['LIBS'] += ' -lsirius -lstdc++ -ldl'
 
         return options
 
