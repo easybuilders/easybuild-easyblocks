@@ -95,7 +95,7 @@ class EB_CP2K(EasyBlock):
             'extradflags': ['', "Extra DFLAGS to be added", CUSTOM],
             'ignore_regtest_fails': [False, "Ignore failures in regression test", CUSTOM],
             'library': [False, "Also build CP2K as a library", CUSTOM],
-            'modinc': [[], ("List of modinc's to use (*.f90], or 'True' to use " "all found at given prefix"), CUSTOM],
+            'modinc': [[], ("List of modinc's to use (*.f90), or 'True' to use " " all found at given prefix"), CUSTOM],
             'modincprefix': ['', "Intel MKL prefix for modinc include dir", CUSTOM],
             'runtest': [True, "Build and run CP2K tests", CUSTOM],
             'omp_num_threads': [None, "Value to set $OMP_NUM_THREADS to during testing", CUSTOM],
@@ -274,6 +274,10 @@ class EB_CP2K(EasyBlock):
 
         # specify correct location for 'data' directory in final installation
         options['DATA_DIR'] = os.path.join(self.installdir, 'data')
+
+        # fix problem with v2024.x and the cp_cfm_basic_linalg.F asserts errors
+        if LooseVersion('2024.2') <= cp2k_version <= LooseVersion('2024.3'):
+            self.make_instructions += "cp_cfm_basic_linalg.o: fm/cp_cfm_basic_linalg.F\n" "\t$(FC) -c $(FCFLAGS2) $<\n"
 
         # create arch file using options set
         archfile = os.path.join(self.cfg['start_dir'], 'arch', '%s.%s' % (self.typearch, self.cfg['type']))
@@ -482,16 +486,61 @@ class EB_CP2K(EasyBlock):
                 raise EasyBuildError("This version of CP2K is not compatible with libxc < %s" % libxc_min_version)
 
             if LooseVersion(cur_libxc_version) >= LooseVersion('4.0.3'):
-                # cfr. https://www.cp2k.org/howto:compile#k_libxc_optional_wider_choice_of_xc_functionals
                 options['LIBS'] += ' -L%s/lib -lxcf03 -lxc' % libxc
             elif LooseVersion(cur_libxc_version) >= LooseVersion('2.2'):
                 options['LIBS'] += ' -L%s/lib -lxcf90 -lxc' % libxc
             else:
                 options['LIBS'] += ' -L%s/lib -lxc' % libxc
-            options['INCS'] += f' -I{libxc}/include -I{libxc}/include/libxc'
-            self.log.info("Using Libxc-%s" % cur_libxc_version)
+
+            # only add existing include dirs
+            inc_main = os.path.join(libxc, 'include')
+            inc_sub = os.path.join(libxc, 'include', 'libxc')
+            if os.path.isdir(inc_main):
+                options['INCS'] += f' -I{inc_main}'
+            if os.path.isdir(inc_sub):
+                options['INCS'] += f' -I{inc_sub}'
         else:
             self.log.info("libxc module not loaded, so building without libxc support")
+
+        # SIRIUS (plane-wave/AE/USPP/PAW engine)
+        sirius = get_software_root('SIRIUS')
+        if sirius:
+            options['DFLAGS'] += ' -D__SIRIUS'
+
+            # includes for sirius.mod
+            for inc in (os.path.join(sirius, 'include'), os.path.join(sirius, 'include', 'sirius')):
+                if os.path.isdir(inc):
+                    options['INCS'] += f' -I{inc}'
+
+            # ensure C++ linker flags are OK
+            if 'CXX' not in options or not options['CXX']:
+                options['CXX'] = os.getenv('MPICXX') or 'mpicxx'
+
+            # library search paths
+            for libdir in (os.path.join(sirius, 'lib'), os.path.join(sirius, 'lib64')):
+                if os.path.isdir(libdir):
+                    options['LDFLAGS'] += f' -L{libdir}'
+
+            # prefer pkg-config if present
+            pcdir = os.path.join(sirius, 'lib', 'pkgconfig')
+            pcflags = ''
+            pclibs = ''
+            if os.path.isdir(pcdir):
+                env = os.environ.copy()
+                env['PKG_CONFIG_PATH'] = pcdir + (':' + env['PKG_CONFIG_PATH'] if env.get('PKG_CONFIG_PATH') else '')
+                res = run_shell_cmd("pkg-config --cflags sirius", env=env, fail_on_error=False, hidden=True)
+                if res.exit_code == 0:
+                    pcflags = res.output.strip()
+                res = run_shell_cmd("pkg-config --libs sirius", env=env, fail_on_error=False, hidden=True)
+                if res.exit_code == 0:
+                    pclibs = res.output.strip()
+
+            if pcflags:
+                options['INCS'] += ' ' + pcflags
+            if pclibs:
+                options['LIBS'] += ' ' + pclibs
+            else:
+                options['LIBS'] += ' -lsirius -lstdc++ -ldl'
 
         return options
 
@@ -602,7 +651,7 @@ class EB_CP2K(EasyBlock):
             )
             options['FCFLAGSOPT'] = (
                 '-O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp '
-                '-fPIC $(FREE) $(DFLAGS) -fmax-stack-var-size=32768'
+                '-fPIC $(FREE) $(DFLAGS) -fmax-stack-var-size=32768 -frecursive'
             )
             options['FCFLAGSOPT2'] = options['FCFLAGSOPT'].replace('-O3', '-O2')
         else:
@@ -792,14 +841,6 @@ class EB_CP2K(EasyBlock):
             # change to root of build dir
             change_dir(self.builddir)
 
-            # use regression test reference output if available
-            # try and find an unpacked directory that starts with 'LAST-'
-            regtest_refdir = None
-            for d in os.listdir(self.builddir):
-                if d.startswith("LAST-"):
-                    regtest_refdir = d
-                    break
-
             if LooseVersion(self.version) >= LooseVersion('2025'):
                 exedir = os.path.join(self.cfg['start_dir'], 'exe', self.typearch)
             else:
@@ -811,7 +852,6 @@ class EB_CP2K(EasyBlock):
                 else:
                     regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest.py')
                 regtest_cmd = [
-                    f"{get_software_root('python')}/bin/python",
                     regtest_script,
                     f"--maxtasks {self.cfg['tests_maxtasks']}",
                     f"--mpiranks {self.cfg['tests_mpiranks']}",
@@ -840,6 +880,14 @@ class EB_CP2K(EasyBlock):
                     regtest_cmd = [regtest_script, '-nocvs', '-quick', '-nocompile', '-config', cfg_fn]
 
                 # patch do_regtest so that reference output is used
+                # use regression test reference output if available
+                # try and find an unpacked directory that starts with 'LAST-'
+                regtest_refdir = None
+                for d in os.listdir(self.builddir):
+                    if d.startswith("LAST-"):
+                        regtest_refdir = d
+                        break
+
                 if regtest_refdir:
                     self.log.info("Using reference output available in %s" % regtest_refdir)
                     try:
