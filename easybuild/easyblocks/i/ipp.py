@@ -110,13 +110,19 @@ class EB_ipp(IntelBase):
         if LooseVersion(major_minor_version) > '2022.0':
             include_path = os.path.join('ipp', major_minor_version, 'include')
             lib_path = os.path.join('ipp', major_minor_version, 'lib')
+            cmake_prefix_path = os.path.join('ipp', major_minor_version)
+            cmake_module_path = os.path.join('ipp', major_minor_version, 'lib', 'cmake')
         else:
-            include_path = os.path.join('ipp', major_minor_version, 'include')
-            lib_path = os.path.join('ipp', major_minor_version, 'lib', self.arch)
+            include_path = os.path.join('ipp', self.version, 'include')
+            lib_path = os.path.join('ipp', self.version, 'lib', self.arch)
+            cmake_prefix_path = os.path.join('ipp', self.version)
+            cmake_module_path = os.path.join('ipp', self.version, 'lib', 'cmake')
 
         self.module_load_environment.PATH = []
         self.module_load_environment.LD_LIBRARY_PATH = [lib_path]
         self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
+        self.module_load_environment.CMAKE_PREFIX_PATH = os.path.join(cmake_prefix_path)
+        self.module_load_environment.CMAKE_MODULE_PATH = os.path.join(cmake_module_path)
         self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, include_path)
 
         return super().make_module_step(*args, **kwargs)
