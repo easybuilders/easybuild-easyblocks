@@ -106,7 +106,7 @@ class EB_ipp(IntelBase):
         Set paths for module load environment based on the actual installation files
         """
         major_minor_version = '.'.join(self.version.split('.')[:2])
-        if LooseVersion(major_minor_version) > '2022.0':
+        if LooseVersion(major_minor_version) >= '2022.0':
             include_path = os.path.join('ipp', major_minor_version, 'include')
             lib_path = os.path.join('ipp', major_minor_version, 'lib')
             cmake_prefix_path = os.path.join('ipp', major_minor_version)
