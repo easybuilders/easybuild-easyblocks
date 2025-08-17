@@ -57,17 +57,6 @@ class EB_ipp(IntelBase):
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2021.0."
             )
 
-    def prepare_step(self, *args, **kwargs):
-        kwargs['requires_runtime_license'] = False
-        super().prepare_step(*args, **kwargs)
-
-    def install_step(self):
-        """
-        Actual installation
-        - create silent cfg file
-        - execute command
-        """
-
         platform_name = get_platform_name()
         if platform_name.startswith('x86_64'):
             self.arch = "intel64"
@@ -78,6 +67,16 @@ class EB_ipp(IntelBase):
         else:
             raise EasyBuildError("Failed to determine system architecture based on %s", platform_name)
 
+    def prepare_step(self, *args, **kwargs):
+        kwargs['requires_runtime_license'] = False
+        super().prepare_step(*args, **kwargs)
+
+    def install_step(self):
+        """
+        Actual installation
+        - create silent cfg file
+        - execute command
+        """
         silent_cfg_names_map = None
         silent_cfg_extras = {
             'ARCH_SELECTED': self.arch.upper()
