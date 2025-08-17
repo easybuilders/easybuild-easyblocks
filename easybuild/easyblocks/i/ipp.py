@@ -40,9 +40,10 @@ import os
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.systemtools import get_platform_name
 from easybuild.tools.systemtools import get_shared_lib_ext
+
 
 class EB_ipp(IntelBase):
     """
