@@ -52,7 +52,7 @@ class EB_ipp(IntelBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if LooseVersion(self.version) < LooseVersion('2021'):
+        if LooseVersion(self.version) < '2021':
             raise EasyBuildError(
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2021.0."
             )
@@ -71,6 +71,10 @@ class EB_ipp(IntelBase):
         platform_name = get_platform_name()
         if platform_name.startswith('x86_64'):
             self.arch = "intel64"
+        elif platform_name.startswith('i386') or platform_name.startswith('i686'):
+            if LooseVersion(self.version) >= '2022.0':
+                raise EasyBuildError(f"ipp is not supported on {platform_name} starting with 2022.0.0")
+            self.arch = 'ia32'
         else:
             raise EasyBuildError("Failed to determine system architecture based on %s", platform_name)
 
@@ -103,8 +107,12 @@ class EB_ipp(IntelBase):
         Set paths for module load environment based on the actual installation files
         """
         major_minor_version = '.'.join(self.version.split('.')[:2])
-        include_path = os.path.join('ipp', major_minor_version, 'include')
-        lib_path = os.path.join('ipp', major_minor_version, 'lib')
+        if LooseVersion(major_minor_version) > '2022.0':
+            include_path = os.path.join('ipp', major_minor_version, 'include')
+            lib_path = os.path.join('ipp', major_minor_version, 'lib')
+        else:
+            include_path = os.path.join('ipp', major_minor_version, 'include')
+            lib_path = os.path.join('ipp', major_minor_version, 'lib', self.arch)
 
         self.module_load_environment.PATH = []
         self.module_load_environment.LD_LIBRARY_PATH = [lib_path]
