@@ -48,7 +48,7 @@ TOOLCHAIN_HIPCC = "hipcc"
 TOOLCHAIN_DEFAULT = "default"
 
 
-class EB_ROCmComponent(CMakeMake):
+class ROCmComponent(CMakeMake):
     """Support for building ROCm components"""
 
     @staticmethod
