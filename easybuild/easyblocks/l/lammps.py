@@ -361,6 +361,9 @@ class EB_LAMMPS(CMakeMake):
 
         # LAMMPS Configuration Options
         # https://github.com/lammps/lammps/blob/master/cmake/README.md#lammps-configuration-options
+        if build_option('rpath'):
+            self.cfg.update('configopts', '-DLAMMPS_INSTALL_RPATH=ON')
+
         if self.cfg['general_packages']:
             for package in self.cfg['general_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_prefix, package))
@@ -368,6 +371,16 @@ class EB_LAMMPS(CMakeMake):
         if self.cfg['user_packages']:
             for package in self.cfg['user_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_user_prefix, package))
+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Aug2024')):
+            if self.cfg['runtest'] is None or self.cfg['runtest']:
+                self.cfg['runtest'] = True
+                build_dep_names = [d['name'] for d in self.cfg.builddependencies()]
+                for tool in ['PyYAML']:
+                    if tool not in build_dep_names:
+                        raise EasyBuildError("%s not included as build dependency", tool)
+                    else:
+                        self.cfg.update('configopts', '-DENABLE_TESTING=on')
 
         # Optimization settings
         pkg_opt = '-D%sOPT=' % self.pkg_prefix
@@ -532,6 +545,21 @@ class EB_LAMMPS(CMakeMake):
             }
 
             run_shell_cmd(cmd)
+
+    def test_step(self):
+        """Filte the ctests that should be run"""
+
+        # There does not seem to be an easy way at the moment to add at the end of the test command
+        # Doing this for now
+        if self.cfg.get('runtest') is True and not self.cfg.get('test_cmd'):
+            test_cmd = 'ctest'
+            if LooseVersion(self.cmake_version) >= '3.17.0':
+                test_cmd += ' --no-tests=error'
+            test_cmd += ' -LE unstable -E "TestMliapPyUnified|PythonPackage"'
+            self.log.debug("`runtest = True` found, using '%s' as test_cmd", test_cmd)
+            self.cfg['test_cmd'] = test_cmd
+
+        super().test_step()
 
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
