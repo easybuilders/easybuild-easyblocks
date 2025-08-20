@@ -114,23 +114,6 @@ KOKKOS_CPU_ARCH_LIST = [
     'INTEL_DG2',  # Intel GPU DG2, since Kokkos 4.7
 ] + KOKKOS_INTEL_PACKAGE_ARCH_LIST
 
-
-KOKKOS_CPU_MAPPING = {
-    'sandybridge': 'SNB',
-    'ivybridge': 'SNB',
-    'haswell': 'HSW',
-    'broadwell': 'BDW',
-    'skylake_avx512': 'SKX',
-    'cascadelake': 'SKX',
-    'icelake': 'SKX',
-    'sapphirerapids': 'SKX',
-    'knights-landing': 'KNL',
-    'zen': 'ZEN',
-    'zen2': 'ZEN2',
-    'zen3': 'ZEN3',
-    'power9le': 'POWER9',
-}
-
 KOKKOS_GPU_ARCH_TABLE = {
     '3.0': 'KEPLER30',  # NVIDIA Kepler generation CC 3.0
     '3.2': 'KEPLER32',  # NVIDIA Kepler generation CC 3.2
