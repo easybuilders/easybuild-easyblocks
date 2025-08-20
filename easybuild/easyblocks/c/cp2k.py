@@ -104,7 +104,6 @@ class EB_CP2K(EasyBlock):
             'typeopt': [True, "Enable optimization", CUSTOM],
             'tests_maxtasks': [4, "--maxtasks in regtest command", CUSTOM],
             'tests_mpiranks': [1, "--mpiranks in regtest command", CUSTOM],
-            'tests_ompthreads': [1, "--ompthreads in regtest command", CUSTOM],
             'tests_maxerrors': [10000, "--maxerrors in regtest command", CUSTOM],
             'tests_timeout': [1000, "--timeout in regtest command", CUSTOM],
             'gpuver': ['H100', "CUDA gpu version", CUSTOM],
@@ -297,10 +296,6 @@ class EB_CP2K(EasyBlock):
 
         # specify correct location for 'data' directory in final installation
         options['DATA_DIR'] = os.path.join(self.installdir, 'data')
-
-        # # fix problem with v2024.x and the cp_cfm_basic_linalg.F asserts errors
-        # if LooseVersion('2024.2') <= cp2k_version <= LooseVersion('2024.3'):
-        #     self.make_instructions += "cp_cfm_basic_linalg.o: fm/cp_cfm_basic_linalg.F\n" "\t$(FC) -c $(FCFLAGS2) $<\n"
 
         # create arch file using options set
         archfile = os.path.join(self.cfg['start_dir'], 'arch', '%s.%s' % (self.typearch, self.cfg['type']))
@@ -638,7 +633,7 @@ class EB_CP2K(EasyBlock):
                 '-O3 -ftree-vectorize -march=native -fno-math-errno -fopenmp '
                 '-fPIC $(FREE) $(DFLAGS)'
             )
-            # options['FCFLAGSOPT2'] = options['FCFLAGSOPT'].replace('-O3', '-O2')
+            options['FCFLAGSOPT2'] = options['FCFLAGSOPT'].replace('-O3', '-O2')
         else:
             options.update(
                 {
@@ -838,11 +833,12 @@ class EB_CP2K(EasyBlock):
                     regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest.py')
                 regtest_cmd = [
                     regtest_script,
-                    f"--maxtasks {self.cfg['tests_maxtasks']}",
-                    # f"--mpiranks {self.cfg['tests_mpiranks']}",
-                    # f"--ompthreads {self.cfg['tests_ompthreads']}",
-                    f"--maxerrors {self.cfg['tests_maxerrors']}",
-                    f"--timeout {self.cfg['tests_timeout']}",
+                    f"--maxtasks {self.cfg['tests_maxtasks']}",  # 4 by default
+                    f"--mpiranks {self.cfg['tests_mpiranks']}",  # 1 by default
+                    # set --ompthreads test flag only when omp_num_threads is set
+                   *([f"--ompthreads {self.cfg['omp_num_threads']}"] if self.cfg['omp_num_threads'] else []),
+                    f"--maxerrors {self.cfg['tests_maxerrors']}",  #10 000 by default
+                    f"--timeout {self.cfg['tests_timeout']}",  # 1000 by default
                     "--debug",
                     exedir,
                     self.cfg['type'],
