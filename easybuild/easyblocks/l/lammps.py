@@ -677,7 +677,9 @@ class EB_LAMMPS(CMakeMake):
         ]
 
         # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Sep2021')):
+        # This is actually not needed if mpi4py is installed, and can cause a crash in version 2025+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Sep2021')) and \
+           LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('22Jul2025')):
             custom_commands = [cmd + '; l.finalize()' for cmd in custom_commands]
 
         custom_commands = ["""python -c '%s'""" % cmd for cmd in custom_commands]
