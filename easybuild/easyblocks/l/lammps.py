@@ -487,6 +487,7 @@ class EB_LAMMPS(CMakeMake):
         # grab the architecture so we can check if we have Intel hardware (also used for Kokkos below)
         processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
 
+        self.pkg_intel = False
         if processor_arch in INTEL_PACKAGE_ARCH_LIST or \
            (processor_arch == 'NATIVE' and self.kokkos_cpu_mapping.get(get_cpu_arch()) in INTEL_PACKAGE_ARCH_LIST):
             # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
@@ -494,6 +495,9 @@ class EB_LAMMPS(CMakeMake):
             if pkg_user_intel not in self.cfg['configopts']:
                 if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
                     self.cfg.update('configopts', pkg_user_intel + 'on')
+                    self.pkg_intel = True
+            else:
+                self.pkg_intel = True
 
         # MPI/OpenMP
         if self.toolchain.options.get('usempi', None):
@@ -655,6 +659,7 @@ class EB_LAMMPS(CMakeMake):
         if self.cur_version is None:
             self.cur_version = translate_lammps_version(self.version, path=self.installdir)
 
+        # Test some LAMMPS examples
         # Output files need to go somewhere (and has to work for --module-only as well)
         execution_dir = tempfile.mkdtemp()
 
@@ -675,6 +680,35 @@ class EB_LAMMPS(CMakeMake):
             # And this should be done for every file specified above
             for check_file in sanity_check_test_inputs
         ]
+
+        # add accelerator-specific tests
+        if self.cfg['kokkos']:  # KOKKOS package
+            if self.cuda:  # NOTE: requires a GPU to run
+                custom_commands.append(
+                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on", "g", "1"]); l.file("%s")' %
+                    os.path.join(self.installdir, "examples", "msst", "in.msst")
+                )
+            else:
+                custom_commands.append(
+                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on"]); l.file("%s")' %
+                    os.path.join(self.installdir, "examples", "msst", "in.msst")
+                )
+        elif self.cuda:  # GPU package
+            if self.cuda:  # NOTE: requires a GPU to run
+                custom_commands.append(
+                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "gpu", "-pk", "gpu", "1"]); l.file("%s")' %
+                    os.path.join(self.installdir, "examples", "msst", "in.msst")
+                )
+        if self.pkg_intel:  # INTEL package
+            custom_commands.append(
+                'from lammps import lammps; l=lammps(cmdargs=["-sf", "intel"]); l.file("%s")' %
+                os.path.join(self.installdir, "examples", "msst", "in.msst")
+            )
+        if self.toolchain.options.get('openmp', None):  # OPENMP package
+            custom_commands.append(
+                'from lammps import lammps; l=lammps(cmdargs=["-sf", "omp", "-pk", "omp", "2"]); l.file("%s")' %
+                os.path.join(self.installdir, "examples", "msst", "in.msst")
+            )
 
         # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
         # This is actually not needed if mpi4py is installed, and can cause a crash in version 2025+
