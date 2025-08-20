@@ -46,7 +46,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext, get_avail_core_count
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
@@ -720,7 +720,10 @@ class EB_LAMMPS(CMakeMake):
 
         # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
         if self.toolchain.options.get('usempi', None):
-            custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
+            # use up to 4 cores, to speed up tests
+            test_core_cnt = min(self.cfg.parallel, get_avail_core_count(), 4)
+            self.log.info("Using %s cores for the MPI tests" % test_core_cnt)
+            custom_commands = [self.toolchain.mpi_cmd_for(cmd, test_core_cnt) for cmd in custom_commands]
 
         custom_commands = ["cd %s && " % execution_dir + cmd for cmd in custom_commands]
 
