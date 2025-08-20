@@ -837,7 +837,7 @@ class EB_CP2K(EasyBlock):
                     f"--mpiranks {self.cfg['tests_mpiranks']}",  # 1 by default
                     # set --ompthreads test flag only when omp_num_threads is set
                     *([f"--ompthreads {self.cfg['omp_num_threads']}"] if self.cfg['omp_num_threads'] else []),
-                    f"--maxerrors {self.cfg['tests_maxerrors']}",  #10 000 by default
+                    f"--maxerrors {self.cfg['tests_maxerrors']}",  # 10 000 by default
                     f"--timeout {self.cfg['tests_timeout']}",  # 1000 by default
                     "--debug",
                     exedir,
