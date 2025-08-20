@@ -359,7 +359,7 @@ class EB_LAMMPS(CMakeMake):
         # version 1.3.2 is used in the test suite to check easyblock can be initialised
         if self.version != '1.3.2':
             # take into account that build directory may not be available (in case of --module-only)
-            if os.path.exists(self.start_dir) and os.listdir(self.start_dir):
+            if self.start_dir and os.path.exists(self.start_dir) and os.listdir(self.start_dir):
                 self.cur_version = translate_lammps_version(self.version, path=self.start_dir)
             else:
                 self.cur_version = translate_lammps_version(self.version, path=self.installdir)
