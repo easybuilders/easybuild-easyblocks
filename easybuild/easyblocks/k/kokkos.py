@@ -31,7 +31,7 @@ from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.base import fancylogger
-from easybuild.framework.easyconfig import CUSTOM, MANDATORY
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
