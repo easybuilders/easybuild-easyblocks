@@ -526,6 +526,7 @@ class EB_LAMMPS(CMakeMake):
         if self.cfg['kokkos']:
             print_msg("Using Kokkos package with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sKOKKOS=on' % self.pkg_prefix)
+            self.cfg.update('configopts', '-D%s_ENABLE_SERIAL=yes' % self.kokkos_prefix)
 
             if self.toolchain.options.get('openmp', None):
                 self.cfg.update('configopts', '-D%s_ENABLE_OPENMP=yes' % self.kokkos_prefix)
