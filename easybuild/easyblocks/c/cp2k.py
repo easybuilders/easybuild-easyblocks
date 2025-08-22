@@ -276,7 +276,8 @@ class EB_CP2K(EasyBlock):
             if cp2k_version >= LooseVersion('2024'):
                 if not self.cfg['gpuver']:
                     raise EasyBuildError(
-                        "gpuver variable is not set in the easyconfig file. You must set 'gpuver' if you have CUDA included."
+                        "gpuver variable is not set in the easyconfig file. "
+                        "You must set 'gpuver' if you have CUDA included."
                     )
                 options['DFLAGS'] += ' -D__OFFLOAD_CUDA -D__DBCSR_ACC '
                 options['LIBS'] += ' -lcufft -lcudart -lnvrtc -lcuda -lcublas'
@@ -827,7 +828,7 @@ class EB_CP2K(EasyBlock):
 
             # set maxtasks to parallel if not specified in easyconfig file
             tests_maxtasks = self.cfg['tests_maxtasks'] or self.cfg.parallel
-             
+
             if LooseVersion(self.version) >= LooseVersion('2025'):
                 exedir = os.path.join(self.cfg['start_dir'], 'exe', self.typearch)
             else:
@@ -845,10 +846,10 @@ class EB_CP2K(EasyBlock):
                     f"--maxerrors {self.cfg['tests_maxerrors']}",  # 10 000 by default
                     f"--timeout {self.cfg['tests_timeout']}",  # 1000 by default
                     "--debug",
-                     # set --mpiranks test flag only when tests_mpiranks is set
-                    *([f"--mpiranks {self.cfg['tests_mpiranks']}"] if self.cfg['tests_mpiranks'] else []),  # 2 by default
-                    # set --ompthreads test flag only when omp_num_threads is set
-                    *([f"--ompthreads {self.cfg['omp_num_threads']}"] if self.cfg['omp_num_threads'] else []),  # 2 by default?
+                    # set --mpiranks test flag only when tests_mpiranks is set, 2 by default
+                    *([f"--mpiranks {self.cfg['tests_mpiranks']}"] if self.cfg['tests_mpiranks'] else []),
+                    # set --ompthreads test flag only when omp_num_threads is set, 2 by default?
+                    *([f"--ompthreads {self.cfg['omp_num_threads']}"] if self.cfg['omp_num_threads'] else []),
                     exedir,
                     self.cfg['type'],
                 ]
