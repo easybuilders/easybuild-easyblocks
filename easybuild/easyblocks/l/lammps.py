@@ -607,6 +607,23 @@ class EB_LAMMPS(CMakeMake):
         else:
             raise EasyBuildError("Expected to find a Python dependency as sanity check commands rely on it!")
 
+        # Testing (PyYAML must be installed)
+        if self.cfg['runtest'] is None or self.cfg['runtest']:
+            if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Aug2024')):
+                # Testing of KOKKOS+CUDA builds does not work for version < 22Jul2025
+                # See: https://github.com/lammps/lammps/issues/405
+                if LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('22Jul2025')) \
+                    and self.cfg['kokkos'] and self.cuda:
+                    print_warning("Skipping tests: KOKKOS+CUDA builds have broken testing in LAMMPS < 22Jul2025.")
+                    self.cfg['runtest'] = False
+                else:
+                    self.cfg['runtest'] = True
+                    if 'PyYAML' not in (dep['name'] for dep in self.cfg.builddependencies()):
+                        raise EasyBuildError("PyYAML not included as build dependency: cannot run tests.")
+                    self.cfg.update('configopts', '-DENABLE_TESTING=on')
+            else:
+                self.cfg['runtest'] = False
+
         return super().configure_step()
 
     def install_step(self):
@@ -652,6 +669,19 @@ class EB_LAMMPS(CMakeMake):
             }
 
             run_shell_cmd(cmd)
+
+    def test_step(self):
+        """Filter the ctests that should be run"""
+        # add flags to test_cmd to ignore some tests
+        if self.cfg.get('runtest') is True and not self.cfg.get('test_cmd'):
+            test_cmd = 'ctest'
+            if LooseVersion(self.cmake_version) >= '3.17.0':
+                test_cmd += ' --no-tests=error'
+            test_cmd += ' -LE unstable -E "TestMliapPyUnified|AtomicPairStyle:meam_spline|KSpaceStyle:scafacos.*"'
+            self.log.debug(f"Running tests using test_cmd = '{test_cmd}' as test_cmd")
+            self.cfg['test_cmd'] = test_cmd
+
+        super().test_step()
 
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
