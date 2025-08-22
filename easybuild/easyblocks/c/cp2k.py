@@ -102,11 +102,11 @@ class EB_CP2K(EasyBlock):
             'plumed': [None, "Enable PLUMED support", CUSTOM],
             'type': ['popt', "Type of build ('popt' or 'psmp')", CUSTOM],
             'typeopt': [True, "Enable optimization", CUSTOM],
-            'tests_maxtasks': [4, "--maxtasks in regtest command", CUSTOM],
-            'tests_mpiranks': [1, "--mpiranks in regtest command", CUSTOM],
+            'tests_maxtasks': [None, "--maxtasks in regtest command", CUSTOM],
+            'tests_mpiranks': [None, "--mpiranks in regtest command", CUSTOM],
             'tests_maxerrors': [10000, "--maxerrors in regtest command", CUSTOM],
             'tests_timeout': [1000, "--timeout in regtest command", CUSTOM],
-            'gpuver': ['H100', "CUDA gpu version", CUSTOM],
+            'gpuver': [None, "CUDA gpu version", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -274,6 +274,10 @@ class EB_CP2K(EasyBlock):
         cuda = get_software_root('CUDA')
         if cuda:
             if cp2k_version >= LooseVersion('2024'):
+                if not self.cfg['gpuver']:
+                    raise EasyBuildError(
+                        "gpuver variable is not set in the easyconfig file. You must set 'gpuver' if you have CUDA included."
+                    )
                 options['DFLAGS'] += ' -D__OFFLOAD_CUDA -D__DBCSR_ACC '
                 options['LIBS'] += ' -lcufft -lcudart -lnvrtc -lcuda -lcublas'
                 options['OFFLOAD_CC'] = 'nvcc'
@@ -821,6 +825,9 @@ class EB_CP2K(EasyBlock):
             # change to root of build dir
             change_dir(self.builddir)
 
+            # set maxtasks to parallel if not specified in easyconfig file
+            tests_maxtasks = self.cfg['tests_maxtasks'] or self.cfg.parallel
+             
             if LooseVersion(self.version) >= LooseVersion('2025'):
                 exedir = os.path.join(self.cfg['start_dir'], 'exe', self.typearch)
             else:
@@ -830,21 +837,23 @@ class EB_CP2K(EasyBlock):
                 if LooseVersion(self.version) > LooseVersion('2024.0'):
                     regtest_script = os.path.join(self.cfg['start_dir'], 'tests', 'do_regtest.py')
                 else:
+                    # only v2023.2 has test script in different directory
                     regtest_script = os.path.join(self.cfg['start_dir'], 'tools', 'regtesting', 'do_regtest.py')
                 regtest_cmd = [
                     regtest_script,
-                    f"--maxtasks {self.cfg['tests_maxtasks']}",  # 4 by default
-                    f"--mpiranks {self.cfg['tests_mpiranks']}",  # 1 by default
-                    # set --ompthreads test flag only when omp_num_threads is set
-                    *([f"--ompthreads {self.cfg['omp_num_threads']}"] if self.cfg['omp_num_threads'] else []),
+                    f"--maxtasks {tests_maxtasks}",  # parallel by default
                     f"--maxerrors {self.cfg['tests_maxerrors']}",  # 10 000 by default
                     f"--timeout {self.cfg['tests_timeout']}",  # 1000 by default
                     "--debug",
+                     # set --mpiranks test flag only when tests_mpiranks is set
+                    *([f"--mpiranks {self.cfg['tests_mpiranks']}"] if self.cfg['tests_mpiranks'] else []),  # 2 by default
+                    # set --ompthreads test flag only when omp_num_threads is set
+                    *([f"--ompthreads {self.cfg['omp_num_threads']}"] if self.cfg['omp_num_threads'] else []),  # 2 by default?
                     exedir,
                     self.cfg['type'],
                 ]
 
-            else:
+            else:  # older versions up to v2023.1
                 # configuration file for CP2K's test suite
                 cfg_fn = 'cp2k_regtest.cfg'
 
@@ -907,7 +916,7 @@ class EB_CP2K(EasyBlock):
                     'cp2k_version': self.cfg['type'],
                     'triplet': self.typearch,
                     'cp2k_dir': os.path.basename(os.path.normpath(self.cfg['start_dir'])),
-                    'maxtasks': self.cfg['tests_maxtasks'],
+                    'maxtasks': tests_maxtasks,
                     'mpicmd_prefix': self.toolchain.mpi_cmd_for('', test_core_cnt),
                 }
 
