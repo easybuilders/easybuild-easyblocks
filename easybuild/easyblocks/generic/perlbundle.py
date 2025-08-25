@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2024 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -50,7 +50,7 @@ class PerlBundle(Bundle):
 
     def __init__(self, *args, **kwargs):
         """Initialize PerlBundle easyblock."""
-        super(PerlBundle, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg['exts_defaultclass'] = 'PerlModule'
         self.cfg['exts_filter'] = ("perl -e 'require %(ext_name)s'", '')
@@ -65,7 +65,7 @@ class PerlBundle(Bundle):
         if sysroot:
             setvar('OPENSSL_PREFIX', sysroot)
 
-        super(PerlBundle, self).extensions_step(*args, **kwargs)
+        super().extensions_step(*args, **kwargs)
 
     def test_step(self):
         """No global test step for bundle of Perl modules."""
@@ -82,13 +82,13 @@ class PerlBundle(Bundle):
                 'dirs': [os.path.join('lib', 'perl%s' % majver)],
             }
 
-        super(Bundle, self).sanity_check_step(*args, **kwargs)
+        super().sanity_check_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Extra module entries for Perl bundles."""
         majver = get_major_perl_version()
         sitelibsuffix = get_site_suffix('sitelib')
 
-        txt = super(Bundle, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.prepend_paths("PERL%sLIB" % majver, [sitelibsuffix])
         return txt

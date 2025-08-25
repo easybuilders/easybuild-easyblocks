@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -64,19 +64,19 @@ class EB_Hadoop(Tarball):
                     raise EasyBuildError("%s not found. Failing install" % native_lib)
                 cmd += ' -Drequire.%s=true -D%s.prefix=%s' % (native_lib, native_lib, lib_root)
 
-            if self.cfg['parallel'] > 1:
-                cmd += " -T%d" % self.cfg['parallel']
-            run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+            if self.cfg.parallel > 1:
+                cmd += f" -T{self.cfg.parallel}"
+            run_shell_cmd(cmd)
 
     def install_step(self):
         """Custom install procedure for Hadoop: install-by-copy."""
         if self.cfg['build_native_libs']:
             src = os.path.join(self.cfg['start_dir'], 'hadoop-dist', 'target', 'hadoop-%s' % self.version)
-            super(EB_Hadoop, self).install_step(src=src)
+            super().install_step(src=src)
         else:
-            super(EB_Hadoop, self).install_step()
+            super().install_step()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """After the install, copy the extra native libraries into place."""
         for native_library, lib_path in self.cfg['extra_native_libs']:
             lib_root = get_software_root(native_library)
@@ -106,26 +106,26 @@ class EB_Hadoop(Tarball):
             'files': ['bin/hadoop'] + native_files,
             'dirs': ['etc', 'libexec'],
         }
-        super(EB_Hadoop, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
         fake_mod_data = self.load_fake_module(purge=True)
         # exit code is ignored, since this cmd exits with 1 if not all native libraries were found
         cmd = "hadoop checknative -a"
-        out, _ = run_cmd(cmd, simple=False, log_all=False, log_ok=False)
+        res = run_shell_cmd(cmd, fail_on_error=False)
         self.clean_up_fake_module(fake_mod_data)
 
         not_found = []
         installdir = os.path.realpath(self.installdir)
         lib_src = os.path.join(installdir, 'lib', 'native')
         for native_lib, _ in self.cfg['extra_native_libs']:
-            if not re.search(r'%s: *true *%s' % (native_lib, lib_src), out):
+            if not re.search(r'%s: *true *%s' % (native_lib, lib_src), res.output):
                 not_found.append(native_lib)
         if not_found:
             raise EasyBuildError("%s not found by 'hadoop checknative -a'.", ', '.join(not_found))
 
     def make_module_extra(self):
         """Custom extra module file entries for Hadoop."""
-        txt = super(EB_Hadoop, self).make_module_extra()
+        txt = super().make_module_extra()
         mapreduce_subdir = os.path.join('share', 'hadoop', 'mapreduce')
         txt += self.module_generator.prepend_paths('HADOOP_HOME', mapreduce_subdir)
         return txt

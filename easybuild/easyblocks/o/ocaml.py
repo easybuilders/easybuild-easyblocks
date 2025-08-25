@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 EXTS_FILTER_OCAML_PACKAGES = ("eval `opam config env` && opam list --installed %(ext_name)s.%(ext_version)s", '')
@@ -47,11 +47,11 @@ def det_opam_version():
     opam_ver = None
 
     opam_version_cmd = 'opam --version'
-    (out, ec) = run_cmd(opam_version_cmd)
-    if ec == 0:
-        res = re.search('^[0-9.]+$', out.strip())
-        if res:
-            opam_ver = res.group(0)
+    res = run_shell_cmd(opam_version_cmd, fail_on_error=False)
+    if res.exit_code == 0:
+        ver_search = re.search('^[0-9.]+$', res.output.strip())
+        if ver_search:
+            opam_ver = ver_search.group(0)
 
     if opam_ver is None:
         raise EasyBuildError("Failed to determine OPAM version using '%s'!", opam_version_cmd)
@@ -80,8 +80,13 @@ class EB_OCaml(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for OCaml."""
-        super(EB_OCaml, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.with_opam = False
+
+        # custom extra paths/variables to define in generated module for OCaml
+        self.module_load_environment.CAML_LD_LIBRARY_PATH = ['lib']
+        self.module_load_environment.OPAMROOT = [OPAM_SUBDIR]
+        self.module_load_environment.PATH = ['bin', os.path.join(OPAM_SUBDIR, 'default', 'bin')]
 
     def configure_step(self):
         """Custom configuration procedure for OCaml."""
@@ -92,16 +97,14 @@ class EB_OCaml(ConfigureMake):
         if 'world.opt' not in self.cfg['buildopts']:
             self.cfg.update('buildopts', 'world.opt')
 
-        super(EB_OCaml, self).configure_step()
+        super().configure_step()
 
     def install_step(self):
         """
         Custom install procedure for OCaml.
         First install OCaml using 'make install', then install OPAM (if sources are provided).
         """
-        super(EB_OCaml, self).install_step()
-
-        fake_mod_data = self.load_fake_module(purge=True)
+        super().install_step()
 
         try:
             all_dirs = os.listdir(self.builddir)
@@ -110,29 +113,32 @@ class EB_OCaml(ConfigureMake):
 
         opam_dirs = [d for d in all_dirs if d.startswith('opam')]
         if len(opam_dirs) == 1:
+            # load temporary module so OCaml installation is available for building & installing opam
+            fake_mod_data = self.load_fake_module()
+
             opam_dir = os.path.join(self.builddir, opam_dirs[0])
             self.log.info("Found unpacked OPAM sources at %s, so installing it.", opam_dir)
             self.with_opam = True
             change_dir(opam_dir)
 
-            run_cmd("./configure --prefix=%s" % self.installdir)
-            run_cmd("make lib-ext")  # locally build/install required dependencies
-            run_cmd("make")
-            run_cmd("make install")
+            run_shell_cmd("./configure --prefix=%s" % self.installdir)
+            run_shell_cmd("make lib-ext")  # locally build/install required dependencies
+            run_shell_cmd("make")
+            run_shell_cmd("make install")
 
             opam_init_cmd = mk_opam_init_cmd(root=os.path.join(self.installdir, OPAM_SUBDIR))
-            run_cmd(opam_init_cmd)
+            run_shell_cmd(opam_init_cmd)
+
+            self.clean_up_fake_module(fake_mod_data)
         else:
             self.log.warning("OPAM sources not found in %s: %s", self.builddir, all_dirs)
-
-        self.clean_up_fake_module(fake_mod_data)
 
     def prepare_for_extensions(self):
         """Set default class and filter for OCaml packages."""
         # build and install additional packages with OCamlPackage easyblock
         self.cfg['exts_defaultclass'] = "OCamlPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_OCAML_PACKAGES
-        super(EB_OCaml, self).prepare_for_extensions()
+        super().prepare_for_extensions()
 
     def collect_exts_file_info(self, *args, **kwargs):
         """Don't fetch extension sources, OPAM takes care of that (and archiving too)."""
@@ -160,16 +166,4 @@ class EB_OCaml(ConfigureMake):
             'dirs': dirs,
         }
 
-        super(EB_OCaml, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Custom extra paths/variables to define in generated module for OCaml."""
-        guesses = super(EB_OCaml, self).make_module_req_guess()
-
-        guesses.update({
-            'CAML_LD_LIBRARY_PATH': ['lib'],
-            'OPAMROOT': [OPAM_SUBDIR],
-            'PATH': ['bin', os.path.join(OPAM_SUBDIR, 'default', 'bin')],
-        })
-
-        return guesses
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

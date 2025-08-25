@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2024 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, copy_file, remove_dir, which
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, X86_64, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.utilities import nub
 
@@ -61,7 +61,7 @@ class EB_Java(PackedBinary):
         else:
             raise EasyBuildError("Architecture %s is not supported for Java on EasyBuild", myarch)
 
-        super(EB_Java, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg.template_values['jdkarch'] = jdkarch
         self.cfg.generate_template_values()
@@ -74,7 +74,7 @@ class EB_Java(PackedBinary):
             adjust_permissions(os.path.join(self.builddir, self.src[0]['name']), stat.S_IXUSR, add=True)
 
             change_dir(self.builddir)
-            run_cmd(os.path.join(self.builddir, self.src[0]['name']), log_all=True, simple=True, inp='')
+            run_shell_cmd(os.path.join(self.builddir, self.src[0]['name']), stdin='')
         else:
             PackedBinary.extract_step(self)
             adjust_permissions(self.builddir, stat.S_IWUSR, add=True, recursive=True)
@@ -87,12 +87,12 @@ class EB_Java(PackedBinary):
         else:
             PackedBinary.install_step(self)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """
         Custom post-installation step:
         - ensure correct glibc is used when installing into custom sysroot and using RPATH
         """
-        super(EB_Java, self).post_install_step()
+        super().post_processing_step()
 
         # patch binaries and libraries when using alternate sysroot in combination with RPATH
         sysroot = build_option('sysroot')
@@ -129,68 +129,64 @@ class EB_Java(PackedBinary):
                 if elf_interp is None:
                     raise EasyBuildError("Failed to isolate ELF interpreter!")
 
-                module_guesses = self.make_module_req_guess()
-
-                bindirs = [os.path.join(self.installdir, bindir) for bindir in module_guesses['PATH'] if
-                           os.path.exists(os.path.join(self.installdir, bindir))]
-                # Make sure these are unique real paths
-                bindirs = list(set([os.path.realpath(path) for path in bindirs]))
+                # Expand paths in PATH and make sure these are unique real paths
+                bindirs = self.module_load_environment.PATH.expand_paths(self.installdir)
+                bindirs = [os.path.realpath(os.path.join(self.installdir, bindir)) for bindir in bindirs]
                 for bindir in bindirs:
                     for path in os.listdir(bindir):
                         path = os.path.join(bindir, path)
-                        out, _ = run_cmd("file %s" % path, trace=False)
-                        if "dynamically linked" in out:
+                        res = run_shell_cmd("file %s" % path, hidden=True)
+                        if "dynamically linked" in res.output:
 
-                            out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
-                            self.log.debug("ELF interpreter for %s: %s" % (path, out))
+                            res = run_shell_cmd("patchelf --print-interpreter %s" % path)
+                            self.log.debug("ELF interpreter for %s: %s" % (path, res.output))
 
-                            run_cmd("patchelf --set-interpreter %s %s" % (elf_interp, path), trace=False)
+                            run_shell_cmd("patchelf --set-interpreter %s %s" % (elf_interp, path), hidden=True)
 
-                            out, _ = run_cmd("patchelf --print-interpreter %s" % path, trace=False)
-                            self.log.debug("ELF interpreter for %s: %s" % (path, out))
+                            res = run_shell_cmd("patchelf --print-interpreter %s" % path, hidden=True)
+                            self.log.debug("ELF interpreter for %s: %s" % (path, res.output))
 
-                            out, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
-                            curr_rpath = out.strip()
+                            res = run_shell_cmd("patchelf --print-rpath %s" % path, hidden=True)
+                            curr_rpath = res.output.strip()
                             self.log.debug("RPATH for %s: %s" % (path, curr_rpath))
 
                             new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
                             # note: it's important to wrap the new RPATH value in single quotes,
                             # to avoid magic values like $ORIGIN being resolved by the shell
-                            run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, path), trace=False)
+                            run_shell_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, path), hidden=True)
 
-                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
-                            self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
+                            res = run_shell_cmd("patchelf --print-rpath %s" % path, hidden=True)
+                            self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, res.output))
 
-                            run_cmd("patchelf --shrink-rpath %s" % path, trace=False)
+                            run_shell_cmd("patchelf --shrink-rpath %s" % path, hidden=True)
 
-                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % path, simple=False, trace=False)
-                            self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
+                            res = run_shell_cmd("patchelf --print-rpath %s" % path, hidden=True)
+                            self.log.debug("RPATH for %s (after shrinking): %s" % (path, res.output))
 
-                libdirs = [os.path.join(self.installdir, libdir) for libdir in module_guesses['LIBRARY_PATH'] if
-                           os.path.exists(os.path.join(self.installdir, libdir))]
-                # Make sure these are unique real paths
-                libdirs = list(set([os.path.realpath(path) for path in libdirs]))
+                # Expand paths in LIBRARY_PATH and make sure these are unique real paths
+                libdirs = self.module_load_environment.LIBRARY_PATH.expand_paths(self.installdir)
+                libdirs = [os.path.realpath(os.path.join(self.installdir, ld)) for ld in libdirs]
                 shlib_ext = '.' + get_shared_lib_ext()
                 for libdir in libdirs:
                     for path, _, filenames in os.walk(libdir):
                         shlibs = [os.path.join(path, x) for x in filenames if x.endswith(shlib_ext)]
                         for shlib in shlibs:
-                            out, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
-                            curr_rpath = out.strip()
+                            res = run_shell_cmd("patchelf --print-rpath %s" % shlib, hidden=True)
+                            curr_rpath = res.output.strip()
                             self.log.debug("RPATH for %s: %s" % (shlib, curr_rpath))
 
                             new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
                             # note: it's important to wrap the new RPATH value in single quotes,
                             # to avoid magic values like $ORIGIN being resolved by the shell
-                            run_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, shlib), trace=False)
+                            run_shell_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, shlib), hidden=True)
 
-                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
-                            self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, curr_rpath))
+                            res = run_shell_cmd("patchelf --print-rpath %s" % shlib, hidden=True)
+                            self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, res.output))
 
-                            run_cmd("patchelf --shrink-rpath %s" % shlib, trace=False)
+                            run_shell_cmd("patchelf --shrink-rpath %s" % shlib, hidden=True)
 
-                            curr_rpath, _ = run_cmd("patchelf --print-rpath %s" % shlib, simple=False, trace=False)
-                            self.log.debug("RPATH for %s (after shrinking): %s" % (path, curr_rpath))
+                            res = run_shell_cmd("patchelf --print-rpath %s" % shlib, hidden=True)
+                            self.log.debug("RPATH for %s (after shrinking): %s" % (path, res.output))
 
             except OSError as err:
                 raise EasyBuildError("Failed to patch RPATH section in binaries/libraries: %s", err)
@@ -207,12 +203,17 @@ class EB_Java(PackedBinary):
             "javac -help",
         ]
 
-        super(EB_Java, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """
-        Set $JAVA_HOME to installation directory
+        Set extra environment variables on module load
         """
-        txt = PackedBinary.make_module_extra(self)
+        txt = super().make_module_extra()
+        # set $JAVA_HOME to installation directory
         txt += self.module_generator.set_environment('JAVA_HOME', self.installdir)
+        # disable signal catching in UCX, as it conflicts with JVM triggering segfaults
+        # see https://github.com/openucx/ucx/issues/4870
+        txt += self.module_generator.set_environment('UCX_ERROR_SIGNALS', '')
+
         return txt

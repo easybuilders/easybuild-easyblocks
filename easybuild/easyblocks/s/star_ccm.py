@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2024 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, find_glob_pattern
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_STAR_minus_CCM_plus_(EasyBlock):
@@ -42,7 +42,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialise STAR-CCM+ easyblock."""
-        super(EB_STAR_minus_CCM_plus_, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.starccm_subdir = None
         self.starview_subdir = None
 
@@ -81,7 +81,7 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
 
         # ignore exit code of command, since there's always a non-zero exit if $CHECK_DISK_SPACE is set to OFF;
         # rely on sanity check to catch problems with the installation
-        run_cmd(cmd, log_all=False, log_ok=False, simple=False)
+        run_shell_cmd(cmd, fail_on_error=False)
 
     def find_starccm_subdirs(self):
         """Determine subdirectory of install directory in which STAR-CCM+ was installed."""
@@ -115,14 +115,14 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
                       os.path.join(self.installdir, self.starview_subdir, 'bin', 'starview+')],
             'dirs': [],
         }
-        super(EB_STAR_minus_CCM_plus_, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Extra statements specific to STAR-CCM+ to include in generated module file."""
         if self.starccm_subdir is None or self.starview_subdir is None:
             self.find_starccm_subdirs()
 
-        txt = super(EB_STAR_minus_CCM_plus_, self).make_module_extra()
+        txt = super().make_module_extra()
 
         bin_dirs = [
             os.path.join(self.starccm_subdir, 'star', 'bin'),

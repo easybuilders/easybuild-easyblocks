@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2024 Ghent University
+# Copyright 2019-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,6 +32,7 @@ import os
 import re
 from easybuild.tools import LooseVersion
 
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig.constants import EASYCONFIG_CONSTANTS
@@ -140,7 +141,14 @@ class EB_OpenMPI(ConfigureMake):
                 else:
                     self.cfg.update('configopts', '--without-verbs')
 
-        super(EB_OpenMPI, self).configure_step()
+        if '--with-pmix' in self.cfg['configopts']:
+            # Unset PMIX variables potentially set by SLURM which may cause configure errors such as
+            # > configure: WARNING: OPAL_VAR_SCOPE_PUSH called on "PMIX_VERSION",
+            # > configure: WARNING: but it is already defined with value "3.2.3"
+            # > configure: WARNING: This usually indicates an error in configure.
+            # > configure: error: Cannot continue
+            env.unset_env_vars([v for v in os.environ if v.startswith("PMIX_")])
+        super().configure_step()
 
     def test_step(self):
         """Test step for OpenMPI"""
@@ -148,7 +156,7 @@ class EB_OpenMPI(ConfigureMake):
         if self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'check'
 
-        super(EB_OpenMPI, self).test_step()
+        super().test_step()
 
     def load_module(self, *args, **kwargs):
         """
@@ -156,7 +164,7 @@ class EB_OpenMPI(ConfigureMake):
 
         Also put RPATH wrappers back in place if needed, to ensure that sanity check commands work as expected.
         """
-        super(EB_OpenMPI, self).load_module(*args, **kwargs)
+        super().load_module(*args, **kwargs)
 
         # ensure RPATH wrappers are in place, otherwise compiling minimal test programs will fail
         if build_option('rpath'):
@@ -219,7 +227,7 @@ class EB_OpenMPI(ConfigureMake):
         # Run with correct MPI launcher
         mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
         # Limit number of ranks to 8 to avoid it failing due to hyperthreading
-        ranks = min(8, self.cfg['parallel'])
+        ranks = min(8, self.cfg.parallel)
         for srcdir, src, compiler in (
             ('examples', 'hello_c.c', 'mpicc'),
             ('examples', 'hello_mpifh.f', 'mpifort'),
@@ -253,4 +261,4 @@ class EB_OpenMPI(ConfigureMake):
                     params['nr_ranks'] = 1
                     custom_commands.append(mpi_cmd_tmpl % params)
 
-        super(EB_OpenMPI, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

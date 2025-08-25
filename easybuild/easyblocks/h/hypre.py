@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -45,7 +45,7 @@ class EB_Hypre(ConfigureMake):
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
 
-        super(EB_Hypre, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.config_shared = False
         self.config_static = False
@@ -83,7 +83,7 @@ class EB_Hypre(ConfigureMake):
             cuda_cc_string = ' '.join([x.replace('.', '') for x in cuda_cc])
             self.cfg.update('configopts', '--with-gpu-arch="%s"' % cuda_cc_string)
 
-        super(EB_Hypre, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Hypre."""
@@ -101,4 +101,4 @@ class EB_Hypre(ConfigureMake):
             'dirs': ['include']
         }
 
-        super(EB_Hypre, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

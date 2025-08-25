@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ import shutil
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -64,13 +64,13 @@ class EB_bzip2(ConfigureMake):
         """Install in non-standard path by passing PREFIX variable to make install."""
 
         self.cfg.update('installopts', "PREFIX=%s" % self.installdir)
-        super(EB_bzip2, self).install_step()
+        super().install_step()
 
         # also build & install shared libraries, if desired
         if self.cfg['with_shared_libs']:
 
             cmd = "%s make -f Makefile-libbz2_so %s" % (self.cfg['prebuildopts'], self.cfg['buildopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             # copy shared libraries to <install dir>/lib
             shlib_ext = get_shared_lib_ext()
@@ -107,4 +107,4 @@ class EB_bzip2(ConfigureMake):
             ['include/bzlib.h'] + libs,
             'dirs': [],
         }
-        super(EB_bzip2, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
