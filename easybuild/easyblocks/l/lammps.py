@@ -471,6 +471,7 @@ class EB_LAMMPS(CMakeMake):
         # https://docs.lammps.org/Build_basics.html
         # https://docs.lammps.org/Build_settings.html
         # https://docs.lammps.org/Build_package.html
+        # https://docs.lammps.org/Build_extras.html
         if self.cfg['general_packages']:
             for package in self.cfg['general_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_prefix, package))
@@ -478,26 +479,10 @@ class EB_LAMMPS(CMakeMake):
         if self.cfg['user_packages']:
             for package in self.cfg['user_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_user_prefix, package))
-
-        # Optimization settings
+        # OPT package
         pkg_opt = '-D%sOPT=' % self.pkg_prefix
         if pkg_opt not in self.cfg['configopts']:
             self.cfg.update('configopts', pkg_opt + 'on')
-
-        # grab the architecture so we can check if we have Intel hardware (also used for Kokkos below)
-        processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
-
-        self.pkg_intel = False
-        if processor_arch in INTEL_PACKAGE_ARCH_LIST or \
-           (processor_arch == 'NATIVE' and self.kokkos_cpu_mapping.get(get_cpu_arch()) in INTEL_PACKAGE_ARCH_LIST):
-            # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
-            pkg_user_intel = '-D%sINTEL=' % self.pkg_user_prefix
-            if pkg_user_intel not in self.cfg['configopts']:
-                if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
-                    self.cfg.update('configopts', pkg_user_intel + 'on')
-                    self.pkg_intel = True
-            else:
-                self.pkg_intel = True
 
         # MPI/OpenMP
         if self.toolchain.options.get('usempi', None):
@@ -521,8 +506,23 @@ class EB_LAMMPS(CMakeMake):
             if '-DFFT_PACK=' not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 
-        # https://lammps.sandia.gov/doc/Build_extras.html
-        # KOKKOS
+        # detect the CPU and GPU architecture (used for Intel and Kokkos packages belos)
+        processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
+
+        # INTEL package
+        self.pkg_intel = False
+        if processor_arch in INTEL_PACKAGE_ARCH_LIST or \
+           (processor_arch == 'NATIVE' and self.kokkos_cpu_mapping.get(get_cpu_arch()) in INTEL_PACKAGE_ARCH_LIST):
+            # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
+            pkg_user_intel = '-D%sINTEL=' % self.pkg_user_prefix
+            if pkg_user_intel not in self.cfg['configopts']:
+                if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
+                    self.cfg.update('configopts', pkg_user_intel + 'on')
+                    self.pkg_intel = True
+            else:
+                self.pkg_intel = True
+
+        # KOKKOS package
         if self.cfg['kokkos']:
             print_msg("Using Kokkos package with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sKOKKOS=on' % self.pkg_prefix)
@@ -562,7 +562,7 @@ class EB_LAMMPS(CMakeMake):
                     elif get_software_root("FFTW"):
                         self.cfg.update('configopts', '-DFFT_KOKKOS=FFTW3')
 
-        # CUDA only
+        # GPU package (cannot be built with KOKKOS+CUDA)
         elif self.cuda:
             print_msg("Using GPU package (not Kokkos) with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sGPU=on' % self.pkg_prefix)
@@ -573,6 +573,7 @@ class EB_LAMMPS(CMakeMake):
         # to lib64)
         self.cfg.update('configopts', '-DCMAKE_INSTALL_LIBDIR=lib')
 
+        # Python interface
         # avoid that pip (ab)uses $HOME/.cache/pip
         # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
         env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
@@ -613,7 +614,7 @@ class EB_LAMMPS(CMakeMake):
                 # Testing of KOKKOS+CUDA builds does not work for version < 22Jul2025
                 # See: https://github.com/lammps/lammps/issues/405
                 if LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('22Jul2025')) \
-                    and self.cfg['kokkos'] and self.cuda:
+                        and self.cfg['kokkos'] and self.cuda:
                     print_warning("Skipping tests: KOKKOS+CUDA builds have broken testing in LAMMPS < 22Jul2025.")
                     self.cfg['runtest'] = False
                 else:
@@ -713,6 +714,11 @@ class EB_LAMMPS(CMakeMake):
         ]
 
         # add accelerator-specific tests
+        if self.pkg_intel:  # INTEL package
+            custom_commands.append(
+                'from lammps import lammps; l=lammps(cmdargs=["-sf", "intel"]); l.file("%s")' %
+                os.path.join(self.installdir, "examples", "msst", "in.msst")
+            )
         if self.cfg['kokkos']:  # KOKKOS package
             if self.cuda:  # NOTE: requires a GPU to run
                 custom_commands.append(
@@ -725,14 +731,8 @@ class EB_LAMMPS(CMakeMake):
                     os.path.join(self.installdir, "examples", "msst", "in.msst")
                 )
         elif self.cuda:  # GPU package
-            if self.cuda:  # NOTE: requires a GPU to run
-                custom_commands.append(
-                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "gpu", "-pk", "gpu", "1"]); l.file("%s")' %
-                    os.path.join(self.installdir, "examples", "msst", "in.msst")
-                )
-        if self.pkg_intel:  # INTEL package
             custom_commands.append(
-                'from lammps import lammps; l=lammps(cmdargs=["-sf", "intel"]); l.file("%s")' %
+                'from lammps import lammps; l=lammps(cmdargs=["-sf", "gpu", "-pk", "gpu", "1"]); l.file("%s")' %
                 os.path.join(self.installdir, "examples", "msst", "in.msst")
             )
         if self.toolchain.options.get('openmp', None):  # OPENMP package
@@ -740,6 +740,11 @@ class EB_LAMMPS(CMakeMake):
                 'from lammps import lammps; l=lammps(cmdargs=["-sf", "omp", "-pk", "omp", "2"]); l.file("%s")' %
                 os.path.join(self.installdir, "examples", "msst", "in.msst")
             )
+        # OPT package
+        custom_commands.append(
+            'from lammps import lammps; l=lammps(cmdargs=["-sf", "opt"]); l.file("%s")' %
+            os.path.join(self.installdir, "examples", "msst", "in.msst")
+        )
 
         # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
         # This is actually not needed if mpi4py is installed, and can cause a crash in version 2025+
