@@ -55,7 +55,7 @@ KOKKOS_INTEL_PACKAGE_ARCH_LIST = [
 ]
 
 KOKKOS_CPU_ARCH_LIST = [
-    'NATIVE'  # Local CPU architecture, available since LAMMPS 2Aug2023
+    'NATIVE'  # Local CPU architecture
     'AMDAVX',  # AMD 64-bit x86 CPU (AVX 1)
     'ZEN',  # AMD Zen class CPU (AVX 2)
     'ZEN2',  # AMD Zen2 class CPU (AVX 2)
