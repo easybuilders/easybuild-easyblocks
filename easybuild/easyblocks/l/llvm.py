@@ -1714,6 +1714,9 @@ class EB_LLVM(CMakeMake):
         # Here, we add the system libraries LLVM expects to find
         minimal_cpp_compiler_cmd += "$(llvm-config --link-static --system-libs all)"
         custom_commands.append(minimal_cpp_compiler_cmd)
+        # binutils is required for the linking step
+        kwargs.setdefault('extra_modules', []).extend(
+            d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils')
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands, *args, **kwargs)
 
@@ -1734,7 +1737,6 @@ class EB_LLVM(CMakeMake):
         self.log.debug(f"List of subdirectories for libraries to add to $LD_LIBRARY_PATH + $LIBRARY_PATH: {lib_dirs}")
         self.module_load_environment.LD_LIBRARY_PATH = lib_dirs
         self.module_load_environment.LIBRARY_PATH = lib_dirs
-
         return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
