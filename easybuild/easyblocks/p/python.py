@@ -302,8 +302,8 @@ class EB_Python(ConfigureMake):
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
                         "If None: auto-detect based on toolchain compiler (version)", CUSTOM],
-            'patches_custom_ctypes': [[], "The ctypes module strongly relies on LD_LIBRARY_PATH to find "
-                                          "libraries. This list allows specifying patches that will only be "
+            'patch_custom_ctypes': [None, "The ctypes module strongly relies on LD_LIBRARY_PATH to find "
+                                          "libraries. This allows specifying a patch that will only be "
                                           "applied if EasyBuild is configured to filter LD_LIBRARY_PATH, in "
                                           "order to make sure ctypes can still find libraries without it. "
                                           "Please make sure to add the checksum for this patch to 'checksums'.",
@@ -366,7 +366,7 @@ class EB_Python(ConfigureMake):
         # libraries. But, we want to do the patching conditionally on EasyBuild configuration (i.e. which env vars
         # are filtered), hence this setup based on the custom config option 'patches_custom_ctypes'
         filtered_env_vars = build_option('filter_env_vars') or []
-        additional_patches = self.cfg['patches_custom_ctypes']
+        additional_patches = [self.cfg['patch_custom_ctypes']]
         checksums = self.cfg['checksums']
         sources = self.cfg['sources']
         if ('LD_LIBRARY_PATH' in filtered_env_vars and len(additional_patches) > 0):
@@ -380,7 +380,6 @@ class EB_Python(ConfigureMake):
                 self.log.info(f"Original list of patches: {self.cfg['patches']}")
                 self.log.info(f"List of patches to be added: {additional_patches}")
                 self.cfg.update('patches', additional_patches)
-                self.cfg.update('checksums', additional_checksums)
                 self.log.info(f"Updated list of patches: {self.cfg['patches']}")
             else:
                 msg = "The length of 'checksums' (%s) was not equal to the total amount of sources (%s) + patches (%s)"
