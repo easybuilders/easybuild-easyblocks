@@ -390,7 +390,6 @@ class EB_Python(ConfigureMake):
 
         super().fetch_step(*args, **kwargs)
 
-
     def patch_step(self, *args, **kwargs):
         """
         Custom patch step for Python:
