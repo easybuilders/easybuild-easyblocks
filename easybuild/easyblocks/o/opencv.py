@@ -162,8 +162,11 @@ class EB_OpenCV(CMakeMake):
         flexiblas_root = get_software_root('FlexiBLAS')
         if flexiblas_root:
             # Fixes https://github.com/easybuilders/easybuild-easyblocks/issues/3873
-            if LooseVersion(self.version) < '3.3':
-                msg = "Using custom LAPACK/BLAS is only supported since OpenCV 3.3. FlexiBLAS will not be used."
+            # It should be possible to go as far back as 3.3 but than we have a mismatch in the lapack API between
+            # openCV and FlexiBLAS (was working with OpenBLAS until 0.3.20 where they adopted the same new API)
+            # See discussion and comments in https://github.com/easybuilders/easybuild-easyblocks/pull/3874
+            if LooseVersion(self.version) < '4.7':
+                msg = "Using custom LAPACK/BLAS is only supported since OpenCV 4.7. FlexiBLAS will not be used."
                 self.log.warning(msg)
             else:
                 self.log.info("Explicitly using FlexiBLAS at %s", flexiblas_root)
