@@ -366,7 +366,9 @@ class EB_Python(ConfigureMake):
         # libraries. But, we want to do the patching conditionally on EasyBuild configuration (i.e. which env vars
         # are filtered), hence this setup based on the custom config option 'patches_custom_ctypes'
         filtered_env_vars = build_option('filter_env_vars') or []
-        additional_patches = [self.cfg['patch_custom_ctypes']]
+        additional_patches = []
+        if self.cfg['patch_custom_ctypes'] is not None:
+            additional_patches = [self.cfg['patch_custom_ctypes']]
         checksums = self.cfg['checksums']
         sources = self.cfg['sources']
         if ('LD_LIBRARY_PATH' in filtered_env_vars and len(additional_patches) > 0):
