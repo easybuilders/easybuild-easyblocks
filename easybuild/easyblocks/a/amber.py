@@ -88,35 +88,37 @@ class EB_Amber(CMakeMake):
     def patch_step(self, *args, **kwargs):
         """Patch Amber using 'update_amber' tool, prior to applying listed patch files (if any)."""
 
-        # figure out which Python command to use to run the update_amber script;
-        # by default it uses 'python', but this may not be available (on CentOS 8 for example);
-        # note that the dependencies are not loaded yet at this point, so we're at the mercy of the OS here...
-        python_cmd = None
-        for cand_python_cmd in ['python', 'python3', 'python2']:
-            if which(cand_python_cmd):
-                python_cmd = cand_python_cmd
-                break
+        # Use the update_amber script if patchlevels is defined - if not then the easyconfig should apply the patches
+        if self.cfg['patchlevels']:
+            # figure out which Python command to use to run the update_amber script;
+            # by default it uses 'python', but this may not be available (on CentOS 8 for example);
+            # note that the dependencies are not loaded yet at this point, so we're at the mercy of the OS here...
+            python_cmd = None
+            for cand_python_cmd in ['python', 'python3', 'python2']:
+                if which(cand_python_cmd):
+                    python_cmd = cand_python_cmd
+                    break
 
-        if python_cmd is None:
-            raise EasyBuildError("No suitable Python command found to run update_amber script!")
+            if python_cmd is None:
+                raise EasyBuildError("No suitable Python command found to run update_amber script!")
 
-        if self.cfg['patchlevels'] == "latest":
-            cmd = "%s ./update_amber --update" % python_cmd
-            # Run as many times as specified. It is the responsibility
-            # of the easyconfig author to get this right, especially if
-            # he or she selects "latest". (Note: "latest" is not
-            # recommended for this reason and others.)
-            for _ in range(self.cfg['patchruns']):
-                run_shell_cmd(cmd)
-        else:
-            for (tree, patch_level) in zip(['AmberTools', 'Amber'], self.cfg['patchlevels']):
-                if patch_level == 0:
-                    continue
-                cmd = "%s ./update_amber --update-to %s/%s" % (python_cmd, tree, patch_level)
+            if self.cfg['patchlevels'] == "latest":
+                cmd = "%s ./update_amber --update" % python_cmd
                 # Run as many times as specified. It is the responsibility
-                # of the easyconfig author to get this right.
+                # of the easyconfig author to get this right, especially if
+                # he or she selects "latest". (Note: "latest" is not
+                # recommended for this reason and others.)
                 for _ in range(self.cfg['patchruns']):
                     run_shell_cmd(cmd)
+            else:
+                for (tree, patch_level) in zip(['AmberTools', 'Amber'], self.cfg['patchlevels']):
+                    if patch_level == 0:
+                        continue
+                    cmd = "%s ./update_amber --update-to %s/%s" % (python_cmd, tree, patch_level)
+                    # Run as many times as specified. It is the responsibility
+                    # of the easyconfig author to get this right.
+                    for _ in range(self.cfg['patchruns']):
+                        run_shell_cmd(cmd)
 
         super().patch_step(*args, **kwargs)
 
