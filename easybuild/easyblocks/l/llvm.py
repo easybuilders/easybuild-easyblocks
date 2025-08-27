@@ -609,6 +609,22 @@ class EB_LLVM(CMakeMake):
             else:
                 self._cmakeopts['LIBCXX_INSTALL_MODULES'] = 'OFF'
 
+        if 'flang' in self.final_projects:
+            # Filter unsupported flang options for the final build
+            unsupported_flang_opts = set([
+                '-fmath-errno', '-fno-math-errno',
+                '-fslp-vectorize',
+                '-fvectorize', '-fno-vectorize',
+                '-fno-unsafe-math-optimizations',
+            ])
+            f90_flags = os.getenv('F90FLAGS', '')
+            f90_flags = set(filter(None, f90_flags.split(' '))) - unsupported_flang_opts
+            setvar('F90FLAGS', ' '.join(f90_flags))
+
+            ff_flags = os.getenv('FFLAGS', '')
+            ff_flags = set(filter(None, ff_flags.split(' '))) - unsupported_flang_opts
+            setvar('FFLAGS', ' '.join(ff_flags))
+
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
         if not build_option('mpi_tests'):
@@ -1101,21 +1117,6 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts = {}
         self._configure_general_build()
         self._configure_final_build()
-
-        # Filter unsupported flang options for the final build
-        unsupported_flang_opts = set([
-            '-fmath-errno', '-fno-math-errno',
-            '-fslp-vectorize',
-            '-fvectorize', '-fno-vectorize',
-            '-fno-unsafe-math-optimizations',
-        ])
-        f90_flags = os.getenv('F90FLAGS', '')
-        f90_flags = set(filter(None, f90_flags.split(' '))) - unsupported_flang_opts
-        setvar('F90FLAGS', ' '.join(f90_flags))
-
-        ff_flags = os.getenv('FFLAGS', '')
-        ff_flags = set(filter(None, ff_flags.split(' '))) - unsupported_flang_opts
-        setvar('FFLAGS', ' '.join(ff_flags))
 
         # Update runtime CMake arguments, as they might have
         # changed when configuring the final build arguments
