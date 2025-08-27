@@ -305,7 +305,8 @@ class EB_Python(ConfigureMake):
             'patches_custom_ctypes': [[], "The ctypes module strongly relies on LD_LIBRARY_PATH to find "
                                           "libraries. This list allows specifying patches that will only be "
                                           "applied if EasyBuild is configured to filter LD_LIBRARY_PATH, in "
-                                          "order to make sure ctypes can still find libraries without it",
+                                          "order to make sure ctypes can still find libraries without it. "
+                                          "Please make sure to add the checksum for this patch to 'checksums'.",
                                           CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
