@@ -1671,9 +1671,11 @@ class EB_LLVM(CMakeMake):
                 check_bin_files += ['bbc', 'flang-new', 'f18-parse-demo', 'fir-opt', 'tco']
             check_lib_files += [
                 'libFortranRuntime.a', 'libFortranSemantics.a', 'libFortranLower.a', 'libFortranParser.a',
-                'libFIRCodeGen.a', 'libflangFrontend.a', 'libFortranCommon.a', 'libFortranDecimal.a',
+                'libFIRCodeGen.a', 'libflangFrontend.a', 'libFortranDecimal.a',
                 'libHLFIRDialect.a'
             ]
+            if version < '21':
+                check_lib_files += ['libFortranCommon.a']
             check_dirs += ['lib/cmake/flang', 'include/flang']
             custom_commands += ['bbc --help', 'mlir-tblgen --help', 'flang-new --help']
             gcc_prefix_compilers += ['flang-new']
@@ -1739,15 +1741,21 @@ class EB_LLVM(CMakeMake):
                         omp_lib_files += ['libomptarget.rtl.cuda.so']
                     if version < '20':
                         omp_lib_files += [f'libomptarget-nvptx-sm_{cc}.bc' for cc in self.cuda_cc]
-                    else:
+                    elif version < '21':
                         omp_lib_files += ['libomptarget-nvptx.bc']
+                    else:
+                        # In LLVM 21 the location has changed to lib/nvptx64-nvidia-cuda/libomptarget-nvptx.bc
+                        check_lib_files += [os.path.join('nvptx64-nvidia-cuda', 'libomptarget-nvptx.bc')]
                 if self.amdgpu_target_cond:
                     if version < '19':
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
                     if version < '20':
                         omp_lib_files += [f'libomptarget-amdgpu-{gfx}.bc' for gfx in self.amd_gfx]
-                    else:
+                    elif version < '21':
                         omp_lib_files += ['libomptarget-amdgpu.bc']
+                    else:
+                        # In LLVM 21 the location has changed to lib/amdgcn-amd-amdhsa/libomptarget-amdgpu.bc
+                        check_lib_files += [os.path.join('amdgcn-amd-amdhsa', 'libomptarget-amdgpu.bc')]
                 check_bin_files += ['llvm-omp-kernel-replay']
                 if version < '20':
                     check_bin_files += ['llvm-omp-device-info']
