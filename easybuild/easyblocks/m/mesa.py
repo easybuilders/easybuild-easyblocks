@@ -166,8 +166,9 @@ class EB_Mesa(MesonNinja):
                 header_files.extend([os.path.join('include', 'EGL', 'eglext_angle.h')])
             else:
                 header_files.extend([os.path.join('include', 'EGL', 'eglextchromium.h')])
+            if LooseVersion(self.version) < LooseVersion('25.1'):
+                header_files.extend([os.path.join('include', 'GL', 'osmesa.h')])
             header_files.extend([
-                os.path.join('include', 'GL', 'osmesa.h'),
                 os.path.join('include', 'GL', 'internal', 'dri_interface.h'),
             ])
         else:
@@ -176,8 +177,13 @@ class EB_Mesa(MesonNinja):
             header_files = [os.path.join('include', 'GL', x) for x in gl_inc_files]
             header_files.extend([os.path.join('include', x, y) for (x, y) in gles_inc_files])
 
+        if LooseVersion(self.version) >= LooseVersion('25.1'):
+            file_list = header_files
+        else:
+            file_list = [os.path.join('lib', 'libOSMesa.%s' % shlib_ext)] + header_files
+
         custom_paths = {
-            'files': [os.path.join('lib', 'libOSMesa.%s' % shlib_ext)] + header_files,
+            'files': file_list,
             'dirs': [os.path.join('include', 'GL', 'internal')],
         }
 
