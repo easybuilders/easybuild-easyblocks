@@ -228,6 +228,7 @@ class EB_LLVM(CMakeMake):
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'test_suite_ignore_patterns': [None, "List of test to ignore (if the string matches)", CUSTOM],
+            'test_suite_ignore_timeouts': [False, "Do not treat timedoud tests as failures", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
             'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
@@ -1270,8 +1271,9 @@ class EB_LLVM(CMakeMake):
         # From grep -E "^[A-Z]+: " LOG_FILE | cut -d: -f1 | sort | uniq
         OUTCOME_FAIL = [
             'FAIL',
-            'TIMEOUT',
         ]
+        if not self.cfg['test_suite_ignore_timeouts']:
+            OUTCOME_FAIL.append('TIMEOUT')
         # OUTCOME_OK = [
         #     'PASS',
         #     'UNSUPPORTED',
@@ -1329,14 +1331,19 @@ class EB_LLVM(CMakeMake):
         else:
             num_failed = int(mch.group(1))
 
-        if num_failed is not None:
-            num_timed_out = 0
-            rgx_timed_out = re.compile(r'^ +Timed Out +: +([0-9]+)', flags=re.MULTILINE)
-            mch = rgx_timed_out.search(out)
-            if mch is not None:
-                num_timed_out = int(mch.group(1))
-                self.log.info("Tests timed out: %s", num_timed_out)
-            num_failed += num_timed_out
+        num_timed_out = 0
+        rgx_timed_out = re.compile(r'^ +Timed Out +: +([0-9]+)', flags=re.MULTILINE)
+        mch = rgx_timed_out.search(out)
+        if mch is not None:
+            num_timed_out = int(mch.group(1))
+            self.log.info("Tests timed out: %s", num_timed_out)
+        if num_timed_out > 0:
+            if not self.cfg['test_suite_ignore_timeouts']:
+                self.log.info("Counting timed out tests as failed tests")
+                if num_failed is not None:
+                    num_failed += num_timed_out
+            else:
+                self.log.info("Ignoring timed out tests as per configuration")
 
         if num_failed != failed_pattern_matches:
             msg = f"Number of failed tests ({num_failed}) does not match "
