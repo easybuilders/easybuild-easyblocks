@@ -1101,6 +1101,22 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts = {}
         self._configure_general_build()
         self._configure_final_build()
+
+        # Filter unsupported flang options for the final build
+        unsupported_flang_opts = set([
+            '-fmath-errno', '-fno-math-errno',
+            '-fslp-vectorize',
+            '-fvectorize', '-fno-vectorize',
+            '-fno-unsafe-math-optimizations',
+        ])
+        f90_flags = os.getenv('F90FLAGS', '')
+        f90_flags = set(filter(None, f90_flags.split(' '))) - unsupported_flang_opts
+        setvar('F90FLAGS', ' '.join(f90_flags))
+
+        ff_flags = os.getenv('FFLAGS', '')
+        ff_flags = set(filter(None, ff_flags.split(' '))) - unsupported_flang_opts
+        setvar('FFLAGS', ' '.join(ff_flags))
+
         # Update runtime CMake arguments, as they might have
         # changed when configuring the final build arguments
         self._add_cmake_runtime_args()
