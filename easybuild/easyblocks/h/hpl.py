@@ -119,14 +119,15 @@ class EB_HPL(ConfigureMake):
             srcfile = os.path.join(srcdir, filename)
             copy_file(srcfile, destdir)
 
-    def sanity_check_step(self):
+    def sanity_check_step(self, **kwargs):
         """
         Custom sanity check for HPL
         """
 
-        custom_paths = {
+        # Allow subclasses to set own custom paths
+        kwargs.setdefault('custom_paths', {
             'files': ["bin/xhpl"],
             'dirs': []
-        }
+        })
 
-        super().sanity_check_step(custom_paths)
+        super().sanity_check_step(**kwargs)
