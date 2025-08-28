@@ -125,7 +125,7 @@ DISABLE_WERROR_OPTS = {
 
 GENERAL_OPTS = {
     'CMAKE_VERBOSE_MAKEFILE': 'ON',
-    'LLVM_INCLUDE_BENCHMARKS': 'OFF',
+    # 'LLVM_INCLUDE_BENCHMARKS': 'OFF',
     'LLVM_INSTALL_UTILS': 'ON',
     # If EB is launched from a venv, avoid giving priority to the venv's python
     'Python3_FIND_VIRTUALENV': 'STANDARD',
@@ -231,6 +231,7 @@ class EB_LLVM(CMakeMake):
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'test_suite_ignore_patterns': [None, "List of test to ignore (if the string matches)", CUSTOM],
             'test_suite_ignore_timeouts': [False, "Do not treat timedoud tests as failures", CUSTOM],
+            'test_suite_include_benchmarks': [False, "If False do not build the benchmarks tests", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
             'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
@@ -625,6 +626,10 @@ class EB_LLVM(CMakeMake):
             ff_flags = os.getenv('FFLAGS', '')
             ff_flags = set(filter(None, ff_flags.split(' '))) - unsupported_flang_opts
             setvar('FFLAGS', ' '.join(ff_flags))
+
+        include_benchmarks = 'ON' if self.cfg['test_suite_include_benchmarks'] else 'OFF'
+        self._cmakeopts['LLVM_INCLUDE_BENCHMARKS'] = include_benchmarks
+        self.runtimes_cmake_args['LLVM_INCLUDE_BENCHMARKS'] = include_benchmarks
 
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
