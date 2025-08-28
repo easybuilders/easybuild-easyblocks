@@ -569,6 +569,34 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = self.list_to_cmake_arg(self.intermediate_projects)
         self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = self.list_to_cmake_arg(self.intermediate_runtimes)
 
+    def _remove_iterable_from_envvar(self, varname, to_remove, sep=' '):
+        """Remove items in to_remove from environment variable varname."""
+        flags = os.getenv(varname, '')
+        flags = set(filter(None, flags.split(sep)))
+        torm = flags & set(to_remove)
+        if torm:
+            self.log.info(
+                "Removing unsupported options from %s for flang %s: `%s`", varname, self.version, ', '.join(torm)
+            )
+            setvar(varname, sep.join(flags - torm))
+
+    def remove_unsupported_flang_opts(self):
+        """For version of LLVM where `flang` is invoched at build time to build modules, ensure that unsupported
+        options are removed from F90FLAGS and FFLAGS."""
+        unsupported_flang_opts = set()
+        if self.version >= '21':
+            if self.version < '22':
+                unsupported_flang_opts.update([
+                    '-fmath-errno', '-fno-math-errno',
+                    # These are supported since 21.x
+                    # '-fslp-vectorize', '-fvectorize', '-fno-vectorize',
+                    '-fno-unsafe-math-optimizations',
+                ])
+
+        if unsupported_flang_opts:
+            self._remove_iterable_from_envvar('F90FLAGS', unsupported_flang_opts)
+            self._remove_iterable_from_envvar('FFLAGS', unsupported_flang_opts)
+
     def _configure_final_build(self):
         """Configure the final stage of the build."""
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = self.list_to_cmake_arg(self.final_projects)
@@ -612,20 +640,7 @@ class EB_LLVM(CMakeMake):
                 self._cmakeopts['LIBCXX_INSTALL_MODULES'] = 'OFF'
 
         if 'flang' in self.final_projects:
-            # Filter unsupported flang options for the final build
-            unsupported_flang_opts = set([
-                '-fmath-errno', '-fno-math-errno',
-                '-fslp-vectorize',
-                '-fvectorize', '-fno-vectorize',
-                '-fno-unsafe-math-optimizations',
-            ])
-            f90_flags = os.getenv('F90FLAGS', '')
-            f90_flags = set(filter(None, f90_flags.split(' '))) - unsupported_flang_opts
-            setvar('F90FLAGS', ' '.join(f90_flags))
-
-            ff_flags = os.getenv('FFLAGS', '')
-            ff_flags = set(filter(None, ff_flags.split(' '))) - unsupported_flang_opts
-            setvar('FFLAGS', ' '.join(ff_flags))
+            self.remove_unsupported_flang_opts()
 
         include_benchmarks = 'ON' if self.cfg['test_suite_include_benchmarks'] else 'OFF'
         self._cmakeopts['LLVM_INCLUDE_BENCHMARKS'] = include_benchmarks
