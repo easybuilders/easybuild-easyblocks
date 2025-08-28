@@ -279,6 +279,7 @@ class EB_LLVM(CMakeMake):
             }
         self.offload_targets = ['host']
         self.host_triple = None
+        self.sysroot = None
         self.dynamic_linker = None
 
         # Shared
@@ -1599,6 +1600,11 @@ class EB_LLVM(CMakeMake):
             lib_dir_runtime = self.get_runtime_lib_path(self.installdir)
         shlib_ext = '.' + get_shared_lib_ext()
 
+        if not hasattr(self, 'nvptx_target_cond'):
+            # Need to perform the target configuration if not done already eg whe running in `--module-only`
+            # or `--sanity-check-only` modes
+            self._configure_build_targets()
+
         resdir_version = self.version.split('.')[0]
         version = LooseVersion(self.version)
 
@@ -1670,12 +1676,14 @@ class EB_LLVM(CMakeMake):
             else:
                 check_bin_files += ['bbc', 'flang-new', 'f18-parse-demo', 'fir-opt', 'tco']
             check_lib_files += [
-                'libFortranRuntime.a', 'libFortranSemantics.a', 'libFortranLower.a', 'libFortranParser.a',
+                'libFortranSemantics.a', 'libFortranLower.a', 'libFortranParser.a',
                 'libFIRCodeGen.a', 'libflangFrontend.a', 'libFortranDecimal.a',
                 'libHLFIRDialect.a'
             ]
             if version < '21':
-                check_lib_files += ['libFortranCommon.a']
+                check_lib_files += [
+                    'libFortranRuntime.a', 'libFortranCommon.a'
+                ]
             check_dirs += ['lib/cmake/flang', 'include/flang']
             custom_commands += ['bbc --help', 'mlir-tblgen --help', 'flang-new --help']
             gcc_prefix_compilers += ['flang-new']
