@@ -444,9 +444,23 @@ class Bundle(EasyBlock):
 
         # run sanity checks for specific components
         cnt = len(self.comp_cfgs_sanity_check)
-        for idx, comp in enumerate(self.comp_cfgs_sanity_check):
-            comp_name, comp_ver = comp.cfg['name'], comp.cfg['version']
-            print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp_name, comp_ver, idx + 1, cnt)
-            self.log.info("Starting sanity check step for component %s v%s", comp_name, comp_ver)
+        if cnt > 0:
+            if self.sanity_check_module_loaded:
+                loaded_module = False
+            else:
+                self.sanity_check_load_module(extension=kwargs.get('extension', False),
+                                              extra_modules=kwargs.get('extra_modules', None))
+                loaded_module = self.sanity_check_module_loaded
+            for idx, comp in enumerate(self.comp_cfgs_sanity_check):
+                print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp.name, comp.version, idx + 1, cnt)
+                self.log.info("Starting sanity check step for component %s v%s", comp.name, comp.version)
 
-            comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
+                # Avoid loading the module in components again
+                comp.sanity_check_module_loaded = True
+                comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
+                comp.sanity_check_module_loaded = False
+            if loaded_module:
+                if self.fake_mod_data:
+                    self.clean_up_fake_module(self.fake_mod_data)
+                    self.fake_mod_data = None
+                self.sanity_check_module_loaded = False
