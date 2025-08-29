@@ -128,7 +128,7 @@ class RPackage(ExtensionEasyBlock):
         """Create a command line to install an R package."""
         confvars = make_R_install_option("configure-vars", self.configurevars, cmdline=True)
         confargs = make_R_install_option("configure-args", self.configureargs, cmdline=True)
-        prefix = make_R_install_option("prefix", prefix, cmdline=True)
+        prefix = make_R_install_option("prefix", [prefix], cmdline=True)
 
         loc = self.start_dir
         if loc is None:
@@ -167,11 +167,12 @@ class RPackage(ExtensionEasyBlock):
         # to avoid picking up on R packages installed in home directory of current user
         # (from ~/R/x86_64-pc-linux-gnu-library/<version>)
         setvar('R_LIBS_USER', os.path.join(self.builddir, 'r_libs'))
-        # Avoid writes to $HOME/$XDG_CACHE_HOME etc.
+        # Avoid writes to $HOME via $XDG_CACHE_HOME, $R_USER_DATA_DIR etc
         r_home = os.path.join(self.builddir, 'R_home')
-        env.setvar('R_USER_DATA_DIR', os.path.join(r_home, '.data'))
-        env.setvar('R_USER_CACHE_DIR', os.path.join(r_home, '.cache'))
-        env.setvar('R_USER_CONFIG_DIR', os.path.join(r_home, '.config'))
+        for i in ('CACHE', 'CONFIG', 'DATA'):
+            path = os.path.join(r_home, i.lower())
+            env.setvar(f'XDG_{i}_HOME', path)
+            env.setvar(f'R_USER_{i}_DIR', path)
 
     def install_R_package(self, cmd, inp=None):
         """Install R package as specified, and check for errors."""
