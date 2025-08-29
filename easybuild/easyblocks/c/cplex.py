@@ -65,7 +65,10 @@ class EB_CPLEX(Binary):
         """Prepare build environment."""
         super().prepare_step(*args, **kwargs)
 
-        if get_software_root('Python'):
+        # for CPLEX >= 22.1.2 Python bindings are not included anymore,
+        # must be installed from PyPI;
+        # see https://www.ibm.com/docs/en/icos/22.1.2?topic=rnco2-cplex-python-api-now-installed-using-pip-conda
+        if get_software_root('Python') and LooseVersion(self.version) < LooseVersion('22.1.2'):
             self.with_python = True
 
     def install_step(self):
@@ -104,7 +107,9 @@ class EB_CPLEX(Binary):
         perms = stat.S_IRWXU | stat.S_IXOTH | stat.S_IXGRP | stat.S_IROTH | stat.S_IRGRP
         adjust_permissions(self.installdir, perms, recursive=False, relative=False)
 
-        # also install Python bindings if Python is included as a dependency
+        # also install Python bindings if Python is included as a dependency;
+        # only for CPLEX < 22.1.2, for recent version Python bindings must be
+        # installed from PyPI
         if self.with_python:
             cwd = change_dir(os.path.join(self.installdir, 'python'))
             run_shell_cmd("python setup.py install --prefix=%s" % self.installdir)
