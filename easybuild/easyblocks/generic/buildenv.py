@@ -28,11 +28,12 @@ environment flags for the current toolchain
 
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 """
+import glob
 import os
 import stat
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.tools.filetools import adjust_permissions, copy_dir
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_dir
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
@@ -60,7 +61,11 @@ class BuildEnv(Bundle):
         wrappers_dir = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
         if os.path.exists(wrappers_dir):
             self.rpath_wrappers_dir = os.path.join(self.installdir, 'bin')
-            copy_dir(wrappers_dir, os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR))
+            rpath_wrappers_path = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
+            copy_dir(wrappers_dir, rpath_wrappers_path)
+            wrapper_files = list(filter(os.path.isfile, glob.glob(os.path.join(rpath_wrappers_path, '*', '*'))))
+            # replace path to Python executable with python3 in the wrappers
+            apply_regex_substitutions(wrapper_files, [(r'^PYTHON_EXE=.*$', 'PYTHON_EXE=python3')], backup=False)
             # Make sure wrappers are readable/executable by everyone
             adjust_permissions(
                 self.rpath_wrappers_dir,
