@@ -36,6 +36,7 @@ import os
 import pathlib
 import re
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.r import EXTS_FILTER_R_PACKAGES, EB_R
 from easybuild.easyblocks.generic.configuremake import check_config_guess, obtain_config_guess
 from easybuild.framework.easyconfig import CUSTOM
@@ -52,16 +53,11 @@ def make_R_install_option(opt, values, cmdline=False):
     """
     txt = ""
     if values:
+        values_str = " ".join(values)
         if cmdline:
-            txt = " --%s=\"%s" % (opt, values[0])
+            txt = f' --{opt}="{values_str}"'
         else:
-            txt = "%s=c(\"%s" % (opt, values[0])
-        for i in values[1:]:
-            txt += " %s" % i
-        if cmdline:
-            txt += "\""
-        else:
-            txt += "\")"
+            txt = f'{opt}=c("{values_str}")'
     return txt
 
 
@@ -81,7 +77,7 @@ class RPackage(ExtensionEasyBlock):
         return extra_vars
 
     def __init__(self, *args, **kwargs):
-        """Initliaze RPackage-specific class variables."""
+        """Initialize RPackage-specific class variables."""
 
         super().__init__(*args, **kwargs)
 
@@ -130,17 +126,9 @@ class RPackage(ExtensionEasyBlock):
 
     def make_cmdline_cmd(self, prefix=None):
         """Create a command line to install an R package."""
-        confvars = ""
-        if self.configurevars:
-            confvars = make_R_install_option("configure-vars", self.configurevars, cmdline=True)
-        confargs = ""
-        if self.configureargs:
-            confargs = make_R_install_option("configure-args", self.configureargs, cmdline=True)
-
-        if prefix:
-            prefix = '--library=%s' % prefix
-        else:
-            prefix = ''
+        confvars = make_R_install_option("configure-vars", self.configurevars, cmdline=True)
+        confargs = make_R_install_option("configure-args", self.configureargs, cmdline=True)
+        prefix = make_R_install_option("prefix", prefix, cmdline=True)
 
         loc = self.start_dir
         if loc is None:
@@ -173,9 +161,21 @@ class RPackage(ExtensionEasyBlock):
         """No separate build step for R packages."""
         pass
 
+    def set_R_user_vars(self):
+        """Set R user environment variables to avoid writes to home directory."""
+        # set $R_LIBS_USER to non-existing path in build directory,
+        # to avoid picking up on R packages installed in home directory of current user
+        # (from ~/R/x86_64-pc-linux-gnu-library/<version>)
+        setvar('R_LIBS_USER', os.path.join(self.builddir, 'r_libs'))
+        # Avoid writes to $HOME/$XDG_CACHE_HOME etc.
+        r_home = os.path.join(self.builddir, 'R_home')
+        env.setvar('R_USER_DATA_DIR', os.path.join(r_home, '.data'))
+        env.setvar('R_USER_CACHE_DIR', os.path.join(r_home, '.cache'))
+        env.setvar('R_USER_CONFIG_DIR', os.path.join(r_home, '.config'))
+
     def install_R_package(self, cmd, inp=None):
         """Install R package as specified, and check for errors."""
-
+        self.set_R_user_vars()
         res = run_shell_cmd(cmd, stdin=inp)
         self.check_install_output(res.output)
 
@@ -187,7 +187,6 @@ class RPackage(ExtensionEasyBlock):
 
         if errors:
             self.log.info("R package %s failed with error:\n%s", self.name, '\n'.join(errors))
-            self.handle_installation_errors()
             cmd = "R -q --no-save"
             stdin = """
             remove.library(%s)
@@ -278,11 +277,7 @@ class RPackage(ExtensionEasyBlock):
         :return: Shell command to run + string to pass to stdin.
         """
 
-        # set $R_LIBS_USER to non-existing path in build directory,
-        # to avoid picking up on R packages installed in home directory of current user
-        # (from ~/R/x86_64-pc-linux-gnu-library/<version>)
-        setvar('R_LIBS_USER', os.path.join(self.builddir, 'r_libs'))
-
+        self.set_R_user_vars()
         # determine location
         if isinstance(self.master, EB_R):
             # extension is being installed as part of an R installation/module
