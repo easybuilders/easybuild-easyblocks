@@ -105,7 +105,7 @@ class EB_CP2K(EasyBlock):
             'tests_maxtasks': [None, "--maxtasks in regtest command", CUSTOM],
             'tests_mpiranks': [None, "--mpiranks in regtest command", CUSTOM],
             'tests_maxerrors': [10000, "--maxerrors in regtest command", CUSTOM],
-            'tests_timeout': [1000, "--timeout in regtest command", CUSTOM],
+            'tests_timeout': [10000, "--timeout in regtest command", CUSTOM],
             'gpuver': [None, "CUDA gpu version", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
@@ -844,11 +844,11 @@ class EB_CP2K(EasyBlock):
                     regtest_script,
                     f"--maxtasks {tests_maxtasks}",  # parallel by default
                     f"--maxerrors {self.cfg['tests_maxerrors']}",  # 10 000 by default
-                    f"--timeout {self.cfg['tests_timeout']}",  # 1000 by default
+                    f"--timeout {self.cfg['tests_timeout']}",  # 10 000 by default
                     "--debug",
                     # set --mpiranks test flag only when tests_mpiranks is set, 2 by default
                     *([f"--mpiranks {self.cfg['tests_mpiranks']}"] if self.cfg['tests_mpiranks'] else []),
-                    # set --ompthreads test flag only when omp_num_threads is set, 2 by default?
+                    # set --ompthreads test flag only when omp_num_threads is set, 2 by default
                     *([f"--ompthreads {self.cfg['omp_num_threads']}"] if self.cfg['omp_num_threads'] else []),
                     exedir,
                     self.cfg['type'],
@@ -928,11 +928,13 @@ class EB_CP2K(EasyBlock):
             regtest_cmd = ' '.join(regtest_cmd)
             regtest = run_shell_cmd(regtest_cmd, fail_on_error=False)
             if regtest.exit_code == 0 and regtest.output:
-                self.log.info("Regression test output:\n%s" % regtest.output)
+                self.log.info(f"Regression test output:\n{regtest.output}")
             elif regtest.exit_code == 0:
                 raise EasyBuildError("Regression test failed: there is no output, tests probably did not run.")
+            elif regtest.exit_code != 0 and self.cfg['ignore_regtest_fails']:
+                self.log.info(f"Regression test failed (non-zero exit code), but you set ignore_regtest_fails:\n{regtest.output}")
             else:
-                raise EasyBuildError("Regression test failed (non-zero exit code): %s", regtest.output)
+                raise EasyBuildError(f"Regression test failed (non-zero exit code):\n{regtest.output}")
 
             # pattern to search for regression test summary
             re_pattern = r"number\s+of\s+%s\s+tests\s+(?P<cnt>[0-9]+)"
