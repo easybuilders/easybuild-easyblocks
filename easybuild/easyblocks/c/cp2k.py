@@ -932,7 +932,9 @@ class EB_CP2K(EasyBlock):
             elif regtest.exit_code == 0:
                 raise EasyBuildError("Regression test failed: there is no output, tests probably did not run.")
             elif regtest.exit_code != 0 and self.cfg['ignore_regtest_fails']:
-                self.log.info(f"Regression test failed (non-zero exit code), but you set ignore_regtest_fails:\n{regtest.output}")
+                self.log.info(
+                    f"Regression test failed (non-zero exit code), but you set ignore_regtest_fails:\n{regtest.output}"
+                )
             else:
                 raise EasyBuildError(f"Regression test failed (non-zero exit code):\n{regtest.output}")
 
