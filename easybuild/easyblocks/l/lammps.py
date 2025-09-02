@@ -40,6 +40,7 @@ from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.base import fancylogger
+from easybuild.easyblocks.python import set_py_env_vars
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
@@ -646,6 +647,7 @@ class EB_LAMMPS(CMakeMake):
                 'site_packages': site_packages,
             }
 
+            set_py_env_vars(self.log)
             run_shell_cmd(cmd)
 
     def sanity_check_step(self, *args, **kwargs):
