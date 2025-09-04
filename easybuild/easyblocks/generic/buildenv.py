@@ -64,7 +64,8 @@ class BuildEnv(Bundle):
             rpath_wrappers_path = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
             copy_dir(wrappers_dir, rpath_wrappers_path)
             wrapper_files = list(filter(os.path.isfile, glob.glob(os.path.join(rpath_wrappers_path, '*', '*'))))
-            # replace path to Python executable with python3 in the wrappers
+            # replace path to Python executable with python3 in the wrappers,
+            # as this is the executable that runs EasyBuild and may be unavailable when using the buildenv wrappers.
             apply_regex_substitutions(wrapper_files, [(r'^PYTHON_EXE=.*$', 'PYTHON_EXE=python3')], backup=False)
             # Make sure wrappers are readable/executable by everyone
             adjust_permissions(
