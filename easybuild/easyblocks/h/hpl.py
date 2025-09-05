@@ -110,7 +110,8 @@ class EB_HPL(ConfigureMake):
 
         comp_fam = self.toolchain.comp_family()
         if comp_fam in [toolchain.INTELCOMP]:
-            # Explicitly disable optimization, since Intel compilers apply some default level not shown on the command line.
+            # Explicitly disable optimization, since Intel compilers apply some default
+            # level not shown on the command line.
             # This breaks the result comparison, resulting in all tests failing residual checks.
             # See https://github.com/easybuilders/easybuild-easyconfigs/pull/23704#issuecomment-3202392904
             extra_makeopts += 'CCNOOPT=\'$(HPL_DEFS) -O0\' '
