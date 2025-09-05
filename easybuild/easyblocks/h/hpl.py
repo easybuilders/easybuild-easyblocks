@@ -30,12 +30,16 @@ EasyBuild support for building and installing HPL, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Davide Grassano (CECAM - EPFL)
 """
 
+import re
 import os
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, copy_file, mkdir, remove_file, symlink
 from easybuild.tools.run import run_shell_cmd
 
@@ -104,9 +108,60 @@ class EB_HPL(ConfigureMake):
         # C compilers flags
         extra_makeopts += "CCFLAGS='$(HPL_DEFS) %s' " % os.getenv('CFLAGS')
 
+        comp_fam = self.toolchain.comp_family()
+        if comp_fam in [toolchain.INTELCOMP]:
+            # Explicitly disable optimization, since Intel compilers apply some default level not shown on the command line.
+            # This breaks the result comparison, resulting in all tests failing residual checks.
+            # See https://github.com/easybuilders/easybuild-easyconfigs/pull/23704#issuecomment-3202392904
+            extra_makeopts += 'CCNOOPT=\'$(HPL_DEFS) -O0\' '
+
         # set options and build
         self.cfg.update('buildopts', extra_makeopts)
         super().build_step()
+
+    def test_step(self):
+        """Test by running xhpl"""
+        srcdir = os.path.join(self.cfg['start_dir'], 'bin', 'UNKNOWN')
+        change_dir(srcdir)
+
+        pre_cmd = ""
+        post_cmd = ""
+
+        # xhpl needs atleast 4 processes to run the test suite
+        req_cpus = 4
+
+        comp_fam = self.toolchain.comp_family()
+        if not build_option('mpi_tests') or self.cfg.parallel < req_cpus:
+            self.log.info("MPI tests disabled or not enough cpus... Running tests with 1 oversubscribed process")
+            pin_str = ','.join(['0'] * req_cpus)
+            if comp_fam in [toolchain.INTELCOMP]:
+                pre_cmd = f"I_MPI_PIN_PROCESSOR_LIST=\"{pin_str}\" I_MPI_PIN=on "
+            elif comp_fam in [toolchain.GCC]:
+                post_cmd = f"--cpu-set {pin_str}"
+            else:
+                self.report_test_failure("Don't know how to oversubscribe for %s compiler family" % comp_fam)
+
+        cmd = f"{pre_cmd} mpirun {post_cmd} -np {req_cpus} ./xhpl"
+        res = run_shell_cmd(cmd)
+        out = res.output
+
+        passed_rgx = re.compile(r'(\d+) tests completed and passed')
+        failed_rgx = re.compile(r'(\d+) tests completed and failed')
+
+        nfailed = 0
+        passed_mch = passed_rgx.search(out)
+        failed_mch = failed_rgx.search(out)
+        if passed_mch:
+            npassed = int(passed_mch.group(1))
+            self.log.info("%d tests passed residual checks in xhpl output" % npassed)
+        else:
+            self.report_test_failure("Could not find test results in output of xhpl")
+
+        if failed_mch:
+            nfailed = int(failed_mch.group(1))
+
+        if nfailed > 0:
+            self.report_test_failure("%d tests failed residual checks in xhpl output" % nfailed)
 
     def install_step(self):
         """
