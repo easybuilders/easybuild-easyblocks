@@ -98,15 +98,15 @@ class EB_CP2K(EasyBlock):
             'modinc': [[], ("List of modinc's to use (*.f90), or 'True' to use all found at given prefix"), CUSTOM],
             'modincprefix': ['', "Intel MKL prefix for modinc include dir", CUSTOM],
             'runtest': [True, "Build and run CP2K tests", CUSTOM],
-            'omp_num_threads': [None, "Value to set $OMP_NUM_THREADS to during testing", CUSTOM],
+            'omp_num_threads': [None, "Value to set $OMP_NUM_THREADS to during testing, type=int", CUSTOM],
             'plumed': [None, "Enable PLUMED support", CUSTOM],
             'type': ['popt', "Type of build ('popt' or 'psmp')", CUSTOM],
             'typeopt': [True, "Enable optimization", CUSTOM],
-            'tests_maxtasks': [None, "--maxtasks in regtest command", CUSTOM],
-            'tests_mpiranks': [None, "--mpiranks in regtest command", CUSTOM],
-            'tests_maxerrors': [10000, "--maxerrors in regtest command", CUSTOM],
-            'tests_timeout': [10000, "--timeout in regtest command", CUSTOM],
-            'gpuver': [None, "CUDA gpu version", CUSTOM],
+            'tests_maxtasks': [None, "--maxtasks in regtest command, type=int", CUSTOM],
+            'tests_mpiranks': [None, "--mpiranks in regtest command, type=int", CUSTOM],
+            'tests_maxerrors': [10000, "--maxerrors in regtest command, type=int", CUSTOM],
+            'tests_timeout': [10000, "--timeout in regtest command, type=int", CUSTOM],
+            'gpuver': [None, "CUDA gpu version, type=str", CUSTOM],
         }
         return EasyBlock.extra_options(extra_vars)
 
@@ -277,7 +277,8 @@ class EB_CP2K(EasyBlock):
                 if not self.cfg['gpuver']:
                     raise EasyBuildError(
                         "gpuver variable is not set in the easyconfig file. "
-                        "You must set 'gpuver' if you have CUDA included."
+                        "You must set 'gpuver' if you have CUDA included. "
+                        "For example: gpuver = 'H100'"
                     )
                 options['DFLAGS'] += ' -D__OFFLOAD_CUDA -D__DBCSR_ACC '
                 options['LIBS'] += ' -lcufft -lcudart -lnvrtc -lcuda -lcublas'
@@ -821,7 +822,7 @@ class EB_CP2K(EasyBlock):
                 return
 
             if self.cfg['omp_num_threads']:
-                setvar('OMP_NUM_THREADS', self.cfg['omp_num_threads'])
+                setvar('OMP_NUM_THREADS', str(self.cfg['omp_num_threads']))
 
             # change to root of build dir
             change_dir(self.builddir)
@@ -834,7 +835,7 @@ class EB_CP2K(EasyBlock):
             else:
                 exedir = self.typearch
 
-            if LooseVersion(self.version) >= LooseVersion('2023.2'):
+            if LooseVersion(self.version) >= LooseVersion('2023.1'):
                 if LooseVersion(self.version) > LooseVersion('2024.0'):
                     regtest_script = os.path.join(self.cfg['start_dir'], 'tests', 'do_regtest.py')
                 else:
