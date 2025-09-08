@@ -37,7 +37,6 @@ import re
 import os
 
 import easybuild.tools.toolchain as toolchain
-from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
