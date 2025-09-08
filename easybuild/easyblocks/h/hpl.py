@@ -52,16 +52,6 @@ class EB_HPL(ConfigureMake):
     - build with make and install
     """
 
-    @staticmethod
-    def extra_options():
-        extra_vars = ConfigureMake.extra_options()
-        extra_vars.update({
-            'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
-            'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
-        })
-
-        return extra_vars
-
     def configure_step(self, subdir=None):
         """
         Create Make.UNKNOWN file to build from
@@ -146,9 +136,6 @@ class EB_HPL(ConfigureMake):
         if mpi_fam is None:
             self.report_test_failure("Toolchain does not include an MPI implementation, cannot run tests")
 
-        mpi_exe = self.cfg['mpiexec']
-        mpi_np_flag = self.cfg['mpiexec_numproc_flag']
-
         parallel = self.cfg.parallel
         if not build_option('mpi_tests'):
             self.log.info("MPI tests disabled from buildoption. Setting parallel to 1")
@@ -167,7 +154,8 @@ class EB_HPL(ConfigureMake):
             else:
                 self.report_test_failure("Don't know how to oversubscribe for `%s` MPI family" % mpi_fam)
 
-        cmd = f"{pre_cmd} {mpi_exe} {post_cmd} {mpi_np_flag} {req_cpus} ./xhpl"
+        cmd = self.toolchain.mpi_cmd_for(f'{post_cmd} ./xhpl', req_cpus)
+        cmd = f'{pre_cmd} {cmd}'
         res = run_shell_cmd(cmd)
         out = res.output
 
