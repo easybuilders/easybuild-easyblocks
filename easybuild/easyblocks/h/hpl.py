@@ -37,6 +37,7 @@ import re
 import os
 
 import easybuild.tools.toolchain as toolchain
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
@@ -50,6 +51,16 @@ class EB_HPL(ConfigureMake):
     - create Make.UNKNOWN
     - build with make and install
     """
+
+    @staticmethod
+    def extra_options():
+        extra_vars = ConfigureMake.extra_options()
+        extra_vars.update({
+            'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
+            'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
+        })
+
+        return extra_vars
 
     def configure_step(self, subdir=None):
         """
@@ -131,18 +142,32 @@ class EB_HPL(ConfigureMake):
         # xhpl needs atleast 4 processes to run the test suite
         req_cpus = 4
 
-        comp_fam = self.toolchain.comp_family()
-        if not build_option('mpi_tests') or self.cfg.parallel < req_cpus:
-            self.log.info("MPI tests disabled or not enough cpus... Running tests with 1 oversubscribed process")
-            pin_str = ','.join(['0'] * req_cpus)
-            if comp_fam in [toolchain.INTELCOMP]:
-                pre_cmd = f"I_MPI_PIN_PROCESSOR_LIST=\"{pin_str}\" I_MPI_PIN=on "
-            elif comp_fam in [toolchain.GCC]:
-                post_cmd = f"--cpu-set {pin_str}"
-            else:
-                self.report_test_failure("Don't know how to oversubscribe for %s compiler family" % comp_fam)
+        mpi_fam = self.toolchain.mpi_family()
+        if mpi_fam is None:
+            self.report_test_failure("Toolchain does not include an MPI implementation, cannot run tests")
 
-        cmd = f"{pre_cmd} mpirun {post_cmd} -np {req_cpus} ./xhpl"
+        mpi_exe = self.cfg['mpiexec']
+        mpi_np_flag = self.cfg['mpiexec_numproc_flag']
+
+        parallel = self.cfg.get('parallel', 1)
+        if not build_option('mpi_tests'):
+            self.log.info("MPI tests disabled from buildoption. Setting parallel to 1")
+            parallel = 1
+
+        if parallel < req_cpus:
+            self.log.info("Running tests with 1 oversubscribed process")
+
+            pin_str = ','.join(["0"] * req_cpus)
+            if mpi_fam in [toolchain.INTELMPI]:
+                pre_cmd = f"I_MPI_PIN_PROCESSOR_LIST=\"{pin_str}\" I_MPI_PIN=on "
+            elif mpi_fam in [toolchain.OPENMPI]:
+                post_cmd = f"--cpu-set {pin_str}"
+            elif mpi_fam in [toolchain.MPICH]:
+                post_cmd = f"-bind-to user:{pin_str}"
+            else:
+                self.report_test_failure("Don't know how to oversubscribe for `%s` MPI family" % mpi_fam)
+
+        cmd = f"{pre_cmd} {mpi_exe} {post_cmd} {mpi_np_flag} {req_cpus} ./xhpl"
         res = run_shell_cmd(cmd)
         out = res.output
 
