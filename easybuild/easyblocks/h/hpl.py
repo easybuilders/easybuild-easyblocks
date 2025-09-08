@@ -149,7 +149,7 @@ class EB_HPL(ConfigureMake):
         mpi_exe = self.cfg['mpiexec']
         mpi_np_flag = self.cfg['mpiexec_numproc_flag']
 
-        parallel = self.cfg.get('parallel', 1)
+        parallel = self.cfg.parallel
         if not build_option('mpi_tests'):
             self.log.info("MPI tests disabled from buildoption. Setting parallel to 1")
             parallel = 1
