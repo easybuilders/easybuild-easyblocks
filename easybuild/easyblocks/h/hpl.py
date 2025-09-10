@@ -125,9 +125,6 @@ class EB_HPL(ConfigureMake):
         srcdir = os.path.join(self.cfg['start_dir'], 'bin', 'UNKNOWN')
         change_dir(srcdir)
 
-        pre_cmd = ""
-        post_cmd = ""
-
         # xhpl needs atleast 4 processes to run the test suite
         req_cpus = 4
 
@@ -140,21 +137,12 @@ class EB_HPL(ConfigureMake):
             self.log.info("MPI tests disabled from buildoption. Setting parallel to 1")
             parallel = 1
 
-        if parallel < req_cpus:
-            self.log.info("Running tests with 1 oversubscribed process")
+        oversubscribe = parallel < req_cpus
 
-            pin_str = ','.join(["0"] * req_cpus)
-            if mpi_fam in [toolchain.INTELMPI]:
-                pre_cmd = f"I_MPI_PIN_PROCESSOR_LIST=\"{pin_str}\" I_MPI_PIN=on "
-            elif mpi_fam in [toolchain.OPENMPI]:
-                post_cmd = f"--cpu-set {pin_str}"
-            elif mpi_fam in [toolchain.MPICH]:
-                post_cmd = f"-bind-to user:{pin_str}"
-            else:
-                self.report_test_failure("Don't know how to oversubscribe for `%s` MPI family" % mpi_fam)
-
-        cmd = self.toolchain.mpi_cmd_for(f'{post_cmd} ./xhpl', req_cpus)
-        cmd = f'{pre_cmd} {cmd}'
+        try:
+            cmd = self.toolchain.mpi_cmd_for(f'./xhpl', req_cpus, oversubscribe=oversubscribe)
+        except EasyBuildError as err:
+            self.report_test_failure(f"Could not create MPI command to run xhpl: {err}")
         res = run_shell_cmd(cmd)
         out = res.output
 
