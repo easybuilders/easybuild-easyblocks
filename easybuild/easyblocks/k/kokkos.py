@@ -181,9 +181,9 @@ class EB_Kokkos(CMakeMake):
 
     def get_kokkos_arch(self, cuda_cc, amdgcn_cc, kokkos_arch):
         """
-        Return KOKKOS ARCH in LAMMPS required format, which is 'CPU_ARCH' and 'GPU_ARCH'.
+        Return KOKKOS ARCH in required format, based on passed architectures.
 
-        see: https://docs.lammps.org/Build_extras.html#kokkos
+        see: https://kokkos.org/kokkos-core-wiki/get-started/configuration-guide.html#architectures
         """
         # CPU arch
         # NOTE: if the CPU KOKKOS_ARCH flag is specified, Kokkos will add the correspondent `-march` and `-mtune` flags
