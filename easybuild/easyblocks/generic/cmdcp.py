@@ -69,6 +69,7 @@ class CmdCp(MakeCp):
             cmd = None
             for pattern, regex_cmd in self.cfg.get_ref('cmds_map'):
                 pattern = pattern % self.cfg.template_values
+                regex_cmd = regex_cmd % self.cfg.template_values
                 try:
                     regex = re.compile(pattern)
                 except re.error as err:
