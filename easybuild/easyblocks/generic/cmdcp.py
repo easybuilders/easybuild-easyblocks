@@ -67,7 +67,8 @@ class CmdCp(MakeCp):
             # determine command to use
             # find (first) regex match, then complete matching command template
             cmd = None
-            for pattern, regex_cmd in self.cfg['cmds_map']:
+            for pattern, regex_cmd in self.cfg.get_ref('cmds_map'):
+                pattern = pattern % self.cfg.template_values
                 try:
                     regex = re.compile(pattern)
                 except re.error as err:
@@ -78,6 +79,6 @@ class CmdCp(MakeCp):
                     break
             if cmd is None:
                 raise EasyBuildError("No match for %s in %s, don't know which command to use.",
-                                     src, self.cfg['cmds_map'])
+                                     src, self.cfg.get_ref('cmds_map'))
 
             run_shell_cmd(cmd)
