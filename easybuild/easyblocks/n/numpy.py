@@ -99,7 +99,7 @@ class EB_numpy(FortranPythonPackage):
             # This is a bit of a hack, as the newer icx behaves differently from the icc compiler
             # In order to find iomp5, and thus MKL, we simply add the Intel compiler library path.
 
-            intelcompilersroot = os.getenv("EBROOTINTELMINCOMPILERS")
+            intelroot = os.getenv("EBROOTINTELMINCOMPILERS")
             if self.toolchain.comp_family() == toolchain.GCC:
                 self.sitecfg = '\n'.join([
                     "[DEFAULT]",
@@ -110,7 +110,7 @@ class EB_numpy(FortranPythonPackage):
             else:
                 self.sitecfg = '\n'.join([
                     "[DEFAULT]",
-                    "library_dirs = %s" % os.path.join(intelcompilersroot, 'compiler', 'latest', 'lib', ':', '%(libs)s'),
+                    "library_dirs = %s" % os.path.join(intelroot, 'compiler', 'latest', 'lib', ':', '%(libs)s'),
                     "include_dirs= %(includes)s",
                     "search_static_first=True",
                 ])
