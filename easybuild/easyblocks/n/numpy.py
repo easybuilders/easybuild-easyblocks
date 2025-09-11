@@ -96,12 +96,24 @@ class EB_numpy(FortranPythonPackage):
             self.log.info(f"Using classic procedure to configure build for numpy version {self.version}")
 
             # see e.g. https://github.com/numpy/numpy/pull/2809/files
-            self.sitecfg = '\n'.join([
-                "[DEFAULT]",
-                "library_dirs = %(libs)s",
-                "include_dirs= %(includes)s",
-                "search_static_first=True",
-            ])
+            # This is a bit of a hack, as the newer icx behaves differently from the icc compiler
+            # In order to find iomp5, and thus MKL, we simply add the Intel compiler library path.
+
+            intelcompilersroot = os.getenv("EBROOTINTELMINCOMPILERS")
+            if self.toolchain.comp_family() == toolchain.GCC:
+                self.sitecfg = '\n'.join([
+                    "[DEFAULT]",
+                    "library_dirs = %(libs)s",
+                    "include_dirs= %(includes)s",
+                    "search_static_first=True",
+                ])
+            else:
+                self.sitecfg = '\n'.join([
+                    "[DEFAULT]",
+                    "library_dirs = %s" % os.path.join(intelcompilersroot, 'compiler', 'latest', 'lib', ':', '%(libs)s'),
+                    "include_dirs= %(includes)s",
+                    "search_static_first=True",
+                ])
 
             # If both FlexiBLAS and MKL are found, we assume that FlexiBLAS has a dependency on MKL.
             # In this case we want to link to FlexiBLAS and not directly to MKL.
