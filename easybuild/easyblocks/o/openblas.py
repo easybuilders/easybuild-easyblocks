@@ -227,7 +227,7 @@ class EB_OpenBLAS(ConfigureMake):
             res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed
-            regex = re.compile("FATAL ERROR", re.M)
+            regex = re.compile("^((?!printf).)*FATAL ERROR", re.M)
             errors = regex.findall(res.output)
             if errors:
                 raise EasyBuildError("Found %d fatal errors in test output!", len(errors))
