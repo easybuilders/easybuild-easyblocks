@@ -223,7 +223,16 @@ class EB_OpenBLAS(ConfigureMake):
             run_tests += [self.cfg['runtest']]
 
         for runtest in run_tests:
-            cmd = f"{self.cfg['pretestopts']} make {runtest} {self.cfg['testopts']}"
+            # Try to limit parallelism for the tests. If OMP_NUM_THREADS or OPENBLAS_NUM_THREADS is already set,
+            # use the existing value. If not, we'll set OMP_NUM_THREADS for OpenBLAS built with OpenMP, and
+            # OPENBLAS_NUM_THREADS if built with threads.
+            parallelism_env = ''
+            if "USE_OPENMP='1'" in self.cfg['testopts'] and 'OMP_NUM_THREADS' not in self.cfg['pretestopts']:
+                parallelism_env += f'OMP_NUM_THREADS={self.cfg.parallel} '
+            if "USE_THREAD='1'" in self.cfg['testopts'] and 'OPENBLAS_NUM_THREADS' not in self.cfg['pretestopts']:
+                parallelism_env += f'OPENBLAS_NUM_THREADS={self.cfg.parallel} '
+
+            cmd = f"{parallelism_env} {self.cfg['pretestopts']} make {runtest} {self.cfg['testopts']}"
             res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed
