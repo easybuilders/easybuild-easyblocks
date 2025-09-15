@@ -33,7 +33,7 @@ import os
 import stat
 
 from easybuild.easyblocks.generic.binary import Binary
-from easybuild.tools.filetools import adjust_permissions, remove_dir
+from easybuild.tools.filetools import adjust_permissions, clean_dir
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
 
@@ -59,7 +59,7 @@ class EB_Anaconda(Binary):
     def install_step(self):
         """Copy all files in build directory to the install directory"""
 
-        remove_dir(self.installdir)
+        clean_dir(self.installdir)
         install_script = self.src[0]['name']
 
         adjust_permissions(os.path.join(self.builddir, install_script), stat.S_IRUSR | stat.S_IXUSR)
