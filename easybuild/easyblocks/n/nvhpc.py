@@ -172,6 +172,11 @@ class EB_NVHPC(PackedBinary):
         if default_cuda_version is None:
             module_cuda_version_full = get_software_version('CUDA')
             if module_cuda_version_full is not None:
+                # If sites customize the CUDA version to e.g. omit the minor or patch version,
+                # NVHPC installations may create a non-functional nvcc because of an invalid
+                # localrc file. To avoid this, add a dummy ".0" to the version string.
+                if "." not in module_cuda_version_full:
+                    module_cuda_version_full += ".0"
                 default_cuda_version = '.'.join(module_cuda_version_full.split('.')[:2])
             else:
                 error_msg = "A default CUDA version is needed for installation of NVHPC. "
