@@ -742,7 +742,7 @@ class EB_PyTorch(PythonPackage):
                        ', '.join(sorted(failed_test_suites - all_failed_test_suites)))
             raise EasyBuildError(msg + '\n' +
                                  'You can check the test failures (in the log) manually and if they are harmless, '
-                                 'use --ignore-test-failures to make the test step pass.\n' + failure_report)
+                                 'use --ignore-test-failure to make the test step pass.\n' + failure_report)
 
         if failed_test_cnt > 0:
             max_failed_tests = self.cfg['max_failed_tests']

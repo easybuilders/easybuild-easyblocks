@@ -268,7 +268,7 @@ class EB_NWChem(ConfigureMake):
         cmd = "make %s nwchem_config" % self.cfg['buildopts']
         run_shell_cmd(cmd)
 
-    def build_step(self):
+    def build_step(self, *args, **kwargs):
         """Custom build procedure for NWChem."""
 
         # set FC
@@ -290,7 +290,7 @@ class EB_NWChem(ConfigureMake):
             os.unsetenv(var)
             os.environ.pop(var)
 
-        super().build_step(verbose=True)
+        super().build_step(*args, **kwargs)
 
         # build version info
         try:
