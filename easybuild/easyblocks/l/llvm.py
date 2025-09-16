@@ -125,7 +125,7 @@ DISABLE_WERROR_OPTS = {
 
 GENERAL_OPTS = {
     'CMAKE_VERBOSE_MAKEFILE': 'ON',
-    'LLVM_INCLUDE_BENCHMARKS': 'OFF',
+    # 'LLVM_INCLUDE_BENCHMARKS': 'OFF',
     'LLVM_INSTALL_UTILS': 'ON',
     # If EB is launched from a venv, avoid giving priority to the venv's python
     'Python3_FIND_VIRTUALENV': 'STANDARD',
@@ -229,6 +229,7 @@ class EB_LLVM(CMakeMake):
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'test_suite_ignore_patterns': [None, "List of test to ignore (if the string matches)", CUSTOM],
             'test_suite_ignore_timeouts': [False, "Do not treat timedoud tests as failures", CUSTOM],
+            'test_suite_include_benchmarks': [False, "If False do not build the benchmarks tests", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
             'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
@@ -277,6 +278,7 @@ class EB_LLVM(CMakeMake):
             }
         self.offload_targets = ['host']
         self.host_triple = None
+        self.sysroot = None
         self.dynamic_linker = None
 
         # Shared
@@ -560,6 +562,34 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = self.list_to_cmake_arg(self.intermediate_projects)
         self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = self.list_to_cmake_arg(self.intermediate_runtimes)
 
+    def _remove_iterable_from_envvar(self, varname, to_remove, sep=' '):
+        """Remove items in to_remove from environment variable varname."""
+        flags = os.getenv(varname, '')
+        flags = set(filter(None, flags.split(sep)))
+        torm = flags & set(to_remove)
+        if torm:
+            self.log.info(
+                "Removing unsupported options from %s for flang %s: `%s`", varname, self.version, ', '.join(torm)
+            )
+            setvar(varname, sep.join(flags - torm))
+
+    def remove_unsupported_flang_opts(self):
+        """For version of LLVM where `flang` is invoched at build time to build modules, ensure that unsupported
+        options are removed from F90FLAGS and FFLAGS."""
+        unsupported_flang_opts = set()
+        if self.version >= '21':
+            if self.version < '22':
+                unsupported_flang_opts.update([
+                    '-fmath-errno', '-fno-math-errno',
+                    # These are supported since 21.x
+                    # '-fslp-vectorize', '-fvectorize', '-fno-vectorize',
+                    '-fno-unsafe-math-optimizations',
+                ])
+
+        if unsupported_flang_opts:
+            self._remove_iterable_from_envvar('F90FLAGS', unsupported_flang_opts)
+            self._remove_iterable_from_envvar('FFLAGS', unsupported_flang_opts)
+
     def _configure_final_build(self):
         """Configure the final stage of the build."""
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = self.list_to_cmake_arg(self.final_projects)
@@ -593,6 +623,13 @@ class EB_LLVM(CMakeMake):
                 self._cmakeopts['LIBOMPTARGET_OMPT_SUPPORT'] = ompt_value
             # OMPT based tools
             self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = ompt_value
+
+        if 'flang' in self.final_projects:
+            self.remove_unsupported_flang_opts()
+
+        include_benchmarks = 'ON' if self.cfg['test_suite_include_benchmarks'] else 'OFF'
+        self._cmakeopts['LLVM_INCLUDE_BENCHMARKS'] = include_benchmarks
+        self.runtimes_cmake_args['LLVM_INCLUDE_BENCHMARKS'] = include_benchmarks
 
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
@@ -1048,6 +1085,7 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts = {}
         self._configure_general_build()
         self._configure_final_build()
+
         # Update runtime CMake arguments, as they might have
         # changed when configuring the final build arguments
         self._add_cmake_runtime_args()
@@ -1523,6 +1561,11 @@ class EB_LLVM(CMakeMake):
             lib_dir_runtime = self.get_runtime_lib_path(self.installdir)
         shlib_ext = '.' + get_shared_lib_ext()
 
+        if not hasattr(self, 'nvptx_target_cond'):
+            # Need to perform the target configuration if not done already eg whe running in `--module-only`
+            # or `--sanity-check-only` modes
+            self._configure_build_targets()
+
         resdir_version = self.version.split('.')[0]
         version = LooseVersion(self.version)
 
@@ -1586,10 +1629,14 @@ class EB_LLVM(CMakeMake):
             else:
                 check_bin_files += ['bbc', 'flang-new', 'f18-parse-demo', 'fir-opt', 'tco']
             check_lib_files += [
-                'libFortranRuntime.a', 'libFortranSemantics.a', 'libFortranLower.a', 'libFortranParser.a',
-                'libFIRCodeGen.a', 'libflangFrontend.a', 'libFortranCommon.a', 'libFortranDecimal.a',
+                'libFortranSemantics.a', 'libFortranLower.a', 'libFortranParser.a',
+                'libFIRCodeGen.a', 'libflangFrontend.a', 'libFortranDecimal.a',
                 'libHLFIRDialect.a'
             ]
+            if version < '21':
+                check_lib_files += [
+                    'libFortranRuntime.a', 'libFortranCommon.a'
+                ]
             check_dirs += ['lib/cmake/flang', 'include/flang']
             custom_commands += ['bbc --help', 'mlir-tblgen --help', 'flang-new --help']
             gcc_prefix_compilers += ['flang-new']
@@ -1655,15 +1702,21 @@ class EB_LLVM(CMakeMake):
                         omp_lib_files += ['libomptarget.rtl.cuda.so']
                     if version < '20':
                         omp_lib_files += [f'libomptarget-nvptx-sm_{cc}.bc' for cc in self.cuda_cc]
-                    else:
+                    elif version < '21':
                         omp_lib_files += ['libomptarget-nvptx.bc']
+                    else:
+                        # In LLVM 21 the location has changed to lib/nvptx64-nvidia-cuda/libomptarget-nvptx.bc
+                        check_lib_files += [os.path.join('nvptx64-nvidia-cuda', 'libomptarget-nvptx.bc')]
                 if self.amdgpu_target_cond:
                     if version < '19':
                         omp_lib_files += ['libomptarget.rtl.amdgpu.so']
                     if version < '20':
                         omp_lib_files += [f'libomptarget-amdgpu-{gfx}.bc' for gfx in self.amd_gfx]
-                    else:
+                    elif version < '21':
                         omp_lib_files += ['libomptarget-amdgpu.bc']
+                    else:
+                        # In LLVM 21 the location has changed to lib/amdgcn-amd-amdhsa/libomptarget-amdgpu.bc
+                        check_lib_files += [os.path.join('amdgcn-amd-amdhsa', 'libomptarget-amdgpu.bc')]
                 check_bin_files += ['llvm-omp-kernel-replay']
                 if version < '20':
                     check_bin_files += ['llvm-omp-device-info']
