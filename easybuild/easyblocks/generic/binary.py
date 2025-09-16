@@ -32,14 +32,13 @@ General EasyBuild support for software with a binary installer
 @author: Jens Timmerman (Ghent University)
 """
 
-import shutil
 import os
 import stat
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, remove_dir
+from easybuild.tools.filetools import adjust_permissions, clean_dir, copy_dir, copy_file, mkdir
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -116,8 +115,8 @@ class Binary(EasyBlock):
         if install_cmd is None and install_cmds is None:
             try:
                 # shutil.copytree doesn't allow the target directory to exist already
-                remove_dir(self.installdir)
-                shutil.copytree(self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
+                clean_dir(self.installdir)
+                copy_dir(self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=True)
             except OSError as err:
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
         else:
@@ -142,14 +141,8 @@ class Binary(EasyBlock):
         if self.cfg.get('staged_install', False):
             staged_installdir = self.installdir
             self.installdir = self.actual_installdir
-            try:
-                # copytree expects target directory to not exist yet
-                if os.path.exists(self.installdir):
-                    remove_dir(self.installdir)
-                shutil.copytree(staged_installdir, self.installdir)
-            except OSError as err:
-                raise EasyBuildError("Failed to move staged install from %s to %s: %s",
-                                     staged_installdir, self.installdir, err)
+            clean_dir(self.installdir)
+            copy_dir(staged_installdir, self.installdir, dirs_exist_ok=True)
 
         super().post_processing_step()
 
