@@ -134,8 +134,8 @@ class EB_HPL(ConfigureMake):
 
         parallel = self.cfg.parallel
         if not build_option('mpi_tests'):
-            self.log.info("MPI tests disabled from buildoption. Setting parallel to 1")
-            parallel = 1
+            self.log.warning("MPI tests disabled from buildoption. Skipping tests")
+            return
 
         oversubscribe = parallel < req_cpus
 
