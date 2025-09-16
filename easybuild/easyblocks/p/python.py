@@ -302,6 +302,12 @@ class EB_Python(ConfigureMake):
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
                         "If None: auto-detect based on toolchain compiler (version)", CUSTOM],
+            'patch_custom_ctypes': [None, "The ctypes module strongly relies on LD_LIBRARY_PATH to find "
+                                          "libraries. This allows specifying a patch that will only be "
+                                          "applied if EasyBuild is configured to filter LD_LIBRARY_PATH, in "
+                                          "order to make sure ctypes can still find libraries without it. "
+                                          "Please make sure to add the checksum for this patch to 'checksums'.",
+                                          CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -345,6 +351,45 @@ class EB_Python(ConfigureMake):
                 return ext[1]
         return None
 
+    def fetch_step(self, *args, **kwargs):
+        """
+        Custom fetch step for Python: add patches from patches_custom_ctypes to 'patches' if
+        EasyBuild is configured to filter LD_LIBRARY_PATH (and is configured not to filter LIBRARY_PATH).
+        This needs to be done in (or before) the fetch step to ensure that those patches are also fetched.
+        """
+        # If we filter out LD_LIBRARY_PATH (not unusual when using rpath), ctypes is not able to dynamically load
+        # libraries installed with EasyBuild (see https://github.com/EESSI/software-layer/issues/192).
+        # If EasyBuild is configured to filter LD_LIBRARY_PATH any patches listed in `patches_custom_ctypes`
+        # are added to the list of patches. Also, we add the checksums_filter_ld_library_path to the checksums list in
+        # that case.
+        # This mechanism e.g. makes sure we can patch ctypes, which normally strongly relies on LD_LIBRARY_PATH to find
+        # libraries. But, we want to do the patching conditionally on EasyBuild configuration (i.e. which env vars
+        # are filtered), hence this setup based on the custom config option 'patches_custom_ctypes'
+        filtered_env_vars = build_option('filter_env_vars') or []
+        additional_patches = []
+        if self.cfg['patch_custom_ctypes'] is not None:
+            additional_patches = [self.cfg['patch_custom_ctypes']]
+        checksums = self.cfg['checksums']
+        sources = self.cfg['sources']
+        if ('LD_LIBRARY_PATH' in filtered_env_vars and len(additional_patches) > 0):
+            # Some sanity checking so we can raise an early and clear error if needed
+            if len(additional_patches) + len(sources) == len(checksums):
+                msg = "EasyBuild was configured to filter LD_LIBRARY_PATH (and not to filter LIBRARY_PATH). "
+                msg += "The ctypes module relies heavily on LD_LIBRARY_PATH for locating its libraries. "
+                msg += "The following patches will be applied to make sure ctypes.CDLL, ctypes.cdll.LoadLibrary "
+                msg += f"and ctypes.util.find_library will still work correctly: {additional_patches}."
+                self.log.info(msg)
+                self.log.info(f"Original list of patches: {self.cfg['patches']}")
+                self.log.info(f"List of patches to be added: {additional_patches}")
+                self.cfg.update('patches', additional_patches)
+                self.log.info(f"Updated list of patches: {self.cfg['patches']}")
+            else:
+                msg = "The length of 'checksums' (%s) was not equal to the total amount of sources (%s) + patches (%s)"
+                msg += ". Did you forget to add a checksum for patch_custom_ctypes?."
+                raise EasyBuildError(msg, len(checksums), len(sources), len(additional_patches))
+
+        super().fetch_step(*args, **kwargs)
+
     def patch_step(self, *args, **kwargs):
         """
         Custom patch step for Python:
@@ -356,33 +401,6 @@ class EB_Python(ConfigureMake):
         if self.install_pip:
             # Ignore user site dir. -E ignores PYTHONNOUSERSITE, so we have to add -s
             apply_regex_substitutions('configure', [(r"(PYTHON_FOR_BUILD=.*-E)'", r"\1 -s'")])
-
-        # If we filter out LD_LIBRARY_PATH (not unusual when using rpath), ctypes is not able to dynamically load
-        # libraries installed with EasyBuild (see https://github.com/EESSI/software-layer/issues/192).
-        # ctypes is using GCC (and therefore LIBRARY_PATH) to figure out the full location but then only returns the
-        # soname, instead let's return the full path in this particular scenario
-        filtered_env_vars = build_option('filter_env_vars') or []
-        if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
-            ctypes_util_py = os.path.join("Lib", "ctypes", "util.py")
-            orig_gcc_so_name = None
-            # Let's do this incrementally since we are going back in time
-            if LooseVersion(self.version) >= "3.9.1":
-                # From 3.9.1 to at least v3.12.4 there is only one match for this line
-                orig_gcc_so_name = "_get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))"
-            if orig_gcc_so_name:
-                orig_gcc_so_name_regex = r'(\s*)' + re.escape(orig_gcc_so_name) + r'(\s*)'
-                # _get_soname() takes the full path as an argument and uses objdump to get the SONAME field from
-                # the shared object file. The presence or absence of the SONAME field in the ELF header of a shared
-                # library is influenced by how the library is compiled and linked. For manually built libraries we
-                # may be lacking this field, this approach also solves that problem.
-                updated_gcc_so_name = (
-                    "_findLib_gcc(name) or _findLib_ld(name)"
-                )
-                apply_regex_substitutions(
-                    ctypes_util_py,
-                    [(orig_gcc_so_name_regex, r'\1' + updated_gcc_so_name + r'\2')],
-                    on_missing_match=ERROR
-                )
 
         # if we're installing Python with an alternate sysroot,
         # we need to patch setup.py which includes hardcoded paths like /usr/include and /lib64;
