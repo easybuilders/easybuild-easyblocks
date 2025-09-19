@@ -47,8 +47,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import ERROR, build_option
-from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink, copy
+from easybuild.tools.modules import get_software_root, get_software_version, get_software_libdir
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import POWER, get_cpu_architecture
 
@@ -794,6 +794,32 @@ class EB_PyTorch(PythonPackage):
     def test_cases_step(self):
         self._set_cache_dirs()
         super().test_cases_step()
+
+    def install_step(self):
+        """Set rpath if required"""
+        super().install_step()
+        # If NCCL is used as a build dependency only, we need to make sure it is found at runtime
+        if 'NCCL' in self.cfg.dependency_names(build_only=True):
+            if 'patchelf' not in self.cfg.dependency_names():
+                raise EasyBuildError("PyTorch requires patchelf to set the RPATH of the NCCL"
+                                     " as NCCL is only a build dependency")
+            nccl_libdir = get_software_libdir('NCCL', full_path=True)
+            if not nccl_libdir:
+                raise EasyBuildError("Did not find libdir of NCCL installation")
+            nccl_libs = list(Path(nccl_libdir).glob('libnccl.so*'))
+            if not nccl_libs:
+                raise EasyBuildError("Did not find any NCCL libraries in %s", nccl_libdir)
+            torch_libs = list(Path(self.installdir).glob('lib/**/torch/**/*.so'))
+            if not torch_libs:
+                raise EasyBuildError("Did not find any PyTorch libraries in %s", self.installdir)
+            nvidia_libs_dir = os.path.join(self.installdir, 'nvidia_libs')
+            mkdir(nvidia_libs_dir, parents=True)
+            copy(nccl_libs, nvidia_libs_dir, symlinks=True)
+
+            for lib in torch_libs:
+                rpath = os.path.relpath(nvidia_libs_dir, lib.parent)
+                run_shell_cmd(['patchelf', '--force-rpath', '--add-rpath', f'$ORIGIN/{rpath}', str(lib)],
+                              use_bash=False)
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for PyTorch"""
