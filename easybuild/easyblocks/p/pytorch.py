@@ -538,15 +538,18 @@ class EB_PyTorch(PythonPackage):
         self.cfg.update('prebuildopts', ' '.join(unique_options) + ' ')
         self.cfg.update('preinstallopts', ' '.join(unique_options) + ' ')
 
-    def _set_cache_dir(self):
-        """Set $XDG_CACHE_HOME and $TRITON_HOME to avoid PyTorch defaulting to $HOME"""
+    def _set_cache_dirs(self):
+        """Set $XDG_CACHE_HOME and $TRITON_HOME to avoid PyTorch defaulting to $HOME
+        and similar variables to ensure clean build/test environment
+        """
         cache_dir = os.path.join(self.tmpdir, '.cache')
         # The path must exist!
         mkdir(cache_dir, parents=True)
         env.setvar('XDG_CACHE_HOME', cache_dir)
         # Triton also uses a path defaulting to $HOME
-        # Isolate against user-set variables
-        env.unset_env_vars(('TRITON_DUMP_DIR', 'TRITON_OVERRIDE_DIR', 'TRITON_CACHE_DIR'))
+        # Isolate against user-set variables which could lead to reusing caches that may fail test
+        env.unset_env_vars(('TRITON_DUMP_DIR', 'TRITON_OVERRIDE_DIR', 'TRITON_CACHE_DIR',
+                            'TORCH_HOME', 'TORCHINDUCTOR_CACHE_DIR', 'PYTORCH_KERNEL_CACHE_PATH'))
         triton_home = os.path.join(self.tmpdir, '.triton_home')
         env.setvar('TRITON_HOME', triton_home)
 
@@ -599,7 +602,7 @@ class EB_PyTorch(PythonPackage):
 
     def test_step(self):
         """Run unit tests"""
-        self._set_cache_dir()
+        self._set_cache_dirs()
         # Pretend to be on FB CI which disables some tests, especially those which download stuff
         env.setvar('SANDCASTLE', '1')
         # Skip this test(s) which is very flaky
@@ -780,7 +783,7 @@ class EB_PyTorch(PythonPackage):
             raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
 
     def test_cases_step(self):
-        self._set_cache_dir()
+        self._set_cache_dirs()
         super().test_cases_step()
 
     def sanity_check_step(self, *args, **kwargs):
