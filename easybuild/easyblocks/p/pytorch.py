@@ -332,12 +332,17 @@ class EB_PyTorch(PythonPackage):
         available_libs = (
             # Format: (PyTorch flag to enable, EB name, '<min version>:<exclusive max version>')
             # Use `None` for the EB name if no known EC exists
-            ('USE_FFMPEG=1', 'FFmpeg', '1.0.0:'),
+            # Check the comment on top of setup.y
+            ('USE_FFMPEG=1', 'FFmpeg', '1.0.0:2.4.0'),
             ('USE_GFLAGS=1', 'gflags', '1.0.0:'),
             ('USE_GLOG=1', 'glog', '1.0.0:'),
+            ('USE_CUDSS=1', 'cuDSS', '1.0.0:'),
+            ('USE_CUSPARSELT=1', 'cuSPARSELt', '2.7:'),
+            ('USE_UCC=1', 'UCC-CUDA', '1.13.0:'),
+            ('USE_SYSTEM_UCC=1', 'UCC-CUDA', '1.13.0:'),
 
             # For system libs check CMakeLists.txt, below `if(USE_SYSTEM_LIBS)`, order kept here
-            # NCCL handled specially as other env variables are requires for it
+            # NCCL handled specially as other env variables are required for it
             ('USE_SYSTEM_CPUINFO=1', None, '1.6.0:'),
             ('USE_SYSTEM_SLEEF=1', None, '1.6.0:'),
             ('USE_SYSTEM_GLOO=1', None, '1.6.0:'),
@@ -448,7 +453,7 @@ class EB_PyTorch(PythonPackage):
             raise EasyBuildError("Did not find a supported BLAS in dependencies. Don't know which BLAS lib to use")
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
-        dependency_names = {dep['name'] for dep in self.cfg.dependencies()}
+        dependency_names = self.cfg.dependency_names()
         not_used_dep_names = []
         for enable_opt, dep_name in available_dependency_options:
             if dep_name is None:
@@ -457,6 +462,9 @@ class EB_PyTorch(PythonPackage):
                 options.append(enable_opt)
             else:
                 not_used_dep_names.append(dep_name)
+                # Explicitely toggle to avoid picking up system libs, restricted to 2.7+ to avoid retesting older ECs
+                if pytorch_version >= '2.7' and enable_opt[-1] in ('0', '1'):
+                    options.append(enable_opt[:-1] + ('0' if enable_opt[-1] == '1' else '1'))
         self.log.info('Did not enable options for the following dependencies as they are not used in the EC: %s',
                       not_used_dep_names)
 
@@ -510,7 +518,8 @@ class EB_PyTorch(PythonPackage):
                 options.append('USE_FBGEMM=0')
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
-        options.append('USE_METAL=0')
+        if pytorch_version < '2.4':  # Removed in 2.4
+            options.append('USE_METAL=0')
 
         build_type = self.cfg.get('build_type')
         if build_type is None:
