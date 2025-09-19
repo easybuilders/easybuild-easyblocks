@@ -106,13 +106,13 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
         # Therefore, patch hardcoded CMAKE_CXX_COMPILER to use our wrappers, if rpath wrapping is enabled.
         # Do NOT simply unset CMAKE_CXX_COMPILER, or else GCC might be picked up if bootstrap is disabled,
         # conflicting with using `-stdlib=libc++`
-        if build_option('rpath'):
+        if build_option('rpath') and LooseVersion(self.version) < '20':
             self._prepare_runtimes_rpath_wrappers(self.llvm_obj_dir_stage1)
             amdllvm_cmakelists = os.path.join(self.llvm_src_dir, 'clang-tools-extra', 'amdllvm', 'CMakeLists.txt')
             # Copy the original CMakeLists.txt, so that we can restore it in following stages
             tmpdir = mkdtemp("amdllvm-cmakelists-txt-store")
             self.amdllvm_cmakelists_copy_path = f"{tmpdir}/CMakeLists.txt"
-            copy_file(amdllvm_cmakelists, self.amdllvm_cmakelists_copy)
+            copy_file(amdllvm_cmakelists, self.amdllvm_cmakelists_copy_path)
             mock_clangxx = which('clang++')
             apply_regex_substitutions(amdllvm_cmakelists,
                                       [(r'set\(CMAKE_CXX_COMPILER ${CMAKE_BINARY_DIR}/bin/clang\+\+\)',
@@ -121,7 +121,7 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
     def build_with_prev_stage(self, prev_dir, stage_dir):
         # Similar handling to case above, just for multi-stage build.
         # Here, we need to create mock wrappers ourselves, as call to LLVM build will start the build process.
-        if build_option('rpath'):
+        if build_option('rpath') and LooseVersion(self.version) < '20':
             self._prepare_runtimes_rpath_wrappers(stage_dir)
             mock_clangxx = which('clang++')
             # Restore the original file, so that we can replace the Clang with the current stages Clang
