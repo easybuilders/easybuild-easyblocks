@@ -937,7 +937,7 @@ class EB_LLVM(CMakeMake):
 
         # Avoid concurrency issue in tests, see https://github.com/llvm/llvm-project/pull/151313
         llvm_version = LooseVersion(self.version)
-        if llvm_version < '20.1':
+        if llvm_version < '20':
             regex_subs = [(r'cmake_policy\(SET CMP0114 OLD\)', 'cmake_policy(SET CMP0114 NEW)')]
             tgt_file = os.path.join('llvm', 'CMakeLists.txt')
             if llvm_version >= '16':
