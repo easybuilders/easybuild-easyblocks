@@ -166,12 +166,12 @@ class Bundle(EasyBlock):
                 # which is not a valid value for many easyblocks.
                 # Reset runtest to the original default, if people want the test step
                 # they can set it explicitly, in default_component_specs or by the component easyblock
-                if not is_easyconfig_parameter_default_value('runtest', comp_cfg._config['runtest']):
+                if not is_easyconfig_parameter_default_value('runtest', comp_cfg.get('runtest', resolve=False)):
                     self.log.warning(
                         "Resetting runtest to default value for component easyblock "
-                        f"(from {comp_cfg._config['runtest']})."
+                        f"(from {comp_cfg.get('runtest', resolve=False)})."
                         )
-                    comp_cfg._config['runtest'] = get_easyconfig_parameter_default('runtest')
+                    comp_cfg['runtest'] = get_easyconfig_parameter_default('runtest')
 
                 # Reset others to their default value
                 # Inheriting easyblock would lead to an infinite loop in the install step
