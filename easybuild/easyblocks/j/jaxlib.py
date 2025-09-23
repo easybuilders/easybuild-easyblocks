@@ -133,12 +133,16 @@ class EB_jaxlib(PythonPackage):
         elif LooseVersion(self.version) <= LooseVersion('0.6.0'):
             options.append('--noenable_cuda')
 
-        if self.cfg["use_mkl_dnn"] and LooseVersion(self.version) <= LooseVersion("0.6.0"):
-            options.append("--enable_mkl_dnn")
-        elif LooseVersion(self.version) <= LooseVersion("0.6.0"):
-            options.append("--noenable_mkl_dnn")
+        if self.cfg['use_mkl_dnn']:
+            # --enable_mkl_dnn option was removed in jax(lib) v0.4.36,
+            # see https://github.com/jax-ml/jax/commit/676151265859f8b0dd8baf6f6ae50c3367ed0509
+            if LooseVersion(self.version) < LooseVersion('0.4.36'):
+                options.append('--enable_mkl_dnn')
+        # if use_mkl_dnn is not enabled, use correct flag to disable use of MKL DNN
+        elif LooseVersion(self.version) < LooseVersion('0.4.36'):
+            options.append('--noenable_mkl_dnn')
         else:
-            options.append("--disable_mkl_dnn")
+            options.append('--disable_mkl_dnn')
 
         # Prepend to buildopts so users can overwrite this
         self.cfg['buildopts'] = ' '.join(
