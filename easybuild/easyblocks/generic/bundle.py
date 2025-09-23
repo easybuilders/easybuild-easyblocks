@@ -40,7 +40,8 @@ from datetime import datetime
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
+from easybuild.framework.easyconfig.default import get_easyconfig_parameter_default
+from easybuild.framework.easyconfig.default import is_easyconfig_parameter_default_value
 from easybuild.framework.easyconfig.easyconfig import get_easyblock_class
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
@@ -131,24 +132,6 @@ class Bundle(EasyBlock):
                 if len(comp) == 3:
                     comp_specs = comp[2]
 
-                comp_cfg = self.cfg.copy()
-
-                comp_cfg['name'] = comp_name
-                comp_cfg['version'] = comp_version
-
-                # The copy above may include unexpected settings for common values.
-                # In particular for a Pythonbundle we have seen a component inheriting
-                #  runtest = True
-                # which is not a valid value for many easyblocks.
-                # Reset runtest to the original default, if people want the test step
-                # they can set it explicitly, in default_component_specs or by the component easyblock
-                if comp_cfg._config['runtest'] != DEFAULT_CONFIG["runtest"]:
-                    self.log.warning(
-                        "Resetting runtest to default value for component easyblock "
-                        f"(from {comp_cfg._config['runtest']})."
-                        )
-                    comp_cfg._config['runtest'] = DEFAULT_CONFIG["runtest"]
-
                 # determine easyblock to use for this component
                 # - if an easyblock is specified explicitly, that will be used
                 # - if not, a software-specific easyblock will be considered by get_easyblock_class
@@ -170,26 +153,44 @@ class Bundle(EasyBlock):
                 if easyblock == 'Bundle':
                     raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
 
+                comp_cfg = self.cfg.copy()
                 comp_cfg.easyblock = easyblock_class
 
                 # make sure that extra easyconfig parameters are known, so they can be set
                 extra_opts = comp_cfg.easyblock.extra_options()
                 comp_cfg.extend_params(copy.deepcopy(extra_opts))
 
-                comp_cfg.generate_template_values()
+                # The copy above may include unexpected settings for common values.
+                # In particular for a Pythonbundle we have seen a component inheriting
+                #  runtest = True
+                # which is not a valid value for many easyblocks.
+                # Reset runtest to the original default, if people want the test step
+                # they can set it explicitly, in default_component_specs or by the component easyblock
+                if not is_easyconfig_parameter_default_value('runtest', comp_cfg._config['runtest']):
+                    self.log.warning(
+                        "Resetting runtest to default value for component easyblock "
+                        f"(from {comp_cfg._config['runtest']})."
+                        )
+                    comp_cfg._config['runtest'] = get_easyconfig_parameter_default('runtest')
 
-                # do not inherit easyblock to use from parent
-                # (since that would result in an infinite loop in install_step)
-                comp_cfg['easyblock'] = None
+                # Reset others to their default value
+                # Inheriting easyblock would lead to an infinite loop in the install step
+                for var in ('easyblock',
+                            'sources', 'source_urls', 'checksums',
+                            'patches', 'postinstallpatches',
+                            'modextravars', 'modextrapaths'):
+                    comp_cfg[var] = copy.deepcopy(get_easyconfig_parameter_default(var))
 
-                # reset list of sources/source_urls/checksums
-                comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = comp_cfg['patches'] = []
+                comp_cfg['name'] = comp_name
+                comp_cfg['version'] = comp_version
 
                 for key in self.cfg['default_component_specs']:
                     comp_cfg[key] = self.cfg['default_component_specs'][key]
 
                 for key in comp_specs:
                     comp_cfg[key] = comp_specs[key]
+
+                comp_cfg.generate_template_values()
 
                 # Don't require that all template values can be resolved at this point but still resolve them.
                 # This is important to ensure that template values like %(name)s and %(version)s
