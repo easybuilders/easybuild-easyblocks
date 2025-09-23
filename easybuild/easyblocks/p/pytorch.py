@@ -332,12 +332,17 @@ class EB_PyTorch(PythonPackage):
         available_libs = (
             # Format: (PyTorch flag to enable, EB name, '<min version>:<exclusive max version>')
             # Use `None` for the EB name if no known EC exists
-            ('USE_FFMPEG=1', 'FFmpeg', '1.0.0:'),
+            # Check the comment on top of setup.y
+            ('USE_FFMPEG=1', 'FFmpeg', '1.0.0:2.4.0'),
             ('USE_GFLAGS=1', 'gflags', '1.0.0:'),
             ('USE_GLOG=1', 'glog', '1.0.0:'),
+            ('USE_CUDSS=1', 'cuDSS', '1.0.0:'),
+            ('USE_CUSPARSELT=1', 'cuSPARSELt', '2.7:'),
+            ('USE_UCC=1', 'UCC-CUDA', '1.13.0:'),
+            ('USE_SYSTEM_UCC=1', 'UCC-CUDA', '1.13.0:'),
 
             # For system libs check CMakeLists.txt, below `if(USE_SYSTEM_LIBS)`, order kept here
-            # NCCL handled specially as other env variables are requires for it
+            # NCCL handled specially as other env variables are required for it
             ('USE_SYSTEM_CPUINFO=1', None, '1.6.0:'),
             ('USE_SYSTEM_SLEEF=1', None, '1.6.0:'),
             ('USE_SYSTEM_GLOO=1', None, '1.6.0:'),
@@ -448,7 +453,7 @@ class EB_PyTorch(PythonPackage):
             raise EasyBuildError("Did not find a supported BLAS in dependencies. Don't know which BLAS lib to use")
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
-        dependency_names = {dep['name'] for dep in self.cfg.dependencies()}
+        dependency_names = self.cfg.dependency_names()
         not_used_dep_names = []
         for enable_opt, dep_name in available_dependency_options:
             if dep_name is None:
@@ -457,6 +462,9 @@ class EB_PyTorch(PythonPackage):
                 options.append(enable_opt)
             else:
                 not_used_dep_names.append(dep_name)
+                # Explicitely toggle to avoid picking up system libs, restricted to 2.7+ to avoid retesting older ECs
+                if pytorch_version >= '2.7' and enable_opt[-1] in ('0', '1'):
+                    options.append(enable_opt[:-1] + ('0' if enable_opt[-1] == '1' else '1'))
         self.log.info('Did not enable options for the following dependencies as they are not used in the EC: %s',
                       not_used_dep_names)
 
@@ -510,7 +518,8 @@ class EB_PyTorch(PythonPackage):
                 options.append('USE_FBGEMM=0')
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
-        options.append('USE_METAL=0')
+        if pytorch_version < '2.4':  # Removed in 2.4
+            options.append('USE_METAL=0')
 
         build_type = self.cfg.get('build_type')
         if build_type is None:
@@ -538,15 +547,18 @@ class EB_PyTorch(PythonPackage):
         self.cfg.update('prebuildopts', ' '.join(unique_options) + ' ')
         self.cfg.update('preinstallopts', ' '.join(unique_options) + ' ')
 
-    def _set_cache_dir(self):
-        """Set $XDG_CACHE_HOME and $TRITON_HOME to avoid PyTorch defaulting to $HOME"""
+    def _set_cache_dirs(self):
+        """Set $XDG_CACHE_HOME and $TRITON_HOME to avoid PyTorch defaulting to $HOME
+        and similar variables to ensure clean build/test environment
+        """
         cache_dir = os.path.join(self.tmpdir, '.cache')
         # The path must exist!
         mkdir(cache_dir, parents=True)
         env.setvar('XDG_CACHE_HOME', cache_dir)
         # Triton also uses a path defaulting to $HOME
-        # Isolate against user-set variables
-        env.unset_env_vars(('TRITON_DUMP_DIR', 'TRITON_OVERRIDE_DIR', 'TRITON_CACHE_DIR'))
+        # Isolate against user-set variables which could lead to reusing caches that may fail test
+        env.unset_env_vars(('TRITON_DUMP_DIR', 'TRITON_OVERRIDE_DIR', 'TRITON_CACHE_DIR',
+                            'TORCH_HOME', 'TORCHINDUCTOR_CACHE_DIR', 'PYTORCH_KERNEL_CACHE_PATH'))
         triton_home = os.path.join(self.tmpdir, '.triton_home')
         env.setvar('TRITON_HOME', triton_home)
 
@@ -599,7 +611,7 @@ class EB_PyTorch(PythonPackage):
 
     def test_step(self):
         """Run unit tests"""
-        self._set_cache_dir()
+        self._set_cache_dirs()
         # Pretend to be on FB CI which disables some tests, especially those which download stuff
         env.setvar('SANDCASTLE', '1')
         # Skip this test(s) which is very flaky
@@ -645,8 +657,17 @@ class EB_PyTorch(PythonPackage):
                 else:
                     msg = f'Failed to find any test report files at {test_reports_path}'
                 raise EasyBuildError(msg)
+
+            def suite_is_in_xml_results(suite_name):
+                """Check if the suite is in the XML results"""
+                if suite_name in xml_results:
+                    return True
+                # Handle variants like dist-nccl/test_c10d_nccl
+                return any(xml_suite_name.split(os.path.sep, maxsplit=1)[-1] == suite_name
+                           for xml_suite_name in xml_results if xml_suite_name.startswith('dist-'))
+
             missing_suites = [suite.name for suite in parsed_test_result.failed_suites
-                              if suite.name not in xml_results]
+                              if not suite_is_in_xml_results(suite.name)]
             if missing_suites:
                 raise EasyBuildError('Parsing the test result files missed the following failed suites: %s',
                                      ', '.join(sorted(missing_suites)))
@@ -771,7 +792,7 @@ class EB_PyTorch(PythonPackage):
             raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
 
     def test_cases_step(self):
-        self._set_cache_dir()
+        self._set_cache_dirs()
         super().test_cases_step()
 
     def sanity_check_step(self, *args, **kwargs):
@@ -905,8 +926,8 @@ def parse_test_cases(test_suite_el: ET.Element) -> List[TestCase]:
         num_reruns = len(testcase.findall("rerun"))
 
         if skipped:
-            if num_reruns > 0 or failed or errored:
-                raise ValueError(f"Invalid state for testcase '{test_name}'")
+            if failed or errored:
+                raise ValueError(f"Invalid state for testcase '{test_name}': Both skipped and failed/errored")
             state = TestState.SKIPPED
         else:
             state = TestState.FAILURE if failed else TestState.ERROR if errored else TestState.SUCCESS
@@ -964,7 +985,7 @@ def determine_suite_name(xml_file: Path, test_suite_xml: List[ET.Element]) -> st
         # We can remove possible class names by only using the common part
         suite_name = os.path.commonpath(possible_paths)
         # Strip of common prefix to all classes, but keep the last part for uniqueness
-        non_classname_prefix = os.path.dirname(suite_name).replace(os.path.sep, '.') + '.'
+        non_classname_prefix = 'test.' + os.path.dirname(suite_name).replace(os.path.sep, '.') + '.'
         for testcase in test_cases:
             classname = testcase.attrib["classname"]
             if classname.startswith(non_classname_prefix):
@@ -992,7 +1013,12 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
     :return: A list of TestSuite objects representing the parsed structure.
     """
     try:
-        root = ET.parse(xml_file).getroot()
+        try:
+            root = ET.parse(xml_file).getroot()
+        except ET.ParseError:
+            if '<test' not in xml_file.read_text():
+                return []  # Empty file, no test results
+            raise
 
         # Normalize root to be a list of test suite elements
         if root.tag == "testsuites":
@@ -1017,9 +1043,10 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
             # when unittest's `subTest` is used: https://github.com/xmlrunner/unittest-xml-reporting/issues/292
             num_tests = int(test_suite.attrib["tests"])
             # But it needs to be at least consistent with the "non-passing" test numbers
-            if num_tests < failures + skipped + errors:
+            # A test that failed AND errored might not be counted twice, so don't add failures and errors
+            if num_tests < max(failures, errors) + skipped:
                 raise ValueError(f"Invalid test count: "
-                                 f"{num_tests} tests, {failures} failures, {skipped} skipped, {errors} errors")
+                                 f"{num_tests} tests vs {failures} failures, {skipped} skipped, {errors} errors")
 
             parsed_test_cases = parse_test_cases(test_suite)
             if not parsed_test_cases:
@@ -1030,9 +1057,15 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
 
             test_cases: Dict[str, TestCase] = {}
             for test_case in parsed_test_cases:
-                if test_case.name in test_cases:
-                    raise ValueError(f"Duplicate test case '{test_case}' in test suite {suite_name}")
-                test_cases[test_case.name] = test_case
+                try:
+                    old_test_case = test_cases[test_case.name]
+                except KeyError:
+                    # No test with that name yet, so add it
+                    test_cases[test_case.name] = test_case
+                else:
+                    # Ignore the case where a test failed and errored which might happen if teardown fails
+                    if {old_test_case.state, test_case.state} != {TestState.ERROR, TestState.FAILURE}:
+                        raise ValueError(f"Duplicate test case '{test_case}' in test suite {suite_name}")
 
             test_suites.append(
                 TestSuite(name=suite_name, test_cases=test_cases,
