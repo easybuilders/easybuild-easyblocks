@@ -378,8 +378,9 @@ class Bundle(EasyBlock):
             else:
                 # Explicit call as EasyBlocks might set additional environment variables in
                 # the make_module step, which may be required for later component builds.
-                # Set fake arg to True, as module components should not try to create their own module.
-                comp.make_module_step(fake=True)
+                # Set fake arg to True, as module components should not try to create their own module
+                with comp.cfg.allow_unresolved_templates():
+                    comp.make_module_step(fake=True)
 
                 # Update current environment with component environment to ensure stuff provided
                 # by this component can be picked up by installation of subsequent components
@@ -436,7 +437,8 @@ class Bundle(EasyBlock):
                 # Explicit call required as adding step to 'install_step' is not sufficient
                 # for module-only build. Set fake arg to True, as module components should
                 # not try to create their own module.
-                comp.make_module_step(*args, **dict(kwargs, fake=True))
+                with comp.cfg.allow_unresolved_templates():
+                    comp.make_module_step(*args, **dict(kwargs, fake=True))
 
                 for env_var_name, env_var_val in comp.module_load_environment.items():
                     if env_var_name in self.module_load_environment:
