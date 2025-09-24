@@ -804,6 +804,13 @@ class PythonPackage(ExtensionEasyBlock):
             # take into account that build/install steps may be run multiple times
             # We consider the build and install output together as downloads likely happen here if this is run
             self.install_cmd_output += res.output
+        elif (self.cfg['prebuildopts'] and not self.cfg['preinstallopts']) or (
+                self.cfg['buildopts'] and not self.cfg['installopts']):
+            msg = '(pre_)build_opts specified but no build is beeing run.'
+            if self.using_pip_install():
+                msg += ' When using pip only the install step is performed and the build options are ignored.'
+                msg += ' Use (pre_)install_opts in this case.'
+            raise EasyBuildError(msg)
 
     def test_step(self, return_output_ec=False):
         """
