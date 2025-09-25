@@ -270,37 +270,24 @@ class EB_LAMMPS(CMakeMake):
         # to the compiler flags, which may override the ones set by EasyBuild.
         # https://github.com/lammps/lammps/blob/stable_29Aug2024/lib/kokkos/cmake/kokkos_arch.cmake#L228-L531
         processor_arch = None
-        if build_option('optarch') == OPTARCH_GENERIC:
-            # For generic Arm builds we use an existing target;
-            # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
-            # For other architectures we set a custom/non-existent type, which will disable all optimizations,
-            # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
-            if get_cpu_architecture() == AARCH64:
-                if kokkos_arch:
-                    # If someone is trying a manual override for this case, let them
-                    if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
-                        warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
-                        warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
-                        warning_msg += "Still might work though."
-                        print_warning(warning_msg)
-                    processor_arch = kokkos_arch
-                else:
-                    processor_arch = 'ARMV80'
-            else:
-                processor_arch = 'EASYBUILD_GENERIC'
-
-            _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
-            if kokkos_arch:
-                msg = "The specified kokkos_arch (%s) will be ignored " % kokkos_arch
-                msg += "because a generic build was requested (via --optarch=GENERIC)"
-                print_warning(msg)
-        elif kokkos_arch:
+        if kokkos_arch:
+            # If someone is trying a manual override for this case, let them
             if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
                 warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
                 warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
                 warning_msg += "Still might work though."
                 print_warning(warning_msg)
             processor_arch = kokkos_arch
+        elif build_option('optarch') == OPTARCH_GENERIC:
+            # For generic Arm builds we use an existing target;
+            # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
+            # For other architectures we set a custom/non-existent type, which will disable all optimizations,
+            # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
+            if get_cpu_architecture() == AARCH64:
+                processor_arch = 'ARMV80'
+            else:
+                processor_arch = 'EASYBUILD_GENERIC'
+            _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
 
         # If kokkos_arch was not set...
         elif LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
