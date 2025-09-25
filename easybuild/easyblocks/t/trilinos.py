@@ -256,9 +256,9 @@ class EB_Trilinos(CMakeMake):
         # configure using cmake
         super().configure_step(srcdir=short_src_dir, builddir=short_build_dir)
 
-    def build_step(self):
+    def build_step(self, *args, **kwargs):
         """Build with make (verbose logging enabled)."""
-        super().build_step(verbose=True)
+        super().build_step(*args, **kwargs)
 
     def sanity_check_step(self):
         """Custom sanity check for Trilinos."""

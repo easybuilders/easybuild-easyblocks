@@ -228,6 +228,7 @@ class EB_LLVM(CMakeMake):
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'test_suite_ignore_patterns': [None, "List of test to ignore (if the string matches)", CUSTOM],
+            'test_suite_ignore_timeouts': [False, "Do not treat timedoud tests as failures", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
             'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
@@ -241,6 +242,9 @@ class EB_LLVM(CMakeMake):
     def __init__(self, *args, **kwargs):
         """Initialize LLVM-specific variables."""
         super().__init__(*args, **kwargs)
+
+        # List of (lower-case) dependencies
+        self.deps = [dep['name'].lower() for dep in self.cfg.dependencies(runtime_only=True)]
 
         if self.cfg['usepolly'] is not None:
             self.log.deprecated("Use of easyconfig parameter 'usepolly', replace by 'use_polly'", '6.0')
@@ -439,9 +443,6 @@ class EB_LLVM(CMakeMake):
                 print_warning("Both 'amd_gfx_list' and build option 'amdgcn_capabilities' "
                               "are set, please use only the build option 'amdgcn_capabilities'")
 
-        # List of (lower-case) dependencies
-        self.deps = [dep['name'].lower() for dep in self.cfg.dependencies()]
-
         # Build targets
         build_targets = self.cfg['build_targets'] or []
         if not build_targets:
@@ -527,6 +528,10 @@ class EB_LLVM(CMakeMake):
         self.general_opts['CMAKE_BUILD_TYPE'] = self.build_type
         self.general_opts['LLVM_TARGETS_TO_BUILD'] = self.list_to_cmake_arg(build_targets)
 
+    def get_dependency_root(self, name: str):
+        """Get software root of dependency. Return None if it is not a dependecy."""
+        return get_software_root(name) if name.lower() in self.deps else None
+
     def prepare_step(self, *args, **kwargs):
         """Prepare step, modified to ensure install dir is deleted before building"""
         super().prepare_step(*args, **kwargs)
@@ -560,7 +565,7 @@ class EB_LLVM(CMakeMake):
         self._cmakeopts['LLVM_ENABLE_PROJECTS'] = self.list_to_cmake_arg(self.final_projects)
         self._cmakeopts['LLVM_ENABLE_RUNTIMES'] = self.list_to_cmake_arg(self.final_runtimes)
 
-        hwloc_root = get_software_root('hwloc')
+        hwloc_root = self.get_dependency_root('hwloc')
         if hwloc_root:
             self.log.info("Using %s as hwloc root", hwloc_root)
             self._cmakeopts['LIBOMP_USE_HWLOC'] = 'ON'
@@ -877,7 +882,7 @@ class EB_LLVM(CMakeMake):
 
         # Dependencies based persistent options (should be reused across stages)
         # Libxml2
-        xml2_root = get_software_root('libxml2')
+        xml2_root = self.get_dependency_root('libxml2')
         # Explicitly disable libxml2 if not found to avoid linking against system libxml2
         if xml2_root:
             if self.full_llvm:
@@ -888,7 +893,7 @@ class EB_LLVM(CMakeMake):
         else:
             self.general_opts['LLVM_ENABLE_LIBXML2'] = 'OFF'
 
-        libffi_root = get_software_root('libffi')
+        libffi_root = self.get_dependency_root('libffi')
         self.general_opts['LLVM_ENABLE_FFI'] = 'ON' if libffi_root else 'OFF'
         if libffi_root:
             self.general_opts['FFI_INCLUDE_DIR'] = os.path.join(libffi_root, 'include')
@@ -896,16 +901,16 @@ class EB_LLVM(CMakeMake):
 
         # If 'ON', risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
         # to errors during compilation of 'offload.tools.kernelreplay' due to the inclusion of LLVMSupport (19.x)
-        self.general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if get_software_root('zlib') else 'OFF'
-        self.general_opts['LLVM_ENABLE_ZSTD'] = 'ON' if get_software_root('zstd') else 'OFF'
+        self.general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if 'zlib' in self.deps else 'OFF'
+        self.general_opts['LLVM_ENABLE_ZSTD'] = 'ON' if 'zstd' in self.deps else 'OFF'
         # Should not use system SWIG if present
-        self.general_opts['LLDB_ENABLE_SWIG'] = 'ON' if get_software_root('SWIG') else 'OFF'
+        self.general_opts['LLDB_ENABLE_SWIG'] = 'ON' if 'swig' in self.deps else 'OFF'
 
         # Avoid using system `gdb` in case it is not provided as a dependency
         # This could cause the wrong sysroot/dynamic linker being picked up in a sysroot build causing tests to fail
-        self.general_opts['LIBOMP_OMPD_GDB_SUPPORT'] = 'ON' if get_software_root('GDB') else 'OFF'
+        self.general_opts['LIBOMP_OMPD_GDB_SUPPORT'] = 'ON' if 'gdb' in self.deps else 'OFF'
 
-        z3_root = get_software_root("Z3")
+        z3_root = self.get_dependency_root("Z3")
         if z3_root:
             self.log.info("Using %s as Z3 root", z3_root)
             self.general_opts['LLVM_ENABLE_Z3_SOLVER'] = 'ON'
@@ -967,7 +972,7 @@ class EB_LLVM(CMakeMake):
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
         # using the environment variable which is used as-is and later checked for a falsy value when determining
         # whether CUDA was found
-        if not get_software_root('CUDA'):
+        if 'cuda' not in self.deps:
             setvar('CUDA_NVCC_EXECUTABLE', 'IGNORE')
 
         # 20.1+ uses a generic IR for OpenMP DeviceRTL
@@ -1020,6 +1025,8 @@ class EB_LLVM(CMakeMake):
         cmakelists_tests = os.path.join(self.start_dir, 'compiler-rt', 'test', 'CMakeLists.txt')
         regex_subs = [(r'compiler_rt_test_runtime.*san.*', '')]
         apply_regex_substitutions(cmakelists_tests, regex_subs)
+        if LooseVersion(self.version) >= '20.1.0':
+            self.general_opts['OPENMP_TEST_ENABLE_TSAN'] = 'OFF'
 
     def add_cmake_opts(self):
         """Add LLVM-specific CMake options."""
@@ -1264,8 +1271,9 @@ class EB_LLVM(CMakeMake):
         # From grep -E "^[A-Z]+: " LOG_FILE | cut -d: -f1 | sort | uniq
         OUTCOME_FAIL = [
             'FAIL',
-            'TIMEOUT',
         ]
+        if not self.cfg['test_suite_ignore_timeouts']:
+            OUTCOME_FAIL.append('TIMEOUT')
         # OUTCOME_OK = [
         #     'PASS',
         #     'UNSUPPORTED',
@@ -1323,14 +1331,19 @@ class EB_LLVM(CMakeMake):
         else:
             num_failed = int(mch.group(1))
 
-        if num_failed is not None:
-            num_timed_out = 0
-            rgx_timed_out = re.compile(r'^ +Timed Out +: +([0-9]+)', flags=re.MULTILINE)
-            mch = rgx_timed_out.search(out)
-            if mch is not None:
-                num_timed_out = int(mch.group(1))
-                self.log.info("Tests timed out: %s", num_timed_out)
-            num_failed += num_timed_out
+        num_timed_out = 0
+        rgx_timed_out = re.compile(r'^ +Timed Out +: +([0-9]+)', flags=re.MULTILINE)
+        mch = rgx_timed_out.search(out)
+        if mch is not None:
+            num_timed_out = int(mch.group(1))
+            self.log.info("Tests timed out: %s", num_timed_out)
+        if num_timed_out > 0:
+            if not self.cfg['test_suite_ignore_timeouts']:
+                self.log.info("Counting timed out tests as failed tests")
+                if num_failed is not None:
+                    num_failed += num_timed_out
+            else:
+                self.log.info("Ignoring timed out tests as per configuration")
 
         if num_failed != failed_pattern_matches:
             msg = f"Number of failed tests ({num_failed}) does not match "
@@ -1708,6 +1721,9 @@ class EB_LLVM(CMakeMake):
         # Here, we add the system libraries LLVM expects to find
         minimal_cpp_compiler_cmd += "$(llvm-config --link-static --system-libs all)"
         custom_commands.append(minimal_cpp_compiler_cmd)
+        # binutils is required for the linking step
+        kwargs.setdefault('extra_modules', []).extend(
+            d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils')
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands, *args, **kwargs)
 
@@ -1728,7 +1744,6 @@ class EB_LLVM(CMakeMake):
         self.log.debug(f"List of subdirectories for libraries to add to $LD_LIBRARY_PATH + $LIBRARY_PATH: {lib_dirs}")
         self.module_load_environment.LD_LIBRARY_PATH = lib_dirs
         self.module_load_environment.LIBRARY_PATH = lib_dirs
-
         return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
