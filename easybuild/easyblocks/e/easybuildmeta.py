@@ -31,6 +31,7 @@ import copy
 import os
 import re
 import sys
+import tempfile
 from collections import OrderedDict
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
@@ -189,6 +190,9 @@ class EB_EasyBuildMeta(PythonPackage):
     def sanity_check_step(self):
         """Custom sanity check for EasyBuild."""
 
+        if self.python_cmd is None:
+            self.prepare_python()
+
         # check whether easy-install.pth contains correct entries
         easy_install_pth = os.path.join(self.installdir, self.pylibdir, 'easy-install.pth')
         if os.path.exists(easy_install_pth):
@@ -290,7 +294,10 @@ class EB_EasyBuildMeta(PythonPackage):
             val = self.initial_environ.pop(key)
             self.log.info("$%s found in environment, unset for running sanity check (was: %s)", key, val)
 
-        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        with tempfile.TemporaryDirectory() as tempdir:
+            #  Similar avoid a custom config being used which might define options unknown to that EasyBuild version
+            self.initial_environ['XDG_CONFIG_HOME'] = tempdir
+            super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """

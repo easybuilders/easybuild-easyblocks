@@ -229,7 +229,7 @@ def suite(loader):
             # use OpenMPI as name when testing SystemMPI easyblock
             innertest = make_inner_test(easyblock, name='OpenMPI', version='system')
         elif easyblock_fn in ['advisor.py', 'icc.py', 'iccifort.py', 'ifort.py', 'imkl.py', 'imkl_fftw.py',
-                              'inspector.py', 'itac.py', 'tbb.py', 'vtune.py']:
+                              'inspector.py', 'ipp.py', 'itac.py', 'tbb.py', 'vtune.py']:
             # family of IntelBase easyblocks have a minimum version support based on currently supported toolchains
             innertest = make_inner_test(easyblock, version='9999.9')
         elif easyblock_fn == 'aocc.py':

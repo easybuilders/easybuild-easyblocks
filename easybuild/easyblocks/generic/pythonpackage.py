@@ -870,7 +870,6 @@ class PythonPackage(ExtensionEasyBlock):
                     res = run_shell_cmd(cmd, fail_on_error=False)
                     # need to retrieve ec by not failing on error
                     (out, ec) = (res.output, res.exit_code)
-                    self.log.info("cmd '%s' exited with exit code %s and output:\n%s", cmd, ec, out)
                 else:
                     run_shell_cmd(cmd)
 
@@ -966,6 +965,18 @@ class PythonPackage(ExtensionEasyBlock):
 
         super().load_module(*args, **kwargs)
         set_py_env_vars(self.log)
+
+    def sanity_check_load_module(self, *args, **kwargs):
+        """
+        Load module to prepare environment for sanity check.
+        Also make sure that Python command to use has been figured out.
+        """
+        mod_data = super().sanity_check_load_module(*args, **kwargs)
+
+        if self.python_cmd is None:
+            self.prepare_python()
+
+        return mod_data
 
     def sanity_check_step(self, *args, **kwargs):
         """

@@ -3,7 +3,90 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at https://docs.easybuild.io/release-notes .
 
-The latest version of easybuild-easyblocks provides 200 software-specific easyblocks and 45 generic easyblocks.
+The latest version of easybuild-easyblocks provides 201 software-specific easyblocks and 45 generic easyblocks.
+
+
+v5.1.2 (26 Sept 2025)
+---------------------
+
+update/bugfix release
+
+- new easyblocks:
+  - restore custom easyblock for ipp and update it for EasyBuild 5.0+ (#3890)
+- enhancements:
+  - improvements to custom easyblock for LLVM:
+    - fix build of LLVM on RISC-V systems and ignore a bunch of tests (#3676)
+    - make LLVM easyblock aware of `amdgcn_capabilities` build option (#3824)
+    - explicitely set OMPT options for LLVM (#3853)
+    - run tests for LLVM in parallel (#3875)
+    - add sanity check to link system libraries to LLVM easyblock (#3877)
+    - add custom easyconfig parameter for LLVM to ignore timed out tests (#3903)
+  - enhance custom easyblock for NCCL so it defines `$NCCL_HOME` in generated module file (#3782)
+  - enhance `Bundle` easyblock to show status of component installation (#3783)
+  - enhance LAMMPS easyblock to use `FFT_KOKKOS` configure option (#3784)
+  - add option to `CMakeMake` to specify name of build directory (#3786)
+  - improve error message when CMake picked up invalid Python paths (#3833)
+  - enhance FlexiBLAS easyblock to support NVPL library (#3866)
+  - enhance Python easyblock to handle Tcl/Tk 9.0+ with external libtommath (#3867)
+  - avoid writes to $HOME from Triton during PyTorch tests by setting `$TRITON_HOME` (#3876)
+  - update torchvision easyblock for libwebp support (#3882)
+  - allow oversubscription for FFTW tests, also for OpenMPI-5.X onwards (#3884)
+  - enhance custom easyblock for SuperLU to allow oversubscription when running tests (#3885)
+  - allow bypass of `update_amber` in custom easyblock for Amber/AmberTools (#3901)
+  - set required Python environment variables when installing `lammps` Python package (#3915)
+- updates:
+  - update TensorFlow easyblock for CUDA support in TensorFlow 2.18+ (#3765)
+  - update ORCA easyblock for version 6.1.0 (#3796)
+  - update DualSPHysics sanity checks for newer version (#3850)
+  - update jaxlib easyblock for jax/jaxlib v0.6.2 and v0.7.0 (#3852)
+  - update Amber easyblock for AmberTools >= 24.x (#3868)
+  - update sanity check in custom easyblock for MUMPS to support v5.8.0 and higher (#3879)
+  - update Mesa easyblock to remove `osmesa` part of the sanity check, since that's removed from Mesa 25.1 onwards (#3896)
+- bug fixes:
+  - various fixes for custom easyblock for LLVM:
+    - use property for `gcc_prefix`/`gcc_root` in LLVM easyblock (#3793)
+    - move openmp to a runtime in newer versions of LLVM (#3799)
+    - add explicit enabling/disabling of `libffi` with custom paths in LLVM easyblock (#3849)
+    - fix missing `LIBOMPTARGET_DEVICE_ARCHITECTURES` in third stage of bootstrap build in LLVM easyblock (#3851)
+    - allow sysroot for minimal builds for LLVM versions < 19 (#3880)
+    - only consider explicit dependencies in LLVM easyblock (#3881)
+    - disable LLVM OpenMP tests using Thread sanitizer if requested (#3883)
+    - fix sanity check step of LLVM by loading `binutils` as extra module (#3899)
+  - revert Python shebangs change for conda (#3760)
+  - disable UCX signal catching in Java by setting `$UCX_ERROR_SIGNALS` (#3832)
+  - stop setting `separate_build_dir` to `True` and update GPU target in custom easyblock for DualSPhysics (#3835)
+  - remove use of deprecated `verbose` option in `build_step` methods (#3856, #3858)
+  - add back configure options for PETSc dependencies with generic `--with` options (#3857)
+  - remove duplicated output of test command from `PythonPackage` easyblock (#3859)
+  - use `--COPTFLAGS`/`--CXXOPTFLAGS`/`--FOPTFLAGS` instead of (undocumented) `--CFLAGS`/`--CXXFLAGS`/`--FFLAGS` as configure option for PETSc (#3863)
+  - use `sanity_check_load_module` in sanity check step of custom easyblock for pybind11 (#3864)
+  - respect `--ignore-test-failure` and `--skip-test-step` for Perl extensions (#3865)
+  - fix use of `--sanity-check-only` for custom easyblock for installing EasyBuild (#3871)
+  - explicitly set LAPACK/BLAS to FlexiBLAS if present in OpenCV (#3874)
+  - fix ELPA easyblock to not pass sm80 configure flag for newer NVIDIA GPUs (#3886)
+  - fix ignore test typo in PyTorch easyblock (#3898)
+  - accept arguments for `sanity_check_step` in HPL easyblock (#3904)
+  - load module in Bundle easyblock instead of components (#3905)
+  - change OpenFOAM easyblock to not use `cp -a`, might fail with NFS ACLs on install directory (#3916)
+  - make HPL easyblock intel-aware + allow running the `xhpl` benchmark as a test (#3917)
+  - resolve templates in `CmdCp` easyblock (#3918)
+  - update WPS easyblock to patch CPP to replace the use of hardcoded `/usr/bin/cpp` (#3919)
+  - fix `FATAL ERROR` regex to not match `printf` lines in OpenBLAS easyblock (#3923)
+  - fix unresolved templates in `modextravars`/`modextrapaths` of components (#3940)
+- enhancements and fixes for test suite:
+- other changes:
+  - deprecate the Clang Easyblock in favor of the LLVM one for newer (>=18.1.6) versions of LLVM (#3746)
+  - don't install libomp aliases by default in LLVM easyblock (#3825)
+  - clean up GCC-related options for full-LLVM build (#3827)
+  - clean up ancient version support in custom easyblock for ROOT (#3841)
+  - increase the default for the maximum number of failed PyTorch tests to 10 (#3869)
+  - change `buildenv` easyblock: use `python3` as default path to Python executable in RPATH wrapper scripts (#3910)
+  - limit parallelism of OpenBLAS tests with parallel property (#3936)
+  - remove deprecated license classifier in setup.py (#3942)
+- code cleanup: 
+  - simplify use of `self.cfg.dependencies()` in `PETSc` easyblock (#3813)
+  - stop setting `separate_build_dir` to `True` in various custom easyblock for Geant4 (#3836, #3837, #3838, #3839, #3840, #3842, #3843, #3844, #3845, #3846, #3847)
+  - remove disabling libunwind on aarch64 for Mesa (#3908)
 
 
 v5.1.1 (6 July 2025)

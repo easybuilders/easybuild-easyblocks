@@ -572,7 +572,7 @@ class EB_OpenFOAM(EasyBlock):
 
             if self.looseversion <= LooseVersion('10'):
                 cmds = [
-                        "cp -a %s %s" % (motorbike_path, test_dir),
+                        "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
                         # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
                         "chmod -R +w %s" % test_dir,
                         "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
@@ -594,7 +594,7 @@ class EB_OpenFOAM(EasyBlock):
             # v11 and above run the motorBike example differently
             else:
                 cmds = [
-                        "cp -a %s %s" % (motorbike_path, test_dir),
+                        "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
                         # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
                         "chmod -R +w  %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
                         "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
