@@ -217,9 +217,13 @@ class EB_OpenMPI(ConfigureMake):
         if expected['mpif90'] == 'pgf90':
             expected['mpif90'] = 'pgfortran'
         # for Clang the pattern is always clang
-        for key in ['mpicxx', 'mpifort', 'mpif90']:
-            if expected[key] in ['clang++', 'flang']:
+        for key in ['mpicc', 'mpicxx']:
+            if expected[key] in ['clang++']:
                 expected[key] = 'clang'
+        # for flang/flang-new the pattern is always flang
+        for key in ['mpifort', 'mpif90']:
+            if expected[key] in ['flang', 'flang-new']:
+                expected[key] = 'flang'
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
 
