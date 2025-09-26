@@ -75,7 +75,7 @@ update/bugfix release
   - fix unresolved templates in `modextravars`/`modextrapaths` of components (#3940)
 - enhancements and fixes for test suite:
 - other changes:
-  - deprecate the Clang Easyblock in favor of the LLVM one for newer (>=18.1.6) versions of LLVM (#3746)
+  - deprecate the Clang Easyblock in favor of the LLVM one for newer (>=18.1.6) versions of Clang (#3746)
   - don't install libomp aliases by default in LLVM easyblock (#3825)
   - clean up GCC-related options for full-LLVM build (#3827)
   - clean up ancient version support in custom easyblock for ROOT (#3841)
@@ -85,7 +85,7 @@ update/bugfix release
   - remove deprecated license classifier in setup.py (#3942)
 - code cleanup: 
   - simplify use of `self.cfg.dependencies()` in `PETSc` easyblock (#3813)
-  - stop setting `separate_build_dir` to `True` in various custom easyblock for Geant4 (#3836, #3837, #3838, #3839, #3840, #3842, #3843, #3844, #3845, #3846, #3847)
+  - stop setting `separate_build_dir` to `True` in various custom easyblocks (#3836, #3837, #3838, #3839, #3840, #3842, #3843, #3844, #3845, #3846, #3847)
   - remove disabling libunwind on aarch64 for Mesa (#3908)
 
 
