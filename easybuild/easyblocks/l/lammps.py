@@ -42,8 +42,8 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.base import fancylogger
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
-from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file
+from easybuild.tools.config import build_option, IGNORE
+from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext, get_avail_core_count
@@ -506,7 +506,7 @@ class EB_LAMMPS(CMakeMake):
             if '-DFFT_PACK=' not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 
-        # detect the CPU and GPU architecture (used for Intel and Kokkos packages belos)
+        # detect the CPU and GPU architecture (used for Intel and Kokkos packages below)
         processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
 
         # INTEL package
@@ -713,6 +713,16 @@ class EB_LAMMPS(CMakeMake):
             for check_file in sanity_check_test_inputs
         ]
 
+        # check if a GPU is available for tests
+        run_gpu_tests = False
+        if self.cuda:
+            if not which('nvidia-smi', on_error=IGNORE):
+                print_warning('Could not find nvidia-smi. Assuming a system without GPUs and skipping GPU tests!')
+            elif os.environ.get('CUDA_VISIBLE_DEVICES') == '-1':
+                print_warning('GPUs explicitely disabled via CUDA_VISIBLE_DEVICES. Skipping GPU tests!')
+            else:
+                run_gpu_tests = True
+
         # add accelerator-specific tests
         if self.pkg_intel:  # INTEL package
             custom_commands.append(
@@ -720,7 +730,7 @@ class EB_LAMMPS(CMakeMake):
                 os.path.join(self.installdir, "examples", "msst", "in.msst")
             )
         if self.cfg['kokkos']:  # KOKKOS package
-            if self.cuda:  # NOTE: requires a GPU to run
+            if run_gpu_tests:
                 custom_commands.append(
                     'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on", "g", "1"]); l.file("%s")' %
                     os.path.join(self.installdir, "examples", "msst", "in.msst")
@@ -730,7 +740,7 @@ class EB_LAMMPS(CMakeMake):
                     'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on"]); l.file("%s")' %
                     os.path.join(self.installdir, "examples", "msst", "in.msst")
                 )
-        elif self.cuda:  # GPU package
+        elif run_gpu_tests:  # GPU package
             custom_commands.append(
                 'from lammps import lammps; l=lammps(cmdargs=["-sf", "gpu", "-pk", "gpu", "1"]); l.file("%s")' %
                 os.path.join(self.installdir, "examples", "msst", "in.msst")
