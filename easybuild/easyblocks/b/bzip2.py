@@ -88,7 +88,7 @@ class EB_bzip2(ConfigureMake):
 
             # create (un)versioned symlinks for libbz2.so.X.Y.Z
             split_ver = self.version.split('.')
-            sym_exts = ['.' + '.'.join(split_ver[-3:x]) for x in range(1,3)]  # -> e.g. ['.1', '.1.0'] for version 1.0.8
+            sym_exts = ['.' + '.'.join(split_ver[-3:x]) for x in range(1, 3)]  # e.g. ['.1', '.1.0'] for version 1.0.8
             cwd = os.getcwd()
             for sym in [f'libbz2.{shlib_ext}{x}' for x in [''] + sym_exts]:
                 if not os.path.exists(os.path.join(libdir, sym)):
