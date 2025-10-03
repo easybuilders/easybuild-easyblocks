@@ -510,7 +510,6 @@ class EB_LAMMPS(CMakeMake):
         processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
 
         # INTEL package
-        self.pkg_intel = False
         if processor_arch in INTEL_PACKAGE_ARCH_LIST or \
            (processor_arch == 'NATIVE' and self.kokkos_cpu_mapping.get(get_cpu_arch()) in INTEL_PACKAGE_ARCH_LIST):
             # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
@@ -518,9 +517,6 @@ class EB_LAMMPS(CMakeMake):
             if pkg_user_intel not in self.cfg['configopts']:
                 if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
                     self.cfg.update('configopts', pkg_user_intel + 'on')
-                    self.pkg_intel = True
-            else:
-                self.pkg_intel = True
 
         # KOKKOS package
         if self.cfg['kokkos']:
@@ -724,18 +720,20 @@ class EB_LAMMPS(CMakeMake):
                 run_gpu_tests = True
 
         # add accelerator-specific tests
-        if self.pkg_intel:  # INTEL package
-            custom_commands.append(
-                'from lammps import lammps; l=lammps(cmdargs=["-sf", "intel"]); l.file("%s")' %
-                os.path.join(self.installdir, "examples", "msst", "in.msst")
-            )
+        # INTEL package
+        custom_commands.append(
+            'from lammps import lammps; '
+            'l=lammps(cmdargs=["-sf", "intel"]).file("%s") if "INTEL" in lammps().installed_packages else None' %
+            os.path.join(self.installdir, "examples", "msst", "in.msst")
+        )
         if self.cfg['kokkos']:  # KOKKOS package
-            if run_gpu_tests:
-                custom_commands.append(
-                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on", "g", "1"]); l.file("%s")' %
-                    os.path.join(self.installdir, "examples", "msst", "in.msst")
-                )
-            else:
+            if self.cuda:
+                if run_gpu_tests:
+                    custom_commands.append(
+                        'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on", "g", "1"]); '
+                        'l.file("%s")' % os.path.join(self.installdir, "examples", "msst", "in.msst")
+                    )
+            else:  # CPU only
                 custom_commands.append(
                     'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on"]); l.file("%s")' %
                     os.path.join(self.installdir, "examples", "msst", "in.msst")
