@@ -1487,7 +1487,7 @@ class EB_LLVM(CMakeMake):
 
     def _sanity_check_dynamic_linker(self):
         """Check if the dynamic linker is correct."""
-        if self.sysroot:
+        if self.sysroot and 'clang' in self.final_projects:
             # compile & test trivial C program to verify that works
             test_fn = 'test123'
             test_txt = '#include <stdio.h>\n'
