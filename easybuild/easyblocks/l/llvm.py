@@ -1487,7 +1487,8 @@ class EB_LLVM(CMakeMake):
 
     def _sanity_check_dynamic_linker(self):
         """Check if the dynamic linker is correct."""
-        if self.sysroot and 'clang' in self.final_projects:
+        sysroot = build_option('sysroot')
+        if sysroot and 'clang' in self.final_projects:
             # compile & test trivial C program to verify that works
             test_fn = 'test123'
             test_txt = '#include <stdio.h>\n'
@@ -1503,7 +1504,7 @@ class EB_LLVM(CMakeMake):
             out = res.output
 
             # Check if the dynamic linker is set to the sysroot
-            if self.sysroot not in out:
+            if sysroot not in out:
                 error_msg = f"Dynamic linker is not set to the sysroot '{self.sysroot}'"
                 raise EasyBuildError(error_msg)
 
@@ -1536,6 +1537,14 @@ class EB_LLVM(CMakeMake):
             arch = 'aarch64'
         else:
             print_warning("Unknown CPU architecture (%s) for OpenMP and runtime libraries check!" % arch, log=self.log)
+
+        extra_modules = kwargs.get('extra_modules', [])
+        # binutils is required for the linking step in the `llvm-config --link-static` test
+        extra_modules.extend(
+            d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils'
+        )
+        # Perform the module loading for the sanity check here to ensure that gcc_prefix can be checked
+        self.sanity_check_load_module(extra_modules=extra_modules)
 
         check_files = []
         check_bin_files = []
@@ -1721,9 +1730,6 @@ class EB_LLVM(CMakeMake):
         # Here, we add the system libraries LLVM expects to find
         minimal_cpp_compiler_cmd += "$(llvm-config --link-static --system-libs all)"
         custom_commands.append(minimal_cpp_compiler_cmd)
-        # binutils is required for the linking step
-        kwargs.setdefault('extra_modules', []).extend(
-            d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils')
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands, *args, **kwargs)
 
