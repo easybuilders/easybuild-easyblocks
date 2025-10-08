@@ -241,7 +241,7 @@ class EB_Kokkos(CMakeMake):
                 gpu_arch = KOKKOS_GPU_ARCH_TABLE.get(str(cc))
                 if gpu_arch:
                     print_warning(
-                        "Kokkos will be built _only_ for the latest CUDA compute capability: "
+                        "Kokkos will be built _only_ for the latest AMDGPU capability: "
                         "%s" % gpu_arch
                     )
                     break
