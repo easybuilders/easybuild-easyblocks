@@ -55,7 +55,7 @@ KOKKOS_INTEL_PACKAGE_ARCH_LIST = [
 ]
 
 KOKKOS_CPU_ARCH_LIST = [
-    'NATIVE'  # Local CPU architecture, available since LAMMPS 2Aug2023
+    'NATIVE'  # Local CPU architecture
     'AMDAVX',  # AMD 64-bit x86 CPU (AVX 1)
     'ZEN',  # AMD Zen class CPU (AVX 2)
     'ZEN2',  # AMD Zen2 class CPU (AVX 2)
@@ -171,7 +171,7 @@ class EB_Kokkos(CMakeMake):
 
     @staticmethod
     def extra_options(**kwargs):
-        """Custom easyconfig parameters for LAMMPS"""
+        """Custom easyconfig parameters for Kokkos"""
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
             'kokkos_arch': [None, "Set Kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
@@ -198,9 +198,8 @@ class EB_Kokkos(CMakeMake):
 
     def get_kokkos_arch(self, cuda_cc, amdgcn_cc, kokkos_arch):
         """
-        Return KOKKOS ARCH in LAMMPS required format, which is 'CPU_ARCH' and 'GPU_ARCH'.
-
-        see: https://docs.lammps.org/Build_extras.html#kokkos
+        Return Kokkos arch based on the Kokkos arch parameter, a generic value, or
+        native if neither kokkos_arch nor optarch=GENERIC is set.
         """
         # CPU arch
         # NOTE: if the CPU KOKKOS_ARCH flag is specified, Kokkos will add the correspondent `-march` and `-mtune` flags
