@@ -207,7 +207,15 @@ class EB_Kokkos(CMakeMake):
         # to the compiler flags, which may override the ones set by EasyBuild.
         # https://github.com/kokkos/kokkos/blob/1a3ea28f6e97b4c9dd2c8ceed53ad58ed5f94dfe/cmake/kokkos_arch.cmake#L228
         processor_arch = None
-        if build_option('optarch') == OPTARCH_GENERIC:
+        if kokkos_arch:
+            # If someone is trying a manual override for this case, let them
+            if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
+                warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
+                warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
+                warning_msg += "Still might work though."
+                print_warning(warning_msg)
+            processor_arch = kokkos_arch
+        elif build_option('optarch') == OPTARCH_GENERIC:
             # For generic Arm builds we use an existing target;
             # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
             # For other architectures we set a custom/non-existent type, which will disable all optimizations,
@@ -216,19 +224,7 @@ class EB_Kokkos(CMakeMake):
                 processor_arch = 'ARMV80'
             else:
                 processor_arch = 'EASYBUILD_GENERIC'
-
             _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
-            if kokkos_arch:
-                msg = "The specified kokkos_arch (%s) will be ignored " % kokkos_arch
-                msg += "because a generic build was requested (via --optarch=GENERIC)"
-                print_warning(msg)
-        elif kokkos_arch:
-            if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
-                warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
-                warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
-                warning_msg += "Still might work though."
-                print_warning(warning_msg)
-            processor_arch = kokkos_arch
         # If kokkos_arch was not set...
         else:
             # If we specify a CPU arch, Kokkos' CMake will add the correspondent -march and -mtune flags to the
