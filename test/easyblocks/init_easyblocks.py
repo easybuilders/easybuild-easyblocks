@@ -240,7 +240,7 @@ def suite(loader):
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
         elif easyblock_fn == 'kokkos.py':
             # custom easyblock for kokkos required v4.1.00 or newer
-            innertest = make_inner_test(easyblock, name='kokkos', version'4.1.00')
+            innertest = make_inner_test(easyblock, name='kokkos', version='4.1.00')
         elif easyblock_fn == 'openfoam.py':
             # custom easyblock for OpenFOAM requires non-system toolchain
             innertest = make_inner_test(easyblock, toolchain={'name': 'foss', 'version': '2021a'})
