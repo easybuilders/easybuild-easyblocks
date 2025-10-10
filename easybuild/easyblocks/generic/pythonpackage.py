@@ -49,8 +49,7 @@ from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
-from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, symlink, which, write_file
-from easybuild.tools.filetools import find_glob_pattern
+from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, symlink, which, write_file, search_file
 from easybuild.tools.modules import ModEnvVarType, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.utilities import nub
@@ -643,24 +642,14 @@ class PythonPackage(ExtensionEasyBlock):
         # Our sitecustomize.py adds paths in $EBPYTHONPREFIXES to the sitedir path though, allowing
         # these .pth files to work as expected. See: https://docs.python.org/3/library/site.html#module-site
         # .pth files always should be in the site folder, so most of the path is fixed.
-        try:
-            glob_pattern = "%s/lib/python*/site-packages/*.pth"
-            # Try the installation directory first
-            if find_glob_pattern(glob_pattern % self.installdir,
-                                 fail_on_no_match=False):
-                self.log.info("Found path configuration file in installation directory."
-                              "Enabling $EBPYTHONPREFIXES...")
-                use_ebpythonprefixes = True
-            # If we did a test installation, check that one as well
-            if self.testinstall and find_glob_pattern(glob_pattern % self.pypkg_test_installdir,
-                                                      fail_on_no_match=False):
-                self.log.info("Found path configuration file in test installation directory."
-                              "Enabling $EBPYTHONPREFIXES...")
-                use_ebpythonprefixes = True
-        except EasyBuildError:
-            # find_glob_pattern found more than one match. This is still sufficient for us to assume
-            # that we need $EBPYTHONPREFIXES.
-            self.log.info("Found more than one match while searching for path configuration files."
+        # Try the installation directory first
+        if search_file([self.installdir], r".*\.pth$", silent=True):
+            self.log.info("Found path configuration file in installation directory."
+                          "Enabling $EBPYTHONPREFIXES...")
+            use_ebpythonprefixes = True
+        # If we did a test installation, check that one as well
+        if self.testinstall and search_file([self.pypkg_test_installdir], r".*\.pth$", silent=True):
+            self.log.info("Found path configuration file in test installation directory."
                           "Enabling $EBPYTHONPREFIXES...")
             use_ebpythonprefixes = True
 
@@ -899,7 +888,7 @@ class PythonPackage(ExtensionEasyBlock):
                 abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s && " % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
                 if self.using_ebpythonprefixes():
-                    extrapath += "export EBPYTHONPREFIXES=%s && " % os.pathsep.join(abs_pylibdirs +
+                    extrapath += "export EBPYTHONPREFIXES=%s && " % os.pathsep.join([self.pypkg_test_installdir] +
                                                                                     ['$EBPYTHONPREFIXES'])
                 extrapath += "export PATH=%s:$PATH && " % os.path.join(actual_installdir, 'bin')
 
