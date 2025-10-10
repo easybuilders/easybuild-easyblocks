@@ -660,7 +660,7 @@ class PythonPackage(ExtensionEasyBlock):
         except EasyBuildError:
             # find_glob_pattern found more than one match. This is still sufficient for us to assume
             # that we need $EBPYTHONPREFIXES.
-            self.log.info("Found more than one match while searchin for path configuration files."
+            self.log.info("Found more than one match while searching for path configuration files."
                           "Enabling $EBPYTHONPREFIXES...")
             use_ebpythonprefixes = True
 
