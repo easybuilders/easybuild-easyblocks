@@ -404,6 +404,7 @@ class PythonPackage(ExtensionEasyBlock):
                                   "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
+            'pip_no_build_isolation': [True, "Use --no-build-isolation with pip install", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
                                    "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
             'pip_verbose': [None, "Pass --verbose to 'pip install' (if pip is used). "
@@ -635,8 +636,10 @@ class PythonPackage(ExtensionEasyBlock):
                 # (see also https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support);
                 # since we provide all required dependencies already, we disable this via --no-build-isolation
                 if LooseVersion(pip_version) >= LooseVersion('10.0'):
-                    if '--no-build-isolation' not in self.cfg['installopts']:
-                        self.py_installopts.append('--no-build-isolation')
+                    pip_no_build_isolation = self.cfg.get('pip_no_build_isolation', True)
+                    no_build_isolation_flag = '--no-build-isolation'
+                    if pip_no_build_isolation and no_build_isolation_flag not in self.cfg['installopts']:
+                        self.py_installopts.append(no_build_isolation_flag)
 
             elif not self.dry_run:
                 raise EasyBuildError("Failed to determine pip version!")
