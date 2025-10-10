@@ -35,6 +35,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibd
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import search_file
 
 
 class PythonBundle(Bundle):
@@ -122,6 +123,19 @@ class PythonBundle(Bundle):
             if build_option('prefer_python_search_path') == EBPYTHONPREFIXES:
                 self.log.info("Preferred Python search path is $EBPYTHONPREFIXES, so using that")
                 use_ebpythonprefixes = True
+
+        # Check if the installdir or sources contain any .pth files. For them to work correctly,
+        # Python needs these files to be in the sitedir path. While this typically works system-wide
+        # or in a venv, having Python modules in separate directories is unusual, and only having
+        # $PYTHONPATH will ignore these files.
+        # Our sitecustomize.py adds paths in $EBPYTHONPREFIXES to the sitedir path though, allowing
+        # these .pth files to work as expected. See: https://docs.python.org/3/library/site.html#module-site
+        # .pth files always should be in the site folder, so most of the path is fixed.
+        # Try the installation directory first
+        if self.installdir and search_file([self.installdir], r".*\.pth$", silent=True):
+            self.log.info("Found path configuration file in installation directory. "
+                          "Enabling $EBPYTHONPREFIXES...")
+            use_ebpythonprefixes = True
 
         if self.multi_python or use_ebpythonprefixes:
             path = ''  # EBPYTHONPREFIXES are relative to the install dir
