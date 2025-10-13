@@ -302,12 +302,13 @@ class EB_Python(ConfigureMake):
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
                         "If None: auto-detect based on toolchain compiler (version)", CUSTOM],
-            'patch_ctypes_ld_library_path': [None, "The ctypes module strongly relies on LD_LIBRARY_PATH to find "
-                                          "libraries. This allows specifying a patch that will only be "
-                                          "applied if EasyBuild is configured to filter LD_LIBRARY_PATH, in "
-                                          "order to make sure ctypes can still find libraries without it. "
-                                          "Please make sure to add the checksum for this patch to 'checksums'.",
-                                          CUSTOM],
+            'patch_ctypes_ld_library_path': [None,
+                                             "The ctypes module strongly relies on LD_LIBRARY_PATH to find "
+                                             "libraries. This allows specifying a patch that will only be "
+                                             "applied if EasyBuild is configured to filter LD_LIBRARY_PATH, in "
+                                             "order to make sure ctypes can still find libraries without it. "
+                                             "Please make sure to add the checksum for this patch to 'checksums'.",
+                                             CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -378,7 +379,7 @@ class EB_Python(ConfigureMake):
             sources = self.cfg['sources']
             patches = self.cfg.get('patches')
             len_patches = len(patches) if patches else 0
-            if len_patchs + len(sources) + 1 == len(checksums):
+            if len_patches + len(sources) + 1 == len(checksums):
                 msg = "EasyBuild was configured to filter LD_LIBRARY_PATH (and not to filter LIBRARY_PATH). "
                 msg += "The ctypes module relies heavily on LD_LIBRARY_PATH for locating its libraries. "
                 msg += "The following patches will be applied to make sure ctypes.CDLL, ctypes.cdll.LoadLibrary "
