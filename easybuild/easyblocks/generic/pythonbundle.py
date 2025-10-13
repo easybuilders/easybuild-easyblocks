@@ -133,7 +133,7 @@ class PythonBundle(Bundle):
         # .pth files always should be in the site folder, so most of the path is fixed.
         # Try the installation directory first
         if self.installdir and search_file([self.installdir], r".*\.pth$", silent=True):
-            self.log.info("Found path configuration file in installation directory. "
+            self.log.info(f"Found path configuration file in installation directory '{self.installdir}'. "
                           "Enabling $EBPYTHONPREFIXES...")
             use_ebpythonprefixes = True
 

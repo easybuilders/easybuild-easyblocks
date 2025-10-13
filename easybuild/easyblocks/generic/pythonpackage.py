@@ -617,7 +617,7 @@ class PythonPackage(ExtensionEasyBlock):
         py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
         return py_install_scheme == PY_INSTALL_SCHEME_POSIX_LOCAL and self.using_pip_install()
 
-    def using_ebpythonprefixes(self) -> bool:
+    def should_use_ebpythonprefixes(self) -> bool:
         """
         Determine if we should update $EBPYTHONPREFIXES rather than $PYTHONPATH.
         If this Python package was installed for multiple Python versions, the package is using
@@ -644,15 +644,15 @@ class PythonPackage(ExtensionEasyBlock):
         # .pth files always should be in the site folder, so most of the path is fixed.
         # Try the installation directory first
         if self.installdir and search_file([self.installdir], r".*\.pth$", silent=True):
-            self.log.info("Found path configuration file in installation directory. "
+            self.log.info(f"Found path configuration file in installation directory '{self.installdir}'. "
                           "Enabling $EBPYTHONPREFIXES...")
             use_ebpythonprefixes = True
         # If we did a test installation, check that one as well. Ensure that pypkg_test_installdir is set,
         # since that might not be the case for sanity_check_only or module_only.
         if self.testinstall and self.pypkg_test_installdir:
             if search_file([self.pypkg_test_installdir], r".*\.pth$", silent=True):
-                self.log.info("Found path configuration file in test installation directory. "
-                              "Enabling $EBPYTHONPREFIXES...")
+                self.log.info("Found path configuration file in test installation directory "
+                              f"'{self.pypkg_test_installdir}'. Enabling $EBPYTHONPREFIXES...")
                 use_ebpythonprefixes = True
 
         return self.multi_python or use_ebpythonprefixes
@@ -889,7 +889,7 @@ class PythonPackage(ExtensionEasyBlock):
                 # add install location to both $PYTHONPATH and $PATH
                 abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s && " % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
-                if self.using_ebpythonprefixes():
+                if self.should_use_ebpythonprefixes():
                     extrapath += "export EBPYTHONPREFIXES=%s && " % os.pathsep.join([self.pypkg_test_installdir] +
                                                                                     ['$EBPYTHONPREFIXES'])
                 extrapath += "export PATH=%s:$PATH && " % os.path.join(actual_installdir, 'bin')
@@ -1126,7 +1126,7 @@ class PythonPackage(ExtensionEasyBlock):
         """Add install path to PYTHONPATH"""
         txt = ''
 
-        if self.using_ebpythonprefixes():
+        if self.should_use_ebpythonprefixes():
             path = ''  # EBPYTHONPREFIXES are relative to the install dir
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, path)
         elif self.require_python:
