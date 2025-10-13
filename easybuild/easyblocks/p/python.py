@@ -302,7 +302,7 @@ class EB_Python(ConfigureMake):
             'ulimit_unlimited': [False, "Ensure stack size limit is set to '%s' during build" % UNLIMITED, CUSTOM],
             'use_lto': [None, "Build with Link Time Optimization (>= v3.7.0, potentially unstable on some toolchains). "
                         "If None: auto-detect based on toolchain compiler (version)", CUSTOM],
-            'patch_custom_ctypes': [None, "The ctypes module strongly relies on LD_LIBRARY_PATH to find "
+            'patch_ctypes_ld_library_path': [None, "The ctypes module strongly relies on LD_LIBRARY_PATH to find "
                                           "libraries. This allows specifying a patch that will only be "
                                           "applied if EasyBuild is configured to filter LD_LIBRARY_PATH, in "
                                           "order to make sure ctypes can still find libraries without it. "
@@ -366,27 +366,32 @@ class EB_Python(ConfigureMake):
         # libraries. But, we want to do the patching conditionally on EasyBuild configuration (i.e. which env vars
         # are filtered), hence this setup based on the custom config option 'patches_custom_ctypes'
         filtered_env_vars = build_option('filter_env_vars') or []
-        additional_patches = []
-        if self.cfg['patch_custom_ctypes'] is not None:
-            additional_patches = [self.cfg['patch_custom_ctypes']]
-        checksums = self.cfg['checksums']
-        sources = self.cfg['sources']
-        if ('LD_LIBRARY_PATH' in filtered_env_vars and len(additional_patches) > 0):
+        patch_ctypes_ld_library_path = self.cfg.get('patch_ctypes_ld_library_path')
+        if (
+            'LD_LIBRARY_PATH' in filtered_env_vars and
+            'LIBRARY_PATH' not in filtered_env_vars and
+            patch_ctypes_ld_library_path
+        ):
             # Some sanity checking so we can raise an early and clear error if needed
-            if len(additional_patches) + len(sources) == len(checksums):
+            # We expect a (one) checksum for the patch_ctypes_ld_library_path
+            checksums = self.cfg['checksums']
+            sources = self.cfg['sources']
+            patches = self.cfg.get('patches')
+            len_patches = len(patches) if patches else 0
+            if len_patchs + len(sources) + 1 == len(checksums):
                 msg = "EasyBuild was configured to filter LD_LIBRARY_PATH (and not to filter LIBRARY_PATH). "
                 msg += "The ctypes module relies heavily on LD_LIBRARY_PATH for locating its libraries. "
                 msg += "The following patches will be applied to make sure ctypes.CDLL, ctypes.cdll.LoadLibrary "
-                msg += f"and ctypes.util.find_library will still work correctly: {additional_patches}."
+                msg += f"and ctypes.util.find_library will still work correctly: {patch_ctypes_ld_library_path}."
                 self.log.info(msg)
                 self.log.info(f"Original list of patches: {self.cfg['patches']}")
-                self.log.info(f"List of patches to be added: {additional_patches}")
-                self.cfg.update('patches', additional_patches)
+                self.log.info(f"Patch to be added: {patch_ctypes_ld_library_path}")
+                self.cfg.update('patches', [patch_ctypes_ld_library_path])
                 self.log.info(f"Updated list of patches: {self.cfg['patches']}")
             else:
                 msg = "The length of 'checksums' (%s) was not equal to the total amount of sources (%s) + patches (%s)"
-                msg += ". Did you forget to add a checksum for patch_custom_ctypes?."
-                raise EasyBuildError(msg, len(checksums), len(sources), len(additional_patches))
+                msg += ". Did you forget to add a checksum for patch_ctypes_ld_library_path?."
+                raise EasyBuildError(msg, len(checksums), len(sources), len(len_patches + 1))
 
         super().fetch_step(*args, **kwargs)
 
