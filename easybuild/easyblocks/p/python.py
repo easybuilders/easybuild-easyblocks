@@ -709,6 +709,26 @@ class EB_Python(ConfigureMake):
                 symlink(target_lib_dynload, lib_dynload)
                 change_dir(cwd)
 
+    def _sanity_check_ctypes_ld_library_path_patch(self):
+        """Check that the patch for ctypes that should be applied when filtering LD_LIBRARY_PATH works"""
+        cmd = "python -c 'import ctypes; print(ctypes.CDLL(\"libpython3.so\"))'"
+        res = run_shell_cmd(cmd)
+        out = res.output.strip()
+        escaped_python_root = re.escape(self.installdir)
+        pattern = rf"^<CDLL '{escaped_python_root}.*', handle [a-f0-9]+ at 0x[a-f0-9]+>$"
+        match = re.match(pattern, out)
+        self.log.debug(f"Matching regular expression pattern {pattern} to string {out}")
+        if match:
+            msg = "Call to ctypes.CDLL('libpython3.so') succesfully opened libpython3.so, indicating that the patch "
+            msg += "for ctypes when EasyBuild is configured to filter LD_LIBRARY_PATH was applied succesfully."
+            self.log.info(msg)
+        else:
+            msg = "Opening of libpython3.so using ctypes.CDLL('libpython3.so') failed. "
+            msg += "Ctypes requires a patch when EasyBuild is configured to filter LD_LIBRARY_PATH. "
+            msg += "Please check if you specified a patch through patch_ctypes_ld_library_path and check "
+            msg += "the logs to see if it applied correctly."
+            raise EasyBuildError(msg)
+
     def _sanity_check_ebpythonprefixes(self):
         """Check that EBPYTHONPREFIXES works"""
         temp_prefix = tempfile.mkdtemp(suffix='-tmp-prefix')
@@ -772,6 +792,18 @@ class EB_Python(ConfigureMake):
 
         if self.cfg.get('ebpythonprefixes'):
             self._sanity_check_ebpythonprefixes()
+
+        # If the conditions for applying the patch specified through patch_ctypes_ld_library_path are met, check that
+        # the patch applied correctly (and fixed the issue). Note that the condition should be identical to the one
+        # used to determine if the patch_ctypes_ld_library_path patch should be applied
+        filtered_env_vars = build_option('filter_env_vars') or []
+        patch_ctypes_ld_library_path = self.cfg.get('patch_ctypes_ld_library_path')
+        if (
+            'LD_LIBRARY_PATH' in filtered_env_vars and
+            'LIBRARY_PATH' not in filtered_env_vars and
+            patch_ctypes_ld_library_path
+        ):
+            self._sanity_check_ctypes_ld_library_path_patch
 
         pyver = 'python' + self.pyshortver
         custom_paths = {
