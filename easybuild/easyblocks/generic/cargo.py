@@ -36,6 +36,7 @@ import re
 import shutil
 import tempfile
 from glob import glob
+from pathlib import Path
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
@@ -77,16 +78,16 @@ replace-with = "vendored-sources"
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
 
 
-def get_workspace_members(crate_dir):
+def get_workspace_members(crate_dir: Path):
     """Find all members of a cargo workspace in crate_dir.
 
     (Minimally) parse the Cargo.toml file.
 
     Return a tuple: (has_package, workspace-members).
-    has_package determines if the manifest contains a '[package]' section and hence is not a virtual manifest.
+    has_package determines if it is a virtual workspace ([workspace] and no [package])
     workspace-members are all members (subfolder names) if it is a workspace, otherwise None
     """
-    cargo_toml = os.path.join(crate_dir, 'Cargo.toml')
+    cargo_toml = crate_dir / 'Cargo.toml'
     lines = [line.strip() for line in read_file(cargo_toml).splitlines()]
     # A virtual (workspace) manifest has no [package], but only a [workspace] section.
     has_package = '[package]' in lines
@@ -159,6 +160,10 @@ class Cargo(ExtensionEasyBlock):
         })
 
         return extra_vars
+
+    @staticmethod
+    def src_parameter_names():
+        return super().src_parameter_names() + ['crates']
 
     @staticmethod
     def crate_src_filename(pkg_name, pkg_version, _url=None, rev=None):
@@ -346,12 +351,11 @@ class Cargo(ExtensionEasyBlock):
 
         self.log.debug("Setting up checksum files and unpacking workspaces with virtual manifest")
         path_to_source = {src['finalpath']: src for src in self.src}
-        tmp_dir = tempfile.mkdtemp(dir=self.builddir, prefix='tmp_crate_')
+        tmp_dir = Path(tempfile.mkdtemp(dir=self.builddir, prefix='tmp_crate_'))
         # Add checksum file for each crate such that it is recognized by cargo.
         # Glob to catch multiple folders in a source archive.
-        crate_dirs = [os.path.dirname(p) for p in glob(os.path.join(self.vendor_dir, '*', 'Cargo.toml'))]
-        for crate_dir in crate_dirs:
-            src = path_to_source.get(crate_dir)
+        for crate_dir in (p.parent for p in Path(self.vendor_dir).glob('*/Cargo.toml')):
+            src = path_to_source.get(str(crate_dir))
             if src:
                 try:
                     checksum = src[CHECKSUM_TYPE_SHA256]
@@ -361,42 +365,50 @@ class Cargo(ExtensionEasyBlock):
             else:
                 self.log.debug(f'No source found for {crate_dir}. Using nul-checksum for vendoring')
                 checksum = 'null'
+            cargo_pkg_dirs = [crate_dir]  # Default case: Single crate
             # Sources might contain multiple crates/folders in a so-called "workspace".
             # We have to move the individual packages out of the workspace so cargo can find them.
             # If there is a main package it should to used too,
             # otherwise (Only "[workspace]" section and no "[package]" section)
             # we have to remove the top-level folder or cargo fails with:
             # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
-            has_package, member_dirs = get_workspace_members(crate_dir)
-            if member_dirs:
-                self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(member_dirs))
-                cargo_pkg_dirs = []
-                tmp_crate_dir = os.path.join(tmp_dir, os.path.basename(crate_dir))
-                shutil.move(crate_dir, tmp_crate_dir)
-                for crate in member_dirs:
-                    # A member crate might be in a subfolder, e.g. 'components/foo',
-                    # which we need to ignore and make the crate a top-level folder.
-                    target_path = os.path.join(self.vendor_dir, os.path.basename(crate))
-                    if os.path.exists(target_path):
-                        raise EasyBuildError(f'Cannot move {crate} out of {os.path.basename(crate_dir)} '
-                                             f'as target path {target_path} exists')
-                    # Use copy_dir to resolve symlinks that might point to the parent folder
-                    copy_dir(os.path.join(tmp_crate_dir, crate), target_path, symlinks=False)
-                    cargo_pkg_dirs.append(target_path)
-                if has_package:
-                    # Remove the copied crate folders
-                    for crate in member_dirs:
-                        remove_dir(os.path.join(tmp_crate_dir, crate))
-                    # Keep the main package in the original location
-                    shutil.move(tmp_crate_dir, crate_dir)
-                    cargo_pkg_dirs.append(crate_dir)
+            has_package, members = get_workspace_members(crate_dir)
+            if members:
+                self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(members))
+                if not any((crate_dir / crate).is_dir() for crate in members):
+                    if not has_package:
+                        raise EasyBuildError(f'Virtual manifest found in {crate_dir} but none of the member folders '
+                                             'exist. This cannot be handled by the build.')
+                    # Packages from crates.io contain only a single crate even if the Cargo.toml file lists multiple
+                    # members. Those members are in separate packages on crates.io, so this is a fairly common case.
+                    self.log.debug(f"Member folders of {crate_dir} don't exist so assuming they are in individual "
+                                   "crates, e.g. from/on crates.io")
                 else:
-                    self.log.info(f'Virtual manifest found in {crate_dir}, removing it')
-                    remove_dir(tmp_crate_dir)
-            else:
-                cargo_pkg_dirs = [crate_dir]
+                    cargo_pkg_dirs = []
+                    tmp_crate_dir = tmp_dir / crate_dir.name
+                    shutil.move(crate_dir, tmp_crate_dir)
+                    for member in members:
+                        # A member crate might be in a subfolder, e.g. 'components/foo',
+                        # which we need to ignore and make the crate a top-level folder.
+                        target_path = Path(self.vendor_dir, os.path.basename(member))
+                        if target_path.exists():
+                            raise EasyBuildError(f'Cannot move {member} out of {crate_dir.name} '
+                                                 f'as target path {target_path} exists')
+                        # Use copy_dir to resolve symlinks that might point to the parent folder
+                        copy_dir(tmp_crate_dir / member, target_path, symlinks=False)
+                        cargo_pkg_dirs.append(target_path)
+                    if has_package:
+                        # Remove the copied crate folders
+                        for member in members:
+                            remove_dir(tmp_crate_dir / member)
+                        # Keep the main package in the original location
+                        shutil.move(tmp_crate_dir, crate_dir)
+                        cargo_pkg_dirs.append(crate_dir)
+                    else:
+                        self.log.info(f'Virtual manifest found in {crate_dir}, removing it')
+                        remove_dir(tmp_crate_dir)
             for pkg_dir in cargo_pkg_dirs:
-                self.log.info('creating .cargo-checksums.json file for %s', os.path.basename(pkg_dir))
+                self.log.info('creating .cargo-checksums.json file for %s', pkg_dir.name)
                 chkfile = os.path.join(pkg_dir, '.cargo-checksum.json')
                 write_file(chkfile, CARGO_CHECKSUM_JSON.format(checksum=checksum))
 
