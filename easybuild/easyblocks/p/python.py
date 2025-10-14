@@ -803,7 +803,7 @@ class EB_Python(ConfigureMake):
             'LIBRARY_PATH' not in filtered_env_vars and
             patch_ctypes_ld_library_path
         ):
-            self._sanity_check_ctypes_ld_library_path_patch
+            self._sanity_check_ctypes_ld_library_path_patch()
 
         pyver = 'python' + self.pyshortver
         custom_paths = {
