@@ -310,7 +310,11 @@ class EB_GROMACS(CMakeMake):
                 if mpiexec:
                     mpiexec_path = which(mpiexec)
                     if mpiexec_path:
-                        self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec_path)
+                        cmake_version = get_software_version("CMake")
+                        if cmake_version >= '3.10':
+                            self.cfg.update('configopts', "-DMPIEXEC_EXECUTABLE=%s" % mpiexec_path)
+                        else:
+                            self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec_path)
                         self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" %
                                         self.cfg.get('mpiexec_numproc_flag'))
                         self.cfg.update('configopts', "-DNUMPROC=%s" % mpi_numprocs)
@@ -388,8 +392,8 @@ class EB_GROMACS(CMakeMake):
             else:
                 self.cfg.update('configopts', "-DGMX_OPENMP=OFF")
 
-            imkl_root = get_software_root('imkl')
-            if imkl_root:
+            imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
+            if imkl_direct:
                 # using MKL for FFT, so it will also be used for BLAS/LAPACK
                 imkl_include = os.path.join(os.getenv('MKLROOT'), 'mkl', 'include')
                 self.cfg.update('configopts', '-DGMX_FFT_LIBRARY=mkl -DMKL_INCLUDE_DIR="%s" ' % imkl_include)
