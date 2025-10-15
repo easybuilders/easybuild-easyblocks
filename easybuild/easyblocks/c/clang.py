@@ -258,8 +258,8 @@ class EB_Clang(CMakeMake):
 
             glob_src_dirs = [glob_dir for globpattern in globpatterns for glob_dir in glob.glob(globpattern)]
             if len(glob_src_dirs) != 1:
-                raise EasyBuildError("Failed to find exactly one source directory for pattern %s: %s", globpatterns,
-                                     glob_src_dirs)
+                raise EasyBuildError("Failed to find exactly one source directory in %s for pattern %s: %s",
+                                     os.getcwd(), globpatterns, glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
         if any([x['name'].startswith('llvm-project') for x in self.src]):
