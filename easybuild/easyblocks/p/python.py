@@ -720,7 +720,7 @@ class EB_Python(ConfigureMake):
         self.log.debug(f"Matching regular expression pattern {pattern} to string {out}")
         if match:
             msg = "Call to ctypes.CDLL('libpython3.so') succesfully opened libpython3.so, indicating that the patch "
-            msg += "for ctypes when EasyBuild is configured to filter LD_LIBRARY_PATH was applied succesfully."
+            msg += "that fixes ctypes when EasyBuild is configured to filter LD_LIBRARY_PATH was applied succesfully."
             self.log.info(msg)
         else:
             msg = "Opening of libpython3.so using ctypes.CDLL('libpython3.so') failed. "
