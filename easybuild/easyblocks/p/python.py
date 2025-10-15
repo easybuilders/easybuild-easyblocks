@@ -393,6 +393,18 @@ class EB_Python(ConfigureMake):
                 msg = "The length of 'checksums' (%s) was not equal to the total amount of sources (%s) + patches (%s)"
                 msg += ". Did you forget to add a checksum for patch_ctypes_ld_library_path?."
                 raise EasyBuildError(msg, len(checksums), len(sources), len(len_patches + 1))
+        # If LD_LIBRARY_PATH is filtered, but no patch is specified, warn the user that his may not work
+        elif (
+            'LD_LIBRARY_PATH' in filtered_env_vars and
+            'LIBRARY_PATH' not in filtered_env_vars and
+            not patch_ctypes_ld_library_path
+        ):
+            msg = "EasyBuild was configured to filter LD_LIBRARY_PATH (and not to filter LIBRARY_PATH). "
+            msg += "However, no patch for ctypes was specified through 'patch_ctypes_ld_library_path' in the "
+            msg += "EasyConfig. Note that ctypes.util.find_library, ctypes.CDLL and ctypes.cdll.LoadLibrary heavily "
+            msg += "rely on LD_LIBRARY_PATH. Without the patch, a setup without LD_LIBRARY_PATH will likely not work "
+            msg += "correctly."
+            self.log.warning(msg)
 
         super().fetch_step(*args, **kwargs)
 
