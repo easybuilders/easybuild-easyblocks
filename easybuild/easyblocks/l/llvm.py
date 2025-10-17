@@ -1308,15 +1308,18 @@ class EB_LLVM(CMakeMake):
             self.log.debug(out)
 
         ignore_patterns = self.ignore_patterns
-        ignored_pattern_matches = 0
-        failed_pattern_matches = 0
+        num_ignored_pattern_matches = 0
+        num_failed_pattern_matches = 0
+        relevant_failures = []
         if ignore_patterns:
             for line in out.splitlines():
                 if any(line.startswith(f'{x}: ') for x in OUTCOME_FAIL):
                     if any(patt in line for patt in ignore_patterns):
                         self.log.info("Ignoring test failure: %s", line)
-                        ignored_pattern_matches += 1
-                    failed_pattern_matches += 1
+                        num_ignored_pattern_matches += 1
+                    else:
+                        relevant_failures.append(line)
+                    num_failed_pattern_matches += 1
 
         rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
         mch = rgx_failed.search(out)
@@ -1345,14 +1348,18 @@ class EB_LLVM(CMakeMake):
             else:
                 self.log.info("Ignoring timed out tests as per configuration")
 
-        if num_failed != failed_pattern_matches:
+        if num_failed != num_failed_pattern_matches:
             msg = f"Number of failed tests ({num_failed}) does not match "
-            msg += f"Number identified via line-by-line pattern matching: {failed_pattern_matches}"
+            msg += f"Number identified via line-by-line pattern matching: {num_failed_pattern_matches}"
             self.log.warning(msg)
 
-        if num_failed is not None and ignored_pattern_matches:
-            self.log.info("Ignored %s failed tests due to ignore patterns", ignored_pattern_matches)
-            num_failed -= ignored_pattern_matches
+        if num_failed is not None and num_ignored_pattern_matches:
+            self.log.info("Ignored %s out of %s failed tests due to ignore patterns",
+                          num_ignored_pattern_matches, num_failed)
+            num_failed -= num_ignored_pattern_matches
+            if relevant_failures:
+                self.log.info("%s remaining failures considered:\n\t%s",
+                              num_failed, '\n\t'.join(relevant_failures))
 
         return num_failed
 
