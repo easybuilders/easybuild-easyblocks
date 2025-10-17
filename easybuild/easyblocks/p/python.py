@@ -723,11 +723,30 @@ class EB_Python(ConfigureMake):
 
     def _sanity_check_ctypes_ld_library_path_patch(self):
         """Check that the patch for ctypes that should be applied when filtering LD_LIBRARY_PATH works"""
-        cmd = "python -c 'import ctypes; print(ctypes.CDLL(\"libpython3.so\"))'"
+        # Try find_library first, since ctypes.CDLL relies on that to work correctly
+        cmd = "python -c 'from ctypes import util; print(util.find_library(\"libpython3.so\"))'"
         res = run_shell_cmd(cmd)
         out = res.output.strip()
         escaped_python_root = re.escape(self.installdir)
-        pattern = rf"^<CDLL '{escaped_python_root}.*', handle [a-f0-9]+ at 0x[a-f0-9]+>$"
+        pattern = rf"^{escaped_python_root}.*libpython3\.so$"
+        match = re.match(pattern, out)
+        self.log.debug(f"Matching regular expression pattern {pattern} to string {out}")
+        if match:
+            msg = "Call to ctypes.util.find_library('libpython3.so') succesfully found libpython3.so under the prefix "
+            msg += "of the current python installation. indicating that the patch that fixes ctypes when EasyBuild is "
+            msg += "configured to filter LD_LIBRARY_PATH was applied succesfully."
+            self.log.info(msg)
+        else:
+            msg = "Finding the library libpython3.so using ctypes.util.find_library('libpython3.so') failed. "
+            msg += "Ctypes requires a patch when EasyBuild is configured to filter LD_LIBRARY_PATH. "
+            msg += "Please check if you specified a patch through patch_ctypes_ld_library_path and check "
+            msg += "the logs to see if it applied correctly."
+            raise EasyBuildError(msg)
+        # Now that we know find_library was patched correctly, check if ctypes.CDLL is also patched correctly
+        cmd = "python -c 'import ctypes; print(ctypes.CDLL(\"libpython3.so\"))'"
+        res = run_shell_cmd(cmd)
+        out = res.output.strip()
+        pattern = rf"^<CDLL '{escaped_python_root}.*libpython3\.so', handle [a-f0-9]+ at 0x[a-f0-9]+>$"
         match = re.match(pattern, out)
         self.log.debug(f"Matching regular expression pattern {pattern} to string {out}")
         if match:
