@@ -34,11 +34,10 @@ from urllib.parse import urlparse
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.filetools import change_dir, expand_glob_paths, mkdir, read_file, symlink, which, write_file
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import mkdir, symlink
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import DARWIN, LINUX, get_os_type, get_shared_lib_ext, find_library_path
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 def get_sys_lib_dirs():
