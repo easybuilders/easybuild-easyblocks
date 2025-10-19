@@ -29,9 +29,6 @@ EasyBuild support for installing a wrapper module file for systemd
 """
 import os
 import re
-from urllib.parse import urlparse
-
-from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.tools.build_log import EasyBuildError
