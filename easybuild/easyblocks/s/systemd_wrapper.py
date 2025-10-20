@@ -79,44 +79,44 @@ class EB_systemd_wrapper(Bundle):
         sys_lib_dirs = get_sys_lib_dirs()
         self.log.debug('Found the following lib directories in host system: %s', ', '.join(sys_lib_dirs))
 
-        self.systemd['libs'] = []
+        self.systemd['libs'] = dict()
         for systemd_lib_pattern in systemd_lib_patterns:
             for sys_lib_dir in sys_lib_dirs:
                 file = os.path.join(sys_lib_dir, systemd_lib_pattern)
                 if os.path.exists(file):
-                    self.systemd['libs'].append(file)
+                    self.systemd['libs'][systemd_lib_pattern] = file
                     break
             else:
-                raise EasyBuildError('Could not find library: %s.', systemd_lib_pattern)
+                self.systemd['pcs'][systemd_pc_pattern] = None
 
         # Check system include paths for systemd headers
         sys_include_dirs = get_sys_include_dirs()
         self.log.debug('Found the following include directories in host system: %s', ', '.join(sys_include_dirs))
 
-        self.systemd['includes'] = []
+        self.systemd['includes'] = dict()
         for systemd_include_pattern in systemd_include_patterns:
             for sys_include_dir in sys_include_dirs:
                 file = os.path.join(sys_include_dir, systemd_include_pattern)
                 if os.path.exists(file):
-                    self.systemd['includes'].append(file)
+                    self.systemd['includes'][systemd_include_pattern] = file
                     break
             else:
-                raise EasyBuildError('Could not find includes: %s.', systemd_include_pattern)
+                self.systemd['pcs'][systemd_pc_pattern] = None
 
         # Check pkgconfig paths
         sys_pc_dirs = get_sys_pc_dirs()
         print(sys_pc_dirs)
         self.log.debug("Found the following pkgconfig directories in host system: %s", ', '.join(sys_pc_dirs))
 
-        self.systemd['pcs'] = []
+        self.systemd['pcs'] = dict()
         for systemd_pc_pattern in systemd_pc_patterns:
             for sys_pc_dir in sys_pc_dirs:
                 file = os.path.join(sys_pc_dir, systemd_pc_pattern)
                 if os.path.exists(file):
-                    self.systemd['pcs'].append(file)
+                    self.systemd['pcs'][systemd_pc_pattern] = file
                     break
             else:
-                raise EasyBuildError('Could not find pkgconfig file: %s.', systemd_pc_pattern)
+                self.systemd['pcs'][systemd_pc_pattern] = None
 
     def fetch_step(self, *args, **kwargs):
         """Nothing to fetch"""
@@ -132,20 +132,29 @@ class EB_systemd_wrapper(Bundle):
 
     def install_step(self):
         """Symlink OS systemd installation"""
-        include_dir = os.path.join(self.installdir, 'include')
-        mkdir(include_dir, parents=True)
-        for file in self.systemd['includes']:
-            symlink(file, os.path.join(include_dir, os.path.basename(file)))
-
         lib_dir = os.path.join(self.installdir, 'lib')
         mkdir(lib_dir, parents=True)
-        for file in self.systemd['libs']:
-            symlink(file, os.path.join(lib_dir, os.path.basename(file)))
+        for pattern, file in self.systemd['libs'].items():
+            if file is not None:
+                symlink(file, os.path.join(lib_dir, os.path.basename(file)))
+            else:
+                raise EasyBuildError('Could not find library: %s', pattern)
+
+        include_dir = os.path.join(self.installdir, 'include')
+        mkdir(include_dir, parents=True)
+        for pattern, file in self.systemd['includes'].items():
+            if file is not None:
+                symlink(file, os.path.join(include_dir, os.path.basename(file)))
+            else:
+                raise EasyBuildError('Could not find include: %s', pattern)
 
         pc_dir = os.path.join(self.installdir, 'share', 'pkgconfig')
         mkdir(pc_dir, parents=True)
-        for file in self.systemd['pcs']:
-            symlink(file, os.path.join(pc_dir, os.path.basename(file)))
+        for pattern, file in self.systemd['pcs'].items():
+            if file is not None:
+                symlink(file, os.path.join(pc_dir, os.path.basename(file)))
+            else:
+                raise EasyBuildError('Could not find pkgconfig files: %s', pattern)
 
     def sanity_check_step(self):
         """Custom sanity check for systemd wrapper."""
