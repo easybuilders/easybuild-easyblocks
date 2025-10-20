@@ -30,7 +30,7 @@ EasyBuild support for installing a wrapper module file for systemd
 import os
 import re
 
-from easybuild.easyblocks.generic.bundle import Bundle
+from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, symlink
 from easybuild.tools.run import run_shell_cmd
@@ -59,7 +59,7 @@ def get_sys_pc_dirs():
     return res.output.strip().split(':')
 
 
-class EB_systemd_wrapper(Bundle):
+class EB_systemd_wrapper(EasyBlock):
     """
     Find path to installation files of systemd and udev in the host system.
     """
@@ -159,8 +159,8 @@ class EB_systemd_wrapper(Bundle):
         """Custom sanity check for systemd wrapper."""
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
-            'files': [f'lib/libsystemd.{shlib_ext}', f'libudev.{shlib_ext}', 'include/udev.h',
-                      'share/pkgconfig/libsystemd.pc', 'share/pkgconfig/libudev.pc'],
+            'files': [f'lib/libsystemd.{shlib_ext}', f'lib/libudev.{shlib_ext}', 'include/libudev.h',
+                      'share/pkgconfig/systemd.pc', 'share/pkgconfig/udev.pc'],
             'dirs': ['include/systemd'],
         }
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=[])
