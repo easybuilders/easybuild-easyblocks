@@ -649,7 +649,7 @@ class EB_PyTorch(PythonPackage):
             try:
                 xml_results = get_test_results(test_reports_path)
             except ValueError as e:
-                raise EasyBuildError(f"Failed to parse test results at {test_reports_path}: {e}")
+                raise EasyBuildError(f"Failed to parse test results at {test_reports_path}: {e}") from e
             if not xml_results:
                 files = [file for file in test_reports_path.rglob('*.*') if file.is_file()]
                 if files:
@@ -1073,7 +1073,7 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
                           )
             )
     except Exception as e:
-        raise ValueError(f"Failed to parse test result file '{xml_file}': {e}")
+        raise ValueError(f"Failed to parse test result file '{xml_file}': {e}") from e
     return test_suites
 
 
