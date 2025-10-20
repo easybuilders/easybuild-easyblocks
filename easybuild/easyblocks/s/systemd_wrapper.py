@@ -77,7 +77,7 @@ class EB_systemd_wrapper(Bundle):
 
         # Check lib paths for systemd libraries
         sys_lib_dirs = get_sys_lib_dirs()
-        self.log.debug('Found the following lib directories in host system: %s', ', '.join(sys_lib_dirs))
+        self.log.info('Found the following lib directories in host system: %s', ', '.join(sys_lib_dirs))
 
         self.systemd['libs'] = dict()
         for systemd_lib_pattern in systemd_lib_patterns:
@@ -87,11 +87,11 @@ class EB_systemd_wrapper(Bundle):
                     self.systemd['libs'][systemd_lib_pattern] = file
                     break
             else:
-                self.systemd['pcs'][systemd_pc_pattern] = None
+                self.systemd['libs'][systemd_lib_pattern] = None
 
         # Check system include paths for systemd headers
         sys_include_dirs = get_sys_include_dirs()
-        self.log.debug('Found the following include directories in host system: %s', ', '.join(sys_include_dirs))
+        self.log.info('Found the following include directories in host system: %s', ', '.join(sys_include_dirs))
 
         self.systemd['includes'] = dict()
         for systemd_include_pattern in systemd_include_patterns:
@@ -101,12 +101,11 @@ class EB_systemd_wrapper(Bundle):
                     self.systemd['includes'][systemd_include_pattern] = file
                     break
             else:
-                self.systemd['pcs'][systemd_pc_pattern] = None
+                self.systemd['includes'][systemd_include_pattern] = None
 
         # Check pkgconfig paths
         sys_pc_dirs = get_sys_pc_dirs()
-        print(sys_pc_dirs)
-        self.log.debug("Found the following pkgconfig directories in host system: %s", ', '.join(sys_pc_dirs))
+        self.log.info("Found the following pkgconfig directories in host system: %s", ', '.join(sys_pc_dirs))
 
         self.systemd['pcs'] = dict()
         for systemd_pc_pattern in systemd_pc_patterns:
