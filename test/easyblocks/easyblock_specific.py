@@ -523,7 +523,7 @@ class EasyBlockSpecificTest(TestCase):
             self.assertEqual((name, suite.summary), (name, results2[name].summary))
         del results2
 
-        self.assertEqual(len(results), 14)
+        self.assertEqual(len(results), 15)
 
         # 2 small test suites used as a smoke test using a most features
         self.assertIn('backends/xeon/test_launch', results)
@@ -556,6 +556,7 @@ class EasyBlockSpecificTest(TestCase):
             distributed/tensor/test_dtensor_ops: 0 failed, 2 passed, 2 skipped, 0 errors
             dynamo/test_dynamic_shapes: 3 failed, 14 passed, 0 skipped, 0 errors
             dynamo/test_misc: 1 failed, 9 passed, 0 skipped, 0 errors
+            inductor/test_aot_inductor_arrayref: 2 failed, 0 passed, 0 skipped, 0 errors
             inductor/test_cudagraph_trees: 1 failed, 0 passed, 0 skipped, 0 errors
             jit/test_builtins: 0 failed, 1 passed, 0 skipped, 0 errors
             test_autoload: 0 failed, 1 passed, 1 skipped, 0 errors
@@ -566,6 +567,8 @@ class EasyBlockSpecificTest(TestCase):
                                  for suite in results.values()
                                  for test in suite.get_tests()))
         self.assertEqual(tests, textwrap.dedent("""
+            AOTInductorTestABICompatibleCpuWithStackAllocation.test_fail_and_skip: failure
+            AOTInductorTestABICompatibleCpuWithStackAllocation.test_skip_and_fail: failure
             CudaGraphTreeTests.test_workspace_allocation_error: failure
             DistQuantizationTests.test_all_gather_fp16: success
             DistQuantizationTests.test_all_gather_fp16: success

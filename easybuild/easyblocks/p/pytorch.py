@@ -1096,11 +1096,11 @@ def merge_test_suites(test_suites: Iterable[TestSuite]) -> TestSuite:
             except KeyError:
                 result_suite.add_test(current_test)
             else:
-                if (existing_test.state == TestState.SKIPPED) != (current_test.state == TestState.SKIPPED):
-                    raise ValueError(f"Mismatch in whether test was skipped or not in suite {result_suite.name}: "
-                                     f"{existing_test} vs. {current_test}")
-                # If test was rerun and succeeded use that
                 if current_test.state == TestState.SUCCESS and existing_test.state != TestState.SUCCESS:
+                    # If test was rerun and succeeded use that
+                    result_suite.replace_test(current_test)
+                elif existing_test.state == TestState.SKIPPED and current_test.state != TestState.SKIPPED:
+                    # If test was skipped but later run use that
                     result_suite.replace_test(current_test)
     return result_suite
 
