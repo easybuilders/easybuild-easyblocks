@@ -918,7 +918,12 @@ def parse_test_cases(test_suite_el: ET.Element) -> List[TestCase]:
     """Extract all test cases from the testsuite XML element"""
     test_cases: List[TestCase] = []
     for testcase in test_suite_el.iterfind("testcase"):
-        classname = testcase.attrib["classname"]
+        try:
+            classname = testcase.attrib["classname"]
+        except KeyError as e:
+            if any(tag in testcase.attrib for tag in ('name', 'file')):
+                raise ValueError(f"Missing 'classname' attribute in testcase (Attributes: '{testcase.attrib}')") from e
+            continue  # Skip invalid testcase entries without classname
         test_name = f'{classname}.{testcase.attrib["name"]}'
         # Note: It is possible that a test has (the same?) element multiple times, likely when using variants.
         # Ignore that and only check if it has one of the failure tags at least once.
