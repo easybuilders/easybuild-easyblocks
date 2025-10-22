@@ -803,7 +803,8 @@ class EB_Python(ConfigureMake):
         try:
             base_prefix_idx = paths.index(base_site_packages_path)
         except ValueError:
-            raise EasyBuildError("The Python install path was not added to sys.path (%s)", paths)
+            raise EasyBuildError("The Python install path (%s) was not added to sys.path (%s)",
+                                 base_site_packages_path, paths)
         try:
             eb_prefix_idx = paths.index(temp_site_packages_path)
         except ValueError:
