@@ -344,6 +344,8 @@ class EB_Python(ConfigureMake):
             raise EasyBuildError("The ensurepip module required to install pip (requested by install_pip=True) "
                                  "is not available in Python %s", self.version)
 
+        self._inject_patch_ctypes_ld_library_path()
+
     def _get_pip_ext_version(self):
         """Return the pip version from exts_list or None"""
         for ext in self.cfg.get_ref('exts_list'):
@@ -352,10 +354,8 @@ class EB_Python(ConfigureMake):
                 return ext[1]
         return None
 
-    def fetch_step(self, *args, **kwargs):
+    def _inject_patch_ctypes_ld_library_path(self):
         """
-        Custom fetch step for Python.
-
         Add patch specified in patch_ctypes_ld_library_path to list of patches if
         EasyBuild is configured to filter $LD_LIBRARY_PATH (and is configured not to filter $LIBRARY_PATH).
         This needs to be done in (or before) the fetch step to ensure that those patches are also fetched.
@@ -407,8 +407,6 @@ class EB_Python(ConfigureMake):
             msg += "rely on $LD_LIBRARY_PATH. Without the patch, a setup without $LD_LIBRARY_PATH will likely not work "
             msg += "correctly."
             self.log.warning(msg)
-
-        super().fetch_step(*args, **kwargs)
 
     def patch_step(self, *args, **kwargs):
         """
