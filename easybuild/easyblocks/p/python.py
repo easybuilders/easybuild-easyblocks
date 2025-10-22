@@ -354,18 +354,20 @@ class EB_Python(ConfigureMake):
 
     def fetch_step(self, *args, **kwargs):
         """
-        Custom fetch step for Python: add patches from patches_custom_ctypes to 'patches' if
-        EasyBuild is configured to filter LD_LIBRARY_PATH (and is configured not to filter LIBRARY_PATH).
+        Custom fetch step for Python.
+
+        Add patch specified in patch_ctypes_ld_library_path to list of patches if
+        EasyBuild is configured to filter $LD_LIBRARY_PATH (and is configured not to filter $LIBRARY_PATH).
         This needs to be done in (or before) the fetch step to ensure that those patches are also fetched.
         """
-        # If we filter out LD_LIBRARY_PATH (not unusual when using rpath), ctypes is not able to dynamically load
+        # If we filter out $LD_LIBRARY_PATH (not unusual when using rpath), ctypes is not able to dynamically load
         # libraries installed with EasyBuild (see https://github.com/EESSI/software-layer/issues/192).
-        # If EasyBuild is configured to filter LD_LIBRARY_PATH any patches listed in `patches_custom_ctypes`
+        # If EasyBuild is configured to filter $LD_LIBRARY_PATH the patch specified in 'patch_ctypes_ld_library_path'
         # are added to the list of patches. Also, we add the checksums_filter_ld_library_path to the checksums list in
         # that case.
-        # This mechanism e.g. makes sure we can patch ctypes, which normally strongly relies on LD_LIBRARY_PATH to find
+        # This mechanism e.g. makes sure we can patch ctypes, which normally strongly relies on $LD_LIBRARY_PATH to find
         # libraries. But, we want to do the patching conditionally on EasyBuild configuration (i.e. which env vars
-        # are filtered), hence this setup based on the custom config option 'patches_custom_ctypes'
+        # are filtered), hence this setup based on the custom easyconfig parameter 'patch_ctypes_ld_library_path'
         filtered_env_vars = build_option('filter_env_vars') or []
         patch_ctypes_ld_library_path = self.cfg.get('patch_ctypes_ld_library_path')
         if (
@@ -380,9 +382,9 @@ class EB_Python(ConfigureMake):
             patches = self.cfg.get('patches')
             len_patches = len(patches) if patches else 0
             if len_patches + len(sources) + 1 == len(checksums):
-                msg = "EasyBuild was configured to filter LD_LIBRARY_PATH (and not to filter LIBRARY_PATH). "
-                msg += "The ctypes module relies heavily on LD_LIBRARY_PATH for locating its libraries. "
-                msg += "The following patches will be applied to make sure ctypes.CDLL, ctypes.cdll.LoadLibrary "
+                msg = "EasyBuild was configured to filter $LD_LIBRARY_PATH (and not to filter $LIBRARY_PATH). "
+                msg += "The ctypes module relies heavily on $LD_LIBRARY_PATH for locating its libraries. "
+                msg += "The following patch will be applied to make sure ctypes.CDLL, ctypes.cdll.LoadLibrary "
                 msg += f"and ctypes.util.find_library will still work correctly: {patch_ctypes_ld_library_path}."
                 self.log.info(msg)
                 self.log.info(f"Original list of patches: {self.cfg['patches']}")
@@ -390,8 +392,8 @@ class EB_Python(ConfigureMake):
                 self.cfg.update('patches', [patch_ctypes_ld_library_path])
                 self.log.info(f"Updated list of patches: {self.cfg['patches']}")
             else:
-                msg = "The length of 'checksums' (%s) was not equal to the total amount of sources (%s) + patches (%s)"
-                msg += ". Did you forget to add a checksum for patch_ctypes_ld_library_path?."
+                msg = "The length of 'checksums' (%s) is not equal to the total amount of sources (%s) + patches (%s). "
+                msg += "Did you forget to add a checksum for patch_ctypes_ld_library_path?"
                 raise EasyBuildError(msg, len(checksums), len(sources), len(len_patches + 1))
         # If LD_LIBRARY_PATH is filtered, but no patch is specified, warn the user that his may not work
         elif (
@@ -399,10 +401,10 @@ class EB_Python(ConfigureMake):
             'LIBRARY_PATH' not in filtered_env_vars and
             not patch_ctypes_ld_library_path
         ):
-            msg = "EasyBuild was configured to filter LD_LIBRARY_PATH (and not to filter LIBRARY_PATH). "
+            msg = "EasyBuild was configured to filter $LD_LIBRARY_PATH (and not to filter $LIBRARY_PATH). "
             msg += "However, no patch for ctypes was specified through 'patch_ctypes_ld_library_path' in the "
-            msg += "EasyConfig. Note that ctypes.util.find_library, ctypes.CDLL and ctypes.cdll.LoadLibrary heavily "
-            msg += "rely on LD_LIBRARY_PATH. Without the patch, a setup without LD_LIBRARY_PATH will likely not work "
+            msg += "easyconfig. Note that ctypes.util.find_library, ctypes.CDLL and ctypes.cdll.LoadLibrary heavily "
+            msg += "rely on $LD_LIBRARY_PATH. Without the patch, a setup without $LD_LIBRARY_PATH will likely not work "
             msg += "correctly."
             self.log.warning(msg)
 
@@ -722,7 +724,11 @@ class EB_Python(ConfigureMake):
                 change_dir(cwd)
 
     def _sanity_check_ctypes_ld_library_path_patch(self):
-        """Check that the patch for ctypes that should be applied when filtering LD_LIBRARY_PATH works"""
+        """
+        Check that ctypes.util.find_library and ctypes.CDLL work as expected.
+        When $LD_LIBRARY_PATH is filtered, a patch is required for this to work correctly
+        (see patch_ctypes_ld_library_path).
+        """
         # Try find_library first, since ctypes.CDLL relies on that to work correctly
         cmd = "python -c 'from ctypes import util; print(util.find_library(\"libpython3.so\"))'"
         res = run_shell_cmd(cmd)
@@ -732,13 +738,15 @@ class EB_Python(ConfigureMake):
         match = re.match(pattern, out)
         self.log.debug(f"Matching regular expression pattern {pattern} to string {out}")
         if match:
-            msg = "Call to ctypes.util.find_library('libpython3.so') succesfully found libpython3.so under the prefix "
-            msg += "of the current python installation. indicating that the patch that fixes ctypes when EasyBuild is "
-            msg += "configured to filter LD_LIBRARY_PATH was applied succesfully."
+            msg = "Call to ctypes.util.find_library('libpython3.so') successfully found libpython3.so under "
+            msg += f"the installation prefix of the current Python installation ({self.installdir}). "
+            if self.cfg.get('patch_ctypes_ld_library_path'):
+                msg += "This indicates that the patch that fixes ctypes when EasyBuild is "
+                msg += "configured to filter $LD_LIBRARY_PATH was applied succesfully."
             self.log.info(msg)
         else:
             msg = "Finding the library libpython3.so using ctypes.util.find_library('libpython3.so') failed. "
-            msg += "Ctypes requires a patch when EasyBuild is configured to filter LD_LIBRARY_PATH. "
+            msg += "The ctypes Python module requires a patch when EasyBuild is configured to filter $LD_LIBRARY_PATH. "
             msg += "Please check if you specified a patch through patch_ctypes_ld_library_path and check "
             msg += "the logs to see if it applied correctly."
             raise EasyBuildError(msg)
@@ -750,12 +758,18 @@ class EB_Python(ConfigureMake):
         match = re.match(pattern, out)
         self.log.debug(f"Matching regular expression pattern {pattern} to string {out}")
         if match:
-            msg = "Call to ctypes.CDLL('libpython3.so') succesfully opened libpython3.so, indicating that the patch "
-            msg += "that fixes ctypes when EasyBuild is configured to filter LD_LIBRARY_PATH was applied succesfully."
+            msg = "Call to ctypes.CDLL('libpython3.so') succesfully opened libpython3.so. "
+            if self.cfg.get('patch_ctypes_ld_library_path'):
+                msg += "This indicates that the patch that fixes ctypes when $LD_LIBRARY_PATH is not set "
+                msg += "was applied successfully."
             self.log.info(msg)
+            msg = "Call to ctypes.CDLL('libpython3.so') succesfully opened libpython3.so. "
+            if self.cfg.get('patch_ctypes_ld_library_path'):
+                msg += "This indicates that the patch that fixes ctypes when $LD_LIBRARY_PATH is not set "
+                msg += "was applied successfully."
         else:
             msg = "Opening of libpython3.so using ctypes.CDLL('libpython3.so') failed. "
-            msg += "Ctypes requires a patch when EasyBuild is configured to filter LD_LIBRARY_PATH. "
+            msg += "The ctypes Python module requires a patch when EasyBuild is configured to filter $LD_LIBRARY_PATH. "
             msg += "Please check if you specified a patch through patch_ctypes_ld_library_path and check "
             msg += "the logs to see if it applied correctly."
             raise EasyBuildError(msg)
@@ -824,16 +838,10 @@ class EB_Python(ConfigureMake):
         if self.cfg.get('ebpythonprefixes'):
             self._sanity_check_ebpythonprefixes()
 
-        # If the conditions for applying the patch specified through patch_ctypes_ld_library_path are met, check that
-        # the patch applied correctly (and fixed the issue). Note that the condition should be identical to the one
-        # used to determine if the patch_ctypes_ld_library_path patch should be applied
+        # If the conditions for applying the patch specified through patch_ctypes_ld_library_path are met,
+        # check that a patch was applied and indeed fixed the issue
         filtered_env_vars = build_option('filter_env_vars') or []
-        patch_ctypes_ld_library_path = self.cfg.get('patch_ctypes_ld_library_path')
-        if (
-            'LD_LIBRARY_PATH' in filtered_env_vars and
-            'LIBRARY_PATH' not in filtered_env_vars and
-            patch_ctypes_ld_library_path
-        ):
+        if 'LD_LIBRARY_PATH' in filtered_env_vars and 'LIBRARY_PATH' not in filtered_env_vars:
             self._sanity_check_ctypes_ld_library_path_patch()
 
         pyver = 'python' + self.pyshortver
