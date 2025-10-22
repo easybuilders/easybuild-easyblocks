@@ -495,8 +495,6 @@ class EB_Python(ConfigureMake):
         self.cfg['exts_defaultclass'] = "PythonPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
-        set_py_env_vars(self.log)
-
         # don't pass down any build/install options that may have been specified
         # 'make' options do not make sense for when building/installing Python libraries (usually via 'python setup.py')
         msg = "Unsetting '%s' easyconfig parameter before building/installing extensions: %s"
@@ -813,6 +811,16 @@ class EB_Python(ConfigureMake):
         if eb_prefix_idx > base_prefix_idx:
             raise EasyBuildError("EasyBuilds sitecustomize.py did not add %s before %s to sys.path (%s)",
                                  temp_site_packages_path, base_site_packages_path, paths)
+
+    def load_module(self, *args, **kwargs):
+        """(Re)set environment variables after loading module file.
+
+        Required here to ensure the variables are also defined for stand-alone installations,
+        because the environment is reset to the initial environment right before loading the module.
+        """
+
+        super().load_module(*args, **kwargs)
+        set_py_env_vars(self.log)
 
     def sanity_check_step(self):
         """Custom sanity check for Python."""
