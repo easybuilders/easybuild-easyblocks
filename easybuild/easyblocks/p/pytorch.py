@@ -400,18 +400,19 @@ class EB_PyTorch(PythonPackage):
                                           [(r'(default=_get_test_report_path\(\) if) IS(_IN)?_CI else None',
                                             fr'\1 os.getenv("{self.GENERATE_TEST_REPORT_VAR_NAME}") else None')],
                                           backup=False, on_missing_match=ERROR)
-                if pytorch_version >= '2.1.0':
-                    run_test_subs = [(r'if IS_CI:\n\s+# Add the option to generate XML test report.*',
-                                      'if TEST_SAVE_XML:\n')]
-                else:
-                    run_test_subs = [
-                         (r'from torch.testing._internal.common_utils import\s+\(\n\s+',
-                          r'\g<0>get_report_path, '),
-                         (r'# If using pytest.*\n\s+if options.pytest:\n\s+unittest_args = \[',
-                          r'\g<0>"--junit-xml-reruns", get_report_path(pytest=True)] + ['),
-                    ]
-                apply_regex_substitutions('test/run_test.py', run_test_subs, backup=False, on_missing_match=ERROR,
-                                          single_line=False)
+                if pytorch_version < '2.8.0':
+                    if pytorch_version >= '2.1.0':
+                        run_test_subs = [(r'if IS_CI:\n\s+# Add the option to generate XML test report.*',
+                                          'if TEST_SAVE_XML:\n')]
+                    else:
+                        run_test_subs = [
+                             (r'from torch.testing._internal.common_utils import\s+\(\n\s+',
+                              r'\g<0>get_report_path, '),
+                             (r'# If using pytest.*\n\s+if options.pytest:\n\s+unittest_args = \[',
+                              r'\g<0>"--junit-xml-reruns", get_report_path(pytest=True)] + ['),
+                        ]
+                    apply_regex_substitutions('test/run_test.py', run_test_subs, backup=False, on_missing_match=ERROR,
+                                              single_line=False)
                 self.has_xml_test_reports = True
 
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
