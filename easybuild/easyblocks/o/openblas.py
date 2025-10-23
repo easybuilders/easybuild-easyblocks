@@ -12,8 +12,9 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.utilities import trace_msg
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions
+from easybuild.tools.filetools import apply_regex_substitutions, move_file, symlink, mkdir
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, get_cpu_architecture, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -22,6 +23,15 @@ import easybuild.tools.environment as env
 LAPACK_TEST_TARGET = 'lapack-test'
 TARGET = 'TARGET'
 
+FLAG_STD_ITER = 'standard'
+FLAG_LIBSUFFIX64_ITER = 'lib_suffix64'
+FLAG_SYMSUFFIX64_ITER = 'sym_suffix64'
+
+DESCRIPTIONS = {
+    FLAG_STD_ITER: "standard OpenBLAS build",
+    FLAG_LIBSUFFIX64_ITER: "OpenBLAS build with 64-bit integer support and suffixed library names",
+    FLAG_SYMSUFFIX64_ITER: "OpenBLAS build with 64-bit integer support and suffixed symbols",
+}
 
 class EB_OpenBLAS(ConfigureMake):
     """Support for building/installing OpenBLAS."""
@@ -47,14 +57,48 @@ class EB_OpenBLAS(ConfigureMake):
         """ Ensure iterative build if also building with 64-bit integer support """
         super().__init__(*args, **kwargs)
 
+        lib64_suffix = self.lib64_suffix = self.cfg['ilp64_lib_suffix'] or ''
+        sym64_suffix = self.sym64_suffix = self.cfg['ilp64_symbol_suffix'] or ''
+        self.include_dirs = {
+            FLAG_STD_ITER: 'openblas',
+            FLAG_LIBSUFFIX64_ITER: f'openblas{lib64_suffix}',
+            FLAG_SYMSUFFIX64_ITER: f'openblas{sym64_suffix}',
+        }
+        self.suffixes = {
+            FLAG_STD_ITER: '',
+            FLAG_LIBSUFFIX64_ITER: lib64_suffix,
+            FLAG_SYMSUFFIX64_ITER: sym64_suffix,
+        }
+
+        if lib64_suffix and lib64_suffix == sym64_suffix:
+            print_warning(
+                "ilp64_lib_suffix and ilp64_symbol_suffix are identical; "
+                "running only one ILP64 build iteration with symbol suffixes"
+            )
+            lib64_suffix = ''
+
+        # Order is important here to not overwrite the final cblas.h and openblas64.pc:
+        # - Run first the non-standard builds that require file renaming
+        # - Finish with the standard build
+        self.iter_data = [(FLAG_STD_ITER, {})]
+
         if self.cfg['enable_ilp64']:
-            if not isinstance(self.cfg['buildopts'], list):
-                niter = 1 + sum([bool(self.cfg[x]) for x in ['ilp64_lib_suffix', 'ilp64_symbol_suffix']])
-                # ensure iterative build by duplicating buildopts
-                self.cfg['buildopts'] = [self.cfg['buildopts']] * niter
-            else:
+            if isinstance(self.cfg['buildopts'], list):
                 print_warning("buildopts cannot be a list when 'enable_ilp64' is enabled; ignoring 'enable_ilp64'")
                 self.cfg['enable_ilp64'] = False
+            else:
+                if lib64_suffix:
+                    self.iter_data.insert(0, (FLAG_LIBSUFFIX64_ITER, {
+                        'INTERFACE64': '1',
+                        'LIBPREFIX': f"libopenblas{lib64_suffix}",
+                    }))
+                if sym64_suffix:
+                    self.iter_data.insert(0, (FLAG_SYMSUFFIX64_ITER, {
+                        'INTERFACE64': '1',
+                        'SYMBOLSUFFIX': sym64_suffix,
+                    }))
+
+                self.cfg['buildopts'] = [self.cfg['buildopts']] * len(self.iter_data)
 
         self.orig_opts = {
             'buildopts': '',
@@ -73,25 +117,19 @@ class EB_OpenBLAS(ConfigureMake):
             'USE_THREAD': '1',
         }
 
-        ilp64_lib_opts = {
-            'INTERFACE64': '1',
-            'LIBPREFIX': f"libopenblas{self.cfg['ilp64_lib_suffix']}",
-        }
-        ilp64_symbol_opts = {
-            'INTERFACE64': '1',
-            'SYMBOLSUFFIX': self.cfg['ilp64_symbol_suffix'],
-        }
+        flag, lib_opts = self.iter_data[self.iter_idx]
+        trace_msg(DESCRIPTIONS[flag])
 
         # ensure build/test/install options don't persist between iterations
-        if self.cfg['enable_ilp64']:
-            if self.iter_idx > 0:
-                # reset to original build/test/install options
-                for key in self.orig_opts.keys():
-                    self.cfg[key] = self.orig_opts[key]
-            else:
-                # store original options
-                for key in self.orig_opts.keys():
-                    self.orig_opts[key] = self.cfg[key]
+        if self.iter_idx == 0:
+            # store original options
+            for key in self.orig_opts.keys():
+                self.orig_opts[key] = self.cfg[key]
+        else:
+            # reset to original build/test/install options
+            for key in self.orig_opts.keys():
+                self.cfg[key] = self.orig_opts[key]
+
 
         if '%s=' % TARGET in self.cfg['buildopts']:
             # Add any TARGET in buildopts to default_opts, so it is passed to testopts and installopts
@@ -122,17 +160,7 @@ class EB_OpenBLAS(ConfigureMake):
                 env.setvar('CFLAGS', cflags)
 
         all_opts = default_opts.copy()
-        if self.iter_idx > 0 and self.cfg['enable_ilp64']:
-            # update build/test/install options for ILP64
-            if self.cfg['ilp64_lib_suffix'] and self.cfg['ilp64_symbol_suffix']:
-                if self.iter_idx == 1:
-                    all_opts.update(ilp64_lib_opts)
-                else:
-                    all_opts.update(ilp64_symbol_opts)
-            elif self.cfg['ilp64_lib_suffix']:
-                all_opts.update(ilp64_lib_opts)
-            elif self.cfg['ilp64_symbol_suffix']:
-                all_opts.update(ilp64_symbol_opts)
+        all_opts.update(lib_opts)
 
         for key in sorted(all_opts.keys()):
             for opts_key in ['buildopts', 'testopts', 'installopts']:
@@ -169,14 +197,41 @@ class EB_OpenBLAS(ConfigureMake):
     def install_step(self):
         """Fix libsuffix in openblas64.pc if it exists"""
         super().install_step()
-        if self.iter_idx > 0 and self.cfg['enable_ilp64'] and self.cfg['ilp64_lib_suffix']:
-            filepath = os.path.join(self.installdir, 'lib', 'pkgconfig', 'openblas64.pc')
-            if os.path.exists(filepath):
-                regex_subs = [
-                    (r'^libsuffix=.*$', f"libsuffix={self.cfg['ilp64_lib_suffix']}"),
-                    (r'^Name: openblas$', 'Name: openblas64'),
-                ]
-                apply_regex_substitutions(filepath, regex_subs, backup=False)
+
+        flag, _ = self.iter_data[self.iter_idx]
+        suffix = self.suffixes[flag]
+
+        # Perform operations specific to each build iteration
+        if flag == FLAG_STD_ITER:
+            pass
+        elif flag == FLAG_LIBSUFFIX64_ITER:
+            src = os.path.join(self.installdir, 'lib', 'pkgconfig', 'openblas64.pc')
+            regex_subs = [
+                (r'^libsuffix=.*$', f"libsuffix={suffix}"),
+                (r'^Name: openblas$', f'Name: openblas{suffix}'),
+            ]
+            apply_regex_substitutions(src, regex_subs, backup=False)
+        elif flag == FLAG_SYMSUFFIX64_ITER:
+            src = os.path.join(self.installdir, 'lib', 'pkgconfig', 'openblas64.pc')
+            regex_subs = [
+                (r'^Name: openblas$', f'Name: openblas{suffix}'),
+            ]
+            apply_regex_substitutions(src, regex_subs, backup=False)
+            dst = os.path.join(self.installdir, 'lib', 'pkgconfig', f'openblas{suffix}.pc')
+            move_file(src, dst)
+
+        # Move all .h files to a subdirectory and create symlinks with suffixes
+        inc_dir = os.path.join(self.installdir, 'include')
+        dst_dir = os.path.join(inc_dir, self.include_dirs[flag])
+        mkdir(dst_dir, parents=True)
+        for item in os.listdir(inc_dir):
+            item_path = os.path.join(inc_dir, item)
+            if os.path.isfile(item_path) and not os.path.islink(item_path) and item.endswith('.h'):
+                name, ext = os.path.splitext(item)
+                dest_path = os.path.join(dst_dir, item)
+                syml_path = os.path.join(inc_dir, f'{name}{suffix}{ext}')
+                move_file(item_path, dest_path)
+                symlink(dest_path, syml_path)
 
     def check_lapack_test_results(self, test_output):
         """Check output of OpenBLAS' LAPACK test suite ('make lapack-test')."""
@@ -248,17 +303,20 @@ class EB_OpenBLAS(ConfigureMake):
     def sanity_check_step(self):
         """ Custom sanity check for OpenBLAS """
         shlib_ext = get_shared_lib_ext()
+        headers = [
+            'cblas', 'f77blas', 'lapacke_config', 'lapacke',
+            'lapacke_mangling', 'lapacke_utils', 'openblas_config',
+        ]
+        files = []
+        for flag, _ in self.iter_data:
+            suffix = self.suffixes[flag]
+            files += [f'include/{hdr}{suffix}.h' for hdr in headers]
+            files.append(f'lib/libopenblas{suffix}.a')
+            files.append(f'lib/libopenblas{suffix}.{shlib_ext}')
+
         custom_paths = {
-            'files': ['include/cblas.h', 'include/f77blas.h', 'include/lapacke_config.h', 'include/lapacke.h',
-                      'include/lapacke_mangling.h', 'include/lapacke_utils.h', 'include/openblas_config.h',
-                      'lib/libopenblas.a', f'lib/libopenblas.{shlib_ext}'],
+            'files': files,
             'dirs': [],
         }
-        if self.cfg['enable_ilp64']:
-            for suffixtype in 'lib', 'symbol':
-                filename_suffix = self.cfg[f'ilp64_{suffixtype}_suffix']
-                if filename_suffix:
-                    custom_paths['files'].extend(f"lib/libopenblas{filename_suffix}.{ext}"
-                                                 for ext in ['a', shlib_ext])
 
         super().sanity_check_step(custom_paths=custom_paths)
