@@ -224,6 +224,7 @@ class EB_LLVM(CMakeMake):
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
             'full_llvm': [False, "Build LLVM without any dependency", CUSTOM],
             'minimal': [False, "Build LLVM only", CUSTOM],
+            'max_link_jobs': [2, "Maximum number of link jobs, defaults to 2", CUSTOM],
             'python_bindings': [False, "Install python bindings", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
@@ -314,6 +315,8 @@ class EB_LLVM(CMakeMake):
             self.general_opts[opt] = 'OFF'
 
         self.full_llvm = self.cfg['full_llvm']
+
+        self.general_opts.update({"LLVM_PARALLEL_LINK_JOBS": self.cfg['max_link_jobs']})
 
         if self.cfg['minimal']:
             conflicts = [_ for _ in self.minimal_conflicts if self.cfg[_]]
