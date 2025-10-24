@@ -31,6 +31,7 @@ EasyBuild support for building and installing LLVM, implemented as an easyblock
 @author: Simon Branford (University of Birmingham)
 @author: Kenneth Hoste (Ghent University)
 @author: Davide Grassano (CECAM HQ - Lausanne)
+@author: Prateek Chawla (Juelich Supercomputing Centre)
 """
 import contextlib
 import glob
