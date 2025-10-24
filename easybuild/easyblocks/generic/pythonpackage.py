@@ -644,14 +644,16 @@ class PythonPackage(ExtensionEasyBlock):
         # these .pth files to work as expected. See: https://docs.python.org/3/library/site.html#module-site
         # .pth files always should be in the site folder, so most of the path is fixed.
         # Try the installation directory first
-        if self.installdir and search_file([self.installdir], r".*\.pth$", silent=True):
+        _, install_path_configuration_files = search_file([self.installdir], r".*\.pth$", silent=True)
+        if self.installdir and install_path_configuration_files:
             self.log.info(f"Found path configuration file in installation directory '{self.installdir}'. "
                           "Enabling $EBPYTHONPREFIXES...")
             use_ebpythonprefixes = True
         # If we did a test installation, check that one as well. Ensure that pypkg_test_installdir is set,
         # since that might not be the case for sanity_check_only or module_only.
         if self.testinstall and self.pypkg_test_installdir:
-            if search_file([self.pypkg_test_installdir], r".*\.pth$", silent=True):
+            _, test_path_configuration_files = search_file([self.pypkg_test_installdir], r".*\.pth$", silent=True)
+            if test_path_configuration_files:
                 self.log.info("Found path configuration file in test installation directory "
                               f"'{self.pypkg_test_installdir}'. Enabling $EBPYTHONPREFIXES...")
                 use_ebpythonprefixes = True
