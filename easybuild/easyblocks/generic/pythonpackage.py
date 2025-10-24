@@ -894,9 +894,6 @@ class PythonPackage(ExtensionEasyBlock):
                 # add install location to both $PYTHONPATH and $PATH
                 abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s && " % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
-                if self.should_use_ebpythonprefixes():
-                    extrapath += "export EBPYTHONPREFIXES=%s && " % os.pathsep.join([self.pypkg_test_installdir] +
-                                                                                    ['$EBPYTHONPREFIXES'])
                 extrapath += "export PATH=%s:$PATH && " % os.path.join(actual_installdir, 'bin')
 
                 cmd = self.compose_install_command(self.pypkg_test_installdir, extrapath=extrapath)
@@ -904,6 +901,11 @@ class PythonPackage(ExtensionEasyBlock):
 
                 self.py_post_install_shenanigans(self.pypkg_test_installdir)
 
+                # Requires having the installation in place to work correctly, since no path configuration files
+                # will be found otherwise
+                if self.should_use_ebpythonprefixes():
+                    extrapath += "export EBPYTHONPREFIXES=%s && " % os.pathsep.join([self.pypkg_test_installdir] +
+                                                                                    ['$EBPYTHONPREFIXES'])
             if self.testcmd:
                 testcmd = self.testcmd % {'python': self.python_cmd}
                 cmd = ' '.join([
