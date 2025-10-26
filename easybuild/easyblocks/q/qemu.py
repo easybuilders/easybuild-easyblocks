@@ -31,9 +31,9 @@ EasyBuild support for installing QEMU
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, create_unused_dir, which
+from easybuild.tools.filetools import change_dir, create_unused_dir
 from easybuild.tools.run import run_shell_cmd
+
 
 class EB_QEMU(MesonNinja):
     """
@@ -49,7 +49,6 @@ class EB_QEMU(MesonNinja):
             'targets_exclude': [[], "targets to build, empty means automatic", CUSTOM],
         })
         return extra_vars
-
 
     def configure_step(self, cmd_prefix=''):
         """
@@ -72,4 +71,4 @@ class EB_QEMU(MesonNinja):
 
         cmd = f'{preconfigopts} {self.start_dir}/configure --prefix={self.installdir} ' + \
               f'{targets} {targets_exclude} {configopts} '
-        res = run_shell_cmd(cmd)
+        run_shell_cmd(cmd)
