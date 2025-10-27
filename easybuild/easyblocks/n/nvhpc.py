@@ -182,16 +182,16 @@ class EB_NVHPC(PackedBinary):
             # Cuda compilation tools, release 13.0, V13.0.48
             nvcc_output = run_shell_cmd("$EBROOTCUDA/bin/nvcc --version | grep -e 'Cuda compilation tools, release'")
             cuda_version_full = nvcc_output.output.split(',')[-1].strip(' ')[1:]
-            if cuda_version_full is not None:
-                default_cuda_version = '.'.join(cuda_version_full.split('.')[:2])
-            else:
-                error_msg = "A default CUDA version is needed for installation of NVHPC. "
-                error_msg += "It can not be determined automatically and needs to be added manually. "
-                error_msg += "You can edit the easyconfig file, "
-                error_msg += "or use 'eb --try-amend=default_cuda_version=<version>'."
-                raise EasyBuildError(error_msg)
-        else:
+            default_cuda_version = '.'.join(cuda_version_full.split('.')[:2])
+        elif default_cuda_version is not None:
             default_cuda_version = '.'.join(default_cuda_version.split('.')[:2])
+        else:
+            error_msg = "A default CUDA version is needed for installation of NVHPC. "
+            error_msg += "It can not be determined automatically and needs to be added manually. "
+            error_msg += "You can edit the easyconfig file, "
+            error_msg += "or use 'eb --try-amend=default_cuda_version=<version>'."
+            raise EasyBuildError(error_msg)
+
         # Parse default_compute_capability from different sources (CLI has priority)
         ec_default_compute_capability = self.cfg['cuda_compute_capabilities']
         cfg_default_compute_capability = build_option('cuda_compute_capabilities')
