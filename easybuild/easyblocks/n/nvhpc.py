@@ -46,7 +46,7 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.filetools import adjust_permissions, write_file
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.config import build_option
 from easybuild.tools.build_log import EasyBuildError, print_warning
 
