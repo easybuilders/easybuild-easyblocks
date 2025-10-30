@@ -26,6 +26,7 @@
 EasyBuild support for building and installing STAR-CCM+, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Cintia Willemyns (Vrije Universiteit Brussel)
 """
 import os
 import tempfile
@@ -121,7 +122,6 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
                 "-DINSTALL_LICENSING=false",
                 "-DADDSYSTEMPATH=false",
                 self.cfg['installopts'],
-                "&& mv %s/%s* %s" % (self.builddir, self.version, self.installdir),
             ])
         else:
             cmd = ' '.join([
