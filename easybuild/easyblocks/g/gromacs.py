@@ -119,7 +119,7 @@ class EB_GROMACS(CMakeMake):
             res = 'AVX_512_KNL'
         elif ('AVX512' in optarch or 'X86-64-V4' in optarch) and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512'
-        elif ('AVX2' in optarch or 'X86-64-V3' in optarch)and LooseVersion(self.version) >= LooseVersion('5.0'):
+        elif ('AVX2' in optarch or 'X86-64-V3' in optarch) and LooseVersion(self.version) >= LooseVersion('5.0'):
             res = 'AVX2_256'
         elif 'AVX' in optarch:
             res = 'AVX_256'
