@@ -117,13 +117,13 @@ class EB_GROMACS(CMakeMake):
         # http://manual.gromacs.org/documentation/2018/install-guide/index.html#simd-support
         if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512_KNL'
-        elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+        elif ('AVX512' in optarch or 'X86-64-V4' in optarch) and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512'
-        elif 'AVX2' in optarch and LooseVersion(self.version) >= LooseVersion('5.0'):
+        elif ('AVX2' in optarch or 'X86-64-V3' in optarch)and LooseVersion(self.version) >= LooseVersion('5.0'):
             res = 'AVX2_256'
         elif 'AVX' in optarch:
             res = 'AVX_256'
-        elif 'SSE3' in optarch or 'SSE2' in optarch or 'MARCH=NOCONA' in optarch:
+        elif 'SSE3' in optarch or 'SSE2' in optarch or 'MARCH=NOCONA' in optarch or 'X86-64-V2' in optarch:
             # Gromacs doesn't have any GMX_SIMD=SSE3 but only SSE2 and SSE4.1 [1].
             # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
             # and SSE4.1 is not supported by AMD Magny-Cours[1].
