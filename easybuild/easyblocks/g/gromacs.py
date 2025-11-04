@@ -229,14 +229,20 @@ class EB_GROMACS(CMakeMake):
         elif plumed_root and self.cfg['plumed'] is False:
             self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
             plumed_root = None
-        elif plumed_root and gromacs_version >= '2025' and self.cfg['plumed'] == 'patch':
+        elif plumed_root and self.cfg['plumed'] == 'patch':
             self.log.info('PLUMED was found, and PLUMED patching has been requested.')
+            print('PLUMED was found, and PLUMED patching has been requested.')
             plumed_patches = True
-        elif plumed_root and gromacs_version >= '2025' and self.cfg['plumed'] is True:
-            self.log.info('PLUMED was found, and PLUMED support has been requested.')
-        elif plumed_root and gromacs_version < '2025' and self.cfg['plumed'] is True:
-            self.log.info('PLUMED was found, and PLUMED support has been requested.')
-            plumed_patches = True
+        elif plumed_root and self.cfg['plumed'] is True:
+            msg = 'PLUMED was found, and PLUMED support has been requested.'
+            if gromacs_version >= '2025':
+                msg += ' Will use native PLUMED support.'
+                plumed_patches = False
+            else:
+                msg += ' Will apply PLUMED patches.'
+                plumed_patches = True
+            self.log.info(msg)
+            print(msg)
 
         if plumed_root:
             self.log.info('PLUMED support has been enabled.')
@@ -269,7 +275,7 @@ class EB_GROMACS(CMakeMake):
         if (gromacs_version >= '2020' and
                 '-DGMX_VERSION_STRING_OF_FORK=' not in self.cfg['configopts']):
             gromacs_version_string_suffix = 'EasyBuild-%s' % EASYBUILD_VERSION
-            if plumed_root and plumed_patches:
+            if plumed_patches:
                 gromacs_version_string_suffix += '-PLUMED-%s' % get_software_version('PLUMED')
             self.cfg.update('configopts', '-DGMX_VERSION_STRING_OF_FORK=%s' % gromacs_version_string_suffix)
 
