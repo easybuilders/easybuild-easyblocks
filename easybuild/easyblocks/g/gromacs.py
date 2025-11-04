@@ -231,7 +231,6 @@ class EB_GROMACS(CMakeMake):
             plumed_root = None
         elif plumed_root and self.cfg['plumed'] == 'patch':
             self.log.info('PLUMED was found, and PLUMED patching has been requested.')
-            print('PLUMED was found, and PLUMED patching has been requested.')
             plumed_patches = True
         elif plumed_root and self.cfg['plumed'] is True:
             msg = 'PLUMED was found, and PLUMED support has been requested.'
@@ -242,7 +241,6 @@ class EB_GROMACS(CMakeMake):
                 msg += ' Will apply PLUMED patches.'
                 plumed_patches = True
             self.log.info(msg)
-            print(msg)
 
         if plumed_root:
             self.log.info('PLUMED support has been enabled.')
