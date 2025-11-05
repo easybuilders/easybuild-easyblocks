@@ -170,27 +170,30 @@ class EB_NVHPC(PackedBinary):
 
         default_cuda_version = self.cfg['default_cuda_version']
         if default_cuda_version is None and get_software_root('CUDA'):
-            # Try to determine the CUDA version by parsing the output of nvcc. Just relying on the
-            # module name might not be sufficient, since sites can customize these version numbers
-            # to e.g. omit the minor and patch version, or choose something like 'default', hiding
-            # the version altogether. The search string, 'Cuda compilation tools' exists since at
-            # least CUDA 10.0, so should be safe to use.
+            # Determine the CUDA version by parsing the output of nvcc. We cannot rely on the
+            # module name because sites can customize these version numbers (e.g. omit the minor
+            # and patch version, or choose something like 'default').
+            # The search string "Cuda compilation tools" exists since at least CUDA v10.0:
             # Examples:
-            # Cuda compilation tools, release 11.4, V11.4.152
-            # Cuda compilation tools, release 11.0, V11.0.221
-            # Cuda compilation tools, release 11.0, V11.0.194
-            # Cuda compilation tools, release 13.0, V13.0.48
-            nvcc_output = run_shell_cmd("$EBROOTCUDA/bin/nvcc --version | grep -e 'Cuda compilation tools, release'")
-            cuda_version_full = nvcc_output.output.split(',')[-1].strip(' ')[1:]
-            default_cuda_version = '.'.join(cuda_version_full.split('.')[:2])
-        elif default_cuda_version is not None:
-            default_cuda_version = '.'.join(default_cuda_version.split('.')[:2])
-        else:
+            # "Cuda compilation tools, release 11.4, V11.4.152"
+            # "Cuda compilation tools, release 13.0, V13.0.48"
+            nvcc_cuda_version_regex = re.compile(r'Cuda.*release\s([0-9]+\.[0-9]+),', re.M)
+            nvcc_version_cmd = run_shell_cmd("$EBROOTCUDA/bin/nvcc --version")
+            nvcc_cuda_version = nvcc_cuda_version_regex.search(nvcc_version_cmd.output)
+            if nvcc_cuda_version is None:
+                raise EasyBuildError("Could not extract CUDA version from nvcc: %s", nvcc_version_cmd.output)
+            default_cuda_version = nvcc_cuda_version.group(1)
+
+        if default_cuda_version is None:
             error_msg = "A default CUDA version is needed for installation of NVHPC. "
             error_msg += "It can not be determined automatically and needs to be added manually. "
             error_msg += "You can edit the easyconfig file, "
             error_msg += "or use 'eb --try-amend=default_cuda_version=<version>'."
             raise EasyBuildError(error_msg)
+
+        # Only use major.minor version as default CUDA version
+        default_cuda_version = '.'.join(default_cuda_version.split('.')[:2])
+        self.log.debug(f"Default CUDA version: {default_cuda_version}")
 
         # Parse default_compute_capability from different sources (CLI has priority)
         ec_default_compute_capability = self.cfg['cuda_compute_capabilities']
