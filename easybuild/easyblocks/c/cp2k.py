@@ -276,8 +276,8 @@ class EB_CP2K(EasyBlock):
                 # find cuda compute capabilities and pass it to ARCH_NUMBER
                 # from https://github.com/cp2k/cp2k/blob/v2025.2/exts/build_dbcsr/Makefile#L78
                 get_gpu_cc = run_shell_cmd('nvidia-smi --query-gpu=compute_cap', hidden=True)
-                gpu_arch= get_gpu_cc.output.splitlines()[-1].strip().replace('.', '')
-                
+                gpu_arch = get_gpu_cc.output.splitlines()[-1].strip().replace('.', '')
+
                 options['DFLAGS'] += ' -D__OFFLOAD_CUDA -D__DBCSR_ACC '
                 options['LIBS'] += ' -lcufft -lcudart -lnvrtc -lcuda -lcublas'
                 options['OFFLOAD_CC'] = 'nvcc'
