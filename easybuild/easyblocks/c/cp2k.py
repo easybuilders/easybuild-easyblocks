@@ -273,22 +273,17 @@ class EB_CP2K(EasyBlock):
         cuda = get_software_root('CUDA')
         if cuda:
             if cp2k_version >= LooseVersion('2024'):
-                gpuver = os.getenv('GPUVER')
-                # all possible GPUVER, from https://github.com/cp2k/cp2k/blob/v2025.2/exts/build_dbcsr/Makefile#L78
-                gpu_versions = ['K20X', 'K40', 'K80', 'P100', 'V100', 'A100', 'A40', 'H100', 'Mi50', 'Mi100', 'Mi100']
-                if not gpuver:
-                    raise EasyBuildError(
-                        "GPUVER variable is not set. "
-                        "You must export GPUVER if you have CUDA included. "
-                        "For example: export GPUVER=H100. "
-                        f"You can choose from: {', '.join(gpu_versions)}"
-                    )
+                # find cuda compute capabilities and pass it to ARCH_NUMBER
+                # from https://github.com/cp2k/cp2k/blob/v2025.2/exts/build_dbcsr/Makefile#L78
+                get_gpu_cc = run_shell_cmd('nvidia-smi --query-gpu=compute_cap', hidden=True)
+                gpu_arch= get_gpu_cc.output.splitlines()[-1].strip().replace('.', '')
+                
                 options['DFLAGS'] += ' -D__OFFLOAD_CUDA -D__DBCSR_ACC '
                 options['LIBS'] += ' -lcufft -lcudart -lnvrtc -lcuda -lcublas'
                 options['OFFLOAD_CC'] = 'nvcc'
                 options['OFFLOAD_FLAGS'] = "-O3 -g -w --std=c++11 $(DFLAGS) -Xcompiler='-fopenmp -Wall -Wextra' "
                 options['OFFLOAD_TARGET'] = 'cuda'
-                options['GPUVER'] = gpuver
+                options['ARCH_NUMBER'] = gpu_arch
                 options['CXX'] = 'mpicxx'
                 options['CXXFLAGS'] = '-O3 -fopenmp -g -w --std=c++14 -fPIC $(DFLAGS) $(INCS)'
             else:
