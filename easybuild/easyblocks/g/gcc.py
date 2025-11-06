@@ -64,12 +64,20 @@ AMD_NEWLIB = 'AMD_GCN_NEWLIB'
 HOST_COMPILER = 'HOST_COMPILER'
 NVIDIA_NEWLIB = 'NVIDIA_NEWLIB'
 NVPTX_TOOLS = 'NVIDIA_NVPTX_TOOLS'
+# Default languages
+DEFAULT_LANGUAGES = ['c', 'c++', 'fortran']
 # Additional symlinks to create for compiler commands
 COMP_CMD_SYMLINKS = {
-    'cc': 'gcc',
-    'c++': 'g++',
-    'f77': 'gfortran',
-    'f95': 'gfortran',
+    'c': {
+        'cc': 'gcc'
+    },
+    'c++': {
+        'c++': 'g++'
+    },
+    'fortran': {
+        'f77': 'gfortran',
+        'f95': 'gfortran',
+    }
 }
 
 RECREATE_INCLUDE_FIXED_SCRIPT_TMPL = """#!/bin/bash
@@ -1005,8 +1013,8 @@ class EB_GCC(ConfigureMake):
 
         # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')
-        for key in COMP_CMD_SYMLINKS:
-            src = COMP_CMD_SYMLINKS[key]
+        languages = self.cfg['languages'] or DEFAULT_LANGUAGES
+        for key, src in [x for l in languages & COMP_CMD_SYMLINKS.keys() for x in COMP_CMD_SYMLINKS[l].items()]:
             target = os.path.join(bindir, key)
             if os.path.exists(target):
                 self.log.info("'%s' already exists in %s, not replacing it with symlink to '%s'",
@@ -1155,7 +1163,7 @@ class EB_GCC(ConfigureMake):
         libexec_files = []
         dirs = [os.path.join('lib', 'gcc', config_name_subdir, self.version)]
 
-        languages = self.cfg['languages'] or ['c', 'c++', 'fortran']  # default languages
+        languages = self.cfg['languages'] or DEFAULT_LANGUAGES
 
         if 'c' in languages:
             bin_files.extend(['cpp', 'gcc'])
@@ -1201,7 +1209,7 @@ class EB_GCC(ConfigureMake):
         common_infix = os.path.join('gcc', config_name_subdir, self.version)
         libexec_files = [tuple([os.path.join(d, common_infix, x) for d in libdirs]) for x in libexec_files]
 
-        old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS.keys()]
+        old_cmds = [os.path.join('bin', x) for l in languages & COMP_CMD_SYMLINKS.keys() for x in COMP_CMD_SYMLINKS[l]]
 
         custom_paths = {
             'files': bin_files + lib_files + libexec_files + old_cmds,
