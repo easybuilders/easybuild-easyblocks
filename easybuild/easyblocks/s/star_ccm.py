@@ -139,21 +139,18 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
         run_shell_cmd(cmd, fail_on_error=False)
 
         if self.aol_install:
-            # we expect to find a subdirectory that is not called 'sip' and looks like a version number,
-            # that's what we want to copy...
-            contents = os.listdir(self.builddir)
-            for entry in contents:
-                if entry != 'sip' and os.path.isdir(entry) and entry[0] >= '0' and entry[0] <= '9':
-                    self.log.info("Found entry to move to installdir: %s" % entry)
-                    run_shell_cmd("mv " + os.path.join(self.builddir, entry) + ' ' + self.installdir)
-                    break
-                else:
-                    self.log.info("Skipping entry '%s' in build dir..." % entry)
+            for entry in os.listdir(self.builddir):
+                entry_path = os.path.join(self.builddir, entry)
+                # Only move the directory starting with the version name
+                if not (os.path.isdir(entry_path) and entry.startswith(self.version)):
+                   self.log.info("Skipping entry '%s' in build dir..." % entry)
+                   continue
+                self.log.info("Found entry to move to installdir: %s" % entry)
+                run_shell_cmd("mv " + entry_path + ' ' + self.installdir)
 
     def find_starccm_subdirs(self):
         """Determine subdirectory of install directory in which STAR-CCM+ was installed."""
-        starccm_subdir_pattern = os.path.join(self.version + '*', 'STAR-CCM+%s*' % self.version)
-        starccm_subdir_pattern = os.path.join('*', 'STAR-CCM+[0-9R._-]*')
+        starccm_subdir_pattern = os.path.join(self.version + '*', 'STAR-CCM+[0-9R._-]*')
 
         if self.dry_run:
             self.starccm_subdir = starccm_subdir_pattern
