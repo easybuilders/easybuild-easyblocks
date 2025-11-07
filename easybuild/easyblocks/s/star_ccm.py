@@ -143,8 +143,8 @@ class EB_STAR_minus_CCM_plus_(EasyBlock):
                 entry_path = os.path.join(self.builddir, entry)
                 # Only move the directory starting with the version name
                 if not (os.path.isdir(entry_path) and entry.startswith(self.version)):
-                   self.log.info("Skipping entry '%s' in build dir..." % entry)
-                   continue
+                    self.log.info("Skipping entry '%s' in build dir..." % entry)
+                    continue
                 self.log.info("Found entry to move to installdir: %s" % entry)
                 run_shell_cmd("mv " + entry_path + ' ' + self.installdir)
 
