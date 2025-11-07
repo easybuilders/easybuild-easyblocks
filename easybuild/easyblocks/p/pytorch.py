@@ -39,7 +39,7 @@ from enum import Enum
 from itertools import chain, groupby
 from operator import attrgetter
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
@@ -942,20 +942,27 @@ def parse_test_cases(test_suite_el: ET.Element) -> List[TestCase]:
     return test_cases
 
 
-def determine_suite_name(xml_file: Path, test_suite_xml: List[ET.Element]) -> str:
+def determine_suite_name(xml_file: Path, test_suite_xml: List[ET.Element]) -> Optional[str]:
     """Determine main test suite name from path(s) to match against run_test.py output"""
     # Gather all file attributes from the test cases if set
     test_cases = [testcase for suite in test_suite_xml for testcase in suite.iterfind("testcase")]
-    file_attribute = {testcase.attrib.get("file") for testcase in test_cases}
-    file_attribute.discard(None)
     suite_name = xml_file.parent.name.replace('.', os.path.sep)  # Usually the suite name is the folder name
+
     if xml_file.name.startswith('TEST-'):
+        # A unittest test could be run directly (`python -c 'code...'`) in which case there is no name
+        if suite_name == '-c':
+            return None
         # Python unittest reports have 1 file per test class:
         # test-reports/python-unittest/test_package/TEST-test_repackage.TestRepackage-20250217120914.xml
         # -> test_repackage.py ran TestRepackage
         # test-reports/dist-gloo/distributed.algorithms.test_quantization/TEST-DistQuantizationTests-20250123170925.xml
         # -> distributed/algorithms/test_quantization ran DistQuantizationTests in dist-gloo variant
         # Just do a sanity check
+        file_attribute = {testcase.attrib.get("file") for testcase in test_cases}
+        file_attribute.discard(None)
+        if not file_attribute:  # Fallback to checking the <testsuite> tags
+            file_attribute = {suite.attrib.get("file") for suite in test_suite_xml}
+            file_attribute.discard(None)
         if len(file_attribute) > 1:
             raise ValueError(f"Found multiple reported files in unittest report of '{xml_file}': {file_attribute}")
         reported_file = os.path.basename(file_attribute.pop())
@@ -963,11 +970,12 @@ def determine_suite_name(xml_file: Path, test_suite_xml: List[ET.Element]) -> st
         name_parts = xml_file.name[len('TEST-'):].rsplit('-', 1)[0].rsplit('.', 2)
         # If there is only one part it is the class -> filename is in the suite name
         if len(name_parts) == 1:
-            test_file_name = os.path.basename(suite_name) + '.py'
+            test_file_name = os.path.basename(suite_name)
         else:
             # Note that multiple parts are possible for sub-test files:
             # TEST-jit.test_builtins.TestBuiltins (jit/test_builtins.py)
-            test_file_name = name_parts[-2] + '.py'
+            test_file_name = name_parts[-2]
+        test_file_name += '.py'
         if test_file_name != reported_file:
             raise ValueError(f"Unexpected file attributes in test cases of '{xml_file}'. "
                              f"Expected {test_file_name}, got {file_attribute}")
@@ -1036,6 +1044,8 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
 
         # Suite name to correctly deduplicate tests and match against run_test.py output
         suite_name = determine_suite_name(xml_file, test_suite_xml)
+        if suite_name is None:
+            return []
 
         test_suites: List[TestSuite] = []
 
