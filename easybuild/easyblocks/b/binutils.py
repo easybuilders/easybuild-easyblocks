@@ -178,7 +178,7 @@ class EB_binutils(ConfigureMake):
             raise EasyBuildError('zstd is only supported since binutils 2.40. Remove the dependency!')
 
         if makefile_regex_subs:
-            for makefile in glob.glob(os.path.join(self.cfg.start_dir, '*', 'Makefile.in')):
+            for makefile in glob.glob(os.path.join(self.start_dir, '*', 'Makefile.in')):
                 apply_regex_substitutions(makefile, makefile_regex_subs)
 
         env.setvar('LIBS', ' '.join(libs))
@@ -240,7 +240,7 @@ class EB_binutils(ConfigureMake):
                         os.path.join(self.installdir, 'include', includefile))
 
             if not os.path.exists(os.path.join(self.installdir, 'info', 'libiberty.texi')):
-                copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.texi'),
+                copy_file(os.path.join(self.start_dir, 'libiberty', 'libiberty.texi'),
                           os.path.join(self.installdir, 'info', 'libiberty.texi'))
 
             # if only libiberty.a is installed in 'lib64' subdirectory,
