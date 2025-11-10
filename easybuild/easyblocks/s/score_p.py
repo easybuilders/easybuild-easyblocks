@@ -92,6 +92,7 @@ class EB_Score_minus_P(ConfigureMake):
                 toolchain.INTELCOMP: 'intel',
                 toolchain.NVHPC: 'nvhpc',
                 toolchain.PGI: 'pgi',
+                toolchain.LLVM: 'clang',
             }
             nvhpc_since = {
                 'Score-P': '8.0',
@@ -115,6 +116,9 @@ class EB_Score_minus_P(ConfigureMake):
             else:
                 raise EasyBuildError("Compiler family %s not supported yet (only: %s)",
                                      comp_fam, ', '.join(comp_opts.keys()))
+            # Enable LLVM instrumentation plugin instead of compiler instrumentation for Score-P v9.0+
+            if comp_fam == toolchain.LLVM and LooseVersion(self.version) >= LooseVersion('9.0'):
+                self.cfg.update('configopts', "--enable-llvm-plugin")
 
             # --with-mpi=(bullxmpi|cray|hp|ibmpoe|intel|intel2|intel3|intelpoe|lam|
             #             mpibull2|mpich|mpich2|mpich3|mpich4|openmpi|openmpi3| \
