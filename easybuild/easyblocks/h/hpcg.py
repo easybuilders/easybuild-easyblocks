@@ -53,14 +53,15 @@ class EB_HPCG(ConfigureMake):
             arg = "MPI_GCC_OMP"
         else:
             arg = "../setup/Make.MPI_GCC_OMP"
-        run_shell_cmd("../configure %s" % arg, work_dir='obj')
+        run_shell_cmd(f"{self.cfg['preconfigopts']} ../configure %s" % arg, work_dir=f"{self.cfg['start_dir']}/obj")
 
     def build_step(self):
         """Run build in build subdirectory."""
         cxx = os.environ['CXX']
         cxxflags = os.environ['CXXFLAGS']
-        cmd = "make CXX='%s' CXXFLAGS='$(HPCG_DEFS) %s -DMPICH_IGNORE_CXX_SEEK'" % (cxx, cxxflags)
-        run_shell_cmd(cmd, work_dir='obj')
+        cmd = "make CXX='%s' CXXFLAGS='$(HPCG_DEFS) %s " % (cxx, cxxflags)
+        cmd += f"-DMPICH_IGNORE_CXX_SEEK' {self.cfg['buildopts']} "
+        run_shell_cmd(cmd, work_dir=f"{self.cfg['start_dir']}/obj")
 
     def test_step(self):
         """Custom built-in test procedure for HPCG."""
@@ -74,7 +75,8 @@ class EB_HPCG(ConfigureMake):
             # obtain equivalent of 'mpirun -np 2 xhpcg'
             hpcg_mpi_cmd = self.toolchain.mpi_cmd_for("xhpcg", 2)
             # 2 threads per MPI process (4 threads in total)
-            cmd = "PATH=%s:$PATH OMP_NUM_THREADS=2 %s" % (objbindir, hpcg_mpi_cmd)
+            cmd = f"{self.cfg['pretestopts']} "
+            cmd += "export PATH=%s:$PATH && export OMP_NUM_THREADS=2 && %s" % (objbindir, hpcg_mpi_cmd)
             run_shell_cmd(cmd)
 
             # find log file, check for success
