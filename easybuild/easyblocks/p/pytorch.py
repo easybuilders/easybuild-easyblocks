@@ -1162,13 +1162,14 @@ def main(arg: Path):
         print(f"Found {len(results)} test suites (sorted by {sort_key}):")
         sorted_suites = sorted(results.values(), key=lambda suite: getattr(suite, sort_key))
         for suite in sorted_suites:
-            print(f"Suite {suite.name} {suite.num_tests}:\t{suite.summary}")
+            print(f"Suite {suite.name}:\t{suite.num_tests} tests, {suite.summary}")
         print("Total tests:", sum(suite.num_tests for suite in results.values()))
         print("Total failures:", sum(suite.failures for suite in results.values()))
         print("Total skipped:", sum(suite.skipped for suite in results.values()))
         print("Total errors:", sum(suite.errors for suite in results.values()))
-        failed_suites = [suite.name for suite in sorted_suites if suite.failures + suite.errors > 0]
-        print(f"Failed suites ({len(failed_suites)}):\n\t" + '\n\t'.join(failed_suites))
+        failed_suites = [suite for suite in sorted_suites if suite.failures + suite.errors > 0]
+        print(f"Failed suites ({len(failed_suites)}):\n\t" + '\n\t'.join(
+            f'{suite.name} ({suite.failures + suite.errors}/{suite.num_tests})' for suite in failed_suites))
         failed_tests = sum((suite.get_failed_tests() for suite in results.values()), [])
         print(f"Failed tests ({len(failed_tests)}):\n\t" + '\n\t'.join(sorted(failed_tests)))
         errored_tests = sum((suite.get_errored_tests() for suite in results.values()), [])
