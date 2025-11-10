@@ -1133,6 +1133,13 @@ def get_test_results(folder: Path) -> Dict[str, TestSuite]:
 
 
 def main(arg: Path):
+    # Get attribute on which to sort suites
+    try:
+        sort_key = sys.argv[sys.argv.index('--sort') + 1]
+    except ValueError:
+        sort_key = next((arg.split('=', 1)[1] for arg in sys.argv if arg.startswith('--sort=')), None)
+    if not sort_key:
+        sort_key = 'name'
     if arg.is_file():
         content = arg.read_text()
         m = re.search(r'cmd .*python[^ ]* run_test\.py .* exited with exit code.*output', content)
@@ -1152,15 +1159,16 @@ def main(arg: Path):
         raise RuntimeError(msg)
     else:
         results = get_test_results(Path(arg))
-        print(f"Found {len(results)} test suites:")
-        for suite in results.values():
+        print(f"Found {len(results)} test suites (sorted by {sort_key}):")
+        sorted_suites = sorted(results.values(), key=lambda suite: getattr(suite, sort_key))
+        for suite in sorted_suites:
             print(f"Suite {suite.name} {suite.num_tests}:\t{suite.summary}")
         print("Total tests:", sum(suite.num_tests for suite in results.values()))
         print("Total failures:", sum(suite.failures for suite in results.values()))
         print("Total skipped:", sum(suite.skipped for suite in results.values()))
         print("Total errors:", sum(suite.errors for suite in results.values()))
-        failed_suites = [suite.name for suite in results.values() if suite.failures + suite.errors > 0]
-        print(f"Failed suites ({len(failed_suites)}):\n\t" + '\n\t'.join(sorted(failed_suites)))
+        failed_suites = [suite.name for suite in sorted_suites if suite.failures + suite.errors > 0]
+        print(f"Failed suites ({len(failed_suites)}):\n\t" + '\n\t'.join(failed_suites))
         failed_tests = sum((suite.get_failed_tests() for suite in results.values()), [])
         print(f"Failed tests ({len(failed_tests)}):\n\t" + '\n\t'.join(sorted(failed_tests)))
         errored_tests = sum((suite.get_errored_tests() for suite in results.values()), [])
