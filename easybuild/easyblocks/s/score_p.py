@@ -49,23 +49,25 @@ class EB_Score_minus_P(ConfigureMake):
     Support for building and installing software using the Score-P configuration style (e.g., Cube, OTF2, Scalasca,
     and Score-P).
     """
+
     def configure_step(self, *args, **kwargs):
         """Configure the build, set configure options for compiler, MPI and dependencies."""
 
-        if LooseVersion('8.0') <= LooseVersion(self.version) < LooseVersion('8.5'):
-            # Fix an issue where the configure script would fail if certain dependencies are installed in a path
-            # that includes "yes" or "no", see https://gitlab.com/score-p/scorep/-/issues/1008.
-            yes_no_regex = [
-                (r'\*yes\*\|\*no\*', 'yes,*|no,*|*,yes|*,no'),
-                (r'_lib}\${with_', '_lib},${with_'),
-            ]
-            configure_scripts = [
-                os.path.join(self.start_dir, 'build-backend', 'configure'),
-                os.path.join(self.start_dir, 'build-mpi', 'configure'),
-                os.path.join(self.start_dir, 'build-shmem', 'configure'),
-            ]
-            for configure_script in configure_scripts:
-                apply_regex_substitutions(configure_script, yes_no_regex)
+        if self.name == "Score-P":
+            if LooseVersion('8.0') <= LooseVersion(self.version) < LooseVersion('8.5'):
+                # Fix an issue where the configure script would fail if certain dependencies are installed in a path
+                # that includes "yes" or "no", see https://gitlab.com/score-p/scorep/-/issues/1008.
+                yes_no_regex = [
+                    (r'\*yes\*\|\*no\*', 'yes,*|no,*|*,yes|*,no'),
+                    (r'_lib}\${with_', '_lib},${with_'),
+                ]
+                configure_scripts = [
+                    os.path.join(self.start_dir, 'build-backend', 'configure'),
+                    os.path.join(self.start_dir, 'build-mpi', 'configure'),
+                    os.path.join(self.start_dir, 'build-shmem', 'configure'),
+                ]
+                for configure_script in configure_scripts:
+                    apply_regex_substitutions(configure_script, yes_no_regex)
 
         # Remove some settings from the environment, as they interfere with
         # Score-P's configure magic...
@@ -117,8 +119,9 @@ class EB_Score_minus_P(ConfigureMake):
                 raise EasyBuildError("Compiler family %s not supported yet (only: %s)",
                                      comp_fam, ', '.join(comp_opts.keys()))
             # Enable LLVM instrumentation plugin instead of compiler instrumentation for Score-P v9.0+
-            if comp_fam == toolchain.LLVM and LooseVersion(self.version) >= LooseVersion('9.0'):
-                self.cfg.update('configopts', "--enable-llvm-plugin")
+            if comp_fam == toolchain.LLVM:
+                if self.name == "Score-P" and LooseVersion(self.version) >= LooseVersion('9.0'):
+                    self.cfg.update('configopts', "--enable-llvm-plugin")
 
             # --with-mpi=(bullxmpi|cray|hp|ibmpoe|intel|intel2|intel3|intelpoe|lam|
             #             mpibull2|mpich|mpich2|mpich3|mpich4|openmpi|openmpi3| \
