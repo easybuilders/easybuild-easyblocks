@@ -117,6 +117,42 @@ def parse_toml_list(value: str) -> List[str]:
     return result
 
 
+def _clean_line(line: str, expected_end: Union[str, None]) -> str:
+    """Remove comments and trim line"""
+    if '#' not in line:
+        return line.strip()
+    if expected_end is not None and expected_end[0] in ("'", '"'):
+        try:
+            idx = line.index(expected_end) + len(expected_end)
+        except ValueError:
+            return line.strip()  # Ignore #-sign in multi-line string
+    else:
+        idx = 0
+    in_str = False
+    escaped = False
+    while idx < len(line):
+        c = line[idx]
+        if in_str:
+            if escaped:
+                if c == '\\':
+                    escaped = False
+            elif c == '"':
+                in_str = False
+            elif c == '\\':
+                escaped = True
+        elif c == '#':
+            break
+        elif c == '"':
+            in_str = True
+        elif c == "'":
+            try:
+                idx = line.index("'", idx + 1)
+            except ValueError:
+                idx = len(line)
+        idx += 1
+    return line[:idx].strip()
+
+
 def parse_toml(file: Path) -> Dict[str, str]:
     """Minimally parse a TOML file into sections, keys and values
 
@@ -129,9 +165,15 @@ def parse_toml(file: Path) -> Dict[str, str]:
     current_section = None
     content = read_file(file)
     num = raw_line = None
+    start_end = {
+        '[': ']',
+        '{': '}',
+        '"""': '"""',
+        "'''": "'''",
+    }
     try:
         for num, raw_line in enumerate(content.splitlines()):
-            line: str = raw_line.split("#", 1)[0].strip()
+            line: str = _clean_line(raw_line, expected_end)
             if not line:
                 continue
             if pending_key is None and line.startswith("[") and line.endswith("]"):
@@ -142,14 +184,10 @@ def parse_toml(file: Path) -> Dict[str, str]:
                 key, val = line.split("=", 1)
                 pending_key = key.strip()
                 pending_value = val.strip()
-                if pending_value.startswith('['):
-                    expected_end = ']'
-                elif pending_value.startswith('{'):
-                    expected_end = '}'
-                elif pending_value.startswith('"""'):
-                    expected_end = '"""'
-                elif pending_value.startswith("'''"):
-                    expected_end = "'''"
+                for start, end in start_end.items():
+                    if pending_value.startswith(start):
+                        expected_end = end
+                        break
                 else:
                     expected_end = None
             else:

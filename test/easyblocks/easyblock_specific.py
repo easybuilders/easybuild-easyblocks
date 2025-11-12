@@ -329,17 +329,19 @@ class EasyBlockSpecificTest(TestCase):
         """Test get_workspace_members in the Cargo easyblock"""
         crate_dir = Path(tempfile.mkdtemp())
         cargo_toml = crate_dir / 'Cargo.toml'
-
         # Simple crate
         write_file(cargo_toml, textwrap.dedent("""
             [package]
-            name = "my_crate"
+            #[dummy]
+            # ignore = this
+            name = 'my_crate\\' #comment1' # comment2
             version = "0.1.0"
-            edition = "2021"
+            edition = "2021#2"
             description = '''
             Line 1
             Line 2
             '''
+            documentation = "url?\\"#anchor"
             readme = \"""
             README.md
             \"""
@@ -352,10 +354,11 @@ class EasyBlockSpecificTest(TestCase):
         parsed = cargo.parse_toml(cargo_toml)
         self.assertEqual(parsed, {
             'package': {
-                'name': '"my_crate"',
+                'name': "'my_crate\\'",
                 'version': '"0.1.0"',
-                'edition': '"2021"',
+                'edition': '"2021#2"',
                 'description': "'''\nLine 1\nLine 2\n'''",
+                'documentation': '"url?\\"#anchor"',
                 'readme': '"""\nREADME.md\n"""',
                 'license': '"""MIT"""',
                 'authors': "[\n'''Name d'Or Si''',\n]",
