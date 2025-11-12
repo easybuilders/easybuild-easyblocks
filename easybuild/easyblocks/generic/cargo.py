@@ -128,8 +128,9 @@ def parse_toml(file: Path) -> Dict[str, str]:
     expected_end = None
     current_section = None
     content = read_file(file)
+    num = raw_line = None
     try:
-        for raw_line in content.splitlines():
+        for num, raw_line in enumerate(content.splitlines()):
             line: str = raw_line.split("#", 1)[0].strip()
             if not line:
                 continue
@@ -153,11 +154,11 @@ def parse_toml(file: Path) -> Dict[str, str]:
                     expected_end = None
             else:
                 pending_value += '\n' + line
-            if expected_end is None or pending_value.endswith(expected_end):
+            if expected_end is None or (pending_value != expected_end and pending_value.endswith(expected_end)):
                 result[current_section][pending_key] = pending_value.strip()
                 pending_key = None
     except Exception as e:
-        raise ValueError(f'Failed to parse {file} ({content}): {e}')
+        raise ValueError(f'Failed to parse {file}, error {e} at line {num}: {raw_line}')
     return result
 
 

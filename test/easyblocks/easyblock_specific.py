@@ -336,13 +336,18 @@ class EasyBlockSpecificTest(TestCase):
             name = "my_crate"
             version = "0.1.0"
             edition = "2021"
-            description = '''Line 1
+            description = '''
+            Line 1
             Line 2
             '''
-            readme = \"""README.md\"""
+            readme = \"""
+            README.md
+            \"""
+            license = \"""MIT\"""
             authors = [
                 '''Name d'Or Si''',
             ]
+            empty=''''''
         """))
         parsed = cargo.parse_toml(cargo_toml)
         self.assertEqual(parsed, {
@@ -350,9 +355,11 @@ class EasyBlockSpecificTest(TestCase):
                 'name': '"my_crate"',
                 'version': '"0.1.0"',
                 'edition': '"2021"',
-                'description': "'''Line 1\nLine 2\n'''",
-                'readme': '"""README.md"""',
+                'description': "'''\nLine 1\nLine 2\n'''",
+                'readme': '"""\nREADME.md\n"""',
+                'license': '"""MIT"""',
                 'authors': "[\n'''Name d'Or Si''',\n]",
+                'empty': "''''''",
             }
         })
         has_package, members = cargo.get_workspace_members(parsed)
