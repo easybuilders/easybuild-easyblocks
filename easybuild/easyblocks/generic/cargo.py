@@ -37,6 +37,7 @@ import shutil
 import tempfile
 from glob import glob
 from pathlib import Path
+from typing import Dict, List, Union
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
@@ -78,6 +79,88 @@ replace-with = "vendored-sources"
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
 
 
+def parse_toml_list(value: str) -> List[str]:
+    """Split a TOML list value"""
+    if not value.startswith('[') or not value.endswith(']'):
+        raise ValueError(f"'{value}' is not a TOML list")
+    value = value[1:-1].strip()
+    simple_str_markers = ('"""', "'''", "'")
+    current_value = ''
+    result = []
+    while value:
+        for marker in simple_str_markers:
+            if value.startswith(marker):
+                idx = value.index(marker, len(marker))
+                current_value += value[:idx + len(marker)]
+                value = value[idx + len(marker):].lstrip()
+                break
+        else:
+            if value.startswith('"'):
+                m = re.match(r'".*?(?<!\\)"', value, re.M)
+                current_value += m[0]
+                value = value[m.end():].lstrip()
+        # Not inside a string here
+        if value.startswith(','):
+            result.append(current_value)
+            current_value = ''
+            value = value[1:].lstrip()
+        else:
+            m = re.search('"|\'|,', value)
+            if m:
+                current_value += value[:m.start()].strip()
+                value = value[m.end():]
+            else:
+                current_value += value.strip()
+                break
+    if current_value:
+        result.append(current_value)
+    return result
+
+
+def parse_toml(file: Path) -> Dict[str, str]:
+    """Minimally parse a TOML file into sections, keys and values
+
+    Values will be the raw strings (including quotes for string-typed values)"""
+
+    result: Dict[str, Union[str, List[str]]] = {}
+    pending_key = None
+    pending_value = None
+    expected_end = None
+    current_section = None
+    content = read_file(file)
+    try:
+        for raw_line in content.splitlines():
+            line: str = raw_line.split("#", 1)[0].strip()
+            if not line:
+                continue
+            if pending_key is None and line.startswith("[") and line.endswith("]"):
+                current_section = line.strip()[1:-1].strip()
+                result.setdefault(current_section, {})
+                continue
+            if pending_key is None:
+                key, val = line.split("=", 1)
+                pending_key = key.strip()
+                pending_value = val.strip()
+                if pending_value.startswith('['):
+                    expected_end = ']'
+                elif pending_value.startswith('{'):
+                    expected_end = '}'
+                elif pending_value.startswith('"""'):
+                    expected_end = '"""'
+                elif pending_value.startswith("'''"):
+                    expected_end = "'''"
+                else:
+                    expected_end = None
+            else:
+                pending_value += '\n' + line
+            if expected_end is None or pending_value.endswith(expected_end):
+                result[current_section][pending_key] = pending_value.strip()
+                pending_key = None
+    except Exception as e:
+        raise ValueError(f'Failed to parse {file} ({content}): {e}')
+    return result
+
+
 def get_workspace_members(crate_dir: Path):
     """Find all members of a cargo workspace in crate_dir.
 
@@ -87,10 +170,10 @@ def get_workspace_members(crate_dir: Path):
     has_package determines if it is a virtual workspace ([workspace] and no [package])
     workspace-members are all members (subfolder names) if it is a workspace, otherwise None
     """
-    cargo_toml = crate_dir / 'Cargo.toml'
-    lines = [line.strip() for line in read_file(cargo_toml).splitlines()]
+    cargo_toml = parse_toml(crate_dir / 'Cargo.toml')
+
     # A virtual (workspace) manifest has no [package], but only a [workspace] section.
-    has_package = '[package]' in lines
+    has_package = 'package' in cargo_toml
 
     # We are looking for this:
     # [workspace]
@@ -101,30 +184,15 @@ def get_workspace_members(crate_dir: Path):
     # ]
 
     try:
-        start_idx = lines.index('[workspace]')
-    except ValueError:
+        workspace = cargo_toml['workspace']
+    except KeyError:
         return has_package, None
-    # Find "members = [" and concatenate the value, stop at end of section or file
-    member_str = None
-    for line in lines[start_idx + 1:]:
-        if line.startswith('#'):
-            continue  # Skip comments
-        if re.match(r'\[\w+\]', line):
-            break  # New section
-        if member_str is None:
-            m = re.match(r'members\s+=\s+\[', line)
-            if m:
-                member_str = line[m.end():]
-        else:
-            member_str += line
-        # Stop if we reach the end of the list
-        if member_str is not None and member_str.endswith(']'):
-            member_str = member_str[:-1]
-            break
-    if member_str is None:
+    try:
+        member_strs = parse_toml_list(workspace['members'])
+    except (KeyError, ValueError):
         raise EasyBuildError('Failed to find members in %s', cargo_toml)
-    # Split at commas after removing possibly trailing ones and remove the quotes
-    members = [member.strip().strip('"') for member in member_str.rstrip(',').split(',')]
+    # Remove the quotes
+    members = [member.strip('"') for member in member_strs]
     # Sanity check that we didn't pick up anything unexpected
     invalid_members = [member for member in members if not re.match(r'(\w|-)+', member)]
     if invalid_members:

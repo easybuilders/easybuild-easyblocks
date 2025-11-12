@@ -36,10 +36,12 @@ import tempfile
 import textwrap
 from io import StringIO
 from unittest import TestLoader, TextTestRunner
+from pathlib import Path
 from test.easyblocks.module import cleanup
 
 import easybuild.tools.options as eboptions
 import easybuild.easyblocks.generic.pythonpackage as pythonpackage
+import easybuild.easyblocks.generic.cargo as cargo
 import easybuild.easyblocks.l.lammps as lammps
 import easybuild.easyblocks.p.python as python
 from easybuild.base.testing import TestCase
@@ -322,6 +324,92 @@ class EasyBlockSpecificTest(TestCase):
 
         res = pythonpackage.det_py_install_scheme()
         self.assertTrue(isinstance(res, str))
+
+    def test_cargo_toml_parsers(self):
+        """Test get_workspace_members in cargo easyblock"""
+        crate_dir = Path(tempfile.mkdtemp())
+        cargo_toml = crate_dir / 'Cargo.toml'
+
+        # Simple crate
+        write_file(cargo_toml, textwrap.dedent("""
+            [package]
+            name = "my_crate"
+            version = "0.1.0"
+            edition = "2021"
+            description = '''Line 1
+            Line 2
+            '''
+            readme = \"""README.md\"""
+            authors = [
+                '''Name d'Or Si''',
+            ]
+        """))
+        parsed = cargo.parse_toml(cargo_toml)
+        self.assertEqual(parsed, {
+            'package': {
+                'name': '"my_crate"',
+                'version': '"0.1.0"',
+                'edition': '"2021"',
+                'description': "'''Line 1\nLine 2\n'''",
+                'readme': '"""README.md"""',
+                'authors': "[\n'''Name d'Or Si''',\n]",
+            }
+        })
+        has_package, members = cargo.get_workspace_members(crate_dir)
+        self.assertTrue(has_package)
+        self.assertIsNone(members)
+
+        # Virtual manifest
+        write_file(cargo_toml, textwrap.dedent("""
+            [workspace]
+            members = [
+                "reqwest-middleware",
+                "reqwest-tracing",
+                "reqwest-retry",
+            ]
+        """))
+        parsed = cargo.parse_toml(cargo_toml)
+        self.assertEqual(parsed, {
+            'workspace': {
+                'members': '[\n"reqwest-middleware",\n"reqwest-tracing",\n"reqwest-retry",\n]',
+            }
+        })
+        has_package, members = cargo.get_workspace_members(crate_dir)
+        self.assertFalse(has_package)
+        self.assertEqual(members, ["reqwest-middleware", "reqwest-tracing", "reqwest-retry"])
+
+        # Workspace (root is a package too)
+        write_file(cargo_toml, textwrap.dedent("""
+            [package]
+            name = "nothing-linux-ui"
+            version = "0.0.2"
+            edition = "2021"
+            authors = ["sn99"]
+
+            [workspace]
+            members = ["nothing", "src-tauri"]
+
+            [dependencies]
+            leptos = { version = "0.6", features = ["csr"] }
+        """))
+        parsed = cargo.parse_toml(cargo_toml)
+        self.assertEqual(parsed, {
+            'package': {
+                "name": '"nothing-linux-ui"',
+                "version": '"0.0.2"',
+                "edition": '"2021"',
+                "authors": '["sn99"]',
+            },
+            'workspace': {
+                "members": '["nothing", "src-tauri"]',
+            },
+            'dependencies': {
+                "leptos": '{ version = "0.6", features = ["csr"] }',
+            },
+        })
+        has_package, members = cargo.get_workspace_members(crate_dir)
+        self.assertTrue(has_package)
+        self.assertEqual(members, ["nothing", "src-tauri"])
 
     def test_handle_local_py_install_scheme(self):
         """Test handle_local_py_install_scheme function provided by PythonPackage easyblock."""
