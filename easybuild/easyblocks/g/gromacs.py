@@ -50,7 +50,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
 from easybuild.tools.version import VERBOSE_VERSION as EASYBUILD_VERSION
@@ -380,6 +380,18 @@ class EB_GROMACS(CMakeMake):
                         self.cfg.update('configopts', "-DGMX_CPU_ACCELERATION=%s" % gmx_simd)
                     else:
                         self.cfg.update('configopts', "-DGMX_SIMD=%s" % gmx_simd)
+
+            # stick to NEON even if SVE is supported,
+            # see https://gitlab.com/gromacs/gromacs/-/issues/5284;
+            cpu_arch = get_cpu_architecture()
+            if cpu_arch == AARCH64 and 'DGMX_SIMD' not in self.cfg['configopts']:
+                cpu_features = get_cpu_features()
+                if 'sve' in cpu_features:
+                    self.cfg.update('configopts', "-DGMX_SIMD=ARM_NEON_ASIMD")
+                    # print warning, since this may need to be revised for future GROMACS versions
+                    msg = "Sticking to NEON to improve performance (even though SVE is supported), "
+                    msg += "see https://gitlab.com/gromacs/gromacs/-/issues/5284"
+                    print_warning(msg, log=self.log)
 
             # set regression test path
             prefix = 'regressiontests'
