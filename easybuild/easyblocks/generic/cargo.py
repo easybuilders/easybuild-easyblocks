@@ -161,17 +161,13 @@ def parse_toml(file: Path) -> Dict[str, str]:
     return result
 
 
-def get_workspace_members(crate_dir: Path):
-    """Find all members of a cargo workspace in crate_dir.
-
-    (Minimally) parse the Cargo.toml file.
+def get_workspace_members(cargo_toml: Dict[str, str]):
+    """Find all members of a cargo workspace in the parsed the Cargo.toml file.
 
     Return a tuple: (has_package, workspace-members).
     has_package determines if it is a virtual workspace ([workspace] and no [package])
     workspace-members are all members (subfolder names) if it is a workspace, otherwise None
     """
-    cargo_toml = parse_toml(crate_dir / 'Cargo.toml')
-
     # A virtual (workspace) manifest has no [package], but only a [workspace] section.
     has_package = 'package' in cargo_toml
 
@@ -422,7 +418,8 @@ class Cargo(ExtensionEasyBlock):
         tmp_dir = Path(tempfile.mkdtemp(dir=self.builddir, prefix='tmp_crate_'))
         # Add checksum file for each crate such that it is recognized by cargo.
         # Glob to catch multiple folders in a source archive.
-        for crate_dir in (p.parent for p in Path(self.vendor_dir).glob('*/Cargo.toml')):
+        for cargo_toml in Path(self.vendor_dir).glob('*/Cargo.toml'):
+            crate_dir = cargo_toml.parent
             src = path_to_source.get(str(crate_dir))
             if src:
                 try:
@@ -440,7 +437,8 @@ class Cargo(ExtensionEasyBlock):
             # otherwise (Only "[workspace]" section and no "[package]" section)
             # we have to remove the top-level folder or cargo fails with:
             # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
-            has_package, members = get_workspace_members(crate_dir)
+            parsed_toml = parse_toml(cargo_toml)
+            has_package, members = get_workspace_members(parsed_toml)
             if members:
                 self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(members))
                 if not any((crate_dir / crate).is_dir() for crate in members):

@@ -326,7 +326,7 @@ class EasyBlockSpecificTest(TestCase):
         self.assertTrue(isinstance(res, str))
 
     def test_cargo_toml_parsers(self):
-        """Test get_workspace_members in cargo easyblock"""
+        """Test get_workspace_members in the Cargo easyblock"""
         crate_dir = Path(tempfile.mkdtemp())
         cargo_toml = crate_dir / 'Cargo.toml'
 
@@ -355,7 +355,7 @@ class EasyBlockSpecificTest(TestCase):
                 'authors': "[\n'''Name d'Or Si''',\n]",
             }
         })
-        has_package, members = cargo.get_workspace_members(crate_dir)
+        has_package, members = cargo.get_workspace_members(parsed)
         self.assertTrue(has_package)
         self.assertIsNone(members)
 
@@ -374,7 +374,7 @@ class EasyBlockSpecificTest(TestCase):
                 'members': '[\n"reqwest-middleware",\n"reqwest-tracing",\n"reqwest-retry",\n]',
             }
         })
-        has_package, members = cargo.get_workspace_members(crate_dir)
+        has_package, members = cargo.get_workspace_members(parsed)
         self.assertFalse(has_package)
         self.assertEqual(members, ["reqwest-middleware", "reqwest-tracing", "reqwest-retry"])
 
@@ -407,7 +407,7 @@ class EasyBlockSpecificTest(TestCase):
                 "leptos": '{ version = "0.6", features = ["csr"] }',
             },
         })
-        has_package, members = cargo.get_workspace_members(crate_dir)
+        has_package, members = cargo.get_workspace_members(parsed)
         self.assertTrue(has_package)
         self.assertEqual(members, ["nothing", "src-tauri"])
 
