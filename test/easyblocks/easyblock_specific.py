@@ -36,10 +36,12 @@ import tempfile
 import textwrap
 from io import StringIO
 from unittest import TestLoader, TextTestRunner
+from pathlib import Path
 from test.easyblocks.module import cleanup
 
 import easybuild.tools.options as eboptions
 import easybuild.easyblocks.generic.pythonpackage as pythonpackage
+import easybuild.easyblocks.generic.cargo as cargo
 import easybuild.easyblocks.l.lammps as lammps
 import easybuild.easyblocks.p.python as python
 from easybuild.base.testing import TestCase
@@ -51,7 +53,7 @@ from easybuild.tools import config
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import GENERAL_CLASS, get_module_syntax
 from easybuild.tools.environment import modify_env
-from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, remove_dir, symlink, write_file
+from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, read_file, remove_dir, symlink, write_file
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.run import RunShellCmdResult
@@ -322,6 +324,181 @@ class EasyBlockSpecificTest(TestCase):
 
         res = pythonpackage.det_py_install_scheme()
         self.assertTrue(isinstance(res, str))
+
+    def test_cargo_toml_parsers(self):
+        """Test get_workspace_members in the Cargo easyblock"""
+        crate_dir = Path(tempfile.mkdtemp())
+        cargo_toml = crate_dir / 'Cargo.toml'
+        # Simple crate
+        write_file(cargo_toml, textwrap.dedent("""
+            [package]
+            #[dummy]
+            # ignore = this
+            name = 'my_crate\\' #comment1' # comment2
+            version = "0.1.0"
+            edition = "2021#2"
+            description = '''
+            Line 1
+            Line 2
+            '''
+            documentation = "url?\\"#anchor"
+            readme = \"""
+            README.md
+            \"""
+            license = \"""MIT\"""
+            authors = [
+                '''Name d'Or Si''',
+            ]
+            empty=''''''
+        """))
+        parsed = cargo._parse_toml(cargo_toml)
+        self.assertEqual(parsed, {
+            'package': {
+                'name': "'my_crate\\'",
+                'version': '"0.1.0"',
+                'edition': '"2021#2"',
+                'description': "'''\nLine 1\nLine 2\n'''",
+                'documentation': '"url?\\"#anchor"',
+                'readme': '"""\nREADME.md\n"""',
+                'license': '"""MIT"""',
+                'authors': "[\n'''Name d'Or Si''',\n]",
+                'empty': "''''''",
+            }
+        })
+        has_package, members = cargo._get_workspace_members(parsed)
+        self.assertTrue(has_package)
+        self.assertIsNone(members)
+
+        # Virtual manifest
+        write_file(cargo_toml, textwrap.dedent("""
+            [workspace]
+            members = [
+                "reqwest-middleware",
+                "reqwest-tracing",
+                "reqwest-retry",
+            ]
+        """))
+        parsed = cargo._parse_toml(cargo_toml)
+        self.assertEqual(parsed, {
+            'workspace': {
+                'members': '[\n"reqwest-middleware",\n"reqwest-tracing",\n"reqwest-retry",\n]',
+            }
+        })
+        has_package, members = cargo._get_workspace_members(parsed)
+        self.assertFalse(has_package)
+        self.assertEqual(members, ["reqwest-middleware", "reqwest-tracing", "reqwest-retry"])
+
+        # Workspace (root is a package too)
+        write_file(cargo_toml, textwrap.dedent("""
+            [package]
+            name = "nothing-linux-ui"
+            version = "0.0.2"
+            edition = "2021"
+            authors = ["sn99"]
+
+            [workspace]
+            members = ["nothing", "src-tauri"]
+
+            [dependencies]
+            leptos = { version = "0.6", features = ["csr"] }
+        """))
+        parsed = cargo._parse_toml(cargo_toml)
+        self.assertEqual(parsed, {
+            'package': {
+                "name": '"nothing-linux-ui"',
+                "version": '"0.0.2"',
+                "edition": '"2021"',
+                "authors": '["sn99"]',
+            },
+            'workspace': {
+                "members": '["nothing", "src-tauri"]',
+            },
+            'dependencies': {
+                "leptos": '{ version = "0.6", features = ["csr"] }',
+            },
+        })
+        has_package, members = cargo._get_workspace_members(parsed)
+        self.assertTrue(has_package)
+        self.assertEqual(members, ["nothing", "src-tauri"])
+
+    def test_cargo_merge_sub_crate(self):
+        """Test merge_sub_crate in the Cargo easyblock"""
+        crate_dir = Path(tempfile.mkdtemp())
+        cargo_toml = crate_dir / 'Cargo.toml'
+        write_file(cargo_toml, textwrap.dedent("""
+            [workspace]
+            members = ["bar"]
+
+            [workspace.package]
+            version = "1.2.3"
+            authors = ["Nice Folks"]
+            description = "A short description of my package"
+            documentation = "https://example.com/bar"
+
+            [workspace.dependencies]
+            regex = { version = "1.6.0", default-features = false, features = ["std"] }
+            cc = "1.0.73"
+            rand = "0.8.5"
+        """))
+        ws_parsed = cargo._parse_toml(cargo_toml)
+        write_file(cargo_toml, textwrap.dedent("""
+            [package]
+            name = "bar"
+            version.workspace = true
+            authors.workspace = true
+            description.workspace = true
+            documentation.workspace = true
+
+            # Unrelated line that looks like a workspace key
+            description = "Uses regex=123 and regex = 456 and not foo.workspace = true"
+
+            [dependencies]
+            regex.workspace = true
+
+            [build-dependencies]
+            cc.workspace = true
+
+            [dev-dependencies]
+            rand = { workspace = true }
+        """))
+        cargo._merge_sub_crate(cargo_toml, ws_parsed)
+        self.assertEqual(read_file(cargo_toml).strip(), textwrap.dedent("""
+            [package]
+            name = "bar"
+            version = "1.2.3"
+            authors = ["Nice Folks"]
+            description = "A short description of my package"
+            documentation = "https://example.com/bar"
+
+            # Unrelated line that looks like a workspace key
+            description = "Uses regex=123 and regex = 456 and not foo.workspace = true"
+
+            [dependencies]
+            regex = { version = "1.6.0", default-features = false, features = ["std"] }
+
+            [build-dependencies]
+            cc = "1.0.73"
+
+            [dev-dependencies]
+            rand = "0.8.5"
+        """).strip())
+
+        # Only dict-style workspace dependency
+        write_file(cargo_toml, textwrap.dedent("""
+            [package]
+            name = "bar"
+
+            [dependencies]
+            regex = { workspace = true }
+        """))
+        cargo._merge_sub_crate(cargo_toml, ws_parsed)
+        self.assertEqual(read_file(cargo_toml).strip(), textwrap.dedent("""
+            [package]
+            name = "bar"
+
+            [dependencies]
+            regex = { version = "1.6.0", default-features = false, features = ["std"] }
+        """).strip())
 
     def test_handle_local_py_install_scheme(self):
         """Test handle_local_py_install_scheme function provided by PythonPackage easyblock."""
