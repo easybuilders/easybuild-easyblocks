@@ -153,7 +153,7 @@ def _clean_line(line: str, expected_end: Union[str, None]) -> str:
     return line[:idx].strip()
 
 
-def parse_toml(file: Path) -> Dict[str, str]:
+def parse_toml(file_or_content: Union[Path, str]) -> Dict[str, str]:
     """Minimally parse a TOML file into sections, keys and values
 
     Values will be the raw strings (including quotes for string-typed values)"""
@@ -163,7 +163,7 @@ def parse_toml(file: Path) -> Dict[str, str]:
     pending_value = None
     expected_end = None
     current_section = None
-    content = read_file(file)
+    content = read_file(file_or_content) if isinstance(file_or_content, Path) else file_or_content
     num = raw_line = None
     start_end = {
         '[': ']',
@@ -196,7 +196,7 @@ def parse_toml(file: Path) -> Dict[str, str]:
                 result[current_section][pending_key] = pending_value.strip()
                 pending_key = None
     except Exception as e:
-        raise ValueError(f'Failed to parse {file}, error {e} at line {num}: {raw_line}')
+        raise ValueError(f'Failed to parse {file_or_content}, error {e} at line {num}: {raw_line}')
     return result
 
 
@@ -234,6 +234,35 @@ def get_workspace_members(cargo_toml: Dict[str, str]):
         raise EasyBuildError('Failed to parse %s: Found seemingly invalid members: %s',
                              cargo_toml, ', '.join(invalid_members))
     return has_package, members
+
+
+def merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, str]):
+    """Resolve workspace references in the Cargo.toml file"""
+    # Lines such as 'authors.workspace = true' must be replaced by 'authors = <value from workspace.package>'
+    content: str = read_file(cargo_toml_path)
+    SUFFIX = '.workspace'
+    if SUFFIX not in content:
+        return
+    cargo_toml = parse_toml(content)
+    lines = content.splitlines()
+
+    def do_replacement(section, workspace_section):
+        if not section or not workspace_section:
+            return
+
+        for key, value in section.items():
+            if key.endswith(SUFFIX) and value == 'true':
+                real_key = key[:-len(SUFFIX)]
+                value = workspace_section[real_key]
+                idx = next(idx for idx, line in enumerate(lines) if key in line)
+                lines[idx] = f'{real_key} = {value}'
+
+    do_replacement(cargo_toml.get('package'), workspace_toml.get('workspace.package'))
+    do_replacement(cargo_toml.get('dependencies'), workspace_toml.get('workspace.dependencies'))
+    do_replacement(cargo_toml.get('build-dependencies'), workspace_toml.get('workspace.dependencies'))
+    do_replacement(cargo_toml.get('dev-dependencies'), workspace_toml.get('workspace.dependencies'))
+
+    write_file(cargo_toml_path, '\n'.join(lines))
 
 
 def get_checksum(src, log):
@@ -502,6 +531,8 @@ class Cargo(ExtensionEasyBlock):
                         # Use copy_dir to resolve symlinks that might point to the parent folder
                         copy_dir(tmp_crate_dir / member, target_path, symlinks=False)
                         cargo_pkg_dirs.append(target_path)
+                        self.log.info(f'Resolving workspace values for crate {member}')
+                        merge_sub_crate(target_path / 'Cargo.toml', parsed_toml)
                     if has_package:
                         # Remove the copied crate folders
                         for member in members:

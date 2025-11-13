@@ -53,7 +53,7 @@ from easybuild.tools import config
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import GENERAL_CLASS, get_module_syntax
 from easybuild.tools.environment import modify_env
-from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, remove_dir, symlink, write_file
+from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, read_file, remove_dir, symlink, write_file
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.run import RunShellCmdResult
@@ -420,6 +420,62 @@ class EasyBlockSpecificTest(TestCase):
         has_package, members = cargo.get_workspace_members(parsed)
         self.assertTrue(has_package)
         self.assertEqual(members, ["nothing", "src-tauri"])
+
+    def test_cargo_merge_sub_crate(self):
+        """Test merge_sub_crate in the Cargo easyblock"""
+        crate_dir = Path(tempfile.mkdtemp())
+        cargo_toml = crate_dir / 'Cargo.toml'
+        write_file(cargo_toml, textwrap.dedent("""
+            [workspace]
+            members = ["bar"]
+
+            [workspace.package]
+            version = "1.2.3"
+            authors = ["Nice Folks"]
+            description = "A short description of my package"
+            documentation = "https://example.com/bar"
+
+            [workspace.dependencies]
+            regex = { version = "1.6.0", default-features = false, features = ["std"] }
+            cc = "1.0.73"
+            rand = "0.8.5"
+        """))
+        ws_parsed = cargo.parse_toml(cargo_toml)
+        write_file(cargo_toml, textwrap.dedent("""
+            [package]
+            name = "bar"
+            version.workspace = true
+            authors.workspace = true
+            description.workspace = true
+            documentation.workspace = true
+
+            [dependencies]
+            regex.workspace = true
+
+            [build-dependencies]
+            cc.workspace = true
+
+            [dev-dependencies]
+            rand.workspace = true
+        """))
+        cargo.merge_sub_crate(cargo_toml, ws_parsed)
+        self.assertEqual(read_file(cargo_toml).strip(), textwrap.dedent("""
+            [package]
+            name = "bar"
+            version = "1.2.3"
+            authors = ["Nice Folks"]
+            description = "A short description of my package"
+            documentation = "https://example.com/bar"
+
+            [dependencies]
+            regex = { version = "1.6.0", default-features = false, features = ["std"] }
+
+            [build-dependencies]
+            cc = "1.0.73"
+
+            [dev-dependencies]
+            rand = "0.8.5"
+        """).strip())
 
     def test_handle_local_py_install_scheme(self):
         """Test handle_local_py_install_scheme function provided by PythonPackage easyblock."""
