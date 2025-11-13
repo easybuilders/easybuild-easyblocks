@@ -164,7 +164,7 @@ def parse_toml(file_or_content: Union[Path, str]) -> Dict[str, str]:
     expected_end = None
     current_section = None
     content = read_file(file_or_content) if isinstance(file_or_content, Path) else file_or_content
-    num = raw_line = None
+    line_num = raw_line = None
     start_end = {
         '[': ']',
         '{': '}',
@@ -172,7 +172,7 @@ def parse_toml(file_or_content: Union[Path, str]) -> Dict[str, str]:
         "'''": "'''",
     }
     try:
-        for num, raw_line in enumerate(content.splitlines()):
+        for line_num, raw_line in enumerate(content.splitlines()): # noqa B007: line_num used in error only
             line: str = _clean_line(raw_line, expected_end)
             if not line:
                 continue
@@ -196,7 +196,7 @@ def parse_toml(file_or_content: Union[Path, str]) -> Dict[str, str]:
                 result[current_section][pending_key] = pending_value.strip()
                 pending_key = None
     except Exception as e:
-        raise ValueError(f'Failed to parse {file_or_content}, error {e} at line {num}: {raw_line}')
+        raise ValueError(f'Failed to parse {file_or_content}, error {e} at line {line_num}: {raw_line}')
     return result
 
 
