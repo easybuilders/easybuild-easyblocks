@@ -89,7 +89,7 @@ class EB_Hypre(ConfigureMake):
         """Custom sanity check for Hypre."""
 
         # Add static and shared libs depending on configopts
-        hypre_libs = list()
+        hypre_libs = []
         if self.config_shared:
             shlib_ext = get_shared_lib_ext()
             hypre_libs.append(os.path.join('lib', 'libHYPRE.%s' % shlib_ext))

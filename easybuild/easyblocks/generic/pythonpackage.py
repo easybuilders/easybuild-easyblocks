@@ -628,7 +628,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
 
         use_ebpythonprefixes = False
-        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+        runtime_deps = self.cfg.dependency_names(runtime_only=True)
 
         if 'Python' in runtime_deps:
             self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")

@@ -104,7 +104,7 @@ class EB_SLEPc(ConfigureMake):
 
         # optional dependencies
         dep_filter = ['PETSc', 'Python']
-        deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True) if dep['name'] not in dep_filter]
+        deps = [name for name in self.cfg.dependency_names(runtime_only=True) if name not in dep_filter]
         for dep in deps:
             deproot = get_software_root(dep)
             if deproot:

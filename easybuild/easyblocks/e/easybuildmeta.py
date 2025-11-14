@@ -230,7 +230,7 @@ class EB_EasyBuildMeta(PythonPackage):
         # order matters, e.g. setuptools before distutils
         eb_dirs = OrderedDict()
         eb_dirs['setuptools'] = []
-        eb_dirs['distutils.core'] = flatten([x for x in subdirs_by_pkg.values()])
+        eb_dirs['distutils.core'] = flatten(subdirs_by_pkg.values())
 
         # determine setup tool (setuptools or distutils)
         setup_tool = None

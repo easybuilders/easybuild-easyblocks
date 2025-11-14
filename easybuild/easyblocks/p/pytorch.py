@@ -448,7 +448,7 @@ class EB_PyTorch(PythonPackage):
             raise EasyBuildError("Did not find a supported BLAS in dependencies. Don't know which BLAS lib to use")
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
-        dependency_names = {dep['name'] for dep in self.cfg.dependencies()}
+        dependency_names = self.cfg.dependency_names()
         not_used_dep_names = []
         for enable_opt, dep_name in available_dependency_options:
             if dep_name is None:
