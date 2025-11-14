@@ -59,8 +59,13 @@ class EB_Mathematica(Binary):
     def configure_step(self):
         """No configuration for Mathematica."""
         # ensure a license server is specified
-        if self.cfg['license_server'] is None:
-            raise EasyBuildError("No license server specified.")
+        # check environment variable if not set in easyconfig
+        if self.cfg["license_server"] is None:
+            self.cfg["license_server"] = os.getenv("EB_MATHEMATICA_LICENSE_SERVER")
+
+        if self.cfg["license_server"] is None:
+            raise EasyBuildError("No license server specified via 'license_server' easyconfig parameter or "
+                                 "$EB_MATHEMATICA_LICENSE_SERVER environment variable.")
 
     def build_step(self):
         """No build step for Mathematica."""
@@ -82,7 +87,12 @@ class EB_Mathematica(Binary):
             install_script = matches[0]
             cmd = self.cfg['preinstallopts'] + './' + install_script
             shortver = '.'.join(self.version.split('.')[:2])
-            qa_install_path = os.path.join('/usr', 'local', 'Wolfram', self.name, shortver)
+            # Starting at V14, the product is called "Wolfram" instead of "Mathematica"
+            if LooseVersion(self.version) >= LooseVersion("14"):
+                product_name = "Wolfram"
+            else:
+                product_name = self.name
+            qa_install_path = os.path.join('/usr', 'local', 'Wolfram', product_name, shortver)
             qa = [
                 (r"Enter the installation directory, or press ENTER to select[\s\n]*%s:[\s\n]*>" % qa_install_path,
                  self.installdir),
@@ -92,6 +102,13 @@ class EB_Mathematica(Binary):
             ]
             no_qa = [
                 r"Now installing.*\n\n.*\[.*\].*",
+                r"NOTE: Because you are not logged in with root privileges.*",
+                r".*rpm -Uvh.*wolframscript.*",
+                r".*Extracting installer.*",
+                r".*\|\d+%",
+                r".*Documentation.*Installer.*",
+                r"You are not logged in with root privilege.*",
+                r"The selected directory.*contains files.*",
             ]
             run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
         else:
@@ -138,14 +155,25 @@ class EB_Mathematica(Binary):
     def sanity_check_step(self):
         """Custom sanity check for Mathematica."""
         custom_paths = {
-            'files': ['bin/mathematica'],
+            'files': ['bin/math'],
             'dirs': ['AddOns', 'Configuration', 'Documentation', 'Executables', 'SystemFiles'],
         }
+        # Starting at V14, the main executable is called 'wolfram' instead of 'mathematica'
+        if LooseVersion(self.version) >= LooseVersion("14"):
+            custom_paths['files'].append('bin/wolfram')
+        else:
+            custom_paths['files'].append('bin/mathematica')
+
         if LooseVersion(self.version) >= LooseVersion("11.3.0"):
             custom_paths['files'].append('Executables/wolframscript')
         elif LooseVersion(self.version) >= LooseVersion("11.0.0"):
             custom_paths['files'].append('bin/wolframscript')
 
-        custom_commands = ['mathematica --version']
+        # Use appropriate executable for version check
+        if LooseVersion(self.version) >= LooseVersion("14"):
+            version_cmd = 'wolfram --version'
+        else:
+            version_cmd = 'mathematica --version'
+        custom_commands = [version_cmd]
 
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
