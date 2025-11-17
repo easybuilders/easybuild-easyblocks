@@ -28,11 +28,14 @@ environment flags for the current toolchain
 
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 """
+import glob
 import os
 import stat
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.tools.filetools import adjust_permissions, copy_dir
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_dir
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
@@ -40,6 +43,15 @@ class BuildEnv(Bundle):
     """
     Build environment of toolchain: only generate module file
     """
+
+    @staticmethod
+    def extra_options():
+        """Add extra easyconfig parameters for Boost."""
+        extra_vars = {
+            'python_executable': ['python3', "Python executable to use for the wrappers (use None to use path to "
+                                  "Python executable used by EasyBuild).", CUSTOM],
+        }
+        return Bundle.extra_options(extra_vars)
 
     def prepare_step(self, *args, **kwargs):
         """
@@ -60,7 +72,16 @@ class BuildEnv(Bundle):
         wrappers_dir = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
         if os.path.exists(wrappers_dir):
             self.rpath_wrappers_dir = os.path.join(self.installdir, 'bin')
-            copy_dir(wrappers_dir, os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR))
+            rpath_wrappers_path = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
+            copy_dir(wrappers_dir, rpath_wrappers_path)
+            py_exe = self.cfg['python_executable']
+            if py_exe is not None:
+                if not isinstance(py_exe, str) or not py_exe:
+                    raise EasyBuildError(f"python_executable should be None or non-empty string, got {py_exe}")
+                wrapper_files = list(filter(os.path.isfile, glob.glob(os.path.join(rpath_wrappers_path, '*', '*'))))
+                # replace path to Python executable with python_executable in the wrappers,
+                # as this is the executable that runs EasyBuild and may be unavailable when using the buildenv wrappers.
+                apply_regex_substitutions(wrapper_files, [(r'^PYTHON_EXE=.*$', f'PYTHON_EXE={py_exe}')], backup=False)
             # Make sure wrappers are readable/executable by everyone
             adjust_permissions(
                 self.rpath_wrappers_dir,

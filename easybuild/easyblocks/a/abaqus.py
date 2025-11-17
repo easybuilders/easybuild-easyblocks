@@ -199,6 +199,7 @@ class EB_ABAQUS(Binary):
                 (r"License Server . \(redundant\)\s*(\n.*){3}:", ''),
                 (r"License Server Configuration((?!___).*\n)*?" + nextstr, ''),
                 (r"Please choose an action:", '1'),
+                (r"Choose an action:", '1'),
             ])
 
             if LooseVersion(self.version) >= LooseVersion('2022') and installed_docs:
