@@ -151,7 +151,7 @@ class EB_WRF(EasyBlock):
         if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
                 if (get_software_root('intel-compilers') and
-                    LooseVersion(get_software_version('intel-compilers')) >= LooseVersion('2024')):
+                        LooseVersion(get_software_version('intel-compilers')) >= '2024'):
                     build_type_option = r"INTEL \(ifx\/icx\)"
                 else:
                     build_type_option = r"INTEL\ \(ifort\/icc\)"
