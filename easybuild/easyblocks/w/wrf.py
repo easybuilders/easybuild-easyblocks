@@ -47,7 +47,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir
 from easybuild.tools.filetools import patch_perl_script_autoflush, read_file, which
 from easybuild.tools.filetools import remove_file, symlink
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -150,7 +150,11 @@ class EB_WRF(EasyBlock):
         self.comp_fam = self.toolchain.comp_family()
         if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
-                build_type_option = r"INTEL\ \(ifort\/icc\)"
+                if (get_software_root('intel-compilers') and
+                    LooseVersion(get_software_version('intel-compilers')) >= LooseVersion('2024')):
+                    build_type_option = r"INTEL \(ifx\/icx\)"
+                else:
+                    build_type_option = r"INTEL\ \(ifort\/icc\)"
             else:
                 build_type_option = "Linux x86_64 i486 i586 i686, ifort compiler with icc"
 
