@@ -395,6 +395,11 @@ class EB_LLVM(CMakeMake):
         self.log.info("Final projects to build: %s", ', '.join(self.final_projects))
         self.log.info("Final runtimes to build: %s", ', '.join(self.final_runtimes))
 
+        # Set nvptx_target_cond and amdgpu_target_cond to False by default, since
+        # not setting any value breaks module-only and sanity-check-only
+        self.nvptx_target_cond = False
+        self.amdgpu_target_cond = False
+
         # CMake options passed to each build stage.
         # Will be cleared between stages. If arguments are needed in multiple stages,
         # consider adding them to general_opts instead.
@@ -937,7 +942,7 @@ class EB_LLVM(CMakeMake):
 
         # Avoid concurrency issue in tests, see https://github.com/llvm/llvm-project/pull/151313
         llvm_version = LooseVersion(self.version)
-        if llvm_version < '20.1':
+        if llvm_version < '20':
             regex_subs = [(r'cmake_policy\(SET CMP0114 OLD\)', 'cmake_policy(SET CMP0114 NEW)')]
             tgt_file = os.path.join('llvm', 'CMakeLists.txt')
             if llvm_version >= '16':
@@ -1032,7 +1037,10 @@ class EB_LLVM(CMakeMake):
         """Add LLVM-specific CMake options."""
         base_opts = self._cfgopts.copy()
         for k, v in self._cmakeopts.items():
-            base_opts.append('-D%s=%s' % (k, v))
+            opt_start = f'-D{k}='
+            # Don't overwrite e.g. user settings
+            if not any(opt.startswith(opt_start) for opt in base_opts):
+                base_opts.append(f'-D{k}={v}')
         self.cfg['configopts'] = ' '.join(base_opts)
 
     def configure_step2(self):
@@ -1308,15 +1316,18 @@ class EB_LLVM(CMakeMake):
             self.log.debug(out)
 
         ignore_patterns = self.ignore_patterns
-        ignored_pattern_matches = 0
-        failed_pattern_matches = 0
+        num_ignored_pattern_matches = 0
+        num_failed_pattern_matches = 0
+        relevant_failures = []
         if ignore_patterns:
             for line in out.splitlines():
                 if any(line.startswith(f'{x}: ') for x in OUTCOME_FAIL):
                     if any(patt in line for patt in ignore_patterns):
                         self.log.info("Ignoring test failure: %s", line)
-                        ignored_pattern_matches += 1
-                    failed_pattern_matches += 1
+                        num_ignored_pattern_matches += 1
+                    else:
+                        relevant_failures.append(line)
+                    num_failed_pattern_matches += 1
 
         rgx_failed = re.compile(r'^ +Failed +: +([0-9]+)', flags=re.MULTILINE)
         mch = rgx_failed.search(out)
@@ -1345,14 +1356,18 @@ class EB_LLVM(CMakeMake):
             else:
                 self.log.info("Ignoring timed out tests as per configuration")
 
-        if num_failed != failed_pattern_matches:
+        if num_failed != num_failed_pattern_matches:
             msg = f"Number of failed tests ({num_failed}) does not match "
-            msg += f"Number identified via line-by-line pattern matching: {failed_pattern_matches}"
+            msg += f"Number identified via line-by-line pattern matching: {num_failed_pattern_matches}"
             self.log.warning(msg)
 
-        if num_failed is not None and ignored_pattern_matches:
-            self.log.info("Ignored %s failed tests due to ignore patterns", ignored_pattern_matches)
-            num_failed -= ignored_pattern_matches
+        if num_failed is not None and num_ignored_pattern_matches:
+            self.log.info("Ignored %s out of %s failed tests due to ignore patterns",
+                          num_ignored_pattern_matches, num_failed)
+            num_failed -= num_ignored_pattern_matches
+            if relevant_failures:
+                self.log.info("%s remaining failures considered:\n\t%s",
+                              num_failed, '\n\t'.join(relevant_failures))
 
         return num_failed
 
@@ -1487,7 +1502,8 @@ class EB_LLVM(CMakeMake):
 
     def _sanity_check_dynamic_linker(self):
         """Check if the dynamic linker is correct."""
-        if self.sysroot:
+        sysroot = build_option('sysroot')
+        if sysroot and 'clang' in self.final_projects:
             # compile & test trivial C program to verify that works
             test_fn = 'test123'
             test_txt = '#include <stdio.h>\n'
@@ -1503,7 +1519,7 @@ class EB_LLVM(CMakeMake):
             out = res.output
 
             # Check if the dynamic linker is set to the sysroot
-            if self.sysroot not in out:
+            if sysroot not in out:
                 error_msg = f"Dynamic linker is not set to the sysroot '{self.sysroot}'"
                 raise EasyBuildError(error_msg)
 
@@ -1536,6 +1552,14 @@ class EB_LLVM(CMakeMake):
             arch = 'aarch64'
         else:
             print_warning("Unknown CPU architecture (%s) for OpenMP and runtime libraries check!" % arch, log=self.log)
+
+        extra_modules = kwargs.get('extra_modules', [])
+        # binutils is required for the linking step in the `llvm-config --link-static` test
+        extra_modules.extend(
+            d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils'
+        )
+        # Perform the module loading for the sanity check here to ensure that gcc_prefix can be checked
+        self.sanity_check_load_module(extra_modules=extra_modules)
 
         check_files = []
         check_bin_files = []
@@ -1721,9 +1745,6 @@ class EB_LLVM(CMakeMake):
         # Here, we add the system libraries LLVM expects to find
         minimal_cpp_compiler_cmd += "$(llvm-config --link-static --system-libs all)"
         custom_commands.append(minimal_cpp_compiler_cmd)
-        # binutils is required for the linking step
-        kwargs.setdefault('extra_modules', []).extend(
-            d['short_mod_name'] for d in self.cfg.dependencies() if d['name'] == 'binutils')
 
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands, *args, **kwargs)
 

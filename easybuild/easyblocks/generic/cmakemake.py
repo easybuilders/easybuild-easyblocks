@@ -263,6 +263,10 @@ class CMakeMake(ConfigureMake):
             install_target = os.path.join(install_target, install_target_subdir)
         options = {'CMAKE_INSTALL_PREFIX': install_target}
 
+        if self.cmake_version >= '3.16':
+            # Avoid some software using a lower log level than the default if this is unset
+            options['CMAKE_MESSAGE_LOG_LEVEL'] = 'STATUS'
+
         if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
             # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
             localstatedir = os.path.join(self.installdir, 'var')
