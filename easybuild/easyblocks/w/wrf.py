@@ -338,11 +338,14 @@ class EB_WRF(EasyBlock):
             # prepare run command
 
             # stack limit needs to be set to unlimited for WRF to work well
+            test_cmd = "ulimit -s unlimited && "
+            pretestopts = self.cfg['pretestopts']
             if self.cfg['buildtype'] in self.parallel_build_types:
-                test_cmd = "ulimit -s unlimited && %s && %s" % (self.toolchain.mpi_cmd_for("./ideal.exe", 1),
-                                                                self.toolchain.mpi_cmd_for("./wrf.exe", n_mpi_ranks))
+                test_cmd += f' && {pretestopts} {self.toolchain.mpi_cmd_for("./ideal.exe", 1)}'
+                test_cmd += f' && {pretestopts} {self.toolchain.mpi_cmd_for("./wrf.exe", n_mpi_ranks)}'
             else:
-                test_cmd = "ulimit -s unlimited && ./ideal.exe && ./wrf.exe >rsl.error.0000 2>&1"
+                test_cmd += f' && {pretestopts} ./ideal.exe'
+                test_cmd += f' && {pretestopts} ./wrf.exe >rsl.error.0000 2>&1'
 
             # regex to check for successful test run
             re_success = re.compile("SUCCESS COMPLETE WRF")
