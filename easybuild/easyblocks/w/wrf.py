@@ -216,11 +216,11 @@ class EB_WRF(EasyBlock):
 
         # make sure correct compilers are being used
         comps = {
-            'SCC': os.getenv('CC'),
-            'SFC': os.getenv('F90'),
-            'CCOMP': os.getenv('CC'),
-            'DM_FC': os.getenv('MPIF90'),
-            'DM_CC': "%s -DMPI2_SUPPORT" % os.getenv('MPICC'),
+            'SCC': os.environ['CC'],
+            'SFC': os.environ['F90'],
+            'CCOMP': os.environ['CC'],
+            'DM_FC': os.environ['MPIF90'],
+            'DM_CC': "%s -DMPI2_SUPPORT" % os.environ['MPICC'],
         }
         regex_subs = [(r"^(%s\s*=\s*).*$" % k, r"\1 %s" % v) for (k, v) in comps.items()]
         # fix hardcoded preprocessor
@@ -243,15 +243,16 @@ class EB_WRF(EasyBlock):
                 if comps['SCC'] != 'icx':  # -heap-arrays not supported by LLVM-based icx
                     envars.append('CFLAGS')
                 for envvar in envars:
-                    val = os.getenv(envvar)
+                    val = os.environ[envvar]
                     if '-O3' in val:
-                        env.setvar(envvar, '%s -heap-arrays' % val)
-                        self.log.info("Updated %s to '%s'" % (envvar, os.getenv(envvar)))
+                        val += ' -heap-arrays'
+                        env.setvar(envvar, val)
+                        self.log.info("Updated %s to '%s'" % (envvar, val))
 
             # replace -O3 with desired optimization options
             regex_subs = [
-                (r"^(FCOPTIM.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.getenv('FFLAGS')),
-                (r"^(CFLAGS_LOCAL.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.getenv('CFLAGS')),
+                (r"^(FCOPTIM.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.environ['FFLAGS']),
+                (r"^(CFLAGS_LOCAL.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.environ['CFLAGS']),
             ]
             apply_regex_substitutions(cfgfile, regex_subs)
 
@@ -443,6 +444,7 @@ class EB_WRF(EasyBlock):
         """Add netCDF environment variables to module file."""
         txt = super().make_module_extra()
         for netcdf_var in ['NETCDF', 'NETCDFF']:
-            if os.getenv(netcdf_var) is not None:
-                txt += self.module_generator.set_environment(netcdf_var, os.getenv(netcdf_var))
+            val = os.getenv(netcdf_var)
+            if val is not None:
+                txt += self.module_generator.set_environment(netcdf_var, val)
         return txt
