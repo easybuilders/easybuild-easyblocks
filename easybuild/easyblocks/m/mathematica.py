@@ -154,6 +154,6 @@ class EB_Mathematica(Binary):
         if LooseVersion(self.version) < LooseVersion("14.1"):
             custom_commands = ['mathematica --version']
         else:
-            custom_commands = ['WolframKernel -run "Exit[]"']
+            custom_commands = ['wolframnb --version']
 
         super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
