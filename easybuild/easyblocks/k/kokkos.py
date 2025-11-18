@@ -76,10 +76,10 @@ KOKKOS_CPU_ARCH_LIST = [
     'RISCV_RVA22V',  # RISC-V RVA22V CPU, since Kokkos 4.5
     'RISCV_U74MC',  # RISC-V U74MC, since Kokkos 4.7
 
-    'KEPLER30',  # NVIDIA Kepler generation CC 3.0 GPU
-    'KEPLER32',  # NVIDIA Kepler generation CC 3.2 GPU
-    'KEPLER35',  # NVIDIA Kepler generation CC 3.5 GPU
-    'KEPLER37',  # NVIDIA Kepler generation CC 3.7 GPU
+    'KEPLER30',  # NVIDIA Kepler generation CC 3.0 GPU, removed in Kokkos 5.0
+    'KEPLER32',  # NVIDIA Kepler generation CC 3.2 GPU, removed in Kokkos 5.0
+    'KEPLER35',  # NVIDIA Kepler generation CC 3.5 GPU, removed in Kokkos 5.0
+    'KEPLER37',  # NVIDIA Kepler generation CC 3.7 GPU, removed in Kokkos 5.0
     'MAXWELL50',  # NVIDIA Maxwell generation CC 5.0 GPU
     'MAXWELL52',  # NVIDIA Maxwell generation CC 5.2 GPU
     'MAXWELL53',  # NVIDIA Maxwell generation CC 5.3 GPU
@@ -103,6 +103,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'AMD_GFX1030',  # AMD GPU V620/W6800, since Kokkos 4.2
     'AMD_GFX1100',  # AMD GPU RX7900XTX, since Kokkos 4.2
     'AMD_GFX1103',  # AMD APU Phoenix, since Kokkos 4.5
+    'AMD_GFX1201',  # AMD AI PRO R9700, Radeon RX 9070 XT, since Kokkos 5.0
 
     'INTEL_GEN',  # Intel GPUs Gen9+
     'INTEL_DG1',  # Intel Iris XeMAX GPU
@@ -159,7 +160,9 @@ class EB_Kokkos(CMakeMake):
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
             'kokkos_arch': [None, "Set Kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'enable_sycl': [False, 'Enable SYCL backend for Intel compilers (default = False)', CUSTOM]
+            'enable_sycl': [False, 'Enable SYCL backend for Intel compilers (default = False)', CUSTOM],
+            'enable_multiple_cmake_languages':
+                ['Make Kokkos installation usable in CXX and backend-compatible languages (CUDA or HIP).', CUSTOM]
         })
         return extra_vars
 
@@ -297,5 +300,11 @@ class EB_Kokkos(CMakeMake):
 
         # Enable bindings for tuning tools
         self.cfg.update('configopts', '-DKokkos_ENABLE_TUNING=ON')
+
+        if self.cfg['enable_multiple_cmake_languages']:
+            if LooseVersion(self.version) < LooseVersion('5.0'):
+                raise EasyBuildError('Option enable_multiple_cmake_languages is supported for Kokkos 5.0 and newer.')
+            else:
+                self.cfg.update('configopts', '-DKokkos_ENABLE_MULTIPLE_CMAKE_LANGUAGES=ON')
 
         return super().configure_step(srcdir, builddir)
