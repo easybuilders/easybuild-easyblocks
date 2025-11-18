@@ -456,7 +456,7 @@ class EasyBlockSpecificTest(TestCase):
             cc.workspace = true
 
             [dev-dependencies]
-            rand.workspace = true
+            rand = { workspace = true }
         """))
         cargo.merge_sub_crate(cargo_toml, ws_parsed)
         self.assertEqual(read_file(cargo_toml).strip(), textwrap.dedent("""
