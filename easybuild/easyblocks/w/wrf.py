@@ -239,7 +239,10 @@ class EB_WRF(EasyBlock):
             if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
 
                 # -O3 -heap-arrays is required to resolve compilation error
-                for envvar in ['CFLAGS', 'FFLAGS']:
+                envars = ['FFLAGS']
+                if comps['SCC'] != 'icx':  # -heap-arrays not supported by LLVM-based icx
+                    envars.append('CFLAGS')
+                for envvar in envars:
                     val = os.getenv(envvar)
                     if '-O3' in val:
                         env.setvar(envvar, '%s -heap-arrays' % val)
