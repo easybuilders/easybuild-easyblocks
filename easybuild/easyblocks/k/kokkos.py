@@ -162,7 +162,7 @@ class EB_Kokkos(CMakeMake):
             'kokkos_arch': [None, "Set Kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
             'enable_sycl': [False, 'Enable SYCL backend for Intel compilers (default = False)', CUSTOM],
             'enable_multiple_cmake_languages':
-                ['Make Kokkos installation usable in CXX and backend-compatible languages (CUDA or HIP).', CUSTOM]
+                [False, 'Make Kokkos installation usable in CXX and backend-compatible languages.', CUSTOM]
         })
         return extra_vars
 
