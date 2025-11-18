@@ -173,7 +173,7 @@ class EB_Mathematica(Binary):
 
         # Use appropriate executable for version check
         if LooseVersion(self.version) >= LooseVersion("14"):
-            version_cmd = 'wolfram --version'
+            version_cmd = 'wolframbn --version'
         else:
             version_cmd = 'mathematica --version'
         custom_commands = [version_cmd]
