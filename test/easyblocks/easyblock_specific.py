@@ -490,9 +490,9 @@ class EasyBlockSpecificTest(TestCase):
         """Test translate_lammps_version function from LAMMPS easyblock"""
         lammps_versions = {
             '23Jun2022': '2022.06.23',
-            '2Aug2023_update2': '2023.08.02',
+            '2Aug2023_update2': '2023.08.02.2',
             '29Aug2024': '2024.08.29',
-            '29Aug2024_update2': '2024.08.29',
+            '29Aug2024_update2': '2024.08.29.2',
             '28Oct2024': '2024.10.28',
         }
         for key in lammps_versions:
@@ -507,6 +507,15 @@ class EasyBlockSpecificTest(TestCase):
 
         self.assertEqual(lammps.translate_lammps_version('d3adb33f', path=self.tmpdir), '2025.04.02')
         self.assertEqual(lammps.translate_lammps_version('devel', path=self.tmpdir), '2025.04.02')
+
+        version_file = os.path.join(self.tmpdir, 'src', 'version.h')
+        version_txt = '\n'.join([
+            '#define LAMMPS_VERSION "2 Apr 2025"',
+            '#define LAMMPS_UPDATE "Update 3"',
+        ])
+        write_file(version_file, version_txt)
+
+        self.assertEqual(lammps.translate_lammps_version('d3adb33f', path=self.tmpdir), '2025.04.02.3')
 
 
 def suite(loader):
