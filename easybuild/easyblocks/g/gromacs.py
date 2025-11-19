@@ -336,7 +336,7 @@ class EB_GROMACS(CMakeMake):
                 if gromacs_version >= '2020':
                     # build Python bindings if Python is loaded as a dependency
                     python_root = get_software_root('Python')
-                    if self.cfg['python_pkg'] is True and not python_root:
+                    if self.cfg['python_pkg'] and not python_root:
                         msg = "Building Python gmxapi has been requested but Python is not listed as a dependency."
                         raise EasyBuildError(msg)
                     elif python_root and self.cfg['python_pkg'] is False:
