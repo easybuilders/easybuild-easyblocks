@@ -40,6 +40,7 @@ from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.base import fancylogger
+from easybuild.easyblocks.python import set_py_env_vars
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option
@@ -66,19 +67,26 @@ INTEL_PACKAGE_ARCH_LIST = [
 ]
 
 KOKKOS_CPU_ARCH_LIST = [
+    'NATIVE'  # Local CPU architecture, available since LAMMPS 2Aug2023
     'AMDAVX',  # AMD 64-bit x86 CPU (AVX 1)
     'ZEN',  # AMD Zen class CPU (AVX 2)
     'ZEN2',  # AMD Zen2 class CPU (AVX 2)
     'ZEN3',  # AMD Zen3 class CPU (AVX 2)
+    'ZEN4',  # AMD Zen4 class CPU (AVX-512), since LAMMPS 2Apr2025
+    'ZEN5',  # AMD Zen5 class CPU (AVX-512), since LAMMPS 22Jul2025
     'ARMV80',  # ARMv8.0 Compatible CPU
     'ARMV81',  # ARMv8.1 Compatible CPU
     'ARMV8_THUNDERX',  # ARMv8 Cavium ThunderX CPU
     'ARMV8_THUNDERX2',  # ARMv8 Cavium ThunderX2 CPU
     'A64FX',  # ARMv8.2 with SVE Support
+    'ARMV9_GRACE',  # ARMv9 NVIDIA Grace CPU, since LAMMPS 4Feb2025
     'BGQ',  # IBM Blue Gene/Q CPU
     'POWER7',  # IBM POWER7 CPU
     'POWER8',  # IBM POWER8 CPU
     'POWER9',  # IBM POWER9 CPU
+    'RISCV_SG2042',  # RISC-V SG2042 CPU, since LAMMPS 4Feb2025
+    'RISCV_RVA22V',  # RISC-V RVA22V CPU, since LAMMPS 4Feb2025
+
     'KEPLER30',  # NVIDIA Kepler generation CC 3.0 GPU
     'KEPLER32',  # NVIDIA Kepler generation CC 3.2 GPU
     'KEPLER35',  # NVIDIA Kepler generation CC 3.5 GPU
@@ -95,12 +103,24 @@ KOKKOS_CPU_ARCH_LIST = [
     'AMPERE86',  # NVIDIA Ampere generation CC 8.6 GPU
     'ADA89',  # NVIDIA Ada Lovelace generation CC 8.9 GPU
     'HOPPER90',  # NVIDIA Hopper generation CC 9.0 GPU
+    'BLACKWELL100',  # NVIDIA Blackwell generation CC 10.0 GPU, since LAMMPS 22Jul2025
+    'BLACKWELL120',  # NVIDIA Blackwell generation CC 12.0 GPU, since LAMMPS 22Jul2025
+
     'VEGA900',  # AMD GPU MI25 GFX900
     'VEGA906',  # AMD GPU MI50/MI60 GFX906
     'VEGA908',  # AMD GPU MI100 GFX908
     'VEGA90A',  # AMD GPU MI200 GFX90A
     'NAVI1030',  # AMD GPU MI200 GFX90A
     'NAVI1100',  # AMD GPU RX7900XTX
+    'AMD_GFX906',  # AMD GPU MI50/MI60, since LAMMPS 29Aug2024
+    'AMD_GFX908',  # AMD GPU MI100, since LAMMPS 29Aug2024
+    'AMD_GFX90A',  # AMD GPU MI200, since LAMMPS 29Aug2024
+    'AMD_GFX942',  # AMD GPU MI300, since LAMMPS 29Aug2024
+    'AMD_GFX942_APU',  # AMD APU MI300A, since LAMMPS 4Feb2025
+    'AMD_GFX1030',  # AMD GPU V620/W6800, since LAMMPS 29Aug2024
+    'AMD_GFX1100',  # AMD GPU RX7900XTX, since LAMMPS 29Aug2024
+    'AMD_GFX1103',  # AMD APU Phoenix, since LAMMPS 29Aug2024
+
     'INTEL_GEN',  # Intel GPUs Gen9+
     'INTEL_DG1',  # Intel Iris XeMAX GPU
     'INTEL_GEN9',  # Intel GPU Gen9
@@ -108,6 +128,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'INTEL_GEN12LP',  # Intel GPU Gen12LP
     'INTEL_XEHP',  # Intel GPUs Xe-HP
     'INTEL_PVC',  # Intel GPU Ponte Vecchio
+    'INTEL_DG2',  # Intel GPU DG2, since LAMMPS 22Jul2025
 ] + INTEL_PACKAGE_ARCH_LIST
 
 KOKKOS_LEGACY_ARCH_MAPPING = {
@@ -134,7 +155,6 @@ KOKKOS_CPU_MAPPING = {
     'power9le': 'POWER9',
 }
 
-
 KOKKOS_GPU_ARCH_TABLE = {
     '3.0': 'KEPLER30',  # NVIDIA Kepler generation CC 3.0
     '3.2': 'KEPLER32',  # NVIDIA Kepler generation CC 3.2
@@ -150,7 +170,10 @@ KOKKOS_GPU_ARCH_TABLE = {
     '7.5': 'TURING75',  # NVIDIA Turing generation CC 7.5
     '8.0': 'AMPERE80',  # NVIDIA Ampere generation CC 8.0
     '8.6': 'AMPERE86',  # NVIDIA Ampere generation CC 8.6
+    '8.9': 'ADA89',  # NVIDIA Ada Lovelace generation CC 8.9
     '9.0': 'HOPPER90',  # NVIDIA Hopper generation CC 9.0
+    '10.0': 'BLACKWELL100',  # NVIDIA Blackwell generation CC 10.0
+    '12.0': 'BLACKWELL120',  # NVIDIA Blackwell generation CC 12.0
 }
 
 # lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
@@ -228,10 +251,94 @@ class EB_LAMMPS(CMakeMake):
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
             self.kokkos_cpu_mapping['icelake'] = 'ICX'
             self.kokkos_cpu_mapping['sapphirerapids'] = 'SPR'
+            self.kokkos_cpu_mapping['skylake'] = 'SKL'
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('4Feb2025')):
-            self.kokkos_cpu_mapping['neoverse_v2'] = 'ARMv9-Grace'
+            self.kokkos_cpu_mapping['neoverse_v2'] = 'ARMV9_GRACE'
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Apr2025')):
             self.kokkos_cpu_mapping['zen4'] = 'ZEN4'
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('22Jul2025')):
+            self.kokkos_cpu_mapping['zen5'] = 'ZEN5'
+
+    def get_kokkos_arch(self, cuda_cc, kokkos_arch):
+        """
+        Return KOKKOS ARCH in LAMMPS required format, which is 'CPU_ARCH' and 'GPU_ARCH'.
+
+        see: https://docs.lammps.org/Build_extras.html#kokkos
+        """
+        # CPU arch
+        # NOTE: if the CPU KOKKOS_ARCH flag is specified, Kokkos will add the correspondent `-march` and `-mtune` flags
+        # to the compiler flags, which may override the ones set by EasyBuild.
+        # https://github.com/lammps/lammps/blob/stable_29Aug2024/lib/kokkos/cmake/kokkos_arch.cmake#L228-L531
+        processor_arch = None
+        if build_option('optarch') == OPTARCH_GENERIC:
+            # For generic Arm builds we use an existing target;
+            # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
+            # For other architectures we set a custom/non-existent type, which will disable all optimizations,
+            # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
+            if get_cpu_architecture() == AARCH64:
+                processor_arch = 'ARMV80'
+            else:
+                processor_arch = 'EASYBUILD_GENERIC'
+
+            _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
+            if kokkos_arch:
+                msg = "The specified kokkos_arch (%s) will be ignored " % kokkos_arch
+                msg += "because a generic build was requested (via --optarch=GENERIC)"
+                print_warning(msg)
+        elif kokkos_arch:
+            if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
+                warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
+                warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
+                warning_msg += "Still might work though."
+                print_warning(warning_msg)
+            processor_arch = kokkos_arch
+
+        # If kokkos_arch was not set...
+        elif LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
+            # for LAMMPS >= 2Aug2023: use native CPU arch
+            # If we specify a CPU arch, Kokkos' CMake will add the correspondent -march and -mtune flags to the
+            # compilation line, possibly overriding the ones set by EasyBuild.
+            processor_arch = 'NATIVE'
+        else:
+            # for old versions: try to auto-detect CPU arch
+            warning_msg = "kokkos_arch not set. Trying to auto-detect CPU arch."
+            print_warning(warning_msg)
+
+            processor_arch = self.kokkos_cpu_mapping.get(get_cpu_arch())
+
+            if not processor_arch:
+                error_msg = "Couldn't determine CPU architecture, you need to set 'kokkos_arch' manually."
+                raise EasyBuildError(error_msg)
+
+            print_msg("Determined cpu arch: %s" % processor_arch)
+
+        # arch names changed between some releases :(
+        if LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('29Oct2020')):
+            if processor_arch in KOKKOS_LEGACY_ARCH_MAPPING.keys():
+                processor_arch = KOKKOS_LEGACY_ARCH_MAPPING[processor_arch]
+
+        # GPU arch
+        gpu_arch = None
+        if self.cuda:
+            # CUDA below
+            for cc in sorted(cuda_cc, reverse=True):
+                gpu_arch = KOKKOS_GPU_ARCH_TABLE.get(str(cc))
+                if gpu_arch:
+                    print_warning(
+                        "LAMMPS will be built _only_ for the latest CUDA compute capability known to Kokkos: "
+                        "%s" % gpu_arch
+                    )
+                    break
+                else:
+                    warning_msg = "(%s) GPU ARCH was not found in listed options." % cc
+                    print_warning(warning_msg)
+
+            if not gpu_arch:
+                error_msg = "Specified GPU ARCH (%s) " % cuda_cc
+                error_msg += "was not found in listed options [%s]." % KOKKOS_GPU_ARCH_TABLE
+                raise EasyBuildError(error_msg)
+
+        return processor_arch, gpu_arch
 
     @staticmethod
     def extra_options(**kwargs):
@@ -244,7 +351,6 @@ class EB_LAMMPS(CMakeMake):
             'user_packages': [None, "List user packages (without prefix PKG_ or USER-PKG_).", CUSTOM],
             'sanity_check_test_inputs': [None, "List of tests for sanity-check.", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def prepare_step(self, *args, **kwargs):
@@ -268,12 +374,14 @@ class EB_LAMMPS(CMakeMake):
         else:
             self.pkg_user_prefix = self.pkg_prefix + 'USER-'
 
-        if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
+        # Prepare KOKKOS_GPU_ARCH_TABLE based on version
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Oct2020')):
             self.kokkos_prefix = 'Kokkos'
         else:
             self.kokkos_prefix = 'KOKKOS'
-            for cc in KOKKOS_GPU_ARCH_TABLE.keys():
-                KOKKOS_GPU_ARCH_TABLE[cc] = KOKKOS_GPU_ARCH_TABLE[cc].lower().title()
+            # title case GPU arch names
+            for cc in list(KOKKOS_GPU_ARCH_TABLE.keys()):
+                KOKKOS_GPU_ARCH_TABLE[cc] = KOKKOS_GPU_ARCH_TABLE[cc].title()
 
         self.kokkos_cpu_mapping = copy.deepcopy(KOKKOS_CPU_MAPPING)
         self.update_kokkos_cpu_mapping()
@@ -361,7 +469,9 @@ class EB_LAMMPS(CMakeMake):
                 self.cfg.update('configopts', '-DEigen3_DIR=%s/share/eigen3/cmake/' % get_software_root('Eigen'))
 
         # LAMMPS Configuration Options
-        # https://github.com/lammps/lammps/blob/master/cmake/README.md#lammps-configuration-options
+        # https://docs.lammps.org/Build_basics.html
+        # https://docs.lammps.org/Build_settings.html
+        # https://docs.lammps.org/Build_package.html
         if self.cfg['general_packages']:
             for package in self.cfg['general_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_prefix, package))
@@ -376,18 +486,10 @@ class EB_LAMMPS(CMakeMake):
             self.cfg.update('configopts', pkg_opt + 'on')
 
         # grab the architecture so we can check if we have Intel hardware (also used for Kokkos below)
-        processor_arch, gpu_arch = get_kokkos_arch(self.kokkos_cpu_mapping,
-                                                   cuda_cc,
-                                                   self.cfg['kokkos_arch'],
-                                                   cuda=self.cuda)
-        # arch names changed between some releases :(
-        if LooseVersion(self.cur_version) < LooseVersion(self.ref_version):
-            if processor_arch in KOKKOS_LEGACY_ARCH_MAPPING.keys():
-                processor_arch = KOKKOS_LEGACY_ARCH_MAPPING[processor_arch]
-            if gpu_arch in KOKKOS_GPU_ARCH_TABLE.values():
-                gpu_arch = gpu_arch.capitalize()
+        processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
 
-        if processor_arch in INTEL_PACKAGE_ARCH_LIST:
+        if processor_arch in INTEL_PACKAGE_ARCH_LIST or \
+           (processor_arch == 'NATIVE' and self.kokkos_cpu_mapping.get(get_cpu_arch()) in INTEL_PACKAGE_ARCH_LIST):
             # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
             pkg_user_intel = '-D%sINTEL=' % self.pkg_user_prefix
             if pkg_user_intel not in self.cfg['configopts']:
@@ -442,6 +544,19 @@ class EB_LAMMPS(CMakeMake):
                     self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, processor_arch))
                 else:
                     self.cfg.update('configopts', '-D%s_ARCH="%s"' % (self.kokkos_prefix, processor_arch))
+
+            # Selection of the FFT library for KOKKOS (available since version 29Aug2024)
+            # See: https://docs.lammps.org/Build_settings.html#fft-library
+            #      https://docs.lammps.org/Build_extras.html#kokkos
+            # For the sake of performance, do not use internal KISS FFT library, if possible
+            if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Aug2024')):
+                if self.cuda:
+                    self.cfg.update('configopts', '-DFFT_KOKKOS=CUFFT')
+                else:
+                    if get_software_root("imkl"):
+                        self.cfg.update('configopts', '-DFFT_KOKKOS=MKL')
+                    elif get_software_root("FFTW"):
+                        self.cfg.update('configopts', '-DFFT_KOKKOS=FFTW3')
 
         # CUDA only
         elif self.cuda:
@@ -532,6 +647,7 @@ class EB_LAMMPS(CMakeMake):
                 'site_packages': site_packages,
             }
 
+            set_py_env_vars(self.log)
             run_shell_cmd(cmd)
 
     def sanity_check_step(self, *args, **kwargs):
@@ -572,13 +688,7 @@ class EB_LAMMPS(CMakeMake):
         if self.toolchain.options.get('usempi', None):
             custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
 
-        # Requires liblammps.so to be findable by the runtime linker (which it might not be if using
-        # rpath and filtering out LD_LIBRARY_PATH)
-        set_ld_library_path = ''
-        if self.installdir not in os.getenv('LD_LIBRARY_PATH', default=''):
-            # Use LIBRARY_PATH to set it
-            set_ld_library_path = "LD_LIBRARY_PATH=$LIBRARY_PATH:$LD_LIBRARY_PATH "
-        custom_commands = ["cd %s && " % execution_dir + set_ld_library_path + cmd for cmd in custom_commands]
+        custom_commands = ["cd %s && " % execution_dir + cmd for cmd in custom_commands]
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
@@ -603,75 +713,6 @@ def get_cuda_gpu_arch(cuda_cc):
     """Return CUDA gpu ARCH in LAMMPS required format. Example: 'sm_32' """
     # Get largest cuda supported
     return 'sm_%s' % str(sorted(cuda_cc, reverse=True)[0]).replace(".", "")
-
-
-def get_kokkos_arch(kokkos_cpu_mapping, cuda_cc, kokkos_arch, cuda=None):
-    """
-    Return KOKKOS ARCH in LAMMPS required format, which is 'CPU_ARCH' and 'GPU_ARCH'.
-
-    see: https://docs.lammps.org/Build_extras.html#kokkos
-    """
-    if cuda is None or not isinstance(cuda, bool):
-        cuda = get_software_root('CUDA')
-
-    processor_arch = None
-
-    if build_option('optarch') == OPTARCH_GENERIC:
-        # For generic Arm builds we use an existing target;
-        # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
-        # For other architectures we set a custom/non-existent type, which will disable all optimizations,
-        # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
-        if get_cpu_architecture() == AARCH64:
-            processor_arch = 'ARMV80'
-        else:
-            processor_arch = 'EASYBUILD_GENERIC'
-
-        _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
-        if kokkos_arch:
-            msg = "The specified kokkos_arch (%s) will be ignored " % kokkos_arch
-            msg += "because a generic build was requested (via --optarch=GENERIC)"
-            print_warning(msg)
-    elif kokkos_arch:
-        if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
-            warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
-            warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
-            warning_msg += "Still might work though."
-            print_warning(warning_msg)
-        processor_arch = kokkos_arch
-
-    else:
-        warning_msg = "kokkos_arch not set. Trying to auto-detect CPU arch."
-        print_warning(warning_msg)
-
-        processor_arch = kokkos_cpu_mapping.get(get_cpu_arch())
-
-        if not processor_arch:
-            error_msg = "Couldn't determine CPU architecture, you need to set 'kokkos_arch' manually."
-            raise EasyBuildError(error_msg)
-
-        print_msg("Determined cpu arch: %s" % processor_arch)
-
-    gpu_arch = None
-    if cuda:
-        # CUDA below
-        for cc in sorted(cuda_cc, reverse=True):
-            gpu_arch = KOKKOS_GPU_ARCH_TABLE.get(str(cc))
-            if gpu_arch:
-                print_warning(
-                    "LAMMPS will be built _only_ for the latest CUDA compute capability known to Kokkos: "
-                    "%s" % gpu_arch
-                )
-                break
-            else:
-                warning_msg = "(%s) GPU ARCH was not found in listed options." % cc
-                print_warning(warning_msg)
-
-        if not gpu_arch:
-            error_msg = "Specified GPU ARCH (%s) " % cuda_cc
-            error_msg += "was not found in listed options [%s]." % KOKKOS_GPU_ARCH_TABLE
-            raise EasyBuildError(error_msg)
-
-    return processor_arch, gpu_arch
 
 
 def check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda=None):

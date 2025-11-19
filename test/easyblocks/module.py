@@ -412,7 +412,7 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         self.assertTrue(False, "Class found in easyblock %s" % easyblock)
 
 
-def suite():
+def suite(loader):
     """Return all easyblock --module-only tests."""
     def make_inner_test(easyblock, **kwargs):
         def innertest(self):
@@ -477,7 +477,7 @@ def suite():
             extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
             innertest = make_inner_test(easyblock, name='foo', version='1.2.3.4', extra_txt=extra_txt)
         elif eb_fn in ['advisor.py', 'icc.py', 'iccifort.py', 'ifort.py', 'imkl.py', 'imkl_fftw.py',
-                       'inspector.py', 'itac.py', 'tbb.py', 'vtune.py']:
+                       'inspector.py', 'ipp.py', 'itac.py', 'tbb.py', 'vtune.py']:
             # family of IntelBase easyblocks have a minimum version support based on currently supported toolchains
             innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], version='9999.9')
         elif eb_fn == 'aocc.py':
@@ -519,10 +519,10 @@ def suite():
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
         setattr(ModuleOnlyTest, innertest.__name__, innertest)
 
-    return TestLoader().loadTestsFromTestCase(ModuleOnlyTest)
+    return loader.loadTestsFromTestCase(ModuleOnlyTest)
 
 
 if __name__ == '__main__':
-    res = TextTestRunner(verbosity=1).run(suite())
+    res = TextTestRunner(verbosity=1).run(suite(TestLoader()))
     remove_dir(TMPDIR)
     sys.exit(len(res.failures))

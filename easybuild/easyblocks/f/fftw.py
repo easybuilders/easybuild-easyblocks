@@ -36,6 +36,7 @@ from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
 from easybuild.toolchains.compiler.fujitsu import TC_CONSTANT_FUJITSU
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV32, RISCV64, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -239,8 +240,14 @@ class EB_FFTW(ConfigureMake):
 
             # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
             # to avoid that some tests fail if only a handful of cores are available
-            if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
-                self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
+            ompi_ver = get_software_version('OpenMPI')
+            if LooseVersion(ompi_ver) >= LooseVersion('5.0'):
+                if 'PRTE_MCA_rmaps_default_mapping_policy' not in self.cfg['pretestopts']:
+                    self.cfg.update('pretestopts', "export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe && ")
+            else:
+                # OpenMPI 4 and older (including NVHPC)
+                if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
+                    self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
 
         super().test_step()
 

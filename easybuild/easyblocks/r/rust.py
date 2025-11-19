@@ -108,6 +108,9 @@ class EB_Rust(ConfigureMake):
 
         self.cfg.update('configopts', "--sysconfdir=%s" % os.path.join(self.installdir, 'etc'))
 
+        # documentation is very large and everyone will only look it up online anyway
+        self.cfg.update('configopts', "--disable-docs")
+
         # old llvm builds from CI get deleted after a certain time
         self.cfg.update('configopts', "--set=llvm.download-ci-llvm=false")
 

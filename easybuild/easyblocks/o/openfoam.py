@@ -293,8 +293,8 @@ class EB_OpenFOAM(EasyBlock):
         # make sure lib/include dirs for dependencies are found
         openfoam_extend_v3 = self.is_extend and self.looseversion >= LooseVersion('3.0')
         if self.looseversion < LooseVersion("2") or openfoam_extend_v3:
-            self.log.debug("List of deps: %s" % self.cfg.dependencies())
-            for dep in self.cfg.dependencies():
+            self.log.debug("List of deps: %s" % self.cfg.dependencies(runtime_only=True))
+            for dep in self.cfg.dependencies(runtime_only=True):
                 dep_name = dep['name'].upper(),
                 dep_root = get_software_root(dep['name'])
                 env.setvar("%s_SYSTEM" % dep_name, "1")
@@ -572,7 +572,7 @@ class EB_OpenFOAM(EasyBlock):
 
             if self.looseversion <= LooseVersion('10'):
                 cmds = [
-                        "cp -a %s %s" % (motorbike_path, test_dir),
+                        "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
                         # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
                         "chmod -R +w %s" % test_dir,
                         "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
@@ -594,7 +594,7 @@ class EB_OpenFOAM(EasyBlock):
             # v11 and above run the motorBike example differently
             else:
                 cmds = [
-                        "cp -a %s %s" % (motorbike_path, test_dir),
+                        "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
                         # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
                         "chmod -R +w  %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
                         "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),

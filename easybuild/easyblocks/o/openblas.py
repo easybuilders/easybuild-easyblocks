@@ -45,7 +45,7 @@ class EB_OpenBLAS(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """ Ensure iterative build if also building with 64-bit integer support """
-        super(EB_OpenBLAS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.cfg['enable_ilp64']:
             if not isinstance(self.cfg['buildopts'], list):
@@ -168,7 +168,7 @@ class EB_OpenBLAS(ConfigureMake):
 
     def install_step(self):
         """Fix libsuffix in openblas64.pc if it exists"""
-        super(EB_OpenBLAS, self).install_step()
+        super().install_step()
         if self.iter_idx > 0 and self.cfg['enable_ilp64'] and self.cfg['ilp64_lib_suffix']:
             filepath = os.path.join(self.installdir, 'lib', 'pkgconfig', 'openblas64.pc')
             if os.path.exists(filepath):
@@ -223,7 +223,16 @@ class EB_OpenBLAS(ConfigureMake):
             run_tests += [self.cfg['runtest']]
 
         for runtest in run_tests:
-            cmd = f"{self.cfg['pretestopts']} make {runtest} {self.cfg['testopts']}"
+            # Try to limit parallelism for the tests. If OMP_NUM_THREADS or OPENBLAS_NUM_THREADS is already set,
+            # use the existing value. If not, we'll set OMP_NUM_THREADS for OpenBLAS built with OpenMP, and
+            # OPENBLAS_NUM_THREADS if built with threads.
+            parallelism_env = ''
+            if "USE_OPENMP='1'" in self.cfg['testopts'] and 'OMP_NUM_THREADS' not in self.cfg['pretestopts']:
+                parallelism_env += f'OMP_NUM_THREADS={self.cfg.parallel} '
+            if "USE_THREAD='1'" in self.cfg['testopts'] and 'OPENBLAS_NUM_THREADS' not in self.cfg['pretestopts']:
+                parallelism_env += f'OPENBLAS_NUM_THREADS={self.cfg.parallel} '
+
+            cmd = f"{parallelism_env} {self.cfg['pretestopts']} make {runtest} {self.cfg['testopts']}"
             res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed

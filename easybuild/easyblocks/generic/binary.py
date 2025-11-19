@@ -80,8 +80,10 @@ class Binary(EasyBlock):
             self.log.info("Performing staged installation via %s" % self.installdir)
 
         prepend_to_path = self.cfg.get('prepend_to_path', PREPEND_TO_PATH_DEFAULT)
+        if isinstance(prepend_to_path, str):
+            prepend_to_path = [prepend_to_path]
         if prepend_to_path:
-            self.module_load_environment.PATH.append(prepend_to_path)
+            self.module_load_environment.PATH.extend(prepend_to_path)
 
     def extract_step(self):
         """Copy all source files to the build directory"""
