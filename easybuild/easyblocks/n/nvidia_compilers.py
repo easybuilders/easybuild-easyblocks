@@ -28,6 +28,7 @@ EasyBuild support for installing NVIDIA HPC SDK compilers
 @author: Alex Domingo (Vrije Universiteit Brussel)
 """
 from easybuild.easyblocks.generic.nvidiabase import NvidiaBase
+from easybuild.tools.build_log import EasyBuildError
 
 
 class EB_nvidia_minus_compilers(NvidiaBase):
@@ -44,14 +45,15 @@ class EB_nvidia_minus_compilers(NvidiaBase):
 
         # Unsupported NVHPC options in nvidia-compilers are forced disabled
         disabled_nvhpc_options = [
+            'module_add_math_libs',
+            'module_add_nccl',
+            'module_add_nvshmem',
             'module_byo_compilers',
             'module_nvhpc_own_mpi',
-            'module_add_nccl',
-            'module_add_math_libs',
         ]
         for nvhpc_opt in disabled_nvhpc_options:
             if self.cfg[nvhpc_opt]:
-                self.log.warning(f"Option '{nvhpc_opt}' forced to disabled in {self.name}-{self.version}")
+                raise EasyBuildError(f"Option '{nvhpc_opt}' not supported in {self.name}-{self.version}")
             self.cfg[nvhpc_opt] = False
 
         self._update_nvhpc_environment()
