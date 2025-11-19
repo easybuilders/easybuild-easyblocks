@@ -35,12 +35,12 @@ EasyBuild support for installing NVIDIA HPC SDK
 @author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import fileinput
-import glob
 import os
 import re
 import stat
 import sys
 import tempfile
+from glob import glob
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
@@ -114,11 +114,11 @@ class NvidiaBase(PackedBinary):
         # determine supported CUDA versions from sources
         cuda_subdir_glob = os.path.join(self.install_subdir, 'cuda', self.CUDA_VERSION_GLOB)
         cuda_builddir_glob = os.path.join(self.builddir, 'nvhpc_*', 'install_components', cuda_subdir_glob)
-        supported_cuda_versions = [os.path.basename(cuda_dir) for cuda_dir in glob.glob(cuda_builddir_glob)]
+        supported_cuda_versions = [os.path.basename(cuda_dir) for cuda_dir in glob(cuda_builddir_glob)]
         if not supported_cuda_versions:
             # try install dir in case of module-only installs
             cuda_installdir_glob = os.path.join(self.installdir, cuda_subdir_glob)
-            supported_cuda_versions = [os.path.basename(cuda_dir) for cuda_dir in glob.glob(cuda_installdir_glob)]
+            supported_cuda_versions = [os.path.basename(cuda_dir) for cuda_dir in glob(cuda_installdir_glob)]
 
         if supported_cuda_versions:
             supported_cuda_commasep = ', '.join(supported_cuda_versions)
@@ -490,35 +490,35 @@ class NvidiaBase(PackedBinary):
                 os.path.join(abs_install_subdir, 'comm_libs',  'hpcx*'),
                 os.path.join(abs_install_subdir, 'comm_libs', self.CUDA_VERSION_GLOB, 'hpcx*'),
             ]
-            remove([dir_path for dir_glob in mpi_dir_globs for dir_path in glob.glob(dir_glob)])
-            remove(os.path.join(abs_install_subdir, 'comm_libs',  'mpi'))
+            remove([dir_path for dir_glob in mpi_dir_globs for dir_path in glob(dir_glob)])
+            remove(glob(os.path.join(abs_install_subdir, 'comm_libs',  'mpi')))
         if not self.cfg['module_add_nccl']:
             nccl_dir_glob = os.path.join(abs_install_subdir, 'comm_libs', self.CUDA_VERSION_GLOB, 'nccl')
-            remove(glob.glob(nccl_dir_glob))
+            remove(glob(nccl_dir_glob))
             if LooseVersion(self.version) >= LooseVersion('25.0'):
-                remove(os.path.join(abs_install_subdir, 'comm_libs',  'nccl'))
+                remove(glob(os.path.join(abs_install_subdir, 'comm_libs',  'nccl')))
         if not self.cfg['module_add_nvshmem']:
             shmem_dir_glob = os.path.join(abs_install_subdir, 'comm_libs', self.CUDA_VERSION_GLOB, 'nvshmem')
-            remove(glob.glob(shmem_dir_glob))
+            remove(glob(shmem_dir_glob))
             if LooseVersion(self.version) >= LooseVersion('25.0'):
-                remove(os.path.join(abs_install_subdir, 'comm_libs',  'nvshmem'))
+                remove(glob(os.path.join(abs_install_subdir, 'comm_libs',  'nvshmem')))
         if not self.cfg['module_add_math_libs']:
-            remove(os.path.join(abs_install_subdir, 'math_libs'))
+            remove(glob(os.path.join(abs_install_subdir, 'math_libs')))
         if not self.cfg['module_add_profilers']:
-            remove(os.path.join(abs_install_subdir, 'profilers'))
+            remove(glob(os.path.join(abs_install_subdir, 'profilers')))
         if not self.cfg['module_add_cuda']:
             # remove everything included in each cuda subdir, but leave the top CUDA dirs
             # as they are needed to determine supported versions (e.g. module-only installs)
             cuda_dir_glob = os.path.join(abs_install_subdir, 'cuda', self.CUDA_VERSION_GLOB, '*')
-            remove(glob.glob(cuda_dir_glob))
+            remove(glob(cuda_dir_glob))
             cuda_links_glob = os.path.join(abs_install_subdir, 'cuda', '[a-z]*')
-            remove(glob.glob(cuda_links_glob))
+            remove(glob(cuda_links_glob))
 
         nvcomp_root = get_software_root("nvidia-compilers")
         if nvcomp_root:
             # link external compilers from nvidia-compilers
             current_comp_dir = os.path.join(abs_install_subdir, 'compilers')
-            remove(current_comp_dir)
+            remove(glob(current_comp_dir))
             nvcomp_comp_dir = os.path.join(nvcomp_root, self.install_subdir, 'compilers')
             nvcomp_link_path = os.path.relpath(nvcomp_comp_dir, start=abs_install_subdir)
             symlink(nvcomp_link_path, current_comp_dir, use_abspath_source=False)
