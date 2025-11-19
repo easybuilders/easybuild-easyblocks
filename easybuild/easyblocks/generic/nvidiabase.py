@@ -472,7 +472,7 @@ class NvidiaBase(PackedBinary):
             for filename in ["libnuma.so", "libnuma.so.1"]:
                 path = os.path.join(compilers_subdir, "lib", filename)
                 if os.path.islink(path):
-                    os.remove(path)
+                    remove(path)
 
         if LooseVersion(self.version) < LooseVersion('21.3'):
             # install (or update) siterc file to make NVHPC consider $LIBRARY_PATH
