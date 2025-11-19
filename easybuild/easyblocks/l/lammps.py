@@ -183,7 +183,11 @@ _log = fancylogger.getLogger('easyblocks.lammps')
 
 
 def translate_lammps_version(version, path=None):
-    """Translate the LAMMPS version into something that can be used in a comparison"""
+    """
+    Translate the LAMMPS version into something that can be used in a comparison.
+
+    LAMMPS versions are of the form DDMMMYYYY[_updateN], e.g., 29Aug2024 or 29Aug2024_update2.
+    """
     month_map = {
        "JAN": '01',
        "FEB": '02',
@@ -198,26 +202,33 @@ def translate_lammps_version(version, path=None):
        "NOV": '11',
        "DEC": '12'
     }
-    items = [x for x in re.split('(\\d+)', version) if x]
+    items = [x for x in re.split(r'(\d+)', version) if x]
 
-    try:
-        return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
-    except (IndexError, KeyError):
+    if len(items) == 3:
+        return f"{items[2]}.{month_map[items[1].upper()]}.{int(items[0]):02d}"
+    elif len(items) == 5 and items[3] == '_update':
+        return f"{items[2]}.{month_map[items[1].upper()]}.{int(items[0]):02d}.{items[4]}"
+    else:
         # avoid failing miserably under --module-only --force
         if path and os.path.exists(path) and os.listdir(path):
             version_file = os.path.join(path, 'src', 'version.h')
             if os.path.exists(version_file):
                 txt = read_file(os.path.join(path, 'src', 'version.h'))
-                result = re.search(r'(?<=LAMMPS_VERSION ")\d+ \S+ \d+', txt)
+                result = re.search(r'(?<=LAMMPS_VERSION \")\d+ \S+ \d+', txt)
+                update = re.search(r'(?<=LAMMPS_UPDATE \")Update \d+', txt)
                 if result:
                     day, month, year = result.group().split(' ')
                 else:
                     raise EasyBuildError(f"Failed to parse LAMMPS version: '{txt}'")
-                return '.'.join([year, month_map[month.upper()], '%02d' % int(day)])
+                if update:
+                    update_num = update.group().split(' ')[1]
+                    return f"{year}.{month_map[month.upper()]}.{int(day):02d}.{update_num}"
+                else:
+                    return f"{year}.{month_map[month.upper()]}.{int(day):02d}"
             else:
                 raise EasyBuildError(f"Expected to find version file at {version_file}, but it doesn't exist")
         else:
-            raise ValueError("LAMMPS version {version} cannot be translated")
+            raise ValueError(f"LAMMPS version {version} cannot be translated")
 
 
 class EB_LAMMPS(CMakeMake):
@@ -601,9 +612,9 @@ class EB_LAMMPS(CMakeMake):
         else:
             raise EasyBuildError("Expected to find a Python dependency as sanity check commands rely on it!")
 
-        # Testing (PyYAML must be installed)
+        # Testing (PyYAML must be installed), only for version >= 29Aug2024_update2
         if self.cfg['runtest'] is None or self.cfg['runtest']:
-            if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Aug2024')):
+            if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Aug2024_update2')):
                 # Testing of KOKKOS+CUDA builds does not work for version < 22Jul2025
                 # See: https://github.com/lammps/lammps/issues/405
                 if LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('22Jul2025')) \
