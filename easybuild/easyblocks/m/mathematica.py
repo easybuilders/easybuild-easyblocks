@@ -82,7 +82,7 @@ class EB_Mathematica(Binary):
         if LooseVersion(self.version) >= LooseVersion("13"):
             install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
         if LooseVersion(self.version) >= LooseVersion("14.1"):
-            install_script_glob = 'Wolfram_%s_LIN.sh' % (self.version)
+            install_script_glob = 'Wolfram_%s_BNDL_LIN.sh' % (self.version)
 
         matches = glob.glob(install_script_glob)
         if len(matches) == 1:
@@ -173,7 +173,7 @@ class EB_Mathematica(Binary):
 
         # Use appropriate executable for version check
         if LooseVersion(self.version) >= LooseVersion("14"):
-            version_cmd = 'wolframbn --version'
+            version_cmd = 'wolframnb --version'
         else:
             version_cmd = 'mathematica --version'
         custom_commands = [version_cmd]
