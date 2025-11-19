@@ -132,6 +132,9 @@ class NvidiaBase(PackedBinary):
                 "Continuing installation without further checks on CUDA version."
             )
 
+        # Only use major.minor version as default CUDA version
+        filter_major_minor = lambda x: '.'.join(x.split('.')[:2])
+
         # default CUDA version from nvidia-compilers
         if get_software_version("nvidia-compilers"):
             nvcomp_cuda_version = os.getenv("EBNVHPCCUDAVER", None)
@@ -144,14 +147,26 @@ class NvidiaBase(PackedBinary):
                 )
             self.log.info(
                 f"Using CUDA version '{nvcomp_cuda_version}' from nvidia-compilers dependency "
-                f"as 'default_cuda_version' of {self.name}"
+                f"as default CUDA version in {self.name}"
             )
-            return nvcomp_cuda_version
+            return filter_major_minor(nvcomp_cuda_version)
 
         # default CUDA version from external CUDA
-        cuda_dependency_version = get_software_version("CUDA")
-        if cuda_dependency_version:
-            external_cuda_version = '.'.join(cuda_dependency_version.split('.')[:2])
+        if get_software_version("CUDA"):
+            # Determine the CUDA version by parsing the output of nvcc. We cannot rely on the
+            # module name because sites can customize these version numbers (e.g. omit the minor
+            # and patch version, or choose something like 'default').
+            # The search string "Cuda compilation tools" exists since at least CUDA v10.0:
+            # Examples:
+            # "Cuda compilation tools, release 11.4, V11.4.152"
+            # "Cuda compilation tools, release 13.0, V13.0.48"
+            nvcc_cuda_version_regex = re.compile(r'Cuda.*release\s([0-9]+\.[0-9]+),', re.M)
+            nvcc_version_cmd = run_shell_cmd("$EBROOTCUDA/bin/nvcc --version")
+            nvcc_cuda_version = nvcc_cuda_version_regex.search(nvcc_version_cmd.output)
+            if nvcc_cuda_version is None:
+                raise EasyBuildError("Could not extract CUDA version from nvcc: %s", nvcc_version_cmd.output)
+            external_cuda_version = nvcc_cuda_version.group(1)
+
             if supported_cuda_versions and external_cuda_version not in supported_cuda_versions:
                 # we cannot error out here to avoid breaking existing easyconfigs
                 print_warning(
@@ -160,19 +175,19 @@ class NvidiaBase(PackedBinary):
                 )
             self.log.info(
                 f"Using version '{external_cuda_version}' of loaded CUDA dependency "
-                f"as 'default_cuda_version' of {self.name}"
+                f"as default CUDA version in {self.name}"
             )
-            return external_cuda_version
+            return filter_major_minor(external_cuda_version)
 
         # default CUDA version set in configuration
         default_cuda_version = self.cfg['default_cuda_version']
         if default_cuda_version is not None:
             if supported_cuda_versions and default_cuda_version not in supported_cuda_versions:
                 raise EasyBuildError(
-                    f"Selecte default CUDA version '{default_cuda_version}' not supported by "
+                    f"Selected default CUDA version '{default_cuda_version}' not supported by "
                     f"{self.name}-{self.version}: {supported_cuda_commasep}"
                 )
-            return default_cuda_version
+            return filter_major_minor(default_cuda_version)
 
         # default CUDA version undefined, pick one if obvious
         if len(supported_cuda_versions) == 1:
@@ -181,7 +196,7 @@ class NvidiaBase(PackedBinary):
                 f"Missing 'default_cuda_version' or CUDA dependency. Using CUDA version '{active_cuda_version}' "
                 f"as it is the only version supported by {self.name}-{self.version}."
             )
-            return active_cuda_version
+            return filter_major_minor(active_cuda_version)
 
         error_msg = f"Missing 'default_cuda_version' or CUDA dependency for {self.name}. "
         error_msg += "Either add CUDA as dependency or manually define 'default_cuda_version'."
