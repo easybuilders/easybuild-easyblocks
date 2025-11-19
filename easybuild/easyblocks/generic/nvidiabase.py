@@ -133,7 +133,8 @@ class NvidiaBase(PackedBinary):
             )
 
         # Only use major.minor version as default CUDA version
-        filter_major_minor = lambda x: '.'.join(x.split('.')[:2])
+        def filter_major_minor(version):
+            return '.'.join(version.split('.')[:2])
 
         # default CUDA version from nvidia-compilers
         if get_software_version("nvidia-compilers"):
