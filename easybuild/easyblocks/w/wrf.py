@@ -338,7 +338,7 @@ class EB_WRF(EasyBlock):
             # prepare run command
 
             # stack limit needs to be set to unlimited for WRF to work well
-            test_cmd = "ulimit -s unlimited && "
+            test_cmd = "ulimit -s unlimited "
             pretestopts = self.cfg['pretestopts']
             if self.cfg['buildtype'] in self.parallel_build_types:
                 test_cmd += f' && {pretestopts} {self.toolchain.mpi_cmd_for("./ideal.exe", 1)}'
