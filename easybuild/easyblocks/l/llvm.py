@@ -223,7 +223,8 @@ class EB_LLVM(CMakeMake):
             'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
             'full_llvm': [False, "Build LLVM without any dependency", CUSTOM],
-            'install_libcxx_modules': [None, "Install libstdc++ modules. Default relies on default of build system", CUSTOM],
+            'install_libcxx_modules':
+                [None, "Install libstdc++ modules. Default relies on default of build system", CUSTOM],
             'minimal': [False, "Build LLVM only", CUSTOM],
             'python_bindings': [False, "Install python bindings", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
