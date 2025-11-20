@@ -449,6 +449,9 @@ class EasyBlockSpecificTest(TestCase):
             description.workspace = true
             documentation.workspace = true
 
+            # Unrelated line that looks like a workspace key
+            description = "Uses regex=123 and regex = 456 and not foo.workspace = true"
+
             [dependencies]
             regex.workspace = true
 
@@ -466,6 +469,9 @@ class EasyBlockSpecificTest(TestCase):
             authors = ["Nice Folks"]
             description = "A short description of my package"
             documentation = "https://example.com/bar"
+
+            # Unrelated line that looks like a workspace key
+            description = "Uses regex=123 and regex = 456 and not foo.workspace = true"
 
             [dependencies]
             regex = { version = "1.6.0", default-features = false, features = ["std"] }

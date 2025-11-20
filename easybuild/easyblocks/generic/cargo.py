@@ -253,9 +253,13 @@ def merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, str]):
         for key, value in section.items():
             if (key.endswith(SUFFIX) and value == 'true') or value == '{ workspace = true }':
                 real_key = key[:-len(SUFFIX)] if key.endswith(SUFFIX) else key
-                value = workspace_section[real_key]
-                idx = next(idx for idx, line in enumerate(lines) if key in line)
-                lines[idx] = f'{real_key} = {value}'
+                new_value = workspace_section[real_key]
+                try:
+                    idx = next(idx for idx, line in enumerate(lines)
+                               if line.lstrip().startswith(f'{key} =') and value in line)
+                except StopIteration:
+                    raise ValueError(f"Failed to find line for key '{key}' while merging {cargo_toml_path}")
+                lines[idx] = f'{real_key} = {new_value}'
 
     do_replacement(cargo_toml.get('package'), workspace_toml.get('workspace.package'))
     do_replacement(cargo_toml.get('dependencies'), workspace_toml.get('workspace.dependencies'))
