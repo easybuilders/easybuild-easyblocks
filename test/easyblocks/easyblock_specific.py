@@ -477,6 +477,23 @@ class EasyBlockSpecificTest(TestCase):
             rand = "0.8.5"
         """).strip())
 
+        # Only dict-style workspace dependency
+        write_file(cargo_toml, textwrap.dedent("""
+            [package]
+            name = "bar"
+
+            [dependencies]
+            regex = { workspace = true }
+        """))
+        cargo.merge_sub_crate(cargo_toml, ws_parsed)
+        self.assertEqual(read_file(cargo_toml).strip(), textwrap.dedent("""
+            [package]
+            name = "bar"
+
+            [dependencies]
+            regex = { version = "1.6.0", default-features = false, features = ["std"] }
+        """).strip())
+
     def test_handle_local_py_install_scheme(self):
         """Test handle_local_py_install_scheme function provided by PythonPackage easyblock."""
 

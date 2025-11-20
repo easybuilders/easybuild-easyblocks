@@ -240,8 +240,8 @@ def merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, str]):
     """Resolve workspace references in the Cargo.toml file"""
     # Lines such as 'authors.workspace = true' must be replaced by 'authors = <value from workspace.package>'
     content: str = read_file(cargo_toml_path)
-    SUFFIX = '.workspace'
-    if SUFFIX not in content:
+    SUFFIX = '.workspace'  # Suffix of keys that refer to workspace values
+    if 'workspace = true' not in content:
         return
     cargo_toml = parse_toml(content)
     lines = content.splitlines()
