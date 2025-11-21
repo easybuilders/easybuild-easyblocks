@@ -44,14 +44,17 @@ import easybuild.tools.systemtools as systemtools
 import easybuild.tools.tomllib as tomllib
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, dump_toml, extract_file, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, write_file, which
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
+CRATES_REGISTRY_URL = 'registry+https://github.com/rust-lang/crates.io-index'
 
 CONFIG_TOML_SOURCE_VENDOR = """
 [source.vendored-sources]
@@ -75,6 +78,14 @@ git = "{url}"
 rev = "{rev}"
 branch = "{branch}"
 replace-with = "vendored-sources"
+"""
+
+CONFIG_LOCK_SOURCE = """
+[[package]]
+name = "{name}"
+version = "{version}"
+source = "{source}"
+# checksum intentionally not set
 """
 
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
@@ -473,8 +484,36 @@ class Cargo(ExtensionEasyBlock):
         self.set_cargo_vars()
 
     def configure_step(self):
-        """Empty configuration step."""
-        pass
+        """Create lockfile if it doesn't exist"""
+        cargo_lock = 'Cargo.lock'
+        if self.crates and os.path.exists('Cargo.toml') and not os.path.exists(cargo_lock):
+            root_toml = run_shell_cmd('cargo locate-project --message-format=plain --workspace').output
+            cargo_lock_path = os.path.join(os.path.dirname(root_toml), cargo_lock)
+            if not os.path.exists(cargo_lock_path):
+                rust_version = LooseVersion(get_software_version('Rust'))
+                # File format version, the latest supported is used for forward compatibility
+                # Versions 1 and 2 were internal only, 2 being autodetected
+                # 1.47 introduced the version marker as version 3
+                # 1.78 marked version 4 as stable
+                if rust_version < '1.47':
+                    version = None
+                elif rust_version < '1.78':
+                    version = 3
+                else:
+                    version = 4
+                # Use vendored crates to ensure those versions are used
+                self.log.info(f"No {cargo_lock} file found, creating one at {cargo_lock_path}")
+                content = f'version = {version}\n' if version is not None else ''
+                for crate_info in self.crates:
+                    if len(crate_info) == 2:
+                        name, version = crate_info
+                        source = CRATES_REGISTRY_URL
+                    else:
+                        name, version, repo, rev = crate_info
+                        source = f'git+{repo}?rev={rev}#{rev}'
+
+                    content += CONFIG_LOCK_SOURCE.format(name=name, version=version, source=source)
+                write_file(cargo_lock_path, content)
 
     @property
     def profile(self):
@@ -564,7 +603,7 @@ def generate_crate_list(sourcedir):
         if name == app_name:
             app_in_cratesio = True  # exclude app itself, needs to be first in crates list or taken from pypi
         else:
-            if source_url == 'registry+https://github.com/rust-lang/crates.io-index':
+            if source_url == CRATES_REGISTRY_URL:
                 crates.append((name, version))
             else:
                 # Lock file has revision and branch in the url
