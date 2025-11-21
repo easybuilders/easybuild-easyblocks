@@ -16,7 +16,7 @@ from easybuild.tools.config import WARN
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import change_dir, adjust_permissions, apply_regex_substitutions
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_TURBOMOLE(Tarball):
@@ -37,7 +37,7 @@ class EB_TURBOMOLE(Tarball):
             ],
             'full_tests': [
                 False,
-                "Perform all tests (Default: just a few selected ones)",
+                "Perform all tests (Default: Selected short tests)",
                 CUSTOM
             ],
         }
@@ -54,15 +54,14 @@ class EB_TURBOMOLE(Tarball):
         """
         Return the sysname for this machine and config.
 
-        Roughly emulates TURBOMOLE's sysname script. The output is needed
-        for module-only builds so we cannot rely on the actual script.
+        Roughly emulates TURBOMOLE's sysname script in case the sysname is not provided.
         """
         sysname = ""
         if self.cfg['sysname']:
             sysname = self.cfg['sysname']
         else:
             cmd = "grep vendor /proc/cpuinfo"
-            (cpuinfo, _) = run_cmd(cmd)
+            cpuinfo = run_shell_cmd(cmd).output
             vendor = re.search(r"Intel|AMD", cpuinfo)
             if not vendor:
                 raise EasyBuildError("Could not determine CPU vendor. Try " +
@@ -87,7 +86,7 @@ class EB_TURBOMOLE(Tarball):
         return self.tmolex
 
     def get_turboroot(self):
-        """Get the root of the TURBOMOLE installation
+        """Get the root of the TURBOMOLE installation relative to installdir
 
         With TmoleX, TURBOMOLE is installed in its own
         subdirectory
@@ -108,8 +107,7 @@ class EB_TURBOMOLE(Tarball):
                              re.match(r"TmoleX.*bin", src['name']))
             cmd = ' '.join([installer, '-q', '-dir', self.builddir])
 
-            result = run_cmd(cmd, log_all=True)
-            if result[1] != 0:
+            if run_shell_cmd(cmd).exit_code:
                 raise EasyBuildError("Failed to run TurbomoleX installer.")
 
     def install_step(self):
@@ -137,8 +135,7 @@ class EB_TURBOMOLE(Tarball):
                     if match:
                         tmolex_binary = os.path.join("TmoleX", file)
                         break
-
-            if not tmolex_binary:
+            else:
                 raise EasyBuildError("Could not find TmoleX binary.")
 
             custom_paths['files'].append(tmolex_binary)
@@ -174,17 +171,17 @@ class EB_TURBOMOLE(Tarball):
                                       on_missing_match=WARN)
             self.log.debug("DEFCRIT was changed to:\n" + read_file(deffile))
 
-        test_ok = run_cmd(testcmd, log_ok=True, simple=True)
+        test_ok = run_shell_cmd(testcmd, fail_on_error=True)
         if not test_ok:
             raise EasyBuildError("TURBOMOLE test returned non-zero exit code.")
 
         checkcmd = ttest + ' --check'
-        test_passed = run_cmd(checkcmd, log_ok=True, simple=True)
+        test_passed = run_shell_cmd(checkcmd, fail_on_error=True)
         if not test_passed:
             raise EasyBuildError("Test check failed.")
 
         cleancmd = ttest + ' --realclean'
-        cleaned = run_cmd(cleancmd, inp='y\n', log_ok=True, simple=True)
+        cleaned = run_shell_cmd(cleancmd, stdin='y\n', fail_on_error=True)
         if not cleaned:
             raise EasyBuildError("Cleaning test directory failed.")
 
@@ -200,7 +197,7 @@ class EB_TURBOMOLE(Tarball):
 
         if self.has_tmolex():
             execpaths.append('TmoleX')
-            self.cfg['description'] += "\n\n This module contains the TmoleX GUI."
+            self.cfg['description'] += "\n\nThis module features the TmoleX GUI."
 
         txt = super(Tarball, self).make_module_extra()
         txt += self.module_generator.set_environment('TURBODIR',
