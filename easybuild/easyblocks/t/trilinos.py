@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,16 +31,16 @@ import os
 import random
 import re
 
-from distutils.version import LooseVersion
+from string import ascii_letters
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_path
 from easybuild.tools.filetools import mkdir, remove_dir, symlink
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.py2vs3 import ascii_letters
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -64,7 +64,7 @@ class EB_Trilinos(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Constructor of custom easyblock for Trilinos."""
-        super(EB_Trilinos, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.cfg['shared_libs'] is not None:
             self.log.deprecated("Use 'build_shared_libs' instead of 'shared_libs' easyconfig parameter", '5.0')
@@ -144,14 +144,12 @@ class EB_Trilinos(CMakeMake):
         if suitesparse:
             self.cfg.update('configopts', "-DTPL_ENABLE_UMFPACK:BOOL=ON")
             self.cfg.update('configopts', "-DTPL_ENABLE_Cholmod:BOOL=ON")
-            incdirs, libdirs, libnames = [], [], []
-            for lib in ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "CCOLAMD", "CAMD"]:
-                incdirs.append(os.path.join(suitesparse, lib, "Include"))
-                libdirs.append(os.path.join(suitesparse, lib, "Lib"))
-                libnames.append(lib.lower())
+            incdir = os.path.join(suitesparse, "include")
+            libdir = os.path.join(suitesparse, "lib")
+            libs = ["UMFPACK", "CHOLMOD", "COLAMD", "AMD", "CCOLAMD", "CAMD"]
+            libnames = [lib.lower() for lib in libs]
 
             # add SuiteSparse config lib, it is in recent versions of suitesparse
-            libdirs.append(os.path.join(suitesparse, 'SuiteSparse_config'))
             libnames.append('suitesparseconfig')
             # because of "SuiteSparse_config.c:function SuiteSparse_tic: error: undefined reference to 'clock_gettime'"
             libnames.append('rt')
@@ -162,11 +160,11 @@ class EB_Trilinos(CMakeMake):
             # see https://answers.launchpad.net/dorsal/+question/223167
             libnames.append('libmetis.a')
 
-            self.cfg.update('configopts', '-DUMFPACK_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
-            self.cfg.update('configopts', '-DUMFPACK_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
+            self.cfg.update('configopts', '-DUMFPACK_INCLUDE_DIRS:PATH="%s"' % incdir)
+            self.cfg.update('configopts', '-DUMFPACK_LIBRARY_DIRS:PATH="%s"' % libdir)
             self.cfg.update('configopts', '-DUMFPACK_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
-            self.cfg.update('configopts', '-DCholmod_INCLUDE_DIRS:PATH="%s"' % ';'.join(incdirs))
-            self.cfg.update('configopts', '-DCholmod_LIBRARY_DIRS:PATH="%s"' % ';'.join(libdirs))
+            self.cfg.update('configopts', '-DCholmod_INCLUDE_DIRS:PATH="%s"' % incdir)
+            self.cfg.update('configopts', '-DCholmod_LIBRARY_DIRS:PATH="%s"' % libdir)
             self.cfg.update('configopts', '-DCholmod_LIBRARY_NAMES:STRING="%s"' % ';'.join(libnames))
 
         # BLACS
@@ -256,11 +254,11 @@ class EB_Trilinos(CMakeMake):
         symlink(obj_dir, short_build_dir)
 
         # configure using cmake
-        super(EB_Trilinos, self).configure_step(srcdir=short_src_dir, builddir=short_build_dir)
+        super().configure_step(srcdir=short_src_dir, builddir=short_build_dir)
 
-    def build_step(self):
+    def build_step(self, *args, **kwargs):
         """Build with make (verbose logging enabled)."""
-        super(EB_Trilinos, self).build_step(verbose=True)
+        super().build_step(*args, **kwargs)
 
     def sanity_check_step(self):
         """Custom sanity check for Trilinos."""
@@ -309,7 +307,7 @@ class EB_Trilinos(CMakeMake):
             'dirs': ['bin', 'include']
         }
 
-        super(EB_Trilinos, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def cleanup_step(self):
         """Complete cleanup by also removing custom created short build directory."""

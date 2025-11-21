@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,7 +35,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.config import build_option
+from easybuild.tools.run import run_shell_cmd, RunShellCmdError
 from easybuild.tools.environment import unset_env_vars
 
 
@@ -47,12 +48,13 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         """Easyconfig parameters specific to Perl modules."""
         extra_vars = {
             'runtest': ['test', "Run unit tests.", CUSTOM],  # overrides default
+            'prefix_opt': [None, "String to use for option to set installation prefix (default is 'PREFIX')", CUSTOM],
         }
         return ExtensionEasyBlock.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
-        super(PerlModule, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.testcmd = None
 
         # Environment variables PERL_MM_OPT and PERL_MB_OPT cause installations to fail.
@@ -62,46 +64,70 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
     def install_perl_module(self):
         """Install procedure for Perl modules: using either Makefile.Pl or Build.PL."""
 
+        prefix_opt = self.cfg.get('prefix_opt')
+
         # Perl modules have two possible installation procedures: using Makefile.PL and Build.PL
         # configure, build, test, install
         if os.path.exists('Makefile.PL'):
+
+            if prefix_opt is None:
+                prefix_opt = 'PREFIX'
+
             install_cmd = ' '.join([
                 self.cfg['preconfigopts'],
                 'perl',
                 'Makefile.PL',
-                'PREFIX=%s' % self.installdir,
+                '%s=%s' % (prefix_opt, self.installdir),
                 self.cfg['configopts'],
             ])
-            run_cmd(install_cmd)
+            run_shell_cmd(install_cmd)
 
             ConfigureMake.build_step(self)
-            ConfigureMake.test_step(self)
+            if not build_option('skip_test_step'):
+                # Intentionally copy content of EasyBlocks _test_step
+                # to use Framework handling of --ignore-test-failure
+                # Just calling ConfigureMake._test_step(self) fails to actually
+                # run tests, as it calls into PerlModule.test_step()
+                try:
+                    ConfigureMake.test_step(self)
+                except EasyBuildError as err:
+                    self.report_test_failure(f"An error was raised during test step: {err}")
+                except RunShellCmdError as err:
+                    err.print()
+                    ec_path = os.path.basename(self.cfg.path)
+                    error_msg = f"shell command '{err.cmd_name} ...' failed in test step for {ec_path}"
+                    self.report_test_failure(error_msg)
             ConfigureMake.install_step(self)
 
         elif os.path.exists('Build.PL'):
+
+            if prefix_opt is None:
+                prefix_opt = '--prefix'
+
             install_cmd = ' '.join([
                 self.cfg['preconfigopts'],
                 'perl',
                 'Build.PL',
-                '--prefix',
+                prefix_opt,
                 self.installdir,
                 self.cfg['configopts'],
             ])
-            run_cmd(install_cmd)
+            run_shell_cmd(install_cmd)
 
-            run_cmd("%s perl Build build %s" % (self.cfg['prebuildopts'], self.cfg['buildopts']))
+            run_shell_cmd("%s perl Build build %s" % (self.cfg['prebuildopts'], self.cfg['buildopts']))
 
-            if self.cfg['runtest']:
-                run_cmd('perl Build %s' % self.cfg['runtest'])
-            run_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
+            runtest = self.cfg['runtest']
+            if runtest:
+                run_shell_cmd('%s perl Build %s %s' % (self.cfg['pretestopts'], runtest, self.cfg['testopts']))
+            run_shell_cmd('%s perl Build install %s' % (self.cfg['preinstallopts'], self.cfg['installopts']))
 
-    def run(self):
+    def install_extension(self):
         """Perform the actual Perl module build/installation procedure"""
 
         if not self.src:
             raise EasyBuildError("No source found for Perl module %s, required for installation. (src: %s)",
                                  self.name, self.src)
-        ExtensionEasyBlock.run(self, unpack_src=True)
+        ExtensionEasyBlock.install_extension(self, unpack_src=True)
 
         self.install_perl_module()
 
@@ -127,14 +153,13 @@ class PerlModule(ExtensionEasyBlock, ConfigureMake):
         """
         return ExtensionEasyBlock.sanity_check_step(self, EXTS_FILTER_PERL_MODULES, *args, **kwargs)
 
-    def make_module_req_guess(self):
-        """Customized dictionary of paths to look for with PERL*LIB."""
-        majver = get_major_perl_version()
+    def make_module_step(self, *args, **kwargs):
+        """
+        Custom paths to look for with PERL*LIB
+        """
+        perl_lib_var = f"PERL{get_major_perl_version()}LIB"
         sitearchsuffix = get_site_suffix('sitearch')
         sitelibsuffix = get_site_suffix('sitelib')
+        setattr(self.module_load_environment, perl_lib_var, ['', sitearchsuffix, sitelibsuffix])
 
-        guesses = super(PerlModule, self).make_module_req_guess()
-        guesses.update({
-            "PERL%sLIB" % majver: ['', sitearchsuffix, sitelibsuffix],
-        })
-        return guesses
+        return super().make_module_step(*args, **kwargs)

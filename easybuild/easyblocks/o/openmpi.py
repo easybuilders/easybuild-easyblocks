@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2023 Ghent University
+# Copyright 2019-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,8 +30,9 @@ EasyBuild support for OpenMPI, implemented as an easyblock
 """
 import os
 import re
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig.constants import EASYCONFIG_CONSTANTS
@@ -69,7 +70,12 @@ class EB_OpenMPI(ConfigureMake):
                 self.cfg.update('configopts', '--enable-%s' % key)
 
         # List of EasyBuild dependencies for which OMPI has known options
-        known_dependencies = ('CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX', 'UCC')
+        known_dependencies = ['CUDA', 'hwloc', 'libevent', 'libfabric', 'PMIx', 'UCX']
+        if LooseVersion(self.version) >= '4.1.4':
+            known_dependencies.append('UCC')
+        if LooseVersion(self.version) >= '5.0.0':
+            known_dependencies.append('PRRTE')
+
         # Value to use for `--with-<dep>=<value>` if the dependency is not specified in the easyconfig
         # No entry is interpreted as no option added at all
         # This is to make builds reproducible even when the system libraries are changed and avoids failures
@@ -82,6 +88,8 @@ class EB_OpenMPI(ConfigureMake):
             # For these the default is to use an internal copy and not using any is not supported
             for dep in ('hwloc', 'libevent', 'PMIx'):
                 unused_dep_value[dep] = 'internal'
+            if LooseVersion(self.version) >= '5.0.0':
+                unused_dep_value['PRRTE'] = 'internal'
 
         # handle dependencies
         for dep in known_dependencies:
@@ -133,7 +141,14 @@ class EB_OpenMPI(ConfigureMake):
                 else:
                     self.cfg.update('configopts', '--without-verbs')
 
-        super(EB_OpenMPI, self).configure_step()
+        if '--with-pmix' in self.cfg['configopts']:
+            # Unset PMIX variables potentially set by SLURM which may cause configure errors such as
+            # > configure: WARNING: OPAL_VAR_SCOPE_PUSH called on "PMIX_VERSION",
+            # > configure: WARNING: but it is already defined with value "3.2.3"
+            # > configure: WARNING: This usually indicates an error in configure.
+            # > configure: error: Cannot continue
+            env.unset_env_vars([v for v in os.environ if v.startswith("PMIX_")])
+        super().configure_step()
 
     def test_step(self):
         """Test step for OpenMPI"""
@@ -141,7 +156,7 @@ class EB_OpenMPI(ConfigureMake):
         if self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'check'
 
-        super(EB_OpenMPI, self).test_step()
+        super().test_step()
 
     def load_module(self, *args, **kwargs):
         """
@@ -149,7 +164,7 @@ class EB_OpenMPI(ConfigureMake):
 
         Also put RPATH wrappers back in place if needed, to ensure that sanity check commands work as expected.
         """
-        super(EB_OpenMPI, self).load_module(*args, **kwargs)
+        super().load_module(*args, **kwargs)
 
         # ensure RPATH wrappers are in place, otherwise compiling minimal test programs will fail
         if build_option('rpath'):
@@ -162,7 +177,8 @@ class EB_OpenMPI(ConfigureMake):
 
         bin_names = ['mpicc', 'mpicxx', 'mpif90', 'mpifort', 'mpirun', 'ompi_info', 'opal_wrapper']
         if LooseVersion(self.version) >= LooseVersion('5.0.0'):
-            bin_names.append('prterun')
+            if not get_software_root('PRRTE'):
+                bin_names.append('prterun')
         else:
             bin_names.append('orterun')
         bin_files = [os.path.join('bin', x) for x in bin_names]
@@ -170,13 +186,14 @@ class EB_OpenMPI(ConfigureMake):
         shlib_ext = get_shared_lib_ext()
         lib_names = ['mpi_mpifh', 'mpi', 'open-pal']
         if LooseVersion(self.version) >= LooseVersion('5.0.0'):
-            lib_names.append('prrte')
+            if not get_software_root('PRRTE'):
+                lib_names.append('prrte')
         else:
             lib_names.extend(['ompitrace', 'open-rte'])
         lib_files = [os.path.join('lib', 'lib%s.%s' % (x, shlib_ext)) for x in lib_names]
 
         inc_names = ['mpi-ext', 'mpif-config', 'mpif', 'mpi', 'mpi_portable_platform']
-        if LooseVersion(self.version) >= LooseVersion('5.0.0'):
+        if LooseVersion(self.version) >= LooseVersion('5.0.0') and not get_software_root('PRRTE'):
             inc_names.append('prte')
         inc_files = [os.path.join('include', x + '.h') for x in inc_names]
 
@@ -199,6 +216,10 @@ class EB_OpenMPI(ConfigureMake):
         # for PGI, correct pattern is "pgfortran" with mpif90
         if expected['mpif90'] == 'pgf90':
             expected['mpif90'] = 'pgfortran'
+        # for Clang the pattern is always clang
+        for key in ['mpicxx', 'mpifort', 'mpif90']:
+            if expected[key] in ['clang++', 'flang']:
+                expected[key] = 'clang'
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
 
@@ -206,9 +227,19 @@ class EB_OpenMPI(ConfigureMake):
         # Run with correct MPI launcher
         mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
         # Limit number of ranks to 8 to avoid it failing due to hyperthreading
-        ranks = min(8, self.cfg['parallel'])
-        for src, compiler in (('hello_c.c', 'mpicc'), ('hello_mpifh.f', 'mpifort'), ('hello_usempi.f90', 'mpif90')):
-            src_path = os.path.join(self.cfg['start_dir'], 'examples', src)
+        ranks = min(8, self.cfg.parallel)
+        for srcdir, src, compiler in (
+            ('examples', 'hello_c.c', 'mpicc'),
+            ('examples', 'hello_mpifh.f', 'mpifort'),
+            ('examples', 'hello_usempi.f90', 'mpif90'),
+            ('examples', 'ring_c.c', 'mpicc'),
+            ('examples', 'ring_mpifh.f', 'mpifort'),
+            ('examples', 'ring_usempi.f90', 'mpif90'),
+            ('test/simple', 'thread_init.c', 'mpicc'),
+            ('test/simple', 'intercomm1.c', 'mpicc'),
+            ('test/simple', 'mpi_barrier.c', 'mpicc'),
+        ):
+            src_path = os.path.join(self.cfg['start_dir'], srcdir, src)
             if os.path.exists(src_path):
                 test_exe = os.path.join(self.builddir, 'mpi_test_' + os.path.splitext(src)[0])
                 self.log.info("Adding minimal MPI test program to sanity checks: %s", test_exe)
@@ -220,10 +251,14 @@ class EB_OpenMPI(ConfigureMake):
                 if build_option('mpi_tests'):
                     params.update({'nr_ranks': ranks, 'cmd': test_exe})
                     # Allow oversubscription for this test (in case of hyperthreading)
-                    custom_commands.append("OMPI_MCA_rmaps_base_oversubscribe=1 " + mpi_cmd_tmpl % params)
+                    if LooseVersion(self.version) >= '5.0':
+                        extra_env = "PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe"
+                    else:
+                        extra_env = "OMPI_MCA_rmaps_base_oversubscribe=1"
+                    custom_commands.append(extra_env + " " + mpi_cmd_tmpl % params)
                     # Run with 1 process which may trigger other bugs
                     # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
                     params['nr_ranks'] = 1
                     custom_commands.append(mpi_cmd_tmpl % params)
 
-        super(EB_OpenMPI, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

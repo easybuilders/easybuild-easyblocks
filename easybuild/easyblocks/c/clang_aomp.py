@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ EasyBuild support for building and installing AOMP version of LLVM/Clang
 import glob
 import os
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.clang import DEFAULT_TARGETS_MAP as LLVM_ARCH_MAP
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyblock import EasyBlock
@@ -65,7 +65,7 @@ class EB_Clang_minus_AOMP(Bundle):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_Clang_minus_AOMP, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # List of LLVM target architectures to build for, extended in the 'prepare_step'
         self.target_archs = ['AMDGPU']
@@ -100,7 +100,7 @@ class EB_Clang_minus_AOMP(Bundle):
         """
         Prepare build environment
         """
-        super(EB_Clang_minus_AOMP, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # Detect CPU architecture and setup build targets for LLVM
         cpu_arch = get_cpu_architecture()
@@ -134,7 +134,7 @@ class EB_Clang_minus_AOMP(Bundle):
         """
         Go through each component and setup configuration for the later Bundle install step
         """
-        super(EB_Clang_minus_AOMP, self).configure_step()
+        super().configure_step()
 
         # Ensure necessary libraries are downloaded and can be found
         device_lib_dir_pattern = os.path.join(self.builddir, 'ROCm-Device-Libs-*')
@@ -145,7 +145,7 @@ class EB_Clang_minus_AOMP(Bundle):
             raise EasyBuildError("Could not find 'ROCm-Device-Libs' source directory in %s", self.builddir)
 
         num_comps = len(self.cfg['components'])
-        for idx, comp in enumerate(self.comp_cfgs):
+        for idx, (comp, _) in enumerate(self.comp_instances):
             name = comp['name']
             msg = "configuring bundle component %s %s (%d/%d)..." % (name, comp['version'], idx + 1, num_comps)
             print_msg(msg)
@@ -153,7 +153,7 @@ class EB_Clang_minus_AOMP(Bundle):
                 self.cfg_method[name](comp)
                 self.log.info(msg)
             else:
-                self.log.warn("Component %s has no configure method!" % name)
+                self.log.warning("Component %s has no configure method!" % name)
 
     def sanity_check_step(self):
         """
@@ -177,7 +177,9 @@ class EB_Clang_minus_AOMP(Bundle):
         for gfx in self.amd_gfx_archs:
             if LooseVersion(self.version) < LooseVersion("5.2"):
                 custom_paths['files'].extend([os.path.join(libdevice, 'lib%s-amdgcn-%s.bc' % (x, gfx)) for x in libs])
-            if LooseVersion(self.version) >= LooseVersion("5"):
+            if LooseVersion(self.version) >= LooseVersion("5.6"):
+                custom_paths['files'].append(os.path.join('lib', 'libomptarget-old-amdgpu-%s.bc' % gfx))
+            elif LooseVersion(self.version) >= LooseVersion("5"):
                 custom_paths['files'].append(os.path.join('lib', 'libomptarget-amdgcn-%s.bc' % gfx))
                 custom_paths['files'].append(os.path.join('lib', 'libomptarget-new-amdgpu-%s.bc' % gfx))
 
@@ -226,11 +228,14 @@ class EB_Clang_minus_AOMP(Bundle):
         # dependency and interrupts building of LLVM
         component['prebuildopts'] = "unset CPATH && "
 
+        projects = ['clang', 'lld', 'clang-tools-extra', 'compiler-rt']
+        runtimes = ['libcxx', 'libcxxabi']
         # Setup configuration options for LLVM
         component['configopts'] = ' '.join([
-            "-DLLVM_ENABLE_PROJECTS='clang;lld;compiler-rt'",
+            "-DLLVM_ENABLE_PROJECTS='%s'" % ';'.join(projects),
+            "-DLLVM_ENABLE_RUNTIMES='%s'" % ';'.join(runtimes),
             "-DCLANG_DEFAULT_LINKER=lld",
-            "-DGCC_INSTALL_PREFIX=$EBROOTGCC",
+            "-DGCC_INSTALL_PREFIX=%s" % os.getenv('EBROOTGCC', os.getenv('EBROOTGCCCORE')),
             "-DLLVM_ENABLE_ASSERTIONS=ON",
             "-DLLVM_ENABLE_BINDINGS=OFF",
             "-DLLVM_INCLUDE_BENCHMARKS=OFF",

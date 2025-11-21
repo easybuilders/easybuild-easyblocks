@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2023 Ghent University
+# Copyright 2020-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,12 @@ class EB_Metagenome_Atlas(PythonPackage):
     Support for building/installing Metagenome-Atlas.
     """
 
-    def post_install_step(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.cfg.get('options').get('modulename'):
+            self.options['modulename'] = 'atlas'
+
+    def post_processing_step(self):
         """Create snakemake config files"""
 
         # https://metagenome-atlas.readthedocs.io/en/latest/usage/getting_started.html#set-up-of-cluster-execution
@@ -84,7 +89,7 @@ class EB_Metagenome_Atlas(PythonPackage):
             'atlas init --help',
             'atlas run --help',
         ]
-        super(PythonPackage, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
 
 # obtained from

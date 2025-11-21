@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2023 Ghent University
+# Copyright 2019-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,7 @@ import glob
 import os
 import stat
 
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, write_file
@@ -48,7 +48,7 @@ class EB_MotionCor2(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Constructor of MotionCor2 easyblock."""
-        super(EB_MotionCor2, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cuda_mod_name, self.cuda_name = None, None
         self.motioncor2_bin = None
@@ -60,7 +60,7 @@ class EB_MotionCor2(PackedBinary):
         """
         Determine name of MotionCor2 binary to install based on CUDA version.
         """
-        super(EB_MotionCor2, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         if not get_software_root('CUDA') and not get_software_root('CUDAcore'):
             raise EasyBuildError("CUDA(core) must be a direct (build)dependency of MotionCor2")
@@ -140,4 +140,4 @@ class EB_MotionCor2(PackedBinary):
             'dirs': []
         }
 
-        super(EB_MotionCor2, self).sanity_check_step(custom_paths)
+        super().sanity_check_step(custom_paths)

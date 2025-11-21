@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,7 +27,7 @@ EasyBuild support for building and installing flex, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -39,7 +39,7 @@ class EB_flex(ConfigureMake):
 
     def install_step(self):
         """Building was performed in install dir, no explicit install step required."""
-        super(EB_flex, self).install_step()
+        super().install_step()
 
         # create symlinks for lex and lex++, if they're not there
         try:
@@ -61,4 +61,4 @@ class EB_flex(ConfigureMake):
         if LooseVersion(self.version) < LooseVersion('2.6.3'):
             custom_paths['files'].append(('lib/libfl_pic.a', 'lib64/libfl_pic.a'))
 
-        super(EB_flex, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2023 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2025 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -60,4 +60,4 @@ class EB_Velvet(ConfigureMake):
                         'dirs': []
                        }
 
-        super(EB_Velvet, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

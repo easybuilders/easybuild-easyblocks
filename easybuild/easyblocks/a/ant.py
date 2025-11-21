@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,7 +34,7 @@ import shutil
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_ant(PackedBinary):
@@ -58,4 +58,4 @@ class EB_ant(PackedBinary):
 
         cmd = "sh build.sh -Ddist.dir=%s dist" % self.installdir
 
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)

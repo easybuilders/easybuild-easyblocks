@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -57,7 +57,7 @@ class EB_g2lib(ConfigureMake):
         buildopts = 'CC="%s" FC="%s" INCDIR="-I%s/include"' % (os.getenv('CC'), os.getenv('F90'), jasper)
         self.cfg.update('buildopts', buildopts)
 
-        super(EB_g2lib, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """Install by copying generated library to install directory."""
@@ -78,4 +78,4 @@ class EB_g2lib(ConfigureMake):
             'dirs': []
         }
 
-        super(EB_g2lib, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

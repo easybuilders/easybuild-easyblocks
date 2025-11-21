@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,7 +27,7 @@ EasyBuild support for building and installing FFTW, implemented as an easyblock
 
 @author: Kenneth Hoste (HPC-UGent)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -37,7 +37,7 @@ from easybuild.toolchains.compiler.fujitsu import TC_CONSTANT_FUJITSU
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, X86_64
+from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV32, RISCV64, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
@@ -88,7 +88,7 @@ class EB_FFTW(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for FFTW."""
-        super(EB_FFTW, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # do not enable MPI if the toolchain does not support it
         if not self.toolchain.mpi_family():
@@ -141,7 +141,7 @@ class EB_FFTW(ConfigureMake):
                     setattr(self, flag, True)
 
         # Auto-disable quad-precision on ARM and POWER, as it is unsupported
-        if self.cfg['with_quad_prec'] and cpu_arch in [AARCH32, AARCH64, POWER]:
+        if self.cfg['with_quad_prec'] and cpu_arch in [AARCH32, AARCH64, POWER, RISCV32, RISCV64]:
             self.cfg['with_quad_prec'] = False
             self.log.debug("Quad-precision automatically disabled; not supported on %s.", cpu_arch)
 
@@ -191,7 +191,7 @@ class EB_FFTW(ConfigureMake):
                 if self.sve:
                     # SVE (ARM) only for single precision and double precision (on AARCH64 if sve feature is present)
                     if prec == 'single' or prec == 'double':
-                        prec_configopts.append('--enable-fma --enable-sve --enable-armv8-cntvct-el0')
+                        prec_configopts.append('--enable-fma --enable-armv8-cntvct-el0')
                 elif self.asimd or self.neon:
                     # NEON (ARM) only for single precision and double precision (on AARCH64)
                     if prec == 'single' or (prec == 'double' and self.asimd):
@@ -227,7 +227,7 @@ class EB_FFTW(ConfigureMake):
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
-        return super(EB_FFTW, self).run_all_steps(*args, **kwargs)
+        return super().run_all_steps(*args, **kwargs)
 
     def test_step(self):
         """Custom implementation of test step for FFTW."""
@@ -241,11 +241,14 @@ class EB_FFTW(ConfigureMake):
             # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
             # to avoid that some tests fail if only a handful of cores are available
             ompi_ver = get_software_version('OpenMPI')
-            if LooseVersion(ompi_ver) >= LooseVersion('3.0'):
+            if LooseVersion(ompi_ver) >= LooseVersion('3.0') and LooseVersion(ompi_ver) < LooseVersion('5.0'):
                 if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
                     self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
+            if LooseVersion(ompi_ver) >= LooseVersion('5.0'):
+                if 'PRTE_MCA_rmaps_default_mapping_policy' not in self.cfg['pretestopts']:
+                    self.cfg.update('pretestopts', "export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe && ")
 
-        super(EB_FFTW, self).test_step()
+        super().test_step()
 
     def sanity_check_step(self, mpionly=False):
         """Custom sanity check for FFTW. mpionly=True only for FFTW.MPI"""
@@ -302,4 +305,4 @@ class EB_FFTW(ConfigureMake):
 
         custom_paths['files'].extend(nub(extra_files))
 
-        super(EB_FFTW, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

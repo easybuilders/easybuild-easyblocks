@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2023 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2025 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -19,7 +19,7 @@ EasyBuild support for building SAMtools (SAM - Sequence Alignment/Map), implemen
 @author: Fotis Georgatos (Uni.Lu)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import glob
 import os
 import stat
@@ -37,7 +37,7 @@ class EB_SAMtools(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Define lists of files to install."""
-        super(EB_SAMtools, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.bin_files = ["misc/blast2sam.pl",
                           "misc/bowtie2sam.pl", "misc/export2sam.pl", "misc/interpolate_sam.pl",
@@ -94,7 +94,7 @@ class EB_SAMtools(ConfigureMake):
 
         # configuring with --prefix only supported with v1.3 and more recent
         if LooseVersion(self.version) >= LooseVersion('1.3'):
-            super(EB_SAMtools, self).configure_step()
+            super().configure_step()
 
     def install_step(self):
         """
@@ -133,7 +133,7 @@ class EB_SAMtools(ConfigureMake):
 
         # v1.3 and more recent supports 'make install', but this only installs (some of) the binaries...
         if LooseVersion(self.version) >= LooseVersion('1.3'):
-            super(EB_SAMtools, self).install_step()
+            super().install_step()
 
             # figure out which bin files are missing, and try copying them
             missing_bin_files = []
@@ -173,4 +173,4 @@ class EB_SAMtools(ConfigureMake):
             'files': bins + incs + libs,
             'dirs': [os.path.join('include', os.path.basename(d)) for d in self.include_dirs],
         }
-        super(EB_SAMtools, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

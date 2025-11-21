@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2023 Ghent University
-# Copyright 2019-2023 Micael Oliveira
+# Copyright 2009-2025 Ghent University
+# Copyright 2019-2025 Micael Oliveira
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ EasyBuild support for building and installing ELPA, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -77,7 +77,7 @@ class EB_ELPA(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for ELPA."""
-        super(EB_ELPA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         for flag in ELPA_CPU_FEATURE_FLAGS:
             # fail-safe: make sure we're not overwriting an existing attribute (could lead to weird bugs if we do)
@@ -178,7 +178,7 @@ class EB_ELPA(ConfigureMake):
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
-        return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
+        return super().run_all_steps(*args, **kwargs)
 
     def configure_step(self):
         """Configure step for ELPA"""
@@ -206,7 +206,8 @@ class EB_ELPA(ConfigureMake):
             self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=sm_%s' % cuda_cc_string)
             self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc_string)
             # There is a dedicated kernel for sm80, but only from version 2021.11.001 onwards
-            if float(cuda_cc) >= 8.0 and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
+            # Trying to use these kernels for GPUs newer than sm80 will fail ELPA configure
+            if float(cuda_cc) == 8.0 and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
                 self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
 
         # From v2022.05.001 onwards, the config complains if CPP is not set, resulting in non-zero exit of configure
@@ -223,11 +224,11 @@ class EB_ELPA(ConfigureMake):
                                  'current compiler family (%s). Please add the correct preprocessor '
                                  'for this compiler family to cpp_dict in the ELPA EasyBlock', comp_fam)
 
-        super(EB_ELPA, self).configure_step()
+        super().configure_step()
 
     def patch_step(self, *args, **kwargs):
         """Patch manual_cpp script to avoid using hardcoded /usr/bin/python."""
-        super(EB_ELPA, self).patch_step(*args, **kwargs)
+        super().patch_step(*args, **kwargs)
 
         # avoid that manual_cpp script uses hardcoded /usr/bin/python
         manual_cpp = 'manual_cpp'
@@ -268,4 +269,4 @@ class EB_ELPA(ConfigureMake):
 
         custom_paths['files'] = extra_files
 
-        super(EB_ELPA, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

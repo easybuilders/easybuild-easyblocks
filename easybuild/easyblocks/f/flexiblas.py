@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2023 Ghent University
+# Copyright 2021-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,12 +31,13 @@ import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools import toolchain
+from easybuild.tools import toolchain, LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 IMKL_CONF_TEMPLATE = """[IMKL]
@@ -62,12 +63,11 @@ class EB_FlexiBLAS(CMakeMake):
                          "'imkl', which does not need to be a (build)dependency." +
                          "If not defined, use the list of dependencies.", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_FlexiBLAS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         dep_names = [dep['name'] for dep in self.cfg.dependencies()]
         if self.cfg['backends']:
@@ -85,6 +85,9 @@ class EB_FlexiBLAS(CMakeMake):
 
         self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')
 
+        # custom CPATH to FlexiBLAS headers
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, [os.path.join('include', 'flexiblas')])
+
     def configure_step(self):
         """Custom configuration for FlexiBLAS, based on which BLAS libraries are included as dependencies."""
 
@@ -94,7 +97,9 @@ class EB_FlexiBLAS(CMakeMake):
             'FLEXIBLAS_DEFAULT': self.cfg['flexiblas_default'] or self.blas_libs[0],
         }
 
-        supported_blas_libs = ['BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
+        supported_blas_libs = ['AOCL-BLAS', 'BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
+        if LooseVersion(self.version) >= LooseVersion('3.4.5'):
+            supported_blas_libs += ['NVPL']
 
         # make sure that default backend is a supported library
         flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
@@ -105,7 +110,11 @@ class EB_FlexiBLAS(CMakeMake):
         unsupported_libs = [x for x in self.blas_libs if x not in supported_blas_libs]
         if unsupported_libs:
             raise EasyBuildError("One or more unsupported libraries used: %s", ', '.join(unsupported_libs))
-
+        # need to use CMake naming convention
+        if 'AOCL-BLAS' in self.blas_libs:
+            self.blas_libs[self.blas_libs.index('AOCL-BLAS')] = 'AOCL_mt'
+        if configopts['FLEXIBLAS_DEFAULT'] == 'AOCL-BLAS':
+            configopts['FLEXIBLAS_DEFAULT'] = 'AOCL_mt'
         # list of BLAS libraries to use is specified via -DEXTRA=...
         configopts['EXTRA'] = ';'.join(self.blas_libs)
 
@@ -116,7 +125,7 @@ class EB_FlexiBLAS(CMakeMake):
             if blas_lib == 'imkl':
                 # For MKL there is gf_lp64 vs. intel_lp64 and gnu_thread vs. intel_thread (vs. sequential)
                 # For gf_lp64 vs intel_lp64 the difference is in the ABI for [sz]dot[uc], which FlexiBLAS
-                # can transparenly wrap.
+                # can transparently wrap.
                 # gnu_thread vs intel_thread links to libgomp vs. libiomp5 for the OpenMP library.
                 mkl_gnu_libs = "mkl_gf_lp64;mkl_gnu_thread;mkl_core;gomp;pthread;m;dl"
                 mkl_intel_libs = "mkl_intel_lp64;mkl_intel_thread;mkl_core;iomp5;pthread;m;dl"
@@ -131,6 +140,13 @@ class EB_FlexiBLAS(CMakeMake):
                     configopts[key] = mkl_compiler_mapping[comp_family]
                 except KeyError:
                     raise EasyBuildError("Compiler family not supported yet: %s", comp_family)
+            elif blas_lib == "NVPL":
+                # NVPL libraries do not explicitly link any OpenMP runtime,
+                # but try to lazily and dynamically find the OpenMP runtime in the
+                # built program. Supported are libgomp, libomp and libnvomp.
+                configopts[key] = "nvpl_blas_lp64_gomp;nvpl_blas_core"
+            elif blas_lib == 'AOCL_mt':
+                configopts[key] = 'blis-mt'
             else:
                 configopts[key] = blas_lib.lower()
 
@@ -145,12 +161,12 @@ class EB_FlexiBLAS(CMakeMake):
         if build_option('rpath'):
             self.cfg['abs_path_compilers'] = True
 
-        super(EB_FlexiBLAS, self).configure_step(builddir=self.obj_builddir)
+        super().configure_step(builddir=self.obj_builddir)
 
     def install_step(self):
         """Install imkl configuration, found via FLEXIBLAS_LIBRARY_PATH set by imkl module."""
 
-        super(EB_FlexiBLAS, self).install_step()
+        super().install_step()
         if self.cfg['backends'] and 'imkl' in self.cfg['backends'] and 'imkl' not in self.blas_libs:
             if self.toolchain.comp_family() == toolchain.GCC:
                 parallel = "gnu"
@@ -182,7 +198,7 @@ class EB_FlexiBLAS(CMakeMake):
             "make test",
             self.cfg['testopts'],
         ])
-        run_cmd(test_cmd)
+        run_shell_cmd(test_cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for FlexiBLAS."""
@@ -222,13 +238,4 @@ class EB_FlexiBLAS(CMakeMake):
         for blas_lib in self.blas_libs:
             custom_commands.append("flexiblas list | grep %s" % blas_lib.upper())
 
-        super(EB_FlexiBLAS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_req_guess(self):
-        """Customize CPATH for FlexiBLAS."""
-
-        guesses = super(EB_FlexiBLAS, self).make_module_req_guess()
-
-        guesses.update({'CPATH': [os.path.join('include', 'flexiblas')]})
-
-        return guesses
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

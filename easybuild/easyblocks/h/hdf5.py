@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -57,7 +57,7 @@ class EB_HDF5(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize HDF5-specific variables."""
-        super(EB_HDF5, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         # configure options for dependencies
         self.known_deps = [
             {'name': 'Szip', 'with': 'szlib', 'lib': '-lsz'},
@@ -103,12 +103,12 @@ class EB_HDF5(ConfigureMake):
         if self.toolchain.options.get('usempi', None):
             env.setvar('RUNPARALLEL', r'mpirun -np $${NPROCS:=3}')
 
-        super(EB_HDF5, self).configure_step()
+        super().configure_step()
 
     # default make and make install are ok but add a pkconfig file
     def install_step(self):
         """Custom install step for HDF5"""
-        super(EB_HDF5, self).install_step()
+        super().install_step()
         hdf5_lib_deps = ''
         for dep in self.known_deps:
             root = get_software_root(dep['name'])
@@ -141,17 +141,10 @@ class EB_HDF5(ConfigureMake):
             'files': [os.path.join("bin", x) for x in binaries] + [os.path.join("lib", lib) for lib in libs],
             'dirs': ['include'],
         }
-        super(EB_HDF5, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Specify pkgconfig path for HDF5."""
-        guesses = super(EB_HDF5, self).make_module_req_guess()
-        guesses.update({'PKG_CONFIG_PATH': [os.path.join('lib', 'pkgconfig')]})
-
-        return guesses
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Also define $HDF5_DIR to installation directory."""
-        txt = super(EB_HDF5, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('HDF5_DIR', self.installdir)
         return txt

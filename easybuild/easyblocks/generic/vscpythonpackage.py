@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2023 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,12 +39,12 @@ class VSCPythonPackage(VersionIndependentPythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Custom constructor for VSC Python packages."""
-        super(VSCPythonPackage, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for VSC-tools packages."""
         pythonpath = os.environ.get('PYTHONPATH', '')
         os.environ['PYTHONPATH'] = ''
         kwargs.update({'exts_filter': ('%s -s -S -c "import %%(ext_name)s"' % self.python_cmd, "")})
-        super(VSCPythonPackage, self).sanity_check_step(*args, **kwargs)
+        super().sanity_check_step(*args, **kwargs)
         os.environ['PYTHONPATH'] = pythonpath

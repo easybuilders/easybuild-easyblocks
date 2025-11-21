@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,7 +28,7 @@ EasyBuild support for Armadillo, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 """
 import os
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
@@ -37,13 +37,6 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 
 class EB_Armadillo(CMakeMake):
     """Support for building Armadillo."""
-
-    @staticmethod
-    def extra_options():
-        """Extra easyconfig parameters for Armadillo."""
-        extra_vars = CMakeMake.extra_options()
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
 
     def configure_step(self):
         """Set some extra environment variables before configuring."""
@@ -59,7 +52,7 @@ class EB_Armadillo(CMakeMake):
         self.cfg.update('configopts', '-DBLAS_LIBRARY:PATH="%s"' % os.getenv('LIBBLAS'))
         self.cfg.update('configopts', '-DLAPACK_LIBRARY:PATH="%s"' % os.getenv('LIBLAPACK'))
 
-        super(EB_Armadillo, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Armadillo."""
@@ -72,4 +65,4 @@ class EB_Armadillo(CMakeMake):
             'files': ['include/armadillo', os.path.join(libdir, 'libarmadillo.%s' % get_shared_lib_ext())],
             'dirs': ['include/armadillo_bits'],
         }
-        super(EB_Armadillo, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

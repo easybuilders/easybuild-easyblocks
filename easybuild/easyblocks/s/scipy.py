@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,10 +31,11 @@ EasyBuild support for building and installing scipy, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Jasper Grimm (University of York)
+@author: Sebastian Achilles (Juelich Supercomputing Centre)
 """
 import os
 import tempfile
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -50,15 +51,17 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
     """Support for installing the scipy Python package as part of a Python installation."""
 
     @staticmethod
-    def extra_options():
+    def extra_options(extra_vars=None):
         """Easyconfig parameters specific to scipy."""
-        extra_vars = ({
+        extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
+        extra_vars = MesonNinja.extra_options(extra_vars=extra_vars)
+        extra_vars.update({
             'enable_slow_tests': [False, "Run scipy test suite, including tests marked as slow", CUSTOM],
             'ignore_test_result': [None, "Run scipy test suite, but ignore test failures (True/False/None). Default "
                                          "(None) implies True for scipy < 1.9, and False for scipy >= 1.9", CUSTOM],
         })
 
-        return PythonPackage.extra_options(extra_vars=extra_vars)
+        return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Set scipy-specific test command."""
@@ -66,23 +69,10 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
         PythonPackage.__init__(self, *args, **kwargs)
         self.testinstall = True
 
-        if LooseVersion(self.version) >= LooseVersion('1.9'):
-            self.use_meson = True
+        # use Meson/Ninja install procedure for scipy >= 1.9
+        self.use_meson = LooseVersion(self.version) >= LooseVersion('1.9')
 
-            # enforce scipy test suite results if not explicitly disabled for scipy >= 1.9
-            # strip inherited PythonPackage installopts
-            installopts = self.cfg['installopts']
-            pythonpackage_installopts = ['--no-deps', '--ignore-installed', '--no-index', '--egg',
-                                         '--zip-ok', '--no-index']
-            self.log.info("Stripping inherited PythonPackage installopts %s from installopts %s",
-                          pythonpackage_installopts, installopts)
-            for i in pythonpackage_installopts:
-                installopts = installopts.replace(i, '')
-            self.cfg['installopts'] = installopts
-
-        else:
-            self.use_meson = False
-
+        # enforce scipy test suite results if not explicitly disabled for scipy >= 1.9
         if self.cfg['ignore_test_result'] is None:
             # automatically ignore scipy test suite results for scipy < 1.9, as we did in older easyconfigs
             self.cfg['ignore_test_result'] = LooseVersion(self.version) < '1.9'
@@ -95,11 +85,21 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             # see https://github.com/easybuilders/easybuild-easyblocks/issues/2237
             self.testcmd = "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
         else:
-            self.testcmd = " && ".join([
-                "cd ..",
-                "touch %(srcdir)s/.coveragerc",
-                "%(python)s %(srcdir)s/runtests.py -v --no-build --parallel %(parallel)s",
-            ])
+            if LooseVersion(self.version) >= LooseVersion('1.11'):
+                self.testcmd = " && ".join([
+                    "cd ..",
+                    # note: beware of adding --parallel here to speed up running the tests:
+                    # in some contexts the test suite could hang because pytest-xdist doesn't deal well with cgroups
+                    # cfr. https://github.com/pytest-dev/pytest-xdist/issues/658
+                    "%(python)s %(srcdir)s/dev.py --no-build --install-prefix %(installdir)s test -v ",
+                ])
+            else:
+                self.testcmd = " && ".join([
+                    "cd ..",
+                    "touch %(srcdir)s/.coveragerc",
+                    "%(python)s %(srcdir)s/runtests.py -v --no-build --parallel %(parallel)s",
+                ])
+
             if self.cfg['enable_slow_tests']:
                 self.testcmd += " -m full "
 
@@ -113,7 +113,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             if lapack_lib == toolchain.FLEXIBLAS:
                 blas_lapack = 'flexiblas'
             elif lapack_lib == toolchain.INTELMKL:
-                blas_lapack = 'mkl'
+                blas_lapack = 'mkl-dynamic-lp64-seq'
             elif lapack_lib == toolchain.OPENBLAS:
                 blas_lapack = 'openblas'
             else:
@@ -125,10 +125,18 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             # need to have already installed extensions in PATH, PYTHONPATH for configure/build/install steps
             pythonpath = os.getenv('PYTHONPATH')
             pylibdir = det_pylibdir()
-            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, pylibdir), pythonpath]))
+            if pythonpath is None:
+                pythonpath = os.path.join(self.installdir, pylibdir)
+            else:
+                pythonpath = os.pathsep.join([os.path.join(self.installdir, pylibdir), pythonpath])
+            env.setvar('PYTHONPATH', pythonpath)
 
             path = os.getenv('PATH')
-            env.setvar('PATH', os.pathsep.join([os.path.join(self.installdir, 'bin'), path]))
+            if path is None:
+                path = os.path.join(self.installdir, 'bin')
+            else:
+                path = os.pathsep.join([os.path.join(self.installdir, 'bin'), path])
+            env.setvar('PATH', path)
 
             MesonNinja.configure_step(self)
 
@@ -165,10 +173,17 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             change_dir(tmp_builddir)
 
             # reconfigure (to update prefix), and install to tmpdir
-            MesonNinja.configure_step(self, cmd_prefix=tmp_installdir)
+            orig_builddir = self.builddir
+            orig_installdir = self.installdir
+            self.builddir = tmp_builddir
+            self.installdir = tmp_installdir
+            MesonNinja.configure_step(self)
             MesonNinja.install_step(self)
+            self.builddir = orig_builddir
+            self.installdir = orig_installdir
+            MesonNinja.configure_step(self)
 
-            tmp_pylibdir = [os.path.join(tmp_installdir, det_pylibdir())]
+            tmp_pylibdir = os.path.join(tmp_installdir, det_pylibdir())
             self.prepare_python()
 
             self.cfg['pretestopts'] = " && ".join([
@@ -181,7 +196,8 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             self.cfg['runtest'] = self.testcmd % {
                 'python': self.python_cmd,
                 'srcdir': self.cfg['start_dir'],
-                'parallel': self.cfg['parallel'],
+                'installdir': tmp_installdir,
+                'parallel': self.cfg.parallel,
             }
 
             MesonNinja.test_step(self)
@@ -190,7 +206,8 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             self.testcmd = self.testcmd % {
                 'python': '%(python)s',
                 'srcdir': self.cfg['start_dir'],
-                'parallel': self.cfg['parallel'],
+                'installdir': '',
+                'parallel': self.cfg.parallel,
             }
             FortranPythonPackage.test_step(self)
 

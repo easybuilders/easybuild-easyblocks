@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,14 +30,18 @@ EasyBuild support for building and installing HPL, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Davide Grassano (CECAM - EPFL)
 """
 
+import re
 import os
-import shutil
 
+import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.config import build_option
+from easybuild.tools.filetools import change_dir, copy_file, mkdir, remove_file, symlink
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_HPL(ConfigureMake):
@@ -61,26 +65,22 @@ class EB_HPL(ConfigureMake):
             makeincfile = os.path.join(basedir, 'Make.UNKNOWN')
             setupdir = os.path.join(basedir, 'setup')
 
-        try:
-            os.chdir(setupdir)
-        except OSError as err:
-            raise EasyBuildError("Failed to change to to dir %s: %s", setupdir, err)
+        change_dir(setupdir)
 
         cmd = "/bin/bash make_generic"
 
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
-        try:
-            os.symlink(os.path.join(setupdir, 'Make.UNKNOWN'), os.path.join(makeincfile))
-        except OSError as err:
-            raise EasyBuildError("Failed to symlink Make.UNKNOWN from %s to %s: %s", setupdir, makeincfile, err)
+        remove_file(makeincfile)
+        symlink(os.path.join(setupdir, 'Make.UNKNOWN'), makeincfile)
 
         # go back
-        os.chdir(self.cfg['start_dir'])
+        change_dir(self.cfg['start_dir'])
 
-    def build_step(self):
+    def build_step(self, topdir=None):
         """
         Build with make and correct make options
+        - provide topdir argument so this can be reused in HPCC easyblock
         """
 
         for envvar in ['MPICC', 'LIBLAPACK_MT', 'CPPFLAGS', 'LDFLAGS', 'CFLAGS']:
@@ -89,7 +89,9 @@ class EB_HPL(ConfigureMake):
                 raise EasyBuildError("Required environment variable %s not found (no toolchain used?).", envvar)
 
         # build dir
-        extra_makeopts = 'TOPdir="%s" ' % self.cfg['start_dir']
+        if not topdir:
+            topdir = self.cfg['start_dir']
+        extra_makeopts = 'TOPdir="%s" ' % topdir
 
         # compilers
         extra_makeopts += 'CC="%(mpicc)s" MPICC="%(mpicc)s" LINKER="%(mpicc)s" ' % {'mpicc': os.getenv('MPICC')}
@@ -106,9 +108,73 @@ class EB_HPL(ConfigureMake):
         # C compilers flags
         extra_makeopts += "CCFLAGS='$(HPL_DEFS) %s' " % os.getenv('CFLAGS')
 
+        comp_fam = self.toolchain.comp_family()
+        if comp_fam in [toolchain.INTELCOMP]:
+            # Explicitly disable optimization, since Intel compilers apply some default
+            # level not shown on the command line.
+            # This breaks the result comparison, resulting in all tests failing residual checks.
+            # See https://github.com/easybuilders/easybuild-easyconfigs/pull/23704#issuecomment-3202392904
+            extra_makeopts += 'CCNOOPT=\'$(HPL_DEFS) -O0\' '
+
         # set options and build
         self.cfg.update('buildopts', extra_makeopts)
-        super(EB_HPL, self).build_step()
+        super().build_step()
+
+    def test_step(self):
+        """Test by running xhpl"""
+        srcdir = os.path.join(self.cfg['start_dir'], 'bin', 'UNKNOWN')
+        change_dir(srcdir)
+
+        pre_cmd = ""
+        post_cmd = ""
+
+        # xhpl needs atleast 4 processes to run the test suite
+        req_cpus = 4
+
+        mpi_fam = self.toolchain.mpi_family()
+        if mpi_fam is None:
+            self.report_test_failure("Toolchain does not include an MPI implementation, cannot run tests")
+
+        parallel = self.cfg.parallel
+        if not build_option('mpi_tests'):
+            self.log.info("MPI tests disabled from buildoption. Setting parallel to 1")
+            parallel = 1
+
+        if parallel < req_cpus:
+            self.log.info("Running tests with 1 oversubscribed process")
+
+            pin_str = ','.join(["0"] * req_cpus)
+            if mpi_fam in [toolchain.INTELMPI]:
+                pre_cmd = f"I_MPI_PIN_PROCESSOR_LIST=\"{pin_str}\" I_MPI_PIN=on "
+            elif mpi_fam in [toolchain.OPENMPI]:
+                post_cmd = f"--cpu-set {pin_str}"
+            elif mpi_fam in [toolchain.MPICH]:
+                post_cmd = f"-bind-to user:{pin_str}"
+            else:
+                self.report_test_failure("Don't know how to oversubscribe for `%s` MPI family" % mpi_fam)
+
+        cmd = self.toolchain.mpi_cmd_for(f'{post_cmd} ./xhpl', req_cpus)
+        cmd = f'{pre_cmd} {cmd}'
+        res = run_shell_cmd(cmd)
+        out = res.output
+
+        passed_rgx = re.compile(r'(\d+) tests completed and passed')
+        failed_rgx = re.compile(r'(\d+) tests completed and failed')
+
+        nfailed = 0
+        passed_mch = passed_rgx.search(out)
+        failed_mch = failed_rgx.search(out)
+        if passed_mch:
+            npassed = int(passed_mch.group(1))
+            self.log.info("%d tests passed residual checks in xhpl output" % npassed)
+        else:
+            self.report_test_failure("Could not find test results in output of xhpl")
+
+        if failed_mch:
+            nfailed = int(failed_mch.group(1))
+
+        if nfailed > 0:
+            self.report_test_failure("%d tests failed residual checks in xhpl output" % nfailed)
 
     def install_step(self):
         """
@@ -116,23 +182,20 @@ class EB_HPL(ConfigureMake):
         """
         srcdir = os.path.join(self.cfg['start_dir'], 'bin', 'UNKNOWN')
         destdir = os.path.join(self.installdir, 'bin')
-        srcfile = None
-        try:
-            os.makedirs(destdir)
-            for filename in ["xhpl", "HPL.dat"]:
-                srcfile = os.path.join(srcdir, filename)
-                shutil.copy2(srcfile, destdir)
-        except OSError as err:
-            raise EasyBuildError("Copying %s to installation dir %s failed: %s", srcfile, destdir, err)
+        mkdir(destdir)
+        for filename in ["xhpl", "HPL.dat"]:
+            srcfile = os.path.join(srcdir, filename)
+            copy_file(srcfile, destdir)
 
-    def sanity_check_step(self):
+    def sanity_check_step(self, **kwargs):
         """
         Custom sanity check for HPL
         """
 
-        custom_paths = {
+        # Allow subclasses to set own custom paths
+        kwargs.setdefault('custom_paths', {
             'files': ["bin/xhpl"],
             'dirs': []
-        }
+        })
 
-        super(EB_HPL, self).sanity_check_step(custom_paths)
+        super().sanity_check_step(**kwargs)

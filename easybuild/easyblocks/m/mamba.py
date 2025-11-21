@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,7 @@ EasyBuild support for building and installing Mamba, implemented as an easyblock
 
 import os
 
-from easybuild.easyblocks.a.anaconda import EB_Anaconda
+from easybuild.easyblocks.anaconda import EB_Anaconda
 
 
 class EB_Mamba(EB_Anaconda):

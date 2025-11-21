@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2023 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,7 +30,7 @@ implemented as an easyblock.
 @author: Alan O'Cais (Juelich Supercomputing Centre)
 @author: Kenneth Hoste (Ghent University)
 """
-from distutils.version import LooseVersion
+from easybuild.tools import LooseVersion
 import os
 
 import easybuild.tools.environment as env
@@ -134,7 +134,7 @@ class EB_libxml2(ConfigureMake, PythonPackage):
         if self.with_python_bindings:
             txt = PythonPackage.make_module_extra(self)
         else:
-            txt = super(EB_libxml2, self).make_module_extra()
+            txt = super().make_module_extra()
 
         txt += self.module_generator.prepend_paths('CPATH', [os.path.join('include', 'libxml2')])
         return txt
