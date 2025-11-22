@@ -66,9 +66,14 @@ class EB_HPCG(ConfigureMake):
         """Run build in build subdirectory."""
         cxx = os.environ['CXX']
         cxxflags = os.environ['CXXFLAGS']
-        cmd = "make CXX='%s' CXXFLAGS='$(HPCG_DEFS) %s " % (cxx, cxxflags)
-        cmd += f"-DMPICH_IGNORE_CXX_SEEK' {self.cfg['buildopts']} "
-        run_shell_cmd(cmd, work_dir=f"{self.cfg['start_dir']}/obj")
+        cmd = ' '.join([
+            self.cfg['prebuildopts'],
+            "make",
+            f"CXX='{cxx}'",
+            f"CXXFLAGS='$(HPCG_DEFS) {cxxflags} -DMPICH_IGNORE_CXX_SEEK'",
+            self.cfg['buildopts'],
+        ])
+        run_shell_cmd(cmd, work_dir=os.path.join(self.cfg['start_dir'], 'obj'))
 
     def test_step(self):
         """Custom built-in test procedure for HPCG."""
