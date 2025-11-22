@@ -44,16 +44,16 @@ from easybuild.framework.easyconfig import CUSTOM
 
 
 class EB_gnupg_minus_bundle(Bundle):
-    MAX_UNIX_SOCKET_SAFE_BUILD_PATH_LENGHT = 60
+    MAX_UNIX_SOCKET_SAFE_BUILD_PATH_LENGTH = 60
 
     @staticmethod
     def extra_options(extra_vars=None):
-        """Easyconfig parameters specific to gnupg bundle"""
+        """Easyconfig parameters specific to gnupg-bundle"""
         extra_vars = Bundle.extra_options(extra_vars=extra_vars)
         extra_vars.update({
             'unix_socket_compliant_buildpath': [
                 None,
-                "A build path that ensures that test UNIX socket paths are less that 108 characters long",
+                "A build path that ensures that test UNIX socket paths are less than 108 characters long",
                 CUSTOM
             ]
         })
@@ -71,7 +71,7 @@ class EB_gnupg_minus_bundle(Bundle):
         buildpath = easyblock.cfg['unix_socket_compliant_buildpath']
         if buildpath is None:
             buildpath = EB_gnupg_minus_bundle._get_random_build_path(base_path='/tmp', prefix=easyblock.name)
-        if len(buildpath) > EB_gnupg_minus_bundle.MAX_UNIX_SOCKET_SAFE_BUILD_PATH_LENGHT:
+        if len(buildpath) > EB_gnupg_minus_bundle.MAX_UNIX_SOCKET_SAFE_BUILD_PATH_LENGTH:
             raise EasyBuildError("Build path is too large (>60 chars) for a test Linux socket: "
                                  f"unix_socket_compliant_buildpath = {buildpath}")
 
@@ -80,7 +80,7 @@ class EB_gnupg_minus_bundle(Bundle):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if len(self.builddir) > EB_gnupg_minus_bundle.MAX_UNIX_SOCKET_SAFE_BUILD_PATH_LENGHT:
+        if len(self.builddir) > EB_gnupg_minus_bundle.MAX_UNIX_SOCKET_SAFE_BUILD_PATH_LENGTH:
             self.builddir = EB_gnupg_minus_bundle._get_unix_socket_compliant_buildpath(self)
 
             print_msg("using modified build path to ensure test UNIX socket can be created: %s ..." % self.builddir)
