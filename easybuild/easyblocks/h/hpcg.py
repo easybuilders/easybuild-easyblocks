@@ -87,8 +87,15 @@ class EB_HPCG(ConfigureMake):
             # obtain equivalent of 'mpirun -np 2 xhpcg'
             hpcg_mpi_cmd = self.toolchain.mpi_cmd_for("xhpcg", 2)
             # 2 threads per MPI process (4 threads in total)
-            cmd = f"{self.cfg['pretestopts']} "
-            cmd += "export PATH=%s:$PATH && export OMP_NUM_THREADS=2 && %s" % (objbindir, hpcg_mpi_cmd)
+            cmd = ' '.join([
+                self.cfg['pretestopts'],
+                ' && '.join([
+                    f"export PATH={objbindir}:$PATH",
+                    "export OMP_NUM_THREADS=2",
+                    hpcg_mpi_cmd,
+                ]),
+                self.cfg['testopts'],
+            ])
             run_shell_cmd(cmd)
 
             # find log file, check for success
