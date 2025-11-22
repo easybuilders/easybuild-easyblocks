@@ -53,7 +53,14 @@ class EB_HPCG(ConfigureMake):
             arg = "MPI_GCC_OMP"
         else:
             arg = "../setup/Make.MPI_GCC_OMP"
-        run_shell_cmd(f"{self.cfg['preconfigopts']} ../configure %s" % arg, work_dir=f"{self.cfg['start_dir']}/obj")
+        work_dir = os.path.join(self.cfg['start_dir'], 'obj')
+        cmd = ' '.join([
+            self.cfg['preconfigopts'],
+            "../configure",
+            arg,
+            self.cfg['configopts'],
+        ])
+        run_shell_cmd(cmd, work_dir=work_dir)
 
     def build_step(self):
         """Run build in build subdirectory."""
