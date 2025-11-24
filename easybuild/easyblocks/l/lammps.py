@@ -729,12 +729,13 @@ class EB_LAMMPS(CMakeMake):
                 run_gpu_tests = True
 
         # add accelerator-specific tests
-        # INTEL package
-        custom_commands.append(
-            'from lammps import lammps; '
-            'l=lammps(cmdargs=["-sf", "intel"]).file("%s") if "INTEL" in lammps().installed_packages else None' %
-            os.path.join(self.installdir, "examples", "msst", "in.msst")
-        )
+        # INTEL package - it requires mpi4py - run only for updated easyconfigs >= 29Aug2024
+        if LooseVersion(self.version) >= LooseVersion('29Aug2024'):
+            custom_commands.append(
+                'from lammps import lammps; '
+                'l=lammps(cmdargs=["-sf", "intel"]).file("%s") if "INTEL" in lammps().installed_packages else None' %
+                os.path.join(self.installdir, "examples", "msst", "in.msst")
+            )
         if self.cfg['kokkos']:  # KOKKOS package
             if self.cuda:
                 if run_gpu_tests:
