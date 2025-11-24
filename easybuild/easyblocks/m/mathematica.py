@@ -81,7 +81,7 @@ class EB_Mathematica(Binary):
 
         if not os.path.exists(install_script):
             raise EasyBuildError("Install script not found: %s", install_script)
-        
+
         cmd = self.cfg['preinstallopts'] + './' + install_script
         shortver = '.'.join(self.version.split('.')[:2])
         # Starting at V14, the product is called "Wolfram" instead of "Mathematica"
