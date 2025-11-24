@@ -29,7 +29,6 @@ EasyBuild support for building and installing Mathematica, implemented as an eas
 """
 
 from easybuild.tools import LooseVersion
-import glob
 import os
 
 from easybuild.easyblocks.generic.binary import Binary
@@ -77,44 +76,38 @@ class EB_Mathematica(Binary):
         # make sure $DISPLAY is not set (to avoid that installer uses GUI)
         orig_display = os.environ.pop('DISPLAY', None)
 
-        install_script_glob = '%s_%s_LINUX*.sh' % (self.name, self.version)
-        # Starting at V13, Mathematica have renamed their install file...
-        if LooseVersion(self.version) >= LooseVersion("13"):
-            install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
-        if LooseVersion(self.version) >= LooseVersion("14.1"):
-            install_script_glob = 'Wolfram_%s_BNDL_LIN.sh' % (self.version)
+        # Use install script from easyconfig sources
+        install_script = self.cfg.get("install_script") or self.src[0]['name']
 
-        matches = glob.glob(install_script_glob)
-        if len(matches) == 1:
-            install_script = matches[0]
-            cmd = self.cfg['preinstallopts'] + './' + install_script
-            shortver = '.'.join(self.version.split('.')[:2])
-            # Starting at V14, the product is called "Wolfram" instead of "Mathematica"
-            if LooseVersion(self.version) >= LooseVersion("14"):
-                product_name = "Wolfram"
-            else:
-                product_name = self.name
-            qa_install_path = os.path.join('/usr', 'local', 'Wolfram', product_name, shortver)
-            qa = [
-                (r"Enter the installation directory, or press ENTER to select[\s\n]*%s:[\s\n]*>" % qa_install_path,
-                 self.installdir),
-                (r"Create directory \(y/n\)\?[\s\n]*>", 'y'),
-                (r"Should the installer attempt to make this change \(y/n\)\?[\s\n]*>", 'n'),
-                (r"or press ENTER to select[\s\n]*/usr/local/bin:[\s\n]*>", os.path.join(self.installdir, "bin")),
-            ]
-            no_qa = [
-                r"Now installing.*\n\n.*\[.*\].*",
-                r"NOTE: Because you are not logged in with root privileges.*",
-                r".*rpm -Uvh.*wolframscript.*",
-                r".*Extracting installer.*",
-                r".*\|\d+%",
-                r".*Documentation.*Installer.*",
-                r"You are not logged in with root privilege.*",
-                r"The selected directory.*contains files.*",
-            ]
-            run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
+        if not os.path.exists(install_script):
+            raise EasyBuildError("Install script not found: %s", install_script)
+        
+        cmd = self.cfg['preinstallopts'] + './' + install_script
+        shortver = '.'.join(self.version.split('.')[:2])
+        # Starting at V14, the product is called "Wolfram" instead of "Mathematica"
+        if LooseVersion(self.version) >= LooseVersion("14"):
+            product_name = "Wolfram"
         else:
-            raise EasyBuildError("Failed to isolate install script using '%s': %s", install_script_glob, matches)
+            product_name = self.name
+        qa_install_path = os.path.join('/usr', 'local', 'Wolfram', product_name, shortver)
+        qa = [
+            (r"Enter the installation directory, or press ENTER to select[\s\n]*%s:[\s\n]*>" % qa_install_path,
+             self.installdir),
+            (r"Create directory \(y/n\)\?[\s\n]*>", 'y'),
+            (r"Should the installer attempt to make this change \(y/n\)\?[\s\n]*>", 'n'),
+            (r"or press ENTER to select[\s\n]*/usr/local/bin:[\s\n]*>", os.path.join(self.installdir, "bin")),
+        ]
+        no_qa = [
+            r"Now installing.*\n\n.*\[.*\].*",
+            r"NOTE: Because you are not logged in with root privileges.*",
+            r".*rpm -Uvh.*wolframscript.*",
+            r".*Extracting installer.*",
+            r".*\|\d+%",
+            r".*Documentation.*Installer.*",
+            r"You are not logged in with root privilege.*",
+            r"The selected directory.*contains files.*",
+        ]
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
 
         # add license server configuration file
         # some relevant documentation at http://reference.wolfram.com/mathematica/tutorial/ConfigurationFiles.html
