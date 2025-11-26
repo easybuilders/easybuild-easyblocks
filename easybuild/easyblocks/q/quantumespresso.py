@@ -1054,21 +1054,6 @@ class EB_QuantumESPRESSO(EasyBlock):
                 self.log.info("Skipping testing of QuantumESPRESSO since MPI testing is disabled")
                 return
 
-            # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3650
-            prev_env_value = None
-            if self.cfg.get('test_mpi_socket_binding', True):
-                mpi_fam = self.toolchain.mpi_family()
-                if mpi_fam == toolchain.OPENMPI:
-                    mpi_vers = get_software_version('OpenMPI')
-                    if LooseVersion(mpi_vers) >= '5':
-                        env_name = 'PRTE_MCA_rmaps_default_mapping_policy'
-                        env_value = 'package'
-                    else:
-                        env_name = 'OMPI_MCA_hwloc_base_bind_to_socket'
-                        env_value = '1'
-                    prev_env_value = os.getenv(env_name, '')
-                    env.setvar(env_name, env_value)
-
             thr = self.cfg.get('test_suite_threshold', 0.9)
             stot = 0
             spass = 0
@@ -1163,9 +1148,6 @@ class EB_QuantumESPRESSO(EasyBlock):
                 raise EasyBuildError(
                     "Test suite failed with %d failures (%d failures permitted)" % (num_fail, num_fail_thr)
                     )
-
-            if prev_env_value is not None:
-                env.unset_env_vars([env_name])
 
             return full_out
 
