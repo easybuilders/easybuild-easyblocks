@@ -359,7 +359,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3650
             prev_env_value = None
             if self.cfg.get('test_mpi_socket_binding', True):
-                mpi_fam = self.toolchain.mpi_fam()
+                mpi_fam = self.toolchain.mpi_family()
                 if mpi_fam == toolchain.OPENMPI:
                     mpi_vers = get_software_version('OpenMPI')
                     if LooseVersion(mpi_vers) >= '5':
@@ -1057,7 +1057,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3650
             prev_env_value = None
             if self.cfg.get('test_mpi_socket_binding', True):
-                mpi_fam = self.toolchain.mpi_fam()
+                mpi_fam = self.toolchain.mpi_family()
                 if mpi_fam == toolchain.OPENMPI:
                     mpi_vers = get_software_version('OpenMPI')
                     if LooseVersion(mpi_vers) >= '5':
