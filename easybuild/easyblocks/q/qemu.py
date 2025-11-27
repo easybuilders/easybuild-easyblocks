@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 ##
 # Copyright 2018-2025 Ghent University
 #
@@ -25,7 +26,7 @@
 """
 EasyBuild support for installing QEMU
 
-@author: Mikael Öhman
+@author: Mikael Öhman (Chalmers University of Techonology)
 """
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
