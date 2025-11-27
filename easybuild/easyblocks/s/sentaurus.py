@@ -31,6 +31,7 @@ EasyBuild support for installing Sentaurus
 
 import glob
 import os
+import stat
 
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyblock import EasyBlock
@@ -39,7 +40,7 @@ from easybuild.tools.filetools import create_unused_dir, adjust_permissions, wri
 from easybuild.tools.run import run_shell_cmd
 
 
-INSTALL_TEMPLATE="""
+INSTALL_TEMPLATE = """
 SourceDir: {0}
 SiteId: {1}
 SiteAdmin: EasyBuild
@@ -50,7 +51,7 @@ PLATFORMS: common linux64
 #####
 sentaurus,V-{2} {{
 DESCRIPTION: TCAD Sentaurus
-TYPE: 
+TYPE:
 POSTINST: tcad/V-{2}/install_sentaurus
 EULA: 1
 ESTPLATFORMS: linux64 common
@@ -59,6 +60,7 @@ PLATFORMS:
 TARGETDIR: {3}
 }}
 """
+
 
 class EB_Sentaurus(Binary):
     """
@@ -94,7 +96,7 @@ class EB_Sentaurus(Binary):
         if len(unpacker) != 1:
             print('Did not find exactly one installer, unknown how to proceed')
         unpacker = unpacker[0]
-        os.chmod(unpacker, 0o755)
+        adjust_permissions(unpacker, stat.S_IXUSR)
         run_shell_cmd(f'./{unpacker} -dir staging')
 
     def install_step(self):
@@ -130,4 +132,3 @@ class EB_Sentaurus(Binary):
             'dirs': [],
         }
         super(Binary, self).sanity_check_step(custom_paths=custom_paths)
-
