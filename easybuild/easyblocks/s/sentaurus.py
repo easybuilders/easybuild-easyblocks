@@ -88,7 +88,7 @@ class EB_Sentaurus(Binary):
         # Check early to inform user it is required for license
         self.siteid = self.cfg['siteid'] or os.getenv('EB_SENTAURUS_SITEID', '0000')
         if self.siteid is None:
-            self.log.error("siteid is required but not specified")
+            raise EasyBuildError("siteid is required but not specified")
 
         self.stagingdir = create_unused_dir(self.builddir, 'staging')
 
@@ -117,7 +117,7 @@ class EB_Sentaurus(Binary):
         Add license variable to Sentaurus module
         """
         mod = super().make_module_extra()
-        mod += self.module_generator.append_path('PATH', 'current/bin/')
+        mod += self.module_generator.append_paths('PATH', 'current/bin/')
 
         license_server = self.cfg['license_server'] or os.getenv('EB_SENTAURUS_LICENSE_SERVER', None)
         if license_server:
