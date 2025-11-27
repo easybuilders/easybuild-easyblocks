@@ -357,7 +357,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 return
 
             # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3650
-            prev_env_value = None
+            pre_test_opts = ""
             if self.cfg.get('test_mpi_socket_binding', True):
                 mpi_fam = self.toolchain.mpi_family()
                 if mpi_fam == toolchain.OPENMPI:
@@ -368,14 +368,13 @@ class EB_QuantumESPRESSO(EasyBlock):
                     else:
                         env_name = 'OMPI_MCA_hwloc_base_bind_to_socket'
                         env_value = '1'
-                    prev_env_value = os.getenv(env_name, '')
-                    env.setvar(env_name, env_value)
+                    pre_test_opts = f'export {env_name}={env_value} && '
 
             thr = self.cfg.get('test_suite_threshold', 0.97)
             concurrent = max(1, self.cfg.parallel // self._test_nprocs)
             allow_fail = self.cfg.get('test_suite_allow_failures', [])
 
-            cmd = f'ctest -j{concurrent} --output-on-failure'
+            cmd = f'{pre_test_opts} ctest -j{concurrent} --output-on-failure'
 
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
@@ -423,9 +422,6 @@ class EB_QuantumESPRESSO(EasyBlock):
                 raise EasyBuildError(
                     'Test suite failed with %d non-ignored failures (%d failures permitted)' % (num_fail, num_fail_thr)
                     )
-
-            if prev_env_value is not None:
-                env.unset_env_vars([env_name])
 
             return out
 
