@@ -395,6 +395,11 @@ class EB_LLVM(CMakeMake):
         self.log.info("Final projects to build: %s", ', '.join(self.final_projects))
         self.log.info("Final runtimes to build: %s", ', '.join(self.final_runtimes))
 
+        # Set nvptx_target_cond and amdgpu_target_cond to False by default, since
+        # not setting any value breaks module-only and sanity-check-only
+        self.nvptx_target_cond = False
+        self.amdgpu_target_cond = False
+
         # CMake options passed to each build stage.
         # Will be cleared between stages. If arguments are needed in multiple stages,
         # consider adding them to general_opts instead.
@@ -1032,7 +1037,10 @@ class EB_LLVM(CMakeMake):
         """Add LLVM-specific CMake options."""
         base_opts = self._cfgopts.copy()
         for k, v in self._cmakeopts.items():
-            base_opts.append('-D%s=%s' % (k, v))
+            opt_start = f'-D{k}='
+            # Don't overwrite e.g. user settings
+            if not any(opt.startswith(opt_start) for opt in base_opts):
+                base_opts.append(f'-D{k}={v}')
         self.cfg['configopts'] = ' '.join(base_opts)
 
     def configure_step2(self):
