@@ -31,6 +31,7 @@ EasyBuild support for pocl, implemented as an easyblock
 import os
 
 from easybuild.easyblocks.generic.cmakeninja import CMakeNinja
+from easybuild.tools.build_log import print_warning
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -84,7 +85,11 @@ class EB_pocl(CMakeNinja):
             else:
                 kwargs['return_full_cmd_result'] = orig_return_full_cmd_result
 
-            self.cfg.update('configopts', '-DLLC_HOST_CPU=native')
+            native_opt = '-DLLC_HOST_CPU=native'
+            warning_msg = "Configuring with CPU auto-detection enabled failed, "
+            warning_msg += f"so trying again with extra configure option {native_opt}"
+            print_warning(warning_msg, log=self.log)
+            self.cfg.update('configopts', native_opt)
             return CMakeNinja.configure_step(self, *args, **kwargs)
 
     def sanity_check_step(self):
