@@ -122,7 +122,7 @@ class EB_Libint(CMakeMake):
                 # mainly to avoid warning about it not being set (but $CXXFLAGS is picked up anyway in practice)
                 # However this isn't required/supported anymore in the already generated "source",
                 # see the above creation of the LibInt compiler/library
-                self.cfg.update('configopts', "--with-cxxgen-optflags='%s'" % os.getenv('CXXFLAGS', ''))
+                self.cfg.update('configopts', "--with-cxxgen-optflags='%s'" % os.getenv('CXXFLAGS'))
 
             # --enable-fortran is only a known configure option for Libint library, not for Libint compiler,
             # so only add --enable-fortran *after* configuring & generating Libint compiler

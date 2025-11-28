@@ -60,7 +60,7 @@ class EB_MrBayes(ConfigureMake):
         """Configure build: <single-line description how this deviates from standard configure>"""
 
         # set generic make options
-        self.cfg.update('buildopts', 'CC="%s" OPTFLAGS="%s"' % (os.getenv('MPICC'), os.getenv('CFLAGS', '')))
+        self.cfg.update('buildopts', 'CC="%s" OPTFLAGS="%s"' % (os.getenv('MPICC'), os.getenv('CFLAGS')))
 
         if LooseVersion(self.version) >= LooseVersion("3.2"):
 

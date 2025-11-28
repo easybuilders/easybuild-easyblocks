@@ -161,8 +161,8 @@ class EB_ScaLAPACK(CMakeMake):
         extra_makeopts += [
             'FC="%s"' % mpif90,
             'CC="%s"' % mpicc,
-            'CCFLAGS="%s"' % os.getenv('CFLAGS', ''),
-            'FCFLAGS="%s"' % os.getenv('FFLAGS', ''),
+            'CCFLAGS="%s"' % os.getenv('CFLAGS'),
+            'FCFLAGS="%s"' % os.getenv('FFLAGS'),
         ]
 
         # set interface

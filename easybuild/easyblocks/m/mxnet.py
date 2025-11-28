@@ -163,7 +163,7 @@ class EB_MXNet(MakeCp):
             blas = "openblas"
         elif toolchain_blas == 'FlexiBLAS':
             blas = "flexiblas"
-            env.setvar('CFLAGS', "%s -lflexiblas" % os.getenv('CFLAGS', ''))
+            env.setvar('CFLAGS', "%s -lflexiblas" % os.getenv('CFLAGS'))
         elif toolchain_blas is None:
             raise EasyBuildError("No BLAS library found in the toolchain")
 

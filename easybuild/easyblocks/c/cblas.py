@@ -54,8 +54,8 @@ class EB_CBLAS(ConfigureMake):
 
         self.cfg.update('buildopts', 'CC="%s"' % os.getenv('CC'))
         self.cfg.update('buildopts', 'FC="%s"' % os.getenv('F77'))
-        self.cfg.update('buildopts', 'CFLAGS="%s -DADD_"' % os.getenv('CFLAGS', ''))
-        self.cfg.update('buildopts', 'FFLAGS="%s -DADD_"' % os.getenv('FFLAGS', ''))
+        self.cfg.update('buildopts', 'CFLAGS="%s -DADD_"' % os.getenv('CFLAGS'))
+        self.cfg.update('buildopts', 'FFLAGS="%s -DADD_"' % os.getenv('FFLAGS'))
 
         blas_lib_dir = os.getenv('BLAS_LIB_DIR')
         blas_libs = []
