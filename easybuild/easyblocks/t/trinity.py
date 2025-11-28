@@ -105,7 +105,7 @@ class EB_Trinity(EasyBlock):
                                                                 os.getenv('CXX'),
                                                                 os.getenv('CC'))
         make_flags += "OMP_FLAGS='%s' OMP_LINK='%s' " % (self.toolchain.get_flag('openmp'),
-                                                         os.getenv('LIBS'))
+                                                         os.getenv('LIBS', ''))
         make_flags += "OPTIM='-O1' SYS_OPT='-O2 %s' " % self.toolchain.get_flag('optarch')
         make_flags += "OPEN_MP=yes UNSUPPORTED=yes DEBUG=no QUIET=yes"
 
@@ -129,7 +129,7 @@ class EB_Trinity(EasyBlock):
     def inchworm(self, run=True):
         """Install procedure for Inchworm."""
 
-        make_flags = 'CXXFLAGS="%s %s"' % (os.getenv('CXXFLAGS'), self.toolchain.get_flag('openmp'))
+        make_flags = 'CXXFLAGS="%s %s"' % (os.getenv('CXXFLAGS', ''), self.toolchain.get_flag('openmp'))
         version = LooseVersion(self.version)
         if version >= LooseVersion('2.0') and version < LooseVersion('3.0'):
             make_flags += ' CXX=%s' % os.getenv('CXX')
@@ -177,7 +177,7 @@ class EB_Trinity(EasyBlock):
                 raise EasyBuildError("jellyfish plugin: failed to change dir %s: %s", orig_jellyfishdir, err)
 
             run_shell_cmd('./configure --prefix=%s' % orig_jellyfishdir)
-            cmd = "make CC='%s' CXX='%s' CFLAGS='%s'" % (os.getenv('CC'), os.getenv('CXX'), os.getenv('CFLAGS'))
+            cmd = "make CC='%s' CXX='%s' CFLAGS='%s'" % (os.getenv('CC'), os.getenv('CXX'), os.getenv('CFLAGS', ''))
             run_shell_cmd(cmd)
 
             # the installstep is running the jellyfish script, this is a wrapper that will compile .lib/jellyfish
@@ -231,7 +231,7 @@ class EB_Trinity(EasyBlock):
         if not cc:
             cc = os.getenv('CC')
 
-        cmd = "make CC='%s' CXX='%s' CFLAGS='%s'" % (cc, os.getenv('CXX'), os.getenv('CFLAGS'))
+        cmd = "make CC='%s' CXX='%s' CFLAGS='%s'" % (cc, os.getenv('CXX'), os.getenv('CFLAGS', ''))
         run_shell_cmd(cmd)
 
         self.log.info("End %s plugin" % plugindir)

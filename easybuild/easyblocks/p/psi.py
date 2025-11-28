@@ -130,7 +130,7 @@ class EB_PSI(CMakeMake):
 
             # -DMPICH_IGNORE_CXX_SEEK dances around problem with order of stdio.h and mpi.h headers
             # both define SEEK_SET, this makes the one for MPI be ignored
-            self.cfg.update('configopts', "--with-opt='%s -DMPICH_IGNORE_CXX_SEEK'" % os.getenv('CFLAGS'))
+            self.cfg.update('configopts', "--with-opt='%s -DMPICH_IGNORE_CXX_SEEK'" % os.getenv('CFLAGS', ''))
 
             # specify location of Boost
             self.cfg.update('configopts', "--with-boost=%s" % boostroot)
