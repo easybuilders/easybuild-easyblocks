@@ -129,7 +129,7 @@ class EB_Sentaurus(Binary):
     def sanity_check_step(self):
         """Custom sanity check for Sentaurus."""
         custom_paths = {
-            'files': ['sentaurus/current/bin/{x}' for x in ['sse', 'sprocess', 'sdevice', 'svisual']],
+            'files': [f'sentaurus/current/bin/{x}' for x in ['sse', 'sprocess', 'sdevice', 'svisual']],
             'dirs': [],
         }
         super(Binary, self).sanity_check_step(custom_paths=custom_paths)
