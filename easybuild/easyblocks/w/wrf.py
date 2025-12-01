@@ -102,6 +102,14 @@ class EB_WRF(EasyBlock):
         # define $NETCDF* for netCDF dependency (used when creating WRF module file)
         set_netcdf_env_vars(self.log)
 
+        if LooseVersion(self.version) >= '4.5.2':
+            # Prior to 4.5.2 we required patches for separate netCDF
+            # on newer versions it has a separate variable for C-netCDF
+            netcdf = get_software_root('netCDF')
+            netcdff = get_software_root('netCDF-Fortran')
+            env.setvar('NETCDF_C', netcdf)
+            env.setvar('NETCDF', netcdff)
+
         # HDF5 (optional) dependency
         hdf5 = get_software_root('HDF5')
         if hdf5:
