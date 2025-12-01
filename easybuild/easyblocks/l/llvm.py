@@ -223,6 +223,8 @@ class EB_LLVM(CMakeMake):
             'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
             'full_llvm': [False, "Build LLVM without any dependency", CUSTOM],
+            'install_libcxx_modules':
+                [None, "Install libstdc++ modules. Default relies on default of build system", CUSTOM],
             'minimal': [False, "Build LLVM only", CUSTOM],
             'python_bindings': [False, "Install python bindings", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
@@ -598,6 +600,14 @@ class EB_LLVM(CMakeMake):
                 self._cmakeopts['LIBOMPTARGET_OMPT_SUPPORT'] = ompt_value
             # OMPT based tools
             self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = ompt_value
+
+        # Install C++ standard library modules.
+        # Internally disabled by default in LLVM 18, but enabled in LLVM 20.
+        if self.cfg['install_libcxx_modules'] is not None:
+            if self.cfg['install_libcxx_modules']:
+                self._cmakeopts['LIBCXX_INSTALL_MODULES'] = 'ON'
+            else:
+                self._cmakeopts['LIBCXX_INSTALL_MODULES'] = 'OFF'
 
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
@@ -1700,12 +1710,16 @@ class EB_LLVM(CMakeMake):
                 # Starting from LLVM 19, omp related libraries are installed the runtime library directory
                 check_librt_files += omp_lib_files
 
+        if self.cfg['install_libcxx_modules']:
+            check_files += [os.path.join('share', 'libc++', 'v1', 'std.cppm')]
+
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
             if version < '19':
                 check_lib_files += ['libarcher.so']
             else:
                 check_librt_files += ['libarcher.so']
+
         if self.cfg['python_bindings']:
             custom_commands += ["python -c 'import clang'"]
             custom_commands += ["python -c 'import mlir'"]
