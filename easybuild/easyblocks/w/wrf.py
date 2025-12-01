@@ -446,7 +446,7 @@ class EB_WRF(EasyBlock):
     def make_module_extra(self):
         """Add netCDF environment variables to module file."""
         txt = super().make_module_extra()
-        for netcdf_var in ['NETCDF', 'NETCDFF']:
+        for netcdf_var in ['NETCDF', 'NETCDF_C', 'NETCDFF']:
             val = os.getenv(netcdf_var)
             if val is not None:
                 txt += self.module_generator.set_environment(netcdf_var, val)
