@@ -658,7 +658,7 @@ class EB_LAMMPS(CMakeMake):
 
             mkdir(site_packages, parents=True)
 
-            self.lammpsdir = os.path.join(self.builddir, '%s-*' % self.name.lower())
+            self.lammpsdir = self.start_dir
             self.python_dir = os.path.join(self.lammpsdir, 'python')
 
             # The -i flag is added through a patch to the lammps source file python/install.py
@@ -730,39 +730,40 @@ class EB_LAMMPS(CMakeMake):
 
         # add accelerator-specific tests
         # INTEL package - it requires mpi4py - run only for updated easyconfigs >= 29Aug2024
-        if LooseVersion(self.version) >= LooseVersion('29Aug2024'):
-            custom_commands.append(
-                'from lammps import lammps; '
-                'l=lammps(cmdargs=["-sf", "intel"]).file("%s") if "INTEL" in lammps().installed_packages else None' %
-                os.path.join(self.installdir, "examples", "msst", "in.msst")
-            )
-        if self.cfg['kokkos']:  # KOKKOS package
-            if self.cuda:
-                if run_gpu_tests:
-                    custom_commands.append(
-                        'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on", "g", "1"]); '
-                        'l.file("%s")' % os.path.join(self.installdir, "examples", "msst", "in.msst")
-                    )
-            else:  # CPU only
+        if 'msst' in self.cfg['sanity_check_test_inputs']:
+            if LooseVersion(self.version) >= LooseVersion('29Aug2024'):
                 custom_commands.append(
-                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on"]); l.file("%s")' %
+                    'from lammps import lammps; '
+                    'l=lammps(cmdargs=["-sf", "intel"]).file("%s") if "INTEL" in lammps().installed_packages else None' %
                     os.path.join(self.installdir, "examples", "msst", "in.msst")
                 )
-        elif run_gpu_tests:  # GPU package
+            if self.cfg['kokkos']:  # KOKKOS package
+                if self.cuda:
+                    if run_gpu_tests:
+                        custom_commands.append(
+                            'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on", "g", "1"]); '
+                            'l.file("%s")' % os.path.join(self.installdir, "examples", "msst", "in.msst")
+                        )
+                else:  # CPU only
+                    custom_commands.append(
+                        'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on"]); l.file("%s")' %
+                        os.path.join(self.installdir, "examples", "msst", "in.msst")
+                    )
+            elif run_gpu_tests:  # GPU package
+                custom_commands.append(
+                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "gpu", "-pk", "gpu", "1"]); l.file("%s")' %
+                    os.path.join(self.installdir, "examples", "msst", "in.msst")
+                )
+            if self.toolchain.options.get('openmp', None):  # OPENMP package
+                custom_commands.append(
+                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "omp", "-pk", "omp", "2"]); l.file("%s")' %
+                    os.path.join(self.installdir, "examples", "msst", "in.msst")
+                )
+            # OPT package
             custom_commands.append(
-                'from lammps import lammps; l=lammps(cmdargs=["-sf", "gpu", "-pk", "gpu", "1"]); l.file("%s")' %
+                'from lammps import lammps; l=lammps(cmdargs=["-sf", "opt"]); l.file("%s")' %
                 os.path.join(self.installdir, "examples", "msst", "in.msst")
             )
-        if self.toolchain.options.get('openmp', None):  # OPENMP package
-            custom_commands.append(
-                'from lammps import lammps; l=lammps(cmdargs=["-sf", "omp", "-pk", "omp", "2"]); l.file("%s")' %
-                os.path.join(self.installdir, "examples", "msst", "in.msst")
-            )
-        # OPT package
-        custom_commands.append(
-            'from lammps import lammps; l=lammps(cmdargs=["-sf", "opt"]); l.file("%s")' %
-            os.path.join(self.installdir, "examples", "msst", "in.msst")
-        )
 
         # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
         # This is actually not needed if mpi4py is installed, and can cause a crash in version 2025+
