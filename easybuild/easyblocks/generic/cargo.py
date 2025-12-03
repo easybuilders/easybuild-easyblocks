@@ -79,7 +79,7 @@ replace-with = "vendored-sources"
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
 
 
-def parse_toml_list(value: str) -> List[str]:
+def _parse_toml_list(value: str) -> List[str]:
     """Split a TOML list value"""
     if not value.startswith('[') or not value.endswith(']'):
         raise ValueError(f"'{value}' is not a TOML list")
@@ -153,7 +153,7 @@ def _clean_line(line: str, expected_end: Union[str, None]) -> str:
     return line[:idx].strip()
 
 
-def parse_toml(file_or_content: Union[Path, str]) -> Dict[str, str]:
+def _parse_toml(file_or_content: Union[Path, str]) -> Dict[str, str]:
     """Minimally parse a TOML file into sections, keys and values
 
     Values will be the raw strings (including quotes for string-typed values)"""
@@ -200,7 +200,7 @@ def parse_toml(file_or_content: Union[Path, str]) -> Dict[str, str]:
     return result
 
 
-def get_workspace_members(cargo_toml: Dict[str, str]):
+def _get_workspace_members(cargo_toml: Dict[str, str]):
     """Find all members of a cargo workspace in the parsed the Cargo.toml file.
 
     Return a tuple: (has_package, workspace-members).
@@ -223,7 +223,7 @@ def get_workspace_members(cargo_toml: Dict[str, str]):
     except KeyError:
         return has_package, None
     try:
-        member_strs = parse_toml_list(workspace['members'])
+        member_strs = _parse_toml_list(workspace['members'])
     except (KeyError, ValueError):
         raise EasyBuildError('Failed to find members in %s', cargo_toml)
     # Remove the quotes
@@ -236,14 +236,14 @@ def get_workspace_members(cargo_toml: Dict[str, str]):
     return has_package, members
 
 
-def merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, str]):
+def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, str]):
     """Resolve workspace references in the Cargo.toml file"""
     # Lines such as 'authors.workspace = true' must be replaced by 'authors = <value from workspace.package>'
     content: str = read_file(cargo_toml_path)
     SUFFIX = '.workspace'  # Suffix of keys that refer to workspace values
     if 'workspace = true' not in content:
         return
-    cargo_toml = parse_toml(content)
+    cargo_toml = _parse_toml(content)
     lines = content.splitlines()
 
     def do_replacement(section, workspace_section):
@@ -509,8 +509,8 @@ class Cargo(ExtensionEasyBlock):
             # otherwise (Only "[workspace]" section and no "[package]" section)
             # we have to remove the top-level folder or cargo fails with:
             # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
-            parsed_toml = parse_toml(cargo_toml)
-            has_package, members = get_workspace_members(parsed_toml)
+            parsed_toml = _parse_toml(cargo_toml)
+            has_package, members = _get_workspace_members(parsed_toml)
             if members:
                 self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(members))
                 if not any((crate_dir / crate).is_dir() for crate in members):
@@ -536,7 +536,7 @@ class Cargo(ExtensionEasyBlock):
                         copy_dir(tmp_crate_dir / member, target_path, symlinks=False)
                         cargo_pkg_dirs.append(target_path)
                         self.log.info(f'Resolving workspace values for crate {member}')
-                        merge_sub_crate(target_path / 'Cargo.toml', parsed_toml)
+                        _merge_sub_crate(target_path / 'Cargo.toml', parsed_toml)
                     if has_package:
                         # Remove the copied crate folders
                         for member in members:

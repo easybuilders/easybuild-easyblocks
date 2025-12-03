@@ -351,7 +351,7 @@ class EasyBlockSpecificTest(TestCase):
             ]
             empty=''''''
         """))
-        parsed = cargo.parse_toml(cargo_toml)
+        parsed = cargo._parse_toml(cargo_toml)
         self.assertEqual(parsed, {
             'package': {
                 'name': "'my_crate\\'",
@@ -365,7 +365,7 @@ class EasyBlockSpecificTest(TestCase):
                 'empty': "''''''",
             }
         })
-        has_package, members = cargo.get_workspace_members(parsed)
+        has_package, members = cargo._get_workspace_members(parsed)
         self.assertTrue(has_package)
         self.assertIsNone(members)
 
@@ -378,13 +378,13 @@ class EasyBlockSpecificTest(TestCase):
                 "reqwest-retry",
             ]
         """))
-        parsed = cargo.parse_toml(cargo_toml)
+        parsed = cargo._parse_toml(cargo_toml)
         self.assertEqual(parsed, {
             'workspace': {
                 'members': '[\n"reqwest-middleware",\n"reqwest-tracing",\n"reqwest-retry",\n]',
             }
         })
-        has_package, members = cargo.get_workspace_members(parsed)
+        has_package, members = cargo._get_workspace_members(parsed)
         self.assertFalse(has_package)
         self.assertEqual(members, ["reqwest-middleware", "reqwest-tracing", "reqwest-retry"])
 
@@ -402,7 +402,7 @@ class EasyBlockSpecificTest(TestCase):
             [dependencies]
             leptos = { version = "0.6", features = ["csr"] }
         """))
-        parsed = cargo.parse_toml(cargo_toml)
+        parsed = cargo._parse_toml(cargo_toml)
         self.assertEqual(parsed, {
             'package': {
                 "name": '"nothing-linux-ui"',
@@ -417,7 +417,7 @@ class EasyBlockSpecificTest(TestCase):
                 "leptos": '{ version = "0.6", features = ["csr"] }',
             },
         })
-        has_package, members = cargo.get_workspace_members(parsed)
+        has_package, members = cargo._get_workspace_members(parsed)
         self.assertTrue(has_package)
         self.assertEqual(members, ["nothing", "src-tauri"])
 
@@ -440,7 +440,7 @@ class EasyBlockSpecificTest(TestCase):
             cc = "1.0.73"
             rand = "0.8.5"
         """))
-        ws_parsed = cargo.parse_toml(cargo_toml)
+        ws_parsed = cargo._parse_toml(cargo_toml)
         write_file(cargo_toml, textwrap.dedent("""
             [package]
             name = "bar"
@@ -461,7 +461,7 @@ class EasyBlockSpecificTest(TestCase):
             [dev-dependencies]
             rand = { workspace = true }
         """))
-        cargo.merge_sub_crate(cargo_toml, ws_parsed)
+        cargo._merge_sub_crate(cargo_toml, ws_parsed)
         self.assertEqual(read_file(cargo_toml).strip(), textwrap.dedent("""
             [package]
             name = "bar"
@@ -491,7 +491,7 @@ class EasyBlockSpecificTest(TestCase):
             [dependencies]
             regex = { workspace = true }
         """))
-        cargo.merge_sub_crate(cargo_toml, ws_parsed)
+        cargo._merge_sub_crate(cargo_toml, ws_parsed)
         self.assertEqual(read_file(cargo_toml).strip(), textwrap.dedent("""
             [package]
             name = "bar"
