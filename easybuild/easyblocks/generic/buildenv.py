@@ -40,6 +40,7 @@ from easybuild.tools.toolchain.constants import COMPILER_MAP_CLASS
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 from easybuild.tools.toolchain.variables import SearchPaths
 
+
 class BuildEnv(Bundle):
     """
     Build environment of toolchain: only generate module file
