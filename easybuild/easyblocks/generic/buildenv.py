@@ -119,7 +119,7 @@ class BuildEnv(Bundle):
         # include environment variables defined for (non-system) toolchain
         self.pushenv_envvars = []  # start with an empty list for pushenv vars
         if self.toolchain.is_system_toolchain():
-            self.log.warning("")
+            self.log.warning("buildenv easyblock is not intended for use with a system toolchain!")
         else:
             # Create a list of PATH-like environment variables that should always be safe to set.
             # Be overly cautious and include LIBRARY_PATH and LD_LIBRARY_PATH, they are not
