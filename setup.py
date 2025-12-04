@@ -34,16 +34,18 @@ or
 
 import os
 import sys
-from distutils import log
-from distutils.core import setup
+import logging
+from setuptools import setup, find_packages
 
 sys.path.append('easybuild')
 from easyblocks import VERSION  # noqa
 
 FRAMEWORK_MAJVER = VERSION.split('.')[0]
 
-# log levels: 0=WARN (default), 1=INFO, 2=DEBUG
-log.set_verbosity(1)
+log = logging.getLogger("EasyBuild")
+
+# log levels: NOTSET (default), DEBUG, INFO, WARNING, ERROR, CRITICAL
+log.setLevel(logging.INFO)
 
 
 # Utility function to read README file
@@ -63,8 +65,7 @@ setup(
     license="GPLv2",
     keywords="software build building installation installing compilation HPC scientific",
     url="https://easybuild.io",
-    packages=["easybuild", "easybuild.easyblocks", "easybuild.easyblocks.generic"],
-    package_dir={"easybuild.easyblocks": "easybuild/easyblocks"},
+    packages=find_packages(),
     package_data={'easybuild.easyblocks': ["[a-z0-9]/*.py"]},
     long_description=read("README.rst"),
     classifiers=[
