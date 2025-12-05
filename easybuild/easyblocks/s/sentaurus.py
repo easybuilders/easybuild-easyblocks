@@ -47,16 +47,16 @@ SiteId: {1}
 SiteAdmin: EasyBuild
 SiteContact: easybuild@(none)
 PRODUCTS: sentaurus
-RELEASES: V-{2}
+RELEASES: {2}
 PLATFORMS: common linux64
 #####
-sentaurus,V-{2} {{
+sentaurus,{2} {{
 DESCRIPTION: TCAD Sentaurus
 TYPE:
-POSTINST: tcad/V-{2}/install_sentaurus
+POSTINST: tcad/{2}/install_sentaurus
 EULA: 1
 ESTPLATFORMS: linux64 common
-VERSION: V-{2}
+VERSION: {2}
 PLATFORMS:
 TARGETDIR: {3}
 }}
