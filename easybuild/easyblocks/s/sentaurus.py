@@ -118,7 +118,7 @@ class EB_Sentaurus(Binary):
         Add license variable to Sentaurus module
         """
         mod = super().make_module_extra()
-        mod += self.module_generator.append_paths('PATH', 'current/bin/')
+        mod += self.module_generator.append_paths('PATH', 'sentaurus/current/bin/')
 
         license_server = self.cfg['license_server'] or os.getenv('EB_SENTAURUS_LICENSE_SERVER', None)
         if license_server:
