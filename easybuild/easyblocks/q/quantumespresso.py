@@ -146,7 +146,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             """Enable toolchain options for Quantum ESPRESSO."""
             comp_fam = self.toolchain.comp_family()
 
-            allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC, toolchain.NVHPC]
+            allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC, toolchain.NVHPC, toolchain.LLVM]
             if comp_fam not in allowed_toolchains:
                 raise EasyBuildError(
                     "EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam
@@ -290,6 +290,8 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         def _add_qmcpack(self):
             """Enable QMCPACK for Quantum ESPRESSO."""
+            if not get_software_root('HDF5'):
+                raise EasyBuildError('QMCPACK support requires HDF5')
             res = ['pw2qmcpack']
             self.check_bins += ['pw2qmcpack.x']
             return res
@@ -371,7 +373,8 @@ class EB_QuantumESPRESSO(EasyBlock):
                     pre_test_opts = f'export {env_name}={env_value} && '
 
             thr = self.cfg.get('test_suite_threshold', 0.97)
-            concurrent = max(1, self.cfg.parallel // self._test_nprocs)
+            # When compiled with OpenMP some tests silently requests up to 4 threads
+            concurrent = max(1, self.cfg.parallel // (self._test_nprocs * 4))
             allow_fail = self.cfg.get('test_suite_allow_failures', [])
 
             cmd = f'{pre_test_opts} ctest -j{concurrent} --output-on-failure'
@@ -1053,7 +1056,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             thr = self.cfg.get('test_suite_threshold', 0.9)
             stot = 0
             spass = 0
-            parallel = min(4, self.cfg.parallel)
+            parallel = min(4, self.cfg.get('parallel', 1))
             test_dir = os.path.join(self.start_dir, self.TEST_SUITE_DIR)
 
             pseudo_loc = "https://pseudopotentials.quantum-espresso.org/upf_files/"
