@@ -100,7 +100,7 @@ class EB_Trilinos(CMakeMake):
             self.cfg.update('configopts', "-DKokkos_ENABLE_SERIAL:BOOL=ON")
         else:
             self.cfg.update('configopts', "-DKokkos_ENABLE_Serial:BOOL=ON")
-        
+
         self.cfg.update('configopts', "-DTpetra_INST_SERIAL:BOOL=ON")
 
         # OpenMP
