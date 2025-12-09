@@ -718,6 +718,37 @@ class EB_LLVM(CMakeMake):
         # Can give different behavior based on system Scrt1.o
         new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
 
+        # We are not explicitly including Google Test
+        new_ignore_patterns.append('failed_to_discover_tests_from_gtest')
+
+        # Some extra tests need to be ignored for aarch64
+        if get_cpu_architecture() == AARCH64:
+            if LooseVersion(self.version) < '22':  # Force checking if this are resolved in newer LLVM versions
+                # Related to https://github.com/llvm/llvm-project/issues/100096 needs more investigation
+                new_ignore_patterns.append('BOLT :: AArch64/check-init-not-moved.s')
+                # BOLT-ERROR: cannot process binaries with unmarked object in code at address 0x10774 belonging
+                # to section .text in current mode
+                new_ignore_patterns.append('BOLT :: X86/dwarf5-dwarf4-types-backward-forward-cross-reference.test')
+                new_ignore_patterns.append('BOLT :: X86/dwarf5-locexpr-referrence.test')
+                new_ignore_patterns.append('BOLT :: eh-frame-hdr.test')
+                new_ignore_patterns.append('BOLT :: eh-frame-overwrite.test')
+                # Probably need https://github.com/llvm/llvm-project/pull/147589 to be fixed
+                new_ignore_patterns.append('BOLT :: runtime/AArch64/adrrelaxationpass.s')
+                new_ignore_patterns.append('BOLT :: runtime/AArch64/instrumentation-ind-call.c')
+                new_ignore_patterns.append('BOLT :: runtime/exceptions-instrumentation.test')
+                new_ignore_patterns.append('BOLT :: runtime/AArch64/hook-fini.test')
+
+                # Failing to trigger an expected stack overflow with ASAN
+                new_ignore_patterns.append('libFuzzer-aarch64-default-Linux :: stack-overflow-with-asan.test')
+                new_ignore_patterns.append('libFuzzer-aarch64-libcxx-Linux :: stack-overflow-with-asan.test')
+                new_ignore_patterns.append('libFuzzer-aarch64-static-libcxx-Linux :: stack-overflow-with-asan.test')
+
+                # Known failure https://github.com/llvm/llvm-project/issues/69606
+                new_ignore_patterns.append('libomptarget :: aarch64-unknown-linux-gnu :: mapping/target_derefence_array_pointrs.cpp')
+                new_ignore_patterns.append('libomptarget :: aarch64-unknown-linux-gnu-LTO :: mapping/target_derefence_array_pointrs.cpp')
+
+                new_ignore_patterns.append('lldb-unit :: Host/./HostTests/17/25')
+
         # Some extra tests need to be ignored for RISC-V
         if get_cpu_architecture() == RISCV64:
             # Creation of hardware watchpoints is not supported in lldb for RISC-V,
