@@ -50,12 +50,20 @@ class BuildEnv(Bundle):
     def extra_options():
         """Add extra easyconfig parameters for Boost."""
         extra_vars = {
-            'build_envvars': [True, "Export environment variables related to compilers, compilation flags, "
-                                    "optimisations, math libaries, etc. (overwriting any existing values).", CUSTOM],
+            'build_env_vars': [True, "Export environment variables related to compilers, compilation flags, "
+                                     "optimisations, math libaries, etc. (overwriting any existing values).", CUSTOM],
             'python_executable': ['python3', "Python executable to use for the wrappers (use None to use path to "
                                   "Python executable used by EasyBuild).", CUSTOM],
         }
         return Bundle.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """
+        Constructor for buildenv easyblock: initialise class variables
+        """
+        super().__init__(*args, **kwargs)
+
+        self.pushenv_env_vars = []
 
     def prepare_step(self, *args, **kwargs):
         """
@@ -97,7 +105,7 @@ class BuildEnv(Bundle):
         txt = super().make_module_extra()
 
         # include environment variables defined for (non-system) toolchain
-        for key, val in self.pushenv_envvars:
+        for key, val in self.pushenv_env_vars:
             txt += self.module_generator.set_environment(key, val)
 
         self.log.debug(f"make_module_extra added this: {txt}")
@@ -117,7 +125,7 @@ class BuildEnv(Bundle):
             ]
 
         # include environment variables defined for (non-system) toolchain
-        self.pushenv_envvars = []  # start with an empty list for pushenv vars
+        self.pushenv_env_vars = []  # start with an empty list for pushenv vars
         if self.toolchain.is_system_toolchain():
             self.log.warning("buildenv easyblock is not intended for use with a system toolchain!")
         else:
@@ -136,7 +144,7 @@ class BuildEnv(Bundle):
                         setattr(self.module_load_environment, key, val.split(os.pathsep))
                 else:
                     # Push environment variables for everything else
-                    if self.cfg.get('build_envvars'):
-                        self.pushenv_envvars.append((key, {'value': val, 'pushenv': True}))
+                    if self.cfg.get('build_env_vars'):
+                        self.pushenv_env_vars.append((key, {'value': val, 'pushenv': True}))
 
         return super().make_module_step(fake=fake)
