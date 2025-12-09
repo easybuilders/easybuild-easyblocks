@@ -723,7 +723,7 @@ class EB_LLVM(CMakeMake):
 
         # Some extra tests need to be ignored for aarch64
         if get_cpu_architecture() == AARCH64:
-            if LooseVersion(self.version) < '22':  # Force checking if this are resolved in newer LLVM versions
+            if LooseVersion(self.version) < '22':  # Force checking if these are resolved in newer LLVM versions
                 # Related to https://github.com/llvm/llvm-project/issues/100096 needs more investigation
                 new_ignore_patterns.append('BOLT :: AArch64/check-init-not-moved.s')
                 # BOLT-ERROR: cannot process binaries with unmarked object in code at address 0x10774 belonging
