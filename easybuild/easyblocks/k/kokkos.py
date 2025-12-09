@@ -310,3 +310,21 @@ class EB_Kokkos(CMakeMake):
                 self.cfg.update('configopts', '-DKokkos_ENABLE_MULTIPLE_CMAKE_LANGUAGES=ON')
 
         return super().configure_step(srcdir, builddir)
+
+    def sanity_check_step(self):
+        """
+        Custom sanity check for Kokkos
+        """
+        custom_paths = None
+        if not self.cfg['sanity_check_paths']:
+            custom_paths = {
+                'files': ['bin/kokkos_launch_compiler', 'bin/hpcbind', 'lib/libkokkoscore.a'],
+                'dirs': ['lib/cmake/Kokkos'],
+            }
+
+        custom_commands = None
+        if not self.cfg['sanity_check_commands']:
+            custom_commands = [
+                'hpcbind --help',
+            ]
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
