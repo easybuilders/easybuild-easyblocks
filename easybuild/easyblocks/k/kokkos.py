@@ -159,10 +159,10 @@ class EB_Kokkos(CMakeMake):
         """Custom easyconfig parameters for Kokkos"""
         extra_vars = CMakeMake.extra_options()
         extra_vars.update({
-            'kokkos_arch': [None, "Set Kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
-            'enable_sycl': [False, 'Enable SYCL backend for Intel compilers (default = False)', CUSTOM],
             'enable_multiple_cmake_languages':
-                [False, 'Make Kokkos installation usable in CXX and backend-compatible languages.', CUSTOM]
+                [False, 'Make Kokkos installation usable in CXX and backend-compatible languages.', CUSTOM],
+            'enable_sycl': [False, 'Enable SYCL backend for Intel compilers (default = False)', CUSTOM],
+            'kokkos_arch': [None, "Set Kokkos processor arch manually, if auto-detection doesn't work.", CUSTOM],
         })
         return extra_vars
 
