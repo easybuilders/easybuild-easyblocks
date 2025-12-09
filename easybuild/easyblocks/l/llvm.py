@@ -1322,7 +1322,6 @@ class EB_LLVM(CMakeMake):
             cmd = f"make -j {parallel} check-all"
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
-            self.log.debug(out)
 
         ignore_patterns = self.ignore_patterns
         num_ignored_pattern_matches = 0
