@@ -172,14 +172,16 @@ class EB_Kokkos(CMakeMake):
         if self.version < LooseVersion('4.1'):
             raise EasyBuildError("Building Kokkos with a version < 4.1 is not supported by this EasyBlock")
 
-        cuda_dep = 'cuda' in [dep['name'].lower() for dep in self.cfg.dependencies(runtime_only=True)]
+        runtime_deps = self.cfg.dependencies(runtime_only=True)
+
+        cuda_dep = 'cuda' in [dep['name'].lower() for dep in runtime_deps]
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         self.cuda = cuda_dep or cuda_toolchain
 
-        hip_dep = 'hip' in [dep['name'].lower() for dep in self.cfg.dependencies(runtime_only=True)]
+        hip_dep = 'hip' in [dep['name'].lower() for dep in runtime_deps]
         self.hip = hip_dep
 
-        sycl_dep = 'adaptivecpp' in [dep['name'].lower() for dep in self.cfg.dependencies(runtime_only=True)]
+        sycl_dep = 'adaptivecpp' in [dep['name'].lower() for dep in runtime_deps]
         sycl_toolchain = self.toolchain.comp_family() == toolchain.INTELCOMP and self.cfg['enable_sycl']
         self.sycl = sycl_dep or sycl_toolchain
 
