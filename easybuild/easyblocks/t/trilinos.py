@@ -271,18 +271,12 @@ class EB_Trilinos(CMakeMake):
         """Custom sanity check for Trilinos."""
 
         # selection of libraries
-        if LooseVersion(self.version) >= LooseVersion('16.1'):
-            libs = ["Amesos", "Anasazi", "AztecOO", "Belos", "Epetra", "Galeri",
-                    "GlobiPack", "Ifpack", "Isorropia", "Kokkos",
-                    "LOCA", "Mesquite", "MOOCHO", "NOX",
-                    "Pamgen", "RTOp", "Sacado", "Shards", "Stratimikos",
-                    "Teuchos", "Tpetra", "Triutils", "Zoltan"]
-        else:
-            libs = ["Amesos", "Anasazi", "AztecOO", "Belos", "Epetra", "Galeri",
-                    "GlobiPack", "Ifpack", "Intrepid", "Isorropia", "Kokkos",
-                    "Komplex", "LOCA", "Mesquite", "ML", "Moertel", "MOOCHO", "NOX",
-                    "Pamgen", "RTOp", "Rythmos", "Sacado", "Shards", "Stratimikos",
-                    "Teuchos", "Tpetra", "Triutils", "Zoltan"]
+        libs = ["Amesos", "Anasazi", "AztecOO", "Belos", "Epetra", "Galeri",
+                "GlobiPack", "Ifpack", "Isorropia", "Kokkos", "LOCA", "Mesquite",
+                "MOOCHO", "NOX", "Pamgen", "RTOp", "Sacado", "Shards",
+                "Stratimikos", "Teuchos", "Tpetra", "Triutils", "Zoltan"]
+        if LooseVersion(self.version) < LooseVersion('16.1'):
+            libs = sorted(libs + ["Intrepid", "Komplex", "ML", "Moertel", "Rythmos"])
 
         libs = [x for x in libs if x not in self.cfg['skip_exts']]
 
