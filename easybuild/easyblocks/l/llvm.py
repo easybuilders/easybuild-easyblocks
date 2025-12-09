@@ -744,8 +744,12 @@ class EB_LLVM(CMakeMake):
                 new_ignore_patterns.append('libFuzzer-aarch64-static-libcxx-Linux :: stack-overflow-with-asan.test')
 
                 # Known failure https://github.com/llvm/llvm-project/issues/69606
-                new_ignore_patterns.append('libomptarget :: aarch64-unknown-linux-gnu :: mapping/target_derefence_array_pointrs.cpp')
-                new_ignore_patterns.append('libomptarget :: aarch64-unknown-linux-gnu-LTO :: mapping/target_derefence_array_pointrs.cpp')
+                new_ignore_patterns.append(
+                    'libomptarget :: aarch64-unknown-linux-gnu :: mapping/target_derefence_array_pointrs.cpp'
+                    )
+                new_ignore_patterns.append(
+                    'libomptarget :: aarch64-unknown-linux-gnu-LTO :: mapping/target_derefence_array_pointrs.cpp'
+                    )
 
                 new_ignore_patterns.append('lldb-unit :: Host/./HostTests/17/25')
 
