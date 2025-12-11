@@ -54,7 +54,7 @@ from easybuild.tools import config
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import GENERAL_CLASS, get_module_syntax
 from easybuild.tools.environment import modify_env
-from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, read_file, remove_dir, symlink, write_file
+from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, remove_dir, symlink, write_file
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.run import RunShellCmdResult
@@ -388,6 +388,9 @@ class EasyBlockSpecificTest(TestCase):
             regex = { version = "1.6.0", default-features = false, features = ["std"] }
             cc = "1.0.73"
             rand = "0.8.5"
+
+            [workspace.lints.rust]
+            unsafe_code = "forbid"
         """)
         cargo_toml.write_text("""
             [package]
@@ -410,6 +413,9 @@ class EasyBlockSpecificTest(TestCase):
 
             [dev-dependencies]
             rand = { workspace = true }
+
+            [lints]
+            workspace = true
         """)
         cargo._merge_sub_crate(cargo_toml, ws_parsed)
         self.assertEqual(tomllib.loads(cargo_toml.read_text()), tomllib.loads("""
@@ -431,6 +437,9 @@ class EasyBlockSpecificTest(TestCase):
 
             [dev-dependencies]
             rand = "0.8.5"
+
+            [lints.rust]
+            unsafe_code = "forbid"
         """))
 
         # Only dict-style workspace dependency

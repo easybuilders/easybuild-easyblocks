@@ -101,29 +101,32 @@ def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, Any]):
     # Lines such as 'authors.workspace = true' must be replaced by 'authors = <value from workspace.package>'
     content: str = read_file(cargo_toml_path)
     cargo_toml = tomllib.loads(content)
+    workspace = workspace_toml['workspace']
 
-    def do_replacement(section, workspace_section):
-        if not section or not workspace_section:
+    def do_merge(parent, child):
+        if isinstance(parent, dict):
+            return {**parent, **child}  # Merge dictionaries, overwrite with child values
+        return parent
+
+    def do_replacement(section_name, workspace_section_name=None):
+        try:
+            section: Dict[str, Any] = cargo_toml[section_name]
+            workspace_section: Dict[str, Any] = workspace[workspace_section_name or section_name]
+        except KeyError:
             return
+        if section.pop('workspace', False):
+            section = do_merge(workspace_section, section)
+            cargo_toml[section_name] = section
 
         for key, value in section.items():
-            try:
-                inherit = value.pop('workspace')
-            except (KeyError, AttributeError):
-                inherit = False
-            if inherit:
-                workspace_value = workspace_section[key]
-                if isinstance(workspace_value, dict):
-                    value = {**workspace_value, **value}  # Merge dictionaries, overwrite with new values
-                else:
-                    value = workspace_value
-                section[key] = value
+            if isinstance(value, dict) and value.pop('workspace', False):
+                section[key] = do_merge(workspace_section[key], value)
 
-    workspace = workspace_toml['workspace']
-    do_replacement(cargo_toml.get('package'), workspace.get('package'))
-    do_replacement(cargo_toml.get('dependencies'), workspace.get('dependencies'))
-    do_replacement(cargo_toml.get('build-dependencies'), workspace.get('dependencies'))
-    do_replacement(cargo_toml.get('dev-dependencies'), workspace.get('dependencies'))
+    do_replacement('package')
+    do_replacement('dependencies')
+    do_replacement('build-dependencies', 'dependencies')
+    do_replacement('dev-dependencies', 'dependencies')
+    do_replacement('lints')
 
     write_file(cargo_toml_path, dump_toml(cargo_toml))
 
