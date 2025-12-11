@@ -107,8 +107,17 @@ def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, Any]):
             return
 
         for key, value in section.items():
-            if value == {'workspace': True}:
-                section[key] = workspace_section[key]
+            try:
+                inherit = value.pop('workspace')
+            except (KeyError, AttributeError):
+                inherit = False
+            if inherit:
+                workspace_value = workspace_section[key]
+                if isinstance(workspace_value, dict):
+                    value = {**workspace_value, **value}  # Merge dictionaries, overwrite with new values
+                else:
+                    value = workspace_value
+                section[key] = value
 
     workspace = workspace_toml['workspace']
     do_replacement(cargo_toml.get('package'), workspace.get('package'))

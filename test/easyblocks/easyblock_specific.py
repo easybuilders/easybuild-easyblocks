@@ -402,7 +402,8 @@ class EasyBlockSpecificTest(TestCase):
 
             [dependencies]
             foo = { version = "42" }
-            regex.workspace = true
+            # Overwrite 'features' value
+            regex = { workspace = true, features = ["unicode"] }
 
             [build-dependencies]
             cc.workspace = true
@@ -423,7 +424,7 @@ class EasyBlockSpecificTest(TestCase):
 
             [dependencies]
             foo = { version = "42" }
-            regex = { version = "1.6.0", default-features = false, features = ["std"] }
+            regex = { version = "1.6.0", default-features = false, features = ["unicode"] }
 
             [build-dependencies]
             cc = "1.0.73"
