@@ -37,12 +37,14 @@ import shutil
 import tempfile
 from glob import glob
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Optional
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
+import easybuild.tools.tomllib as tomllib
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
+from easybuild.tools import dump_toml
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, extract_file, mkdir
@@ -79,194 +81,42 @@ replace-with = "vendored-sources"
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
 
 
-def _parse_toml_list(value: str) -> List[str]:
-    """Split a TOML list value"""
-    if not value.startswith('[') or not value.endswith(']'):
-        raise ValueError(f"'{value}' is not a TOML list")
-    value = value[1:-1].strip()
-    simple_str_markers = ('"""', "'''", "'")
-    current_value = ''
-    result = []
-    while value:
-        for marker in simple_str_markers:
-            if value.startswith(marker):
-                idx = value.index(marker, len(marker))
-                current_value += value[:idx + len(marker)]
-                value = value[idx + len(marker):].lstrip()
-                break
-        else:
-            if value.startswith('"'):
-                m = re.match(r'".*?(?<!\\)"', value, re.M)
-                current_value += m[0]
-                value = value[m.end():].lstrip()
-        # Not inside a string here
-        if value.startswith(','):
-            result.append(current_value)
-            current_value = ''
-            value = value[1:].lstrip()
-        else:
-            m = re.search('"|\'|,', value)
-            if m:
-                current_value += value[:m.start()].strip()
-                value = value[m.end():]
-            else:
-                current_value += value.strip()
-                break
-    if current_value:
-        result.append(current_value)
-    return result
-
-
-def _clean_line(line: str, expected_end: Union[str, None]) -> str:
-    """Remove comments and trim line"""
-    if '#' not in line:
-        return line.strip()
-    if expected_end is not None and expected_end[0] in ("'", '"'):
-        try:
-            idx = line.index(expected_end) + len(expected_end)
-        except ValueError:
-            return line.strip()  # Ignore #-sign in multi-line string
-    else:
-        idx = 0
-    in_str = False
-    escaped = False
-    while idx < len(line):
-        c = line[idx]
-        if in_str:
-            if escaped:
-                if c == '\\':
-                    escaped = False
-            elif c == '"':
-                in_str = False
-            elif c == '\\':
-                escaped = True
-        elif c == '#':
-            break
-        elif c == '"':
-            in_str = True
-        elif c == "'":
-            try:
-                idx = line.index("'", idx + 1)
-            except ValueError:
-                idx = len(line)
-        idx += 1
-    return line[:idx].strip()
-
-
-def _parse_toml(file_or_content: Union[Path, str]) -> Dict[str, str]:
-    """Minimally parse a TOML file into sections, keys and values
-
-    Values will be the raw strings (including quotes for string-typed values)"""
-
-    result: Dict[str, Union[str, List[str]]] = {}
-    pending_key = None
-    pending_value = None
-    expected_end = None
-    current_section = None
-    content = read_file(file_or_content) if isinstance(file_or_content, Path) else file_or_content
-    line_num = raw_line = None
-    start_end = {
-        '[': ']',
-        '{': '}',
-        '"""': '"""',
-        "'''": "'''",
-    }
-    try:
-        for line_num, raw_line in enumerate(content.splitlines()): # noqa B007: line_num used in error only
-            line: str = _clean_line(raw_line, expected_end)
-            if not line:
-                continue
-            if pending_key is None and line.startswith("[") and line.endswith("]"):
-                current_section = line.strip()[1:-1].strip()
-                result.setdefault(current_section, {})
-                continue
-            if pending_key is None:
-                key, val = line.split("=", 1)
-                pending_key = key.strip()
-                pending_value = val.strip()
-                for start, end in start_end.items():
-                    if pending_value.startswith(start):
-                        expected_end = end
-                        break
-                else:
-                    expected_end = None
-            else:
-                pending_value += '\n' + line
-            if expected_end is None or (pending_value != expected_end and pending_value.endswith(expected_end)):
-                result[current_section][pending_key] = pending_value.strip()
-                pending_key = None
-    except Exception as e:
-        raise ValueError(f'Failed to parse {file_or_content}, error {e} at line {line_num}: {raw_line}')
-    return result
-
-
-def _get_workspace_members(cargo_toml: Dict[str, str]):
+def _get_workspace_members(cargo_toml: Dict[str, Any]) -> Optional[List[str]]:
     """Find all members of a cargo workspace in the parsed the Cargo.toml file.
 
-    Return a tuple: (has_package, workspace-members).
-    has_package determines if it is a virtual workspace ([workspace] and no [package])
-    workspace-members are all members (subfolder names) if it is a workspace, otherwise None
+    Returns all members (subfolder names) if it is a workspace, otherwise None
     """
-    # A virtual (workspace) manifest has no [package], but only a [workspace] section.
-    has_package = 'package' in cargo_toml
-
-    # We are looking for this:
-    # [workspace]
-    # members = [
-    # "reqwest-middleware",
-    # "reqwest-tracing",
-    # "reqwest-retry",
-    # ]
-
     try:
         workspace = cargo_toml['workspace']
     except KeyError:
-        return has_package, None
+        return None
     try:
-        member_strs = _parse_toml_list(workspace['members'])
-    except (KeyError, ValueError):
+        return workspace['members']
+    except KeyError:
         raise EasyBuildError('Failed to find members in %s', cargo_toml)
-    # Remove the quotes
-    members = [member.strip('"') for member in member_strs]
-    # Sanity check that we didn't pick up anything unexpected
-    invalid_members = [member for member in members if not re.match(r'(\w|-)+', member)]
-    if invalid_members:
-        raise EasyBuildError('Failed to parse %s: Found seemingly invalid members: %s',
-                             cargo_toml, ', '.join(invalid_members))
-    return has_package, members
 
 
-def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, str]):
+def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, Any]):
     """Resolve workspace references in the Cargo.toml file"""
     # Lines such as 'authors.workspace = true' must be replaced by 'authors = <value from workspace.package>'
     content: str = read_file(cargo_toml_path)
-    SUFFIX = '.workspace'  # Suffix of keys that refer to workspace values
-    if 'workspace = true' not in content:
-        return
-    cargo_toml = _parse_toml(content)
-    lines = content.splitlines()
+    cargo_toml = tomllib.loads(content)
 
     def do_replacement(section, workspace_section):
         if not section or not workspace_section:
             return
 
         for key, value in section.items():
-            if (key.endswith(SUFFIX) and value == 'true') or value == '{ workspace = true }':
-                real_key = key[:-len(SUFFIX)] if key.endswith(SUFFIX) else key
-                new_value = workspace_section[real_key]
-                try:
-                    idx = next(idx for idx, line in enumerate(lines)
-                               if line.lstrip().startswith(f'{key} =') and value in line)
-                except StopIteration:
-                    raise ValueError(f"Failed to find line for key '{key}' while merging {cargo_toml_path}")
-                lines[idx] = f'{real_key} = {new_value}'
+            if value == {'workspace': True}:
+                section[key] = workspace_section[key]
 
-    do_replacement(cargo_toml.get('package'), workspace_toml.get('workspace.package'))
-    do_replacement(cargo_toml.get('dependencies'), workspace_toml.get('workspace.dependencies'))
-    do_replacement(cargo_toml.get('build-dependencies'), workspace_toml.get('workspace.dependencies'))
-    do_replacement(cargo_toml.get('dev-dependencies'), workspace_toml.get('workspace.dependencies'))
+    workspace = workspace_toml['workspace']
+    do_replacement(cargo_toml.get('package'), workspace.get('package'))
+    do_replacement(cargo_toml.get('dependencies'), workspace.get('dependencies'))
+    do_replacement(cargo_toml.get('build-dependencies'), workspace.get('dependencies'))
+    do_replacement(cargo_toml.get('dev-dependencies'), workspace.get('dependencies'))
 
-    write_file(cargo_toml_path, '\n'.join(lines))
+    write_file(cargo_toml_path, dump_toml(cargo_toml))
 
 
 def get_checksum(src, log):
@@ -509,12 +359,12 @@ class Cargo(ExtensionEasyBlock):
             # otherwise (Only "[workspace]" section and no "[package]" section)
             # we have to remove the top-level folder or cargo fails with:
             # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
-            parsed_toml = _parse_toml(cargo_toml)
-            has_package, members = _get_workspace_members(parsed_toml)
+            parsed_toml = tomllib.loads(read_file(cargo_toml))
+            members = _get_workspace_members(parsed_toml)
             if members:
                 self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(members))
                 if not any((crate_dir / crate).is_dir() for crate in members):
-                    if not has_package:
+                    if 'package' not in parsed_toml:
                         raise EasyBuildError(f'Virtual manifest found in {crate_dir} but none of the member folders '
                                              'exist. This cannot be handled by the build.')
                     # Packages from crates.io contain only a single crate even if the Cargo.toml file lists multiple
@@ -537,7 +387,7 @@ class Cargo(ExtensionEasyBlock):
                         cargo_pkg_dirs.append(target_path)
                         self.log.info(f'Resolving workspace values for crate {member}')
                         _merge_sub_crate(target_path / 'Cargo.toml', parsed_toml)
-                    if has_package:
+                    if 'package' in parsed_toml:
                         # Remove the copied crate folders
                         for member in members:
                             remove_dir(tmp_crate_dir / member)
@@ -615,7 +465,7 @@ class Cargo(ExtensionEasyBlock):
 
     @property
     def profile(self):
-        return 'debug' if self.toolchain.options.get('debug', None) else 'release'
+        return 'debug' if self.toolchain.options.get('debug') else 'release'
 
     def build_step(self):
         """Build with cargo"""
