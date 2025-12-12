@@ -832,6 +832,9 @@ class EB_Python(ConfigureMake):
         except EasyBuildError as err:
             raise EasyBuildError("Loading fake module failed: %s", err)
 
+        # Set after loading module
+        set_py_env_vars(self.log)
+
         # global 'pip check' to verify that version requirements are met for Python packages installed as extensions
         run_pip_check(python_cmd='python')
 

@@ -485,6 +485,9 @@ def suite(loader):
         elif eb_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif eb_fn == 'kokkos.py':
+            # custom easyblock for kokkos required v4.1.00 or newer
+            innertest = make_inner_test(easyblock, name='kokkos', version='4.1.00')
         elif eb_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, name='OpenSSL-wrapper', version='1.1')
