@@ -44,10 +44,9 @@ import easybuild.tools.systemtools as systemtools
 import easybuild.tools.tomllib as tomllib
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools import dump_toml
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, extract_file, mkdir
+from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, dump_toml, extract_file, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, write_file, which
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
