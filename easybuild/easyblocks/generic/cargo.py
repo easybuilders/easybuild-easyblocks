@@ -33,7 +33,10 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 
 import os
 import re
+import shutil
+import tempfile
 from glob import glob
+from pathlib import Path
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
@@ -41,8 +44,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, extract_file, mkdir, move_file
-from easybuild.tools.filetools import read_file, write_file, which
+from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, extract_file, mkdir
+from easybuild.tools.filetools import read_file, remove_dir, write_file, which
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
@@ -72,28 +75,22 @@ branch = "{branch}"
 replace-with = "vendored-sources"
 """
 
-CONFIG_TOML_SOURCE_GIT_WORKSPACE = """
-[source."real-{url}?rev={rev}"]
-directory = "{workspace_dir}"
-
-[source."{url}?rev={rev}"]
-git = "{url}"
-rev = "{rev}"
-replace-with = "real-{url}?rev={rev}"
-
-"""
-
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
 
 
-def get_workspace_members(crate_dir):
+def get_workspace_members(crate_dir: Path):
     """Find all members of a cargo workspace in crate_dir.
 
     (Minimally) parse the Cargo.toml file.
-    If it is a workspace return all members (subfolder names).
-    Otherwise return None.
+
+    Return a tuple: (has_package, workspace-members).
+    has_package determines if it is a virtual workspace ([workspace] and no [package])
+    workspace-members are all members (subfolder names) if it is a workspace, otherwise None
     """
-    cargo_toml = os.path.join(crate_dir, 'Cargo.toml')
+    cargo_toml = crate_dir / 'Cargo.toml'
+    lines = [line.strip() for line in read_file(cargo_toml).splitlines()]
+    # A virtual (workspace) manifest has no [package], but only a [workspace] section.
+    has_package = '[package]' in lines
 
     # We are looking for this:
     # [workspace]
@@ -103,11 +100,10 @@ def get_workspace_members(crate_dir):
     # "reqwest-retry",
     # ]
 
-    lines = [line.strip() for line in read_file(cargo_toml).splitlines()]
     try:
         start_idx = lines.index('[workspace]')
     except ValueError:
-        return None
+        return has_package, None
     # Find "members = [" and concatenate the value, stop at end of section or file
     member_str = None
     for line in lines[start_idx + 1:]:
@@ -134,7 +130,7 @@ def get_workspace_members(crate_dir):
     if invalid_members:
         raise EasyBuildError('Failed to parse %s: Found seemingly invalid members: %s',
                              cargo_toml, ', '.join(invalid_members))
-    return [os.path.join(crate_dir, m) for m in members]
+    return has_package, members
 
 
 def get_checksum(src, log):
@@ -164,6 +160,10 @@ class Cargo(ExtensionEasyBlock):
         })
 
         return extra_vars
+
+    @staticmethod
+    def src_parameter_names():
+        return super().src_parameter_names() + ['crates']
 
     @staticmethod
     def crate_src_filename(pkg_name, pkg_version, _url=None, rev=None):
@@ -279,12 +279,6 @@ class Cargo(ExtensionEasyBlock):
         """
         self.vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
         mkdir(self.vendor_dir)
-        # Sources from git repositories might contain multiple crates/folders in a so-called "workspace".
-        # If we put such a workspace into the vendor folder, cargo fails with
-        # "found a virtual manifest at [...]Cargo.toml instead of a package manifest".
-        # Hence we put those in a separate folder and only move "regular" crates into the vendor folder.
-        self.git_vendor_dir = os.path.join(self.builddir, 'easybuild_vendor_git')
-        mkdir(self.git_vendor_dir)
 
         vendor_crates = {self.crate_src_filename(*crate): crate for crate in self.crates}
         # Track git sources for building the cargo config and avoiding duplicated folders
@@ -325,63 +319,99 @@ class Cargo(ExtensionEasyBlock):
                     continue
 
             # Extract dependency crates into vendor subdirectory, separate from sources of main package
-            extraction_dir = self.builddir
-            if is_vendor_crate:
-                extraction_dir = self.git_vendor_dir if git_key else self.vendor_dir
+            extraction_dir = self.vendor_dir if is_vendor_crate else self.builddir
 
             self.log.info("Unpacking source of %s", src['name'])
             existing_dirs = set(os.listdir(extraction_dir))
-            src_dir = extract_file(src['path'], extraction_dir, cmd=src['cmd'],
-                                   extra_options=self.cfg['unpack_options'], change_into_dir=False, trace=False)
+            extract_file(src['path'], extraction_dir, cmd=src['cmd'],
+                         extra_options=self.cfg['unpack_options'], change_into_dir=False, trace=False)
             new_extracted_dirs = set(os.listdir(extraction_dir)) - existing_dirs
 
             if len(new_extracted_dirs) == 0:
                 # Extraction went wrong
                 raise EasyBuildError("Unpacking sources of '%s' failed", src['name'])
-            # Expected crate tarball with 1 folder
-            # TODO: properly handle case with multiple extracted folders
-            # this is currently in a grey area, might still be used by cargo
-            if len(new_extracted_dirs) == 1:
-                src_dir = os.path.join(extraction_dir, new_extracted_dirs.pop())
-                self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
-
-                if is_vendor_crate and self.cfg['offline']:
-                    # Create checksum file for extracted sources required by vendored crates
-
-                    # By default there is only a single crate
-                    crate_dirs = [src_dir]
-                    # For git sources determine the folders that contain crates by taking workspaces into account
-                    if git_key:
-                        member_dirs = get_workspace_members(src_dir)
-                        if member_dirs:
-                            crate_dirs = member_dirs
-
-                    try:
-                        checksum = src[CHECKSUM_TYPE_SHA256]
-                    except KeyError:
-                        checksum = compute_checksum(src['path'], checksum_type=CHECKSUM_TYPE_SHA256)
-                    for crate_dir in crate_dirs:
-                        self.log.info('creating .cargo-checksums.json file for %s', os.path.basename(crate_dir))
-                        chkfile = os.path.join(src_dir, crate_dir, '.cargo-checksum.json')
-                        write_file(chkfile, CARGO_CHECKSUM_JSON.format(checksum=checksum))
-                    # Move non-workspace git crates to the vendor folder
-                    if git_key and member_dirs is None:
-                        src_dir = os.path.join(self.vendor_dir, os.path.basename(crate_dirs[0]))
-                        self.log.debug('Moving crate %s without workspaces to vendor folder', crate_name)
-                        move_file(crate_dirs[0], src_dir)
+            # There can be multiple folders but we just use the first new one as the finalpath
+            if len(new_extracted_dirs) > 1:
+                self.log.warning(f"Found multiple folders when extracting {src['name']}: "
+                                 f"{', '.join(new_extracted_dirs)}.")
+            src_dir = os.path.join(extraction_dir, new_extracted_dirs.pop())
+            self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
 
             src['finalpath'] = src_dir
 
-        self._setup_offline_config(git_sources)
+        if self.cfg['offline']:
+            self._setup_offline_config(git_sources)
 
     def _setup_offline_config(self, git_sources):
         """
         Setup the configuration required for offline builds
         :param git_sources: dict mapping (git_repo, rev) to extracted source
         """
-        if not self.cfg['offline']:
-            return
         self.log.info("Setting up vendored crates for offline operation")
+
+        self.log.debug("Setting up checksum files and unpacking workspaces with virtual manifest")
+        path_to_source = {src['finalpath']: src for src in self.src}
+        tmp_dir = Path(tempfile.mkdtemp(dir=self.builddir, prefix='tmp_crate_'))
+        # Add checksum file for each crate such that it is recognized by cargo.
+        # Glob to catch multiple folders in a source archive.
+        for crate_dir in (p.parent for p in Path(self.vendor_dir).glob('*/Cargo.toml')):
+            src = path_to_source.get(str(crate_dir))
+            if src:
+                try:
+                    checksum = src[CHECKSUM_TYPE_SHA256]
+                except KeyError:
+                    self.log.debug(f"Computing checksum for {src['path']}.")
+                    checksum = compute_checksum(src['path'], checksum_type=CHECKSUM_TYPE_SHA256)
+            else:
+                self.log.debug(f'No source found for {crate_dir}. Using nul-checksum for vendoring')
+                checksum = 'null'
+            cargo_pkg_dirs = [crate_dir]  # Default case: Single crate
+            # Sources might contain multiple crates/folders in a so-called "workspace".
+            # We have to move the individual packages out of the workspace so cargo can find them.
+            # If there is a main package it should to used too,
+            # otherwise (Only "[workspace]" section and no "[package]" section)
+            # we have to remove the top-level folder or cargo fails with:
+            # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
+            has_package, members = get_workspace_members(crate_dir)
+            if members:
+                self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(members))
+                if not any((crate_dir / crate).is_dir() for crate in members):
+                    if not has_package:
+                        raise EasyBuildError(f'Virtual manifest found in {crate_dir} but none of the member folders '
+                                             'exist. This cannot be handled by the build.')
+                    # Packages from crates.io contain only a single crate even if the Cargo.toml file lists multiple
+                    # members. Those members are in separate packages on crates.io, so this is a fairly common case.
+                    self.log.debug(f"Member folders of {crate_dir} don't exist so assuming they are in individual "
+                                   "crates, e.g. from/on crates.io")
+                else:
+                    cargo_pkg_dirs = []
+                    tmp_crate_dir = tmp_dir / crate_dir.name
+                    shutil.move(crate_dir, tmp_crate_dir)
+                    for member in members:
+                        # A member crate might be in a subfolder, e.g. 'components/foo',
+                        # which we need to ignore and make the crate a top-level folder.
+                        target_path = Path(self.vendor_dir, os.path.basename(member))
+                        if target_path.exists():
+                            raise EasyBuildError(f'Cannot move {member} out of {crate_dir.name} '
+                                                 f'as target path {target_path} exists')
+                        # Use copy_dir to resolve symlinks that might point to the parent folder
+                        copy_dir(tmp_crate_dir / member, target_path, symlinks=False)
+                        cargo_pkg_dirs.append(target_path)
+                    if has_package:
+                        # Remove the copied crate folders
+                        for member in members:
+                            remove_dir(tmp_crate_dir / member)
+                        # Keep the main package in the original location
+                        shutil.move(tmp_crate_dir, crate_dir)
+                        cargo_pkg_dirs.append(crate_dir)
+                    else:
+                        self.log.info(f'Virtual manifest found in {crate_dir}, removing it')
+                        remove_dir(tmp_crate_dir)
+            for pkg_dir in cargo_pkg_dirs:
+                self.log.info('creating .cargo-checksums.json file for %s', pkg_dir.name)
+                chkfile = os.path.join(pkg_dir, '.cargo-checksum.json')
+                write_file(chkfile, CARGO_CHECKSUM_JSON.format(checksum=checksum))
+
         self.log.debug("Writting config.toml entry for vendored crates from crate.io")
         config_toml = os.path.join(self.cargo_home, 'config.toml')
         # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
@@ -390,29 +420,12 @@ class Cargo(ExtensionEasyBlock):
         # Tell cargo about the vendored git sources to avoid it failing with:
         # Unable to update https://github.com/[...]
         # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
-
         for (git_repo, rev), src in git_sources.items():
             crate_name = src['crate'][0]
-            src_dir = src['finalpath']
-            if os.path.dirname(src_dir) == self.vendor_dir:
-                # Non-workspace sources are in vendor_dir
-                git_branch = self._get_crate_git_repo_branch(crate_name)
-                template = CONFIG_TOML_SOURCE_GIT_BRANCH if git_branch else CONFIG_TOML_SOURCE_GIT
-                self.log.debug(f"Writing config.toml entry for git repo: {git_repo} branch {git_branch}, rev {rev}")
-                write_file(
-                    config_toml,
-                    template.format(url=git_repo, rev=rev, branch=git_branch),
-                    append=True
-                )
-            else:
-                self.log.debug("Writing config.toml entry for git repo: %s rev %s", git_repo, rev)
-                # Workspace sources stay in their own separate folder.
-                # We cannot have a `directory = "<dir>"` entry where a folder containing a workspace is inside
-                write_file(
-                    config_toml,
-                    CONFIG_TOML_SOURCE_GIT_WORKSPACE.format(url=git_repo, rev=rev, workspace_dir=src_dir),
-                    append=True
-                )
+            git_branch = self._get_crate_git_repo_branch(crate_name)
+            template = CONFIG_TOML_SOURCE_GIT_BRANCH if git_branch else CONFIG_TOML_SOURCE_GIT
+            self.log.debug(f"Writing config.toml entry for git repo: {git_repo} branch {git_branch}, rev {rev}")
+            write_file(config_toml, template.format(url=git_repo, rev=rev, branch=git_branch), append=True)
 
     def _get_crate_git_repo_branch(self, crate_name):
         """
@@ -421,7 +434,7 @@ class Cargo(ExtensionEasyBlock):
         """
         # Search all Cargo.toml files in main source and vendored crates
         cargo_toml_files = []
-        for cargo_source_dir in (self.src[0]['finalpath'], self.vendor_dir, self.git_vendor_dir):
+        for cargo_source_dir in (self.src[0]['finalpath'], self.vendor_dir):
             cargo_toml_files.extend(glob(os.path.join(cargo_source_dir, '**', 'Cargo.toml'), recursive=True))
 
         if not cargo_toml_files:
@@ -561,7 +574,13 @@ def generate_crate_list(sourcedir):
                 qs = parse_qs(parsed_url.query)
                 rev_qs = qs.get('rev', [None])[0]
                 if rev_qs is not None and rev_qs != rev:
-                    raise ValueError(f"Found different revision in query of URL {url}: {rev_qs} (expected: {rev})")
+                    # It is not an error if one is the short version of the other
+                    # E.g. https://github.com/astral/lsp-types.git?rev=3512a9f#3512a9f33eadc5402cfab1b8f7340824c8ca1439
+                    if (rev_qs and rev.startswith(rev_qs)) or rev_qs.startswith(rev):
+                        # The query value is the relevant one if both are present
+                        rev = rev_qs
+                    else:
+                        raise ValueError(f"Found different revision in query of URL {url}: {rev_qs} (expected: {rev})")
                 crates.append((name, version, url, rev))
     return app_in_cratesio, crates, other_crates
 

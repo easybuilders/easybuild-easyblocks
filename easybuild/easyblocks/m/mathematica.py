@@ -76,6 +76,8 @@ class EB_Mathematica(Binary):
         # Starting at V13, Mathematica have renamed their install file...
         if LooseVersion(self.version) >= LooseVersion("13"):
             install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
+        if LooseVersion(self.version) >= LooseVersion("14.1"):
+            install_script_glob = 'Wolfram_%s_LIN.sh' % (self.version)
 
         matches = glob.glob(install_script_glob)
         if len(matches) == 1:
@@ -83,6 +85,9 @@ class EB_Mathematica(Binary):
             cmd = self.cfg['preinstallopts'] + './' + install_script
             shortver = '.'.join(self.version.split('.')[:2])
             qa_install_path = os.path.join('/usr', 'local', 'Wolfram', self.name, shortver)
+            if LooseVersion(self.version) >= LooseVersion("14.1"):
+                qa_install_path = os.path.join('/usr', 'local', 'Wolfram', 'Wolfram', shortver)
+
             qa = [
                 (r"Enter the installation directory, or press ENTER to select[\s\n]*%s:[\s\n]*>" % qa_install_path,
                  self.installdir),
@@ -138,7 +143,7 @@ class EB_Mathematica(Binary):
     def sanity_check_step(self):
         """Custom sanity check for Mathematica."""
         custom_paths = {
-            'files': ['bin/mathematica'],
+            'files': ['bin/math'],
             'dirs': ['AddOns', 'Configuration', 'Documentation', 'Executables', 'SystemFiles'],
         }
         if LooseVersion(self.version) >= LooseVersion("11.3.0"):
@@ -146,6 +151,9 @@ class EB_Mathematica(Binary):
         elif LooseVersion(self.version) >= LooseVersion("11.0.0"):
             custom_paths['files'].append('bin/wolframscript')
 
-        custom_commands = ['mathematica --version']
+        if LooseVersion(self.version) < LooseVersion("14.1"):
+            custom_commands = ['mathematica --version']
+        else:
+            custom_commands = ['wolframnb --version']
 
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

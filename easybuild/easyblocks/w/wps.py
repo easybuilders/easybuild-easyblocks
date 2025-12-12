@@ -231,6 +231,7 @@ class EB_WPS(EasyBlock):
             'DM_CC': os.getenv('MPICC'),
             'FC': os.getenv('MPIF90'),
             'CC': os.getenv('MPICC'),
+            'CPP': 'cpp -P -traditional',
         }
         if self.toolchain.options.get('openmp', None):
             comps.update({'LDFLAGS': '%s %s' % (self.toolchain.get_flag('openmp'), os.environ['LDFLAGS'])})

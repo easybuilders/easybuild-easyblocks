@@ -127,11 +127,15 @@ class EB_FlexiBLAS(CMakeMake):
                 # For gf_lp64 vs intel_lp64 the difference is in the ABI for [sz]dot[uc], which FlexiBLAS
                 # can transparently wrap.
                 # gnu_thread vs intel_thread links to libgomp vs. libiomp5 for the OpenMP library.
+                # LLVM flang follows gfortran for complex return values, but its OpenMP library libomp.so
+                # is compatible with Intel's
                 mkl_gnu_libs = "mkl_gf_lp64;mkl_gnu_thread;mkl_core;gomp;pthread;m;dl"
                 mkl_intel_libs = "mkl_intel_lp64;mkl_intel_thread;mkl_core;iomp5;pthread;m;dl"
+                mkl_llvm_libs = "mkl_intel_lp64;mkl_intel_thread;mkl_core;iomp5;pthread;m;dl"
                 mkl_compiler_mapping = {
                     toolchain.GCC: mkl_gnu_libs,
                     toolchain.INTELCOMP: mkl_intel_libs,
+                    toolchain.LLVM: mkl_llvm_libs,
                     toolchain.NVHPC: mkl_intel_libs,
                     toolchain.PGI: mkl_intel_libs,
                 }
