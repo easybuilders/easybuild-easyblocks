@@ -63,7 +63,7 @@ class EB_netCDF(CMakeMake):
 
             # add -DgFortran to CPPFLAGS when building with GCC
             if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
-                self.cfg.update('configopts', 'CPPFLAGS="%s -DgFortran"' % os.getenv('CPPFLAGS'))
+                self.cfg.update('configopts', 'CPPFLAGS="%s -DgFortran"' % os.getenv('CPPFLAGS', ''))
 
             ConfigureMake.configure_step(self)
 

@@ -223,6 +223,8 @@ class EB_LLVM(CMakeMake):
             'disable_werror': [False, "Disable -Werror for all projects", CUSTOM],
             'enable_rtti': [True, "Enable RTTI", CUSTOM],
             'full_llvm': [False, "Build LLVM without any dependency", CUSTOM],
+            'install_libcxx_modules':
+                [None, "Install libstdc++ modules. Default relies on default of build system", CUSTOM],
             'minimal': [False, "Build LLVM only", CUSTOM],
             'python_bindings': [False, "Install python bindings", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
@@ -599,6 +601,14 @@ class EB_LLVM(CMakeMake):
             # OMPT based tools
             self._cmakeopts['OPENMP_ENABLE_OMPT_TOOLS'] = ompt_value
 
+        # Install C++ standard library modules.
+        # Internally disabled by default in LLVM 18, but enabled in LLVM 20.
+        if self.cfg['install_libcxx_modules'] is not None:
+            if self.cfg['install_libcxx_modules']:
+                self._cmakeopts['LIBCXX_INSTALL_MODULES'] = 'ON'
+            else:
+                self._cmakeopts['LIBCXX_INSTALL_MODULES'] = 'OFF'
+
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
         if not build_option('mpi_tests'):
@@ -707,6 +717,41 @@ class EB_LLVM(CMakeMake):
 
         # Can give different behavior based on system Scrt1.o
         new_ignore_patterns.append('Flang :: Driver/missing-input.f90')
+
+        # We are not explicitly including Google Test
+        new_ignore_patterns.append('failed_to_discover_tests_from_gtest')
+
+        # Some extra tests need to be ignored for aarch64
+        if get_cpu_architecture() == AARCH64:
+            if LooseVersion(self.version) < '22':  # Force checking if these are resolved in newer LLVM versions
+                # Related to https://github.com/llvm/llvm-project/issues/100096 needs more investigation
+                new_ignore_patterns.append('BOLT :: AArch64/check-init-not-moved.s')
+                # BOLT-ERROR: cannot process binaries with unmarked object in code at address 0x10774 belonging
+                # to section .text in current mode
+                new_ignore_patterns.append('BOLT :: X86/dwarf5-dwarf4-types-backward-forward-cross-reference.test')
+                new_ignore_patterns.append('BOLT :: X86/dwarf5-locexpr-referrence.test')
+                new_ignore_patterns.append('BOLT :: eh-frame-hdr.test')
+                new_ignore_patterns.append('BOLT :: eh-frame-overwrite.test')
+                # Probably need https://github.com/llvm/llvm-project/pull/147589 to be fixed
+                new_ignore_patterns.append('BOLT :: runtime/AArch64/adrrelaxationpass.s')
+                new_ignore_patterns.append('BOLT :: runtime/AArch64/instrumentation-ind-call.c')
+                new_ignore_patterns.append('BOLT :: runtime/exceptions-instrumentation.test')
+                new_ignore_patterns.append('BOLT :: runtime/AArch64/hook-fini.test')
+
+                # Failing to trigger an expected stack overflow with ASAN
+                new_ignore_patterns.append('libFuzzer-aarch64-default-Linux :: stack-overflow-with-asan.test')
+                new_ignore_patterns.append('libFuzzer-aarch64-libcxx-Linux :: stack-overflow-with-asan.test')
+                new_ignore_patterns.append('libFuzzer-aarch64-static-libcxx-Linux :: stack-overflow-with-asan.test')
+
+                # Known failure https://github.com/llvm/llvm-project/issues/69606
+                new_ignore_patterns.append(
+                    'libomptarget :: aarch64-unknown-linux-gnu :: mapping/target_derefence_array_pointrs.cpp'
+                    )
+                new_ignore_patterns.append(
+                    'libomptarget :: aarch64-unknown-linux-gnu-LTO :: mapping/target_derefence_array_pointrs.cpp'
+                    )
+
+                new_ignore_patterns.append('lldb-unit :: Host/./HostTests/17/25')
 
         # Some extra tests need to be ignored for RISC-V
         if get_cpu_architecture() == RISCV64:
@@ -1079,15 +1124,14 @@ class EB_LLVM(CMakeMake):
             # prefix = self.sysroot.rstrip('/')
             # opts.append(f'--dyld-prefix={prefix}')
 
-        # Check, for a non `full_llvm` build, if GCCcore is in the LIBRARY_PATH, and if not add it;
+        # For a non `full_llvm` build, always add GCCcore with a -L in the config file
+        # This is needed even if GCCcore is in the LIBRARY_PATH as some tests will filter it out;
         # This is needed as the runtimes tests will not add the -L option to the linker command line for GCCcore
         # otherwise
         if not self.full_llvm:
             gcc_lib = self._get_gcc_libpath(strict=True)
-            lib_path = os.getenv('LIBRARY_PATH', '')
-            if gcc_lib not in lib_path:
-                self.log.info("Adding GCCcore libraries location `%s` the config files", gcc_lib)
-                opts.append(f'-L{gcc_lib}')
+            self.log.info("Adding GCCcore libraries location `%s` the config files", gcc_lib)
+            opts.append(f'-L{gcc_lib}')
 
         for comp in self.cfg_compilers:
             write_file(os.path.join(bin_dir, f'{comp}.cfg'), ' '.join(opts))
@@ -1313,7 +1357,6 @@ class EB_LLVM(CMakeMake):
             cmd = f"make -j {parallel} check-all"
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
-            self.log.debug(out)
 
         ignore_patterns = self.ignore_patterns
         num_ignored_pattern_matches = 0
@@ -1700,12 +1743,16 @@ class EB_LLVM(CMakeMake):
                 # Starting from LLVM 19, omp related libraries are installed the runtime library directory
                 check_librt_files += omp_lib_files
 
+        if self.cfg['install_libcxx_modules']:
+            check_files += [os.path.join('share', 'libc++', 'v1', 'std.cppm')]
+
         if self.cfg['build_openmp_tools']:
             check_files += [os.path.join('lib', 'clang', resdir_version, 'include', 'ompt.h')]
             if version < '19':
                 check_lib_files += ['libarcher.so']
             else:
                 check_librt_files += ['libarcher.so']
+
         if self.cfg['python_bindings']:
             custom_commands += ["python -c 'import clang'"]
             custom_commands += ["python -c 'import mlir'"]

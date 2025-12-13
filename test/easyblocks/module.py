@@ -486,6 +486,9 @@ def suite(loader):
         elif eb_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif eb_fn == 'kokkos.py':
+            # custom easyblock for kokkos required v4.1.00 or newer
+            innertest = make_inner_test(easyblock, name='kokkos', version='4.1.00')
         elif eb_fn in ['nvidia_compilers.py', 'nvhpc.py', 'nvidiabase.py']:
             # NvidiaBase easyblocks need a CUDA version
             extra_txt = 'default_cuda_version = "99.9"'
