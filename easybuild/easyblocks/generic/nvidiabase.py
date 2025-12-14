@@ -194,7 +194,7 @@ class NvidiaBase(PackedBinary):
         if len(supported_cuda_versions) == 1:
             active_cuda_version = supported_cuda_versions[0]
             self.log.info(
-                f"Missing 'default_cuda_version' or CUDA dependency. Using CUDA version '{active_cuda_version}' "
+                f"Missing 'default_cuda_version' or CUDA dependency. Using CUDA version '{active_cuda_version}', "
                 f"as it is the only version supported by {self.name}-{self.version}."
             )
             return filter_major_minor(active_cuda_version)
