@@ -199,8 +199,8 @@ class NvidiaBase(PackedBinary):
             )
             return filter_major_minor(active_cuda_version)
 
-        error_msg = f"Missing 'default_cuda_version' or CUDA dependency for {self.name}. "
-        error_msg += "Either add CUDA as dependency or manually define 'default_cuda_version'."
+        error_msg = f"Missing 'default_cuda_version' and nvidia-compilers or CUDA dependency for {self.name}. "
+        error_msg += "Either add nvidia-compilers or CUDA as dependency, or manually define 'default_cuda_version'."
         error_msg += "You can edit the easyconfig file, "
         error_msg += "or use 'eb --try-amend=default_cuda_version=<version>'."
         raise EasyBuildError(error_msg)
