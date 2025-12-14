@@ -575,19 +575,32 @@ class NvidiaBase(PackedBinary):
 
         if self.cfg['module_nvhpc_own_mpi']:
             tmpdir = tempfile.mkdtemp()
+
             # Check MPI compilers
             mpi_compiler_names = ['mpicc', 'mpicxx', 'mpifort', 'mpif90']
             custom_commands.extend([f"{comp} --version" for comp in mpi_compiler_names])
+
             # Build MPI test binary
             hpcx_dir = os.path.join(self.installdir, prefix, 'comm_libs', self.active_cuda_version, 'hpcx')
             mpi_hello_src = os.path.join(hpcx_dir, 'latest', 'ompi', 'tests', 'examples', 'hello_c.c')
             mpi_hello_exe = os.path.join(tmpdir, 'mpi_test_' + os.path.splitext(os.path.basename(mpi_hello_src))[0])
             self.log.info("Adding minimal MPI test program to sanity checks: %s", mpi_hello_exe)
             custom_commands.append(f"mpicc {mpi_hello_src} -o {mpi_hello_exe}")
+
             # Run MPI test binary
             mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.NVHPC, {}, mpi_version=self.version)
             ranks = min(8, self.cfg.parallel)
             params.update({'nr_ranks': ranks, 'cmd': mpi_hello_exe})
-            custom_commands.append(mpi_cmd_tmpl % params)
+
+            mpi_cmd = ' && '.join([
+                # allow oversubscription of MPI ranks to cores
+                "export OMPI_MCA_rmaps_base_oversubscribe=true",
+                # workaround for problem with core binding with OpenMPI 4.x,
+                # errors like: hwloc_set_cpubind returned "Error" for bitmap "0"
+                # see https://github.com/open-mpi/ompi/issues/12470
+                "export OMPI_MCA_hwloc_base_binding_policy=none",
+                mpi_cmd_tmpl % params,
+            ])
+            custom_commands.append(mpi_cmd)
 
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
