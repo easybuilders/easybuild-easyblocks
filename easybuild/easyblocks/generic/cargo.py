@@ -323,7 +323,8 @@ class Cargo(ExtensionEasyBlock):
             extract_file(src['path'], extraction_dir, cmd=src['cmd'],
                          extra_options=self.cfg['unpack_options'], change_into_dir=False, trace=False)
             new_extracted_files = set(os.listdir(extraction_dir)) - existing_files
-            new_extracted_dirs = sorted(x for x in new_extracted_files if os.path.isdir(os.path.join(extraction_dir, x)))
+            new_extracted_dirs = sorted(x for x in new_extracted_files
+                                        if os.path.isdir(os.path.join(extraction_dir, x)))
             self.log.info(f"New directories found after extracting {src['name']}: {new_extracted_dirs}")
 
             if len(new_extracted_dirs) == 0:
