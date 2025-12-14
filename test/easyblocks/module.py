@@ -424,6 +424,7 @@ def suite(loader):
     eb_go = eboptions.parse_options(args=['--prefix=%s' % TMPDIR])
     config.init(eb_go.options, eb_go.get_options_by_section('config'))
     build_options = {
+        'accept_eula_for': ['.*'],
         'external_modules_metadata': {},
         # enable --force --module-only
         'force': True,
@@ -488,6 +489,10 @@ def suite(loader):
         elif eb_fn == 'kokkos.py':
             # custom easyblock for kokkos required v4.1.00 or newer
             innertest = make_inner_test(easyblock, name='kokkos', version='4.1.00')
+        elif eb_fn in ['nvidia_compilers.py', 'nvhpc.py', 'nvidiabase.py']:
+            # NvidiaBase easyblocks need a CUDA version
+            extra_txt = 'default_cuda_version = "99.9"'
+            innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], extra_txt=extra_txt)
         elif eb_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, name='OpenSSL-wrapper', version='1.1')
