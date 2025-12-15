@@ -319,21 +319,23 @@ class Cargo(ExtensionEasyBlock):
             extraction_dir = self.vendor_dir if is_vendor_crate else self.builddir
 
             self.log.info("Unpacking source of %s", src['name'])
-            existing_dirs = set(os.listdir(extraction_dir))
+            existing_files = set(os.listdir(extraction_dir))
             extract_file(src['path'], extraction_dir, cmd=src['cmd'],
                          extra_options=self.cfg['unpack_options'], change_into_dir=False, trace=False)
-            new_extracted_dirs = set(os.listdir(extraction_dir)) - existing_dirs
+            new_extracted_files = set(os.listdir(extraction_dir)) - existing_files
+            new_extracted_dirs = sorted(x for x in new_extracted_files
+                                        if os.path.isdir(os.path.join(extraction_dir, x)))
+            self.log.info(f"New directories found after extracting {src['name']}: {new_extracted_dirs}")
 
             if len(new_extracted_dirs) == 0:
                 # Extraction went wrong
                 raise EasyBuildError("Unpacking sources of '%s' failed", src['name'])
-            # There can be multiple folders but we just use the first new one as the finalpath
-            if len(new_extracted_dirs) > 1:
-                self.log.warning(f"Found multiple folders when extracting {src['name']}: "
-                                 f"{', '.join(new_extracted_dirs)}.")
-            src_dir = os.path.join(extraction_dir, new_extracted_dirs.pop())
+            elif len(new_extracted_dirs) == 1:
+                src_dir = os.path.join(extraction_dir, new_extracted_dirs[0])
+            else:
+                # if there are multiple subdirectories, we use parent directory as finalpath
+                src_dir = extraction_dir
             self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
-
             src['finalpath'] = src_dir
 
         if self.cfg['offline']:
