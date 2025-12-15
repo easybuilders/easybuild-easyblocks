@@ -555,7 +555,7 @@ class NvidiaBase(PackedBinary):
                 os.path.join(prefix, 'comm_libs', 'mpi', 'bin', 'mpifort'),
             ])
         if self.cfg['module_add_nccl']:
-            # Ensure that comm_libs path points to correct CUDA version
+            # Ensure that NCCL path points to correct CUDA version
             comm_lib_path = os.path.join(self.installdir, prefix, 'comm_libs')
             expected_path = resolve_path(os.path.join(comm_lib_path, str(self.active_cuda_version), 'nccl'))
             actual_path = resolve_path(os.path.join(comm_lib_path, 'nccl'))
@@ -563,7 +563,7 @@ class NvidiaBase(PackedBinary):
                 raise EasyBuildError(
                     f"CUDA symlink for NCCL libraries does not match: {expected_path} != {actual_path}")
         if self.cfg['module_add_nvshmem']:
-            # Ensure that comm_libs path points to correct CUDA version
+            # Ensure that NVSHMEM path points to correct CUDA version
             comm_lib_path = os.path.join(self.installdir, prefix, 'comm_libs')
             expected_path = resolve_path(os.path.join(comm_lib_path, str(self.active_cuda_version), 'nvshmem'))
             actual_path = resolve_path(os.path.join(comm_lib_path, 'nvshmem'))
