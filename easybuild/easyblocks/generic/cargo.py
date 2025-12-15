@@ -214,30 +214,37 @@ class Cargo(ExtensionEasyBlock):
         self.cargo_home = os.path.join(self.builddir, '.cargo')
         self.set_cargo_vars()
 
-        # Populate sources from "crates" list of tuples
-        sources = []
-        for crate_info in self.crates:
-            if len(crate_info) == 2:
-                sources.append({
-                    'download_filename': self.crate_download_filename(*crate_info),
-                    'filename': self.crate_src_filename(*crate_info),
-                    'source_urls': [CRATESIO_SOURCE],
-                    'alt_location': 'crates.io',
-                })
-            else:
-                crate, version, repo, rev = crate_info
-                url, repo_name = repo.rsplit('/', maxsplit=1)
-                if repo_name.endswith('.git'):
-                    repo_name = repo_name[:-4]
-                sources.append({
-                    'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
-                    'filename': self.crate_src_filename(crate, version, rev=rev),
-                })
-
         # copy EasyConfig instance before we make changes to it
         self.cfg = self.cfg.copy()
 
-        self.cfg.update('sources', sources)
+        # Populate sources from "crates" list of tuples
+        if self.is_extension:
+            # The (regular) extract step for extensions is not run so our handling of crates as (multiple) sources
+            # cannot be used for extensions.
+            if self.crates:
+                raise EasyBuildError(f"Extension '{self.name}' cannot have crates. "
+                                     "You can add them to the top-level config parameters when using e.g."
+                                     "the Cargo or CargoPythonBundle easyblock.")
+        else:
+            sources = []
+            for crate_info in self.crates:
+                if len(crate_info) == 2:
+                    sources.append({
+                        'download_filename': self.crate_download_filename(*crate_info),
+                        'filename': self.crate_src_filename(*crate_info),
+                        'source_urls': [CRATESIO_SOURCE],
+                        'alt_location': 'crates.io',
+                    })
+                else:
+                    crate, version, repo, rev = crate_info
+                    url, repo_name = repo.rsplit('/', maxsplit=1)
+                    if repo_name.endswith('.git'):
+                        repo_name = repo_name[:-4]
+                    sources.append({
+                        'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
+                        'filename': self.crate_src_filename(crate, version, rev=rev),
+                    })
+            self.cfg.update('sources', sources)
 
     def set_cargo_vars(self):
         """Set environment variables for Rust compilation and Cargo"""
