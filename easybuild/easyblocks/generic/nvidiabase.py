@@ -48,7 +48,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import adjust_permissions, remove, symlink, write_file
+from easybuild.tools.filetools import adjust_permissions, remove, symlink, write_file, apply_regex_substitutions
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_shared_lib_ext
@@ -446,6 +446,16 @@ class NvidiaBase(PackedBinary):
                 # NVHPC_STDPAR_CUDACC uses single value CC without dot-divider (e.g. 70, 80)
                 'NVHPC_STDPAR_CUDACC': self.default_compute_capability[0].replace('.', ''),
             })
+
+        # Before installing, make sure that NVHPC chooses the CUDA version we desire
+        # By default, NVHPC calls 'nvc -printcudaversion', which completely ignores our set
+        # version, and only cares about the supported GPUs and found CUDA driver.
+        # On a system without GPUs, this may return an incompatible CUDA version to the one
+        # we define in active_cuda_version.
+        desired_cuda_version = self.cfg['default_cuda_version'] or self.active_cuda_version
+        desired_cuda_var_regex = [(r'DESIREDCUDA=\$(.*)', f'DESIREDCUDA={str(desired_cuda_version)}')]
+        apply_regex_substitutions('./install_components/install', desired_cuda_var_regex,
+                                  on_missing_match='error')
 
         cmd_env = ' '.join([f'{name}={value}' for name, value in sorted(nvhpc_env_vars.items())])
         run_shell_cmd(f"{cmd_env} ./install")
