@@ -136,7 +136,7 @@ class MesonNinja(EasyBlock):
         """
         build_cmd = self.cfg.get('build_cmd', DEFAULT_BUILD_CMD)
 
-        parallel = f'-j {self.cfg.parallel}'
+        parallel = f'-j {self.cfg.parallel}' if self.cfg.parallel >= 1 else ''
 
         cmd = "%(prebuildopts)s %(build_cmd)s -v %(parallel)s %(buildopts)s" % {
             'buildopts': self.cfg['buildopts'],
