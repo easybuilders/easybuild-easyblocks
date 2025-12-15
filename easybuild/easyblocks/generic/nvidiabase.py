@@ -48,7 +48,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import adjust_permissions, remove, symlink, write_file, apply_regex_substitutions
+from easybuild.tools.filetools import adjust_permissions, remove, symlink
+from easybuild.tools.filetools import write_file, apply_regex_substitutions, resolve_path
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_shared_lib_ext
@@ -553,7 +554,30 @@ class NvidiaBase(PackedBinary):
                 os.path.join(prefix, 'comm_libs', 'mpi', 'bin', 'mpicc'),
                 os.path.join(prefix, 'comm_libs', 'mpi', 'bin', 'mpifort'),
             ])
+        if self.cfg['module_add_nccl']:
+            # Ensure that comm_libs path points to correct CUDA version
+            comm_lib_path = os.path.join(self.installdir, prefix, 'comm_libs')
+            expected_path = resolve_path(os.path.join(comm_lib_path, str(self.active_cuda_version), 'nccl'))
+            actual_path = resolve_path(os.path.join(comm_lib_path, 'nccl'))
+            if actual_path != expected_path:
+                raise EasyBuildError(
+                    f"CUDA symlink for NCCL libraries does not match: {expected_path} != {actual_path}")
+        if self.cfg['module_add_nvshmem']:
+            # Ensure that comm_libs path points to correct CUDA version
+            comm_lib_path = os.path.join(self.installdir, prefix, 'comm_libs')
+            expected_path = resolve_path(os.path.join(comm_lib_path, str(self.active_cuda_version), 'nvshmem'))
+            actual_path = resolve_path(os.path.join(comm_lib_path, 'nvshmem'))
+            if actual_path != expected_path:
+                raise EasyBuildError(
+                    f"CUDA symlink for NVSHMEM libraries does not match: {expected_path} != {actual_path}")
         if self.cfg['module_add_math_libs']:
+            # Ensure that math_libs path points to correct CUDA version
+            math_lib_path = os.path.join(self.installdir, prefix, 'math_libs')
+            expected_path = resolve_path(os.path.join(math_lib_path, str(self.active_cuda_version), 'include'))
+            actual_path = resolve_path(os.path.join(math_lib_path, 'include'))
+            if actual_path != expected_path:
+                raise EasyBuildError(
+                    f"CUDA symlink for math libraries does not match: {expected_path} != {actual_path}")
             nvhpc_files.extend([
                 os.path.join(prefix, 'math_libs', 'lib64', f'libcublas.{shlib_ext}'),
                 os.path.join(prefix, 'math_libs', 'lib64', f'libcufftw.{shlib_ext}'),
