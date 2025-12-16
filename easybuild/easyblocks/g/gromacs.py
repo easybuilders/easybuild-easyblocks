@@ -385,7 +385,7 @@ class EB_GROMACS(CMakeMake):
                             self.cfg.update('configopts', "-DPython3_FIND_VIRTUALENV=STANDARD")
 
             # Now patch GROMACS for PLUMED before cmake
-            if plumed_root:
+            if plumed_root and plumed_patches:
                 if gromacs_version >= '5.1':
                     # Use shared or static patch depending on
                     # setting of self.cfg['build_shared_libs']
