@@ -217,8 +217,8 @@ class Cargo(ExtensionEasyBlock):
         # copy EasyConfig instance before we make changes to it
         self.cfg = self.cfg.copy()
 
-        # Populate sources from "crates" list of tuples
         if self.is_extension:
+            self.cfg['crates'] = self.options.get('crates', [])  # Don't inherit crates from parent
             # The (regular) extract step for extensions is not run so our handling of crates as (multiple) sources
             # cannot be used for extensions.
             if self.crates:
@@ -226,6 +226,7 @@ class Cargo(ExtensionEasyBlock):
                                      "You can add them to the top-level config parameters when using e.g."
                                      "the Cargo or CargoPythonBundle easyblock.")
         else:
+            # Populate sources from "crates" list of tuples
             sources = []
             for crate_info in self.crates:
                 if len(crate_info) == 2:
