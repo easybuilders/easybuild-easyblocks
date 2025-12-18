@@ -37,7 +37,6 @@ import textwrap
 from io import StringIO
 from pathlib import Path
 from unittest import TestLoader, TextTestRunner
-from pathlib import Path
 from test.easyblocks.module import cleanup
 
 import easybuild.tools.options as eboptions
