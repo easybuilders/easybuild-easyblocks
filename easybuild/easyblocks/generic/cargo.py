@@ -487,33 +487,40 @@ class Cargo(ExtensionEasyBlock):
         """Create lockfile if it doesn't exist"""
         cargo_lock = 'Cargo.lock'
         if self.crates and os.path.exists('Cargo.toml') and not os.path.exists(cargo_lock):
-            root_toml = run_shell_cmd('cargo locate-project --message-format=plain --workspace').output
-            cargo_lock_path = os.path.join(os.path.dirname(root_toml), cargo_lock)
-            if not os.path.exists(cargo_lock_path):
-                rust_version = LooseVersion(get_software_version('Rust'))
-                # File format version, the latest supported is used for forward compatibility
-                # Versions 1 and 2 were internal only, 2 being autodetected
-                # 1.47 introduced the version marker as version 3
-                # 1.78 marked version 4 as stable
-                if rust_version < '1.47':
-                    version = None
-                elif rust_version < '1.78':
-                    version = 3
-                else:
-                    version = 4
-                # Use vendored crates to ensure those versions are used
-                self.log.info(f"No {cargo_lock} file found, creating one at {cargo_lock_path}")
-                content = f'version = {version}\n' if version is not None else ''
-                for crate_info in self.crates:
-                    if len(crate_info) == 2:
-                        name, version = crate_info
-                        source = CRATES_REGISTRY_URL
+            locate_project_output = run_shell_cmd('cargo -q locate-project --message-format=plain --workspace').output
+            # Usually it is the only line, but there might be some prior messages like warnings
+            # Find path right path by going backwards through each line
+            try:
+                root_toml = next(p for p in locate_project_output.splitlines()[::-1] if os.path.exists(p))
+            except StopIteration:
+                self.log.warning("Failed to find project Cargo.toml. Skipping lockfile check & creation.")
+            else:
+                cargo_lock_path = os.path.join(os.path.dirname(root_toml), cargo_lock)
+                if not os.path.exists(cargo_lock_path):
+                    rust_version = LooseVersion(get_software_version('Rust'))
+                    # File format version, the latest supported is used for forward compatibility
+                    # Versions 1 and 2 were internal only, 2 being autodetected
+                    # 1.47 introduced the version marker as version 3
+                    # 1.78 marked version 4 as stable
+                    if rust_version < '1.47':
+                        version = None
+                    elif rust_version < '1.78':
+                        version = 3
                     else:
-                        name, version, repo, rev = crate_info
-                        source = f'git+{repo}?rev={rev}#{rev}'
+                        version = 4
+                    # Use vendored crates to ensure those versions are used
+                    self.log.info(f"No {cargo_lock} file found, creating one at {cargo_lock_path}")
+                    content = f'version = {version}\n' if version is not None else ''
+                    for crate_info in self.crates:
+                        if len(crate_info) == 2:
+                            name, version = crate_info
+                            source = CRATES_REGISTRY_URL
+                        else:
+                            name, version, repo, rev = crate_info
+                            source = f'git+{repo}?rev={rev}#{rev}'
 
-                    content += CONFIG_LOCK_SOURCE.format(name=name, version=version, source=source)
-                write_file(cargo_lock_path, content)
+                        content += CONFIG_LOCK_SOURCE.format(name=name, version=version, source=source)
+                    write_file(cargo_lock_path, content)
 
     @property
     def profile(self):
