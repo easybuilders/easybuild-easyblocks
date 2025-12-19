@@ -54,7 +54,7 @@ class EB_Extrae(ConfigureMake):
                 'Dyninst': ('', '--with-dyninst=%s', '--without-dyninst'),
                 'Java': ('', '--with-java-jdk=%s', '--without-java-jdk'),
                 'SIONlib': ('', '--with-sionlib=%s', ''),
-                'PAPI': ('--enable-sampling', '--with-papi=%s', ''),
+                'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
                 'binutils': ('', '--with-binutils=%s', ''),
                 'elfutils': ('', '--with-elfutils=%s', '--without-elfutils'),
                 'libunwind': ('', '--with-unwind=%s', '--without-unwind'),
