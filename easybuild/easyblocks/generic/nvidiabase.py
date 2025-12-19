@@ -560,7 +560,7 @@ class NvidiaBase(PackedBinary):
             expected_path = resolve_path(os.path.join(comm_lib_path, str(self.active_cuda_version), 'nccl'))
             actual_path = resolve_path(os.path.join(comm_lib_path, 'nccl'))
             if actual_path != expected_path:
-                raise EasyBuildError(
+                self.sanity_check_fail_msgs.append(
                     f"CUDA symlink for NCCL libraries does not match: {expected_path} != {actual_path}")
         if self.cfg['module_add_nvshmem']:
             # Ensure that NVSHMEM path points to correct CUDA version
@@ -568,7 +568,7 @@ class NvidiaBase(PackedBinary):
             expected_path = resolve_path(os.path.join(comm_lib_path, str(self.active_cuda_version), 'nvshmem'))
             actual_path = resolve_path(os.path.join(comm_lib_path, 'nvshmem'))
             if actual_path != expected_path:
-                raise EasyBuildError(
+                self.sanity_check_fail_msgs.append(
                     f"CUDA symlink for NVSHMEM libraries does not match: {expected_path} != {actual_path}")
         if self.cfg['module_add_math_libs']:
             # Ensure that math_libs path points to correct CUDA version
@@ -576,7 +576,7 @@ class NvidiaBase(PackedBinary):
             expected_path = resolve_path(os.path.join(math_lib_path, str(self.active_cuda_version), 'include'))
             actual_path = resolve_path(os.path.join(math_lib_path, 'include'))
             if actual_path != expected_path:
-                raise EasyBuildError(
+                self.sanity_check_fail_msgs.append(
                     f"CUDA symlink for math libraries does not match: {expected_path} != {actual_path}")
             nvhpc_files.extend([
                 os.path.join(prefix, 'math_libs', 'lib64', f'libcublas.{shlib_ext}'),
