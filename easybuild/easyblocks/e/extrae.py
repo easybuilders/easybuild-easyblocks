@@ -70,6 +70,7 @@ class EB_Extrae(ConfigureMake):
                 'libunwind': ('', '--with-unwind=%s', '--without-unwind'),
                 'libxml2': (' --enable-xml --enable-merge-in-trace', '', ''),
                 'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
+                'Dyninst': ('', '--with-dyninst=%s', '--without-dyninst'),
             }
 
         for (dep_name, (with_opts, with_root_opt, without_opt)) in deps.items():
