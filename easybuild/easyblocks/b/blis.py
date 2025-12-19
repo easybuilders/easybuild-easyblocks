@@ -70,13 +70,13 @@ class EB_BLIS(ConfigureMake):
         else:
             self.cfg.update('configopts', f"--enable-threading={self.cfg['threading_implementation']}")
 
-        self.cfg.update('configopts', f'CC="$CC" {self.cfg["cpu_architecture"]}')
-
         # arch_name will only be available when archspec is available to easybuild, else arch_name will be unknown
         arch_name = get_cpu_arch_name()
         if self.version in ('0.9.0', '1.0', '1.1', '2.0') and arch_name == 'a64fx':
             # see https://github.com/flame/blis/issues/800
             self.cfg.update('configopts', 'CFLAGS="$CFLAGS -DCACHE_SECTOR_SIZE_READONLY"')
+
+        self.cfg.update('configopts', f'CC="$CC" {self.cfg["cpu_architecture"]}')
 
         output = super().configure_step()
 
