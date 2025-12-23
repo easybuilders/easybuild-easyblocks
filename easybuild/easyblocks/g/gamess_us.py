@@ -34,6 +34,7 @@ EasyBuild support for building and installing GAMESS-US, implemented as an easyb
 @author: Pablo Escobar (sciCORE, SIB, University of Basel)
 @author: Benjamin Roberts (The University of Auckland)
 @author: Alex Domingo (Vrije Universiteit Brussel)
+@author: Sven Hansen (RWTH Aachen University)
 """
 import fileinput
 import glob
@@ -57,6 +58,7 @@ GAMESS_INSTALL_INFO = 'install.info'
 GAMESS_SERIAL_TESTS = [
     'exam05',  # only the gradients for CITYP=CIS run in parallel
     'exam32',  # only CCTYP=CCSD or CCTYP=CCSD(T) can run in parallel
+    'exam39',  # cannot be run in parallel
     'exam42',  # ROHF'S CCTYP must be CCSD or CR-CCL, with serial execution
     'exam45',  # only CCTYP=CCSD or CCTYP=CCSD(T) can run in parallel
     'exam46',  # ROHF'S CCTYP must be CCSD or CR-CCL, with serial execution
@@ -120,6 +122,9 @@ class EB_GAMESS_minus_US(EasyBlock):
     def configure_step(self):
         """Configure GAMESS-US via install.info file"""
         installinfo_opts = {}
+
+        # general information
+        installinfo_opts["GMS_VERSION"] = self.version
 
         # installation paths
         installinfo_opts["GMS_PATH"] = self.installdir
@@ -191,7 +196,11 @@ class EB_GAMESS_minus_US(EasyBlock):
                 installinfo_opts["GMS_THREADED_BLAS"] = self.omp_enabled
 
         elif mathlib == 'openblas':
-            mathlib_flags = "-lopenblas -lgfortran"
+            if LooseVersion(self.version) >= LooseVersion('20240715'):
+                mathlib_flags = "-lopenblas64 -lgomp"
+            else:
+                mathlib_flags = "-lopenblas -lgfortran"
+
             if LooseVersion(self.version) >= LooseVersion('20210101'):
                 mathlib_subfolder = 'lib'
 
@@ -328,8 +337,13 @@ class EB_GAMESS_minus_US(EasyBlock):
         write_file(installinfo_file, installinfo_txt)
         self.log.debug(f"Contents of {installinfo_file}:\n{read_file(installinfo_file)}")
 
-        # patch hardcoded settings in rungms to use values specified in easyconfig file
         rungms = os.path.join(self.builddir, 'rungms')
+        if LooseVersion(self.version) >= LooseVersion("20240715"):
+            # rungms-dev is the "new" rungms
+            rungms_dev = os.path.join(self.builddir, 'rungms-dev')
+            copy_file(rungms_dev, rungms)
+
+        # patch hardcoded settings in rungms to use values specified in easyconfig file
         extra_gmspath_lines = "set ERICFMT=$GMSPATH/auxdata/ericfmt.dat\nset MCPPATH=$GMSPATH/auxdata/MCP\n"
         try:
             for line in fileinput.input(rungms, inplace=1, backup='.orig'):
@@ -380,32 +394,42 @@ class EB_GAMESS_minus_US(EasyBlock):
 
     def build_step(self):
         """Custom build procedure for GAMESS-US: using compddi, compall and lked scripts."""
-        compddi = os.path.join(self.cfg['start_dir'], 'ddi', 'compddi')
-        run_shell_cmd(compddi)
+        if LooseVersion(self.version) < LooseVersion("20240715"):
+            # Legacy build procedure using compddi, compall and lked
+            compddi = os.path.join(self.cfg['start_dir'], 'ddi', 'compddi')
+            run_shell_cmd(compddi)
 
-        # make sure the libddi.a library is present
-        libddi = os.path.join(self.cfg['start_dir'], 'ddi', 'libddi.a')
-        if not os.path.isfile(libddi):
-            raise EasyBuildError("The libddi.a library (%s) was never built", libddi)
+            # make sure the libddi.a library is present
+            libddi = os.path.join(self.cfg['start_dir'], 'ddi', 'libddi.a')
+            if not os.path.isfile(libddi):
+                raise EasyBuildError("The libddi.a library (%s) was never built", libddi)
+            else:
+                self.log.info("The libddi.a library (%s) was successfully built.", libddi)
+
+            ddikick = os.path.join(self.cfg['start_dir'], 'ddi', 'ddikick.x')
+            if os.path.isfile(ddikick):
+                self.log.info("The ddikick.x executable (%s) was successfully built.", ddikick)
+
+                if self.cfg['ddi_comm'] == 'sockets':
+                    src = ddikick
+                    dst = os.path.join(self.cfg['start_dir'], 'ddikick.x')
+                    self.log.info("Moving ddikick.x executable from %s to %s.", src, dst)
+                    os.rename(src, dst)
+
+            compall_cmd = os.path.join(self.cfg['start_dir'], 'compall')
+            compall = " ".join([self.cfg['prebuildopts'], compall_cmd, self.cfg['buildopts']])
+            run_shell_cmd(compall)
+
+            gamess_cmd = f"{os.path.join(self.cfg['start_dir'], 'lked')} gamess {self.version}"
+            run_shell_cmd(gamess_cmd)
         else:
-            self.log.info("The libddi.a library (%s) was successfully built.", libddi)
-
-        ddikick = os.path.join(self.cfg['start_dir'], 'ddi', 'ddikick.x')
-        if os.path.isfile(ddikick):
-            self.log.info("The ddikick.x executable (%s) was successfully built.", ddikick)
-
-            if self.cfg['ddi_comm'] == 'sockets':
-                src = ddikick
-                dst = os.path.join(self.cfg['start_dir'], 'ddikick.x')
-                self.log.info("Moving ddikick.x executable from %s to %s.", src, dst)
-                os.rename(src, dst)
-
-        compall_cmd = os.path.join(self.cfg['start_dir'], 'compall')
-        compall = " ".join([self.cfg['prebuildopts'], compall_cmd, self.cfg['buildopts']])
-        run_shell_cmd(compall)
-
-        gamess_cmd = f"{os.path.join(self.cfg['start_dir'], 'lked')} gamess {self.version}"
-        run_shell_cmd(gamess_cmd)
+            make_gamess = " ".join([
+                self.cfg['prebuildopts'],
+                "make",
+                f"-j {self.cfg.parallel}",
+                self.cfg['buildopts']
+            ])
+            run_shell_cmd(make_gamess)
 
     def test_step(self):
         """Run GAMESS-US tests (if 'runtest' easyconfig parameter is set to True)."""

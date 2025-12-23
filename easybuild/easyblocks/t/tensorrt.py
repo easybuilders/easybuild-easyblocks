@@ -91,11 +91,14 @@ class EB_TensorRT(PythonPackage, Binary):
         super().extensions_step()
 
         pyver = ''.join(get_software_version('Python').split('.')[:2])
-        whls = [
-            os.path.join('graphsurgeon', 'graphsurgeon-*-py2.py3-none-any.whl'),
-            os.path.join('uff', 'uff-*-py2.py3-none-any.whl'),
-            os.path.join('python', 'tensorrt-%s-cp%s-*-linux_x86_64.whl' % (self.version, pyver)),
-        ]
+        whls = []
+        # graphsurgeon and uff removed in 10.0.1
+        if self.version < LooseVersion('10.0.1'):
+            whls.extend([
+                os.path.join('graphsurgeon', 'graphsurgeon-*-py2.py3-none-any.whl'),
+                os.path.join('uff', 'uff-*-py2.py3-none-any.whl'),
+            ])
+        whls.append(os.path.join('python', 'tensorrt-%s-cp%s-*-linux_x86_64.whl' % (self.version, pyver)))
 
         installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
 
@@ -116,8 +119,10 @@ class EB_TensorRT(PythonPackage, Binary):
                 cmd += " --ignore-installed --no-deps"
 
                 run_shell_cmd(cmd)
+            elif whl_paths:
+                raise EasyBuildError("Failed to isolate .whl in %s: %s", self.installdir, whl_paths)
             else:
-                raise EasyBuildError("Failed to isolate .whl in %s: %s", whl_paths, self.installdir)
+                raise EasyBuildError("No .whl found in %s for patter %s", self.installdir, whl)
 
     def sanity_check_step(self):
         """Custom sanity check for TensorRT."""

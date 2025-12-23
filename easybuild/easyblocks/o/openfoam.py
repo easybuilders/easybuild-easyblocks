@@ -378,8 +378,9 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion > LooseVersion('1606'):
                 # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
                 cmd += ' -log'
-
-                if self.looseversion >= LooseVersion('2406'):
+                # source tarball for OpenFOAM v2412 does not include plugins,
+                # see discussion in https://github.com/easybuilders/easybuild-easyconfigs/pull/24663
+                if self.looseversion >= LooseVersion('2406') and self.version != 'v2412':
                     # Also build the plugins
                     cmd += ' && %s bash %s -log' % (self.cfg['prebuildopts'],
                                                     os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
@@ -495,7 +496,9 @@ class EB_OpenFOAM(EasyBlock):
         # modifyMesh is no longer there in OpenFOAM >= 12
         if self.is_dot_org and self.looseversion >= LooseVersion("12"):
             tools.remove("modifyMesh")
-        if self.looseversion >= LooseVersion('2406'):
+        # source tarball for OpenFOAM v2412 does not include plugins,
+        # see discussion in https://github.com/easybuilders/easybuild-easyconfigs/pull/24663
+        if self.looseversion >= LooseVersion('2406') and self.version != 'v2412':
             # built from the plugins
             tools.append("cartesianMesh")
 
