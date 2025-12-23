@@ -28,11 +28,11 @@ EasyBlock for binary applications that need unpacking, e.g., binary applications
 @author: Jens Timmerman (Ghent University)
 """
 import os
-import shutil
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import change_dir, copy
 
 
 class PackedBinary(Binary, EasyBlock):
@@ -45,18 +45,18 @@ class PackedBinary(Binary, EasyBlock):
         EasyBlock.extract_step(self)
 
     def install_step(self):
-        """Copy all unpacked source directories to install directory, one-by-one."""
-        try:
-            os.chdir(self.builddir)
-            for src in os.listdir(self.builddir):
-                srcpath = os.path.join(self.builddir, src)
+        """Copy all unpacked source files/directories to install directory, one-by-one."""
+        change_dir(self.builddir)
+        for src in os.listdir(self.builddir):
+            srcpath = os.path.join(self.builddir, src)
+            # we only handle the case of a single file and no install_cmd here
+            if os.path.isfile(srcpath) and self.cfg.get('install_cmd', None) is None:
+                copy(srcpath, self.installdir)
+            else:
                 if os.path.isdir(srcpath):
-                    # copy files to install dir via Binary
                     self.cfg['start_dir'] = src
-                    Binary.install_step(self)
                 elif os.path.isfile(srcpath):
-                    shutil.copy2(srcpath, self.installdir)
+                    self.cfg['start_dir'] = self.builddir
                 else:
                     raise EasyBuildError("Path %s is not a file nor a directory?", srcpath)
-        except OSError as err:
-            raise EasyBuildError("Failed to copy unpacked sources to install directory: %s", err)
+                Binary.install_step(self)
