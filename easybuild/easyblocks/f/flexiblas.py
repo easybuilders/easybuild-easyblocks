@@ -75,7 +75,7 @@ class EB_FlexiBLAS(CMakeMake):
             # make sure that all listed backends except imkl are (build)dependencies
             if 'imkl' in self.blas_libs and 'imkl' not in dep_names:
                 self.blas_libs.remove('imkl')
-            backends_filtered = [x for x in self.blas_libs if x in build_option('filter_deps')]
+            backends_filtered = [x for x in self.blas_libs if x in build_option('filter_deps') or []]
             if backends_filtered:
                 warning_msg = "The following backends are also included in the list of filtered dependencies, "
                 warning_msg += "so they will be disabled anyway: " + ", ".join(backends_filtered)
