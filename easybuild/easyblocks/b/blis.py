@@ -32,7 +32,7 @@ import re
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.systemtools import get_cpu_arch_name, get_shared_lib_ext
 
@@ -87,7 +87,8 @@ class EB_BLIS(ConfigureMake):
                     'zen5': 'zen3',
                 }
                 if arch_name in fallback_archs:
-                    self.log.info(f'{failed_detect_str}, re-configuring with fallback architecture {arch_name}')
+                    print_warning(
+                        f'{failed_detect_str}, re-configuring with fallback architecture {fallback_archs[arch_name]}')
                     self.cfg['configopts'] = re.sub(r'auto\s*$', fallback_archs[arch_name], self.cfg['configopts'])
                     output = super().configure_step()
                 else:
