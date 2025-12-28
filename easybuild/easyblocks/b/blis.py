@@ -70,7 +70,7 @@ class EB_BLIS(ConfigureMake):
         else:
             self.cfg.update('configopts', f"--enable-threading={self.cfg['threading_implementation']}")
 
-        # arch_name will only be available when archspec is available to easybuild, else arch_name will be unknown
+        # arch_name will only be available when archspec is available to easybuild, else arch_name will be UNKNOWN
         arch_name = get_cpu_arch_name()
         if self.version in ('0.9.0', '1.0', '1.1', '2.0') and arch_name == 'a64fx':
             # see https://github.com/flame/blis/issues/800
@@ -83,7 +83,15 @@ class EB_BLIS(ConfigureMake):
         if self.cfg['cpu_architecture'] == 'auto':
             failed_detect_str = r'Unable to automatically detect hardware type'
             if re.search(failed_detect_str, output):
-                raise EasyBuildError(failed_detect_str)
+                fallback_archs = {
+                    'zen5': 'zen3',
+                }
+                if arch_name in fallback_archs:
+                    self.log.info(f'{failed_detect_str}, re-configuring with fallback architecture {arch_name}')
+                    self.cfg['configopts'] = re.sub(r'auto\s*$', fallback_archs[arch_name], self.cfg['configopts'])
+                    output = super().configure_step()
+                else:
+                    raise EasyBuildError(failed_detect_str)
 
     def make_module_extra(self):
         """Extra environment variables."""
