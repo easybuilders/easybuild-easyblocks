@@ -84,6 +84,7 @@ class EB_BLIS(ConfigureMake):
             failed_detect_str = r'Unable to automatically detect hardware type'
             if re.search(failed_detect_str, output):
                 fallback_archs = {
+                    'zen4': 'zen3',
                     'zen5': 'zen3',
                 }
                 if arch_name in fallback_archs:
