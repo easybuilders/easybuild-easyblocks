@@ -96,9 +96,9 @@ class Conda(Binary):
             else:
                 env_spec = self.cfg['remote_environment']
 
-            # use --force to ignore existing installation directory
+            # use "-y" to skip the prompt
             cmd = f"{self.cfg['preinstallopts']} {conda_cmd} env create "
-            cmd += f"--force {env_spec} -p {self.installdir}"
+            cmd += f"-y {env_spec} -p {self.installdir}"
             run_shell_cmd(cmd)
 
         else:
