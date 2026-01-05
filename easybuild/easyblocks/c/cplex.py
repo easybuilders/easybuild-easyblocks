@@ -142,8 +142,8 @@ class EB_CPLEX(Binary):
             bins = []
             libs = []
 
-        txt += self.module_generator.prepend_paths('PATH', [path for path in bins])
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [path for path in bins + libs])
+        txt += self.module_generator.prepend_paths('PATH', bins)
+        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', bins + libs)
 
         txt += self.module_generator.set_environment('CPLEX_HOME', os.path.join(self.installdir, 'cplex'))
         txt += self.module_generator.set_environment('CPLEXDIR', os.path.join(self.installdir, 'cplex'))
