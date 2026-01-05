@@ -51,7 +51,7 @@ class BuildEnv(Bundle):
         """Add extra easyconfig parameters for Boost."""
         extra_vars = {
             'build_env_vars': [True, "Export environment variables related to compilers, compilation flags, "
-                                     "optimisations, math libaries, etc. (overwriting any existing values).", CUSTOM],
+                                     "optimisations, math libraries, etc. (overwriting any existing values).", CUSTOM],
             'python_executable': ['python3', "Python executable to use for the wrappers (use None to use path to "
                                   "Python executable used by EasyBuild).", CUSTOM],
         }
