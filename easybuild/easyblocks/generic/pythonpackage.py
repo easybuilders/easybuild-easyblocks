@@ -495,8 +495,15 @@ class PythonPackage(ExtensionEasyBlock):
 
         # avoid that lib subdirs are appended to $*LIBRARY_PATH if they don't provide libraries
         # typically, only lib/pythonX.Y/site-packages should be added to $PYTHONPATH (see make_module_extra)
-        self.module_load_environment.LD_LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
-        self.module_load_environment.LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
+        try:
+            self.module_load_environment.LD_LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
+            self.module_load_environment.LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
+        except KeyError as e:
+            if self.is_extension:
+                # When used as a conda extension the 2 variables are fully removed, so no need to change their type
+                self.log.debug(f'Ignoring error when setting type of (LD_)LIBRARY_PATH module variables: {e}')
+            else:
+                raise
 
     def determine_install_command(self):
         """
@@ -644,14 +651,16 @@ class PythonPackage(ExtensionEasyBlock):
         # these .pth files to work as expected. See: https://docs.python.org/3/library/site.html#module-site
         # .pth files always should be in the site folder, so most of the path is fixed.
         # Try the installation directory first
-        if self.installdir and search_file([self.installdir], r".*\.pth$", silent=True):
+        _, install_path_configuration_files = search_file([self.installdir], r".*\.pth$", silent=True)
+        if self.installdir and install_path_configuration_files:
             self.log.info(f"Found path configuration file in installation directory '{self.installdir}'. "
                           "Enabling $EBPYTHONPREFIXES...")
             use_ebpythonprefixes = True
         # If we did a test installation, check that one as well. Ensure that pypkg_test_installdir is set,
         # since that might not be the case for sanity_check_only or module_only.
         if self.testinstall and self.pypkg_test_installdir:
-            if search_file([self.pypkg_test_installdir], r".*\.pth$", silent=True):
+            _, test_path_configuration_files = search_file([self.pypkg_test_installdir], r".*\.pth$", silent=True)
+            if test_path_configuration_files:
                 self.log.info("Found path configuration file in test installation directory "
                               f"'{self.pypkg_test_installdir}'. Enabling $EBPYTHONPREFIXES...")
                 use_ebpythonprefixes = True
@@ -892,9 +901,6 @@ class PythonPackage(ExtensionEasyBlock):
                 # add install location to both $PYTHONPATH and $PATH
                 abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s && " % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
-                if self.should_use_ebpythonprefixes():
-                    extrapath += "export EBPYTHONPREFIXES=%s && " % os.pathsep.join([self.pypkg_test_installdir] +
-                                                                                    ['$EBPYTHONPREFIXES'])
                 extrapath += "export PATH=%s:$PATH && " % os.path.join(actual_installdir, 'bin')
 
                 cmd = self.compose_install_command(self.pypkg_test_installdir, extrapath=extrapath)
@@ -902,6 +908,11 @@ class PythonPackage(ExtensionEasyBlock):
 
                 self.py_post_install_shenanigans(self.pypkg_test_installdir)
 
+                # Requires having the installation in place to work correctly, since no path configuration files
+                # will be found otherwise
+                if self.should_use_ebpythonprefixes():
+                    extrapath += "export EBPYTHONPREFIXES=%s && " % os.pathsep.join([self.pypkg_test_installdir] +
+                                                                                    ['$EBPYTHONPREFIXES'])
             if self.testcmd:
                 testcmd = self.testcmd % {'python': self.python_cmd}
                 cmd = ' '.join([

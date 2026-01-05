@@ -36,7 +36,9 @@ from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_dir
+from easybuild.tools.toolchain.constants import COMPILER_MAP_CLASS
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
+from easybuild.tools.toolchain.variables import SearchPaths
 
 
 class BuildEnv(Bundle):
@@ -48,10 +50,20 @@ class BuildEnv(Bundle):
     def extra_options():
         """Add extra easyconfig parameters for Boost."""
         extra_vars = {
+            'build_env_vars': [True, "Export environment variables related to compilers, compilation flags, "
+                                     "optimisations, math libraries, etc. (overwriting any existing values).", CUSTOM],
             'python_executable': ['python3', "Python executable to use for the wrappers (use None to use path to "
                                   "Python executable used by EasyBuild).", CUSTOM],
         }
         return Bundle.extra_options(extra_vars)
+
+    def __init__(self, *args, **kwargs):
+        """
+        Constructor for buildenv easyblock: initialise class variables
+        """
+        super().__init__(*args, **kwargs)
+
+        self.pushenv_env_vars = []
 
     def prepare_step(self, *args, **kwargs):
         """
@@ -64,7 +76,7 @@ class BuildEnv(Bundle):
 
     def install_step(self, *args, **kwargs):
         """
-        Custom install step for buildenv: copy RPATH wrapper scripts to install dir, if desired
+        Custom install step for buildenv: copy RPATH wrapper scripts to install dir (if they exist)
         """
         super().install_step(*args, **kwargs)
 
@@ -93,17 +105,46 @@ class BuildEnv(Bundle):
         txt = super().make_module_extra()
 
         # include environment variables defined for (non-system) toolchain
-        if not self.toolchain.is_system_toolchain():
-            for key, val in sorted(self.toolchain.vars.items()):
-                txt += self.module_generator.set_environment(key, val)
+        for key, val in self.pushenv_env_vars:
+            txt += self.module_generator.set_environment(key, val)
 
         self.log.debug(f"make_module_extra added this: {txt}")
         return txt
 
     def make_module_step(self, fake=False):
-        """Specify correct bin directories for buildenv installation."""
+        """
+        Specify correct bin directories for buildenv installation and add environment variables
+        for the toolchain build environment.
+        """
         wrappers_dir = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
         if os.path.exists(wrappers_dir):
-            self.module_load_environment.PATH = [os.path.join(wrappers_dir, d) for d in os.listdir(wrappers_dir)]
+            self.module_load_environment.PATH = [
+                os.path.join(wrappers_dir, d)
+                for d in os.listdir(wrappers_dir)
+                if os.path.isdir(os.path.join(wrappers_dir, d))
+            ]
+
+        # include environment variables defined for (non-system) toolchain
+        self.pushenv_env_vars = []  # start with an empty list for pushenv vars
+        if self.toolchain.is_system_toolchain():
+            self.log.warning("buildenv easyblock is not intended for use with a system toolchain!")
+        else:
+            # Create a list of PATH-like environment variables that should always be safe to set.
+            # Be overly cautious and include LIBRARY_PATH and LD_LIBRARY_PATH, they are not
+            # strictly header search paths but they affect compile/runtime behaviour so explicitly
+            # include them just in case (does no harm).
+            path_like_vars = {key for key, _ in COMPILER_MAP_CLASS[SearchPaths]}
+            path_like_vars.add('LIBRARY_PATH')
+            path_like_vars.add('LD_LIBRARY_PATH')
+            for key, val in sorted(self.toolchain.vars.items()):
+                if key in path_like_vars:
+                    # Only add them if there is something useful to add (and something to add to)
+                    if val and hasattr(self.module_load_environment, key):
+                        self.log.debug(f"Added path-like variable to module: {key}={val}")
+                        setattr(self.module_load_environment, key, val.split(os.pathsep))
+                else:
+                    # Push environment variables for everything else
+                    if self.cfg.get('build_env_vars'):
+                        self.pushenv_env_vars.append((key, {'value': val, 'pushenv': True}))
 
         return super().make_module_step(fake=fake)
