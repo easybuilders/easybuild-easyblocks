@@ -45,6 +45,7 @@ class CargoPythonBundle(PythonBundle, Cargo):  # PythonBundle must come first to
         """Define extra easyconfig parameters specific to Cargo"""
         extra_vars = PythonBundle.extra_options(extra_vars)
         extra_vars = Cargo.extra_options(extra_vars)  # not all extra options here will used here
+        extra_vars['default_easyblock'][0] = 'CargoPythonPackage'
 
         return extra_vars
 
@@ -52,6 +53,7 @@ class CargoPythonBundle(PythonBundle, Cargo):  # PythonBundle must come first to
         """Constructor for CargoPythonBundle easyblock."""
         self.check_for_sources = False  # make Bundle allow sources (as crates are treated as sources)
         super().__init__(*args, **kwargs)
+        self.cfg['exts_defaultclass'] = 'CargoPythonPackage'
 
         # Cargo inherits from ExtensionEasyBlock, thus EB treats the software itself as an extension
         # Setting modulename to False to ensure that sanity checks are performed on the extensions only
