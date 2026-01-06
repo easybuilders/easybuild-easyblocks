@@ -494,7 +494,12 @@ class Cargo(ExtensionEasyBlock):
     def configure_step(self):
         """Create lockfile if it doesn't exist"""
         cargo_lock = 'Cargo.lock'
-        if self.crates and os.path.exists('Cargo.toml') and not os.path.exists(cargo_lock):
+        # Crates should be specified in the main easyconfig for extensions
+        if self.is_extension:
+            crates = self.master.crates
+        else:
+            crates = self.crates
+        if crates and os.path.exists('Cargo.toml') and not os.path.exists(cargo_lock):
             locate_project_output = run_shell_cmd('cargo -q locate-project --message-format=plain --workspace').output
             # Usually it is the only line, but there might be some prior messages like warnings
             # Find path right path by going backwards through each line
@@ -519,7 +524,7 @@ class Cargo(ExtensionEasyBlock):
                     # Use vendored crates to ensure those versions are used
                     self.log.info(f"No {cargo_lock} file found, creating one at {cargo_lock_path}")
                     content = f'version = {version}\n' if version is not None else ''
-                    for crate_info in self.crates:
+                    for crate_info in crates:
                         if len(crate_info) == 2:
                             name, version = crate_info
                             source = CRATES_REGISTRY_URL
