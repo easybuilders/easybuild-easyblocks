@@ -263,12 +263,12 @@ class Bundle(EasyBlock):
 
         return checksum_issues
 
-    def prepare_step(self):
+    def prepare_step(self, *args, **kwargs):
         """
         Pre-configure step.
         At this point, dependencies are known. So transfer them to all components.
         """
-        super().prepare_step(self)
+        super().prepare_step(self, *args, **kwargs)
         for _, comp in self.comp_instances:
             comp.toolchain.dependencies = self.toolchain.dependencies
             # check if sanity checks are enabled for the component
