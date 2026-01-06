@@ -263,6 +263,19 @@ class Bundle(EasyBlock):
 
         return checksum_issues
 
+    def prepare_step(self):
+        """
+        Pre-configure step.
+        At this point, dependencies are known. So transfer them to all components.
+        """
+        super().prepare_step(self)
+        comp_cnt = len(self.cfg['components'])
+        for idx, (cfg, comp) in enumerate(self.comp_instances):
+            comp.toolchain.dependencies = self.toolchain.dependencies
+            # check if sanity checks are enabled for the component
+            if self.cfg['sanity_check_all_components'] or comp.name in self.cfg['sanity_check_components']:
+                self.comp_cfgs_sanity_check.append(comp)
+
     def patch_step(self):
         """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
         pass
@@ -360,10 +373,6 @@ class Bundle(EasyBlock):
 
                 # location of first unpacked source is used to determine where to apply patch(es)
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
-
-            # check if sanity checks are enabled for the component
-            if self.cfg['sanity_check_all_components'] or comp.name in self.cfg['sanity_check_components']:
-                self.comp_cfgs_sanity_check.append(comp)
 
             self._install_component(comp)
 
