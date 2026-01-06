@@ -951,7 +951,7 @@ class EB_LLVM(CMakeMake):
 
         # If 'ON', risk finding a system zlib or zstd leading to including /usr/include as -isystem that can lead
         # to errors during compilation of 'offload.tools.kernelreplay' due to the inclusion of LLVMSupport (19.x)
-        self.general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if 'zlib' in self.deps else 'OFF'
+        self.general_opts['LLVM_ENABLE_ZLIB'] = 'ON' if 'zlib' in self.deps or 'zlib-ng' in self.deps else 'OFF'
         self.general_opts['LLVM_ENABLE_ZSTD'] = 'ON' if 'zstd' in self.deps else 'OFF'
         # Should not use system SWIG if present
         self.general_opts['LLDB_ENABLE_SWIG'] = 'ON' if 'swig' in self.deps else 'OFF'
