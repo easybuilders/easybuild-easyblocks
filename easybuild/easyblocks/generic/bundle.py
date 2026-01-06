@@ -269,8 +269,7 @@ class Bundle(EasyBlock):
         At this point, dependencies are known. So transfer them to all components.
         """
         super().prepare_step(self)
-        comp_cnt = len(self.cfg['components'])
-        for idx, (cfg, comp) in enumerate(self.comp_instances):
+        for _, comp in self.comp_instances:
             comp.toolchain.dependencies = self.toolchain.dependencies
             # check if sanity checks are enabled for the component
             if self.cfg['sanity_check_all_components'] or comp.name in self.cfg['sanity_check_components']:
