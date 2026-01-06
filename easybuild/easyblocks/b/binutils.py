@@ -136,14 +136,20 @@ class EB_binutils(ConfigureMake):
 
         # configure using `--with-system-zlib` if zlib is a (build) dependency
         zlibroot = get_software_root('zlib')
+        if not zlibroot:
+            zlibroot = get_software_root('zlib-ng')
         if zlibroot:
             self.cfg.update('configopts', '--with-system-zlib')
 
             # statically link to zlib only if it is a build dependency
             # see https://github.com/easybuilders/easybuild-easyblocks/issues/1350
+            libz_path = None
             if 'zlib' in build_deps:
                 libz_path = os.path.join(zlibroot, get_software_libdir('zlib'), 'libz.a')
+            elif 'zlib-ng' in build_deps:
+                libz_path = os.path.join(zlibroot, get_software_libdir('zlib-ng'), 'libz.a')
 
+            if libz_path:
                 # for recent binutils versions, we need to override ZLIB in Makefile.in of components
                 if version >= '2.26':
                     makefile_regex_subs.extend([
