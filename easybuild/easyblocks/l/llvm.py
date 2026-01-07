@@ -1157,7 +1157,7 @@ class EB_LLVM(CMakeMake):
         opts = [f'--gcc-install-dir={self.gcc_prefix}']
 
         if self.dynamic_linker:
-            opts.append(f'-Wl,-dynamic-linker,{self.dynamic_linker}')
+            opts.append(f'-Wl,-dynamic-linker={self.dynamic_linker}')
             # The --dyld-prefix flag exists, but beside being poorly documented it is also not supported by flang
             # https://reviews.llvm.org/D851
             # prefix = self.sysroot.rstrip('/')
