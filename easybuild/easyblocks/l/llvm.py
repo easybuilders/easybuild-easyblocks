@@ -643,8 +643,9 @@ class EB_LLVM(CMakeMake):
             self.remove_unsupported_flang_opts()
 
         include_benchmarks = 'ON' if self.cfg['test_suite_include_benchmarks'] else 'OFF'
-        self._cmakeopts['LLVM_INCLUDE_BENCHMARKS'] = include_benchmarks
-        self.runtimes_cmake_args['LLVM_INCLUDE_BENCHMARKS'] = include_benchmarks
+        for cmake_flag in ['LIBCXX_INCLUDE_BENCHMARKS', 'LIBC_INCLUDE_BENCHMARKS', 'LLVM_INCLUDE_BENCHMARKS']:
+            self._cmakeopts[cmake_flag] = include_benchmarks
+            self.runtimes_cmake_args[cmake_flag] = include_benchmarks
 
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
