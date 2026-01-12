@@ -241,7 +241,18 @@ class Bundle(EasyBlock):
                     # Patch step is skipped so adding postinstall patches of components here is harmless
                     self.cfg.update('patches', comp_postinstall_patches)
 
-                self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
+                # instantiate the component to transfer further information
+                comp_instance = comp_cfg.easyblock(comp_cfg, logfile=self.logfile)
+
+                # correct build/install dirs
+                comp_instance.builddir = self.builddir
+                comp_instance.install_subdir, comp_instance.installdir = self.install_subdir, self.installdir
+
+                # check if sanity checks are enabled for the component
+                if self.cfg['sanity_check_all_components'] or comp_cfg['name'] in self.cfg['sanity_check_components']:
+                    self.comp_cfgs_sanity_check.append(comp_instance)
+                # lastly, add it to the list of components we'll deal with later
+                self.comp_instances.append((comp_cfg, comp_instance))
 
             self.cfg.update('checksums', checksums_patches + orig_checksums)
 
@@ -271,9 +282,6 @@ class Bundle(EasyBlock):
         super().prepare_step(self, *args, **kwargs)
         for _, comp in self.comp_instances:
             comp.toolchain.dependencies = self.toolchain.dependencies
-            # check if sanity checks are enabled for the component
-            if self.cfg['sanity_check_all_components'] or comp.name in self.cfg['sanity_check_components']:
-                self.comp_cfgs_sanity_check.append(comp)
 
     def patch_step(self):
         """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
@@ -330,10 +338,6 @@ class Bundle(EasyBlock):
             print_msg("installing bundle component %s v%s (%d/%d)..." %
                       (comp.name, comp.version, idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", comp.name, comp.version, cfg.easyblock)
-
-            # correct build/install dirs
-            comp.builddir = self.builddir
-            comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
 
             # make sure we can build in parallel
             comp.set_parallel()
