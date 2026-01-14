@@ -54,6 +54,12 @@ class EB_OpenBabel(CMakeMake):
         super().__init__(*args, **kwargs)
         self.with_python = False
 
+    def prepare_step(self, *args, **kwargs):
+        """Prepare step, modified to ensure install dir is deleted before building"""
+        super().prepare_step(*args, **kwargs)
+        # Needs to delete the install dir to avoid segfaults when doing the pybind tests
+        self.make_installdir()
+
     def configure_step(self):
         """Custom configure procedure for OpenBabel."""
 

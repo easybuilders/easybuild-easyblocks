@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="0" skipped="406" tests="670" time="4.2">
+    <testcase classname="TestDTensorOpsCPU" name="test_dtensor_op_db_H_cpu_float32" time="4.2" file="distributed/tensor/test_dtensor_ops.py"/>
+    <testcase classname="TestDTensorOpsCPU" name="test_dtensor_op_db_H_cpu_float64" time="4.2" file="distributed/tensor/test_dtensor_ops.py">
+      <skipped message=""/>
+    </testcase>
+    <testcase classname="TestDTensorOpsCPU" name="test_dtensor_op_db_H_cpu_float16" time="4.2" file="distributed/tensor/test_dtensor_ops.py">
+      <rerun message="...">[snip]</rerun>
+    </testcase>
+    <testcase classname="TestDTensorOpsCPU" name="test_dtensor_op_db_H_cpu_int8" time="4.2" file="distributed/tensor/test_dtensor_ops.py">
+      <!-- Both tags: run twice -->
+      <rerun message="...">[snip]</rerun>
+      <skipped message=""/>
+    </testcase>
+  </testsuite>
+</testsuites>

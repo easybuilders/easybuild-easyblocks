@@ -26,14 +26,15 @@
 EasyBuild support for BLIS and AOCL-BLAS, implemented as an easyblock
 
 @author: Samuel Moors (Vrije Universiteit Brussel)
+@author: Pua Cheng Xuan Frederick (National University of Singapore)
 """
 import re
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import get_cpu_arch_name, get_shared_lib_ext
 
 
 class EB_BLIS(ConfigureMake):
@@ -44,6 +45,9 @@ class EB_BLIS(ConfigureMake):
         """Extra easyconfig parameters."""
         extra_vars = {
             'cpu_architecture': ['auto', 'CPU architecture (default is autodetect)', CUSTOM],
+            'enable_cblas': [True, "Enable CBLAS", CUSTOM],
+            'enable_shared': [True, "Enable builing shared library", CUSTOM],
+            'threading_implementation': ["openmp", "Multithreading implementation(s) to build for", CUSTOM],
         }
 
         return ConfigureMake.extra_options(extra_vars)
@@ -51,17 +55,44 @@ class EB_BLIS(ConfigureMake):
     def configure_step(self):
         """Custom configopts."""
 
-        if self.toolchain.options.get('openmp', None):
-            self.cfg.update('configopts', '--enable-threading=openmp')
+        if self.cfg['enable_cblas']:
+            self.cfg.update('configopts', '--enable-cblas')
 
-        self.cfg.update('configopts', f'--enable-cblas --enable-shared CC="$CC" {self.cfg["cpu_architecture"]}')
+        if self.cfg['enable_shared']:
+            self.cfg.update('configopts', '--enable-shared')
+
+        if self.toolchain.options.get('openmp', None):
+            if self.cfg['threading_implementation'] != 'openmp':
+                error_msg = ("Conflicting multithreading implementations specified: `openmp=True` in `toolchainopts`"
+                             f" vs. `threading_implemenation = {self.cfg['threading_implementation']}`")
+                raise EasyBuildError(error_msg)
+            self.cfg.update('configopts', '--enable-threading=openmp')
+        else:
+            self.cfg.update('configopts', f"--enable-threading={self.cfg['threading_implementation']}")
+
+        # arch_name will only be available when archspec is available to easybuild, else arch_name will be UNKNOWN
+        arch_name = get_cpu_arch_name()
+        if self.version in ('0.9.0', '1.0', '1.1', '2.0') and arch_name == 'a64fx':
+            # see https://github.com/flame/blis/issues/800
+            self.cfg.update('configopts', 'CFLAGS="$CFLAGS -DCACHE_SECTOR_SIZE_READONLY"')
+
+        self.cfg.update('configopts', f'CC="$CC" {self.cfg["cpu_architecture"]}')
 
         output = super().configure_step()
 
         if self.cfg['cpu_architecture'] == 'auto':
             failed_detect_str = r'Unable to automatically detect hardware type'
             if re.search(failed_detect_str, output):
-                raise EasyBuildError(failed_detect_str)
+                fallback_archs = {
+                    'zen5': 'zen3',
+                }
+                if arch_name in fallback_archs:
+                    print_warning(
+                        f'{failed_detect_str}, re-configuring with fallback architecture {fallback_archs[arch_name]}')
+                    self.cfg['configopts'] = re.sub(r'auto\s*$', fallback_archs[arch_name], self.cfg['configopts'])
+                    output = super().configure_step()
+                else:
+                    raise EasyBuildError(failed_detect_str)
 
     def make_module_extra(self):
         """Extra environment variables."""

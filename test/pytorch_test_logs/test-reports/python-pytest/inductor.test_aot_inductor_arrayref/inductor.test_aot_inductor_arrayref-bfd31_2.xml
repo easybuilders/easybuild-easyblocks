@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="1" skipped="1" tests="2" time="4.2">
+    <!-- Tests that failed then were skipped (e.g. because other test gets rerun) and vice versa
+    See non-suffixed result file for pendant. -->
+    <testcase classname="AOTInductorTestABICompatibleCpuWithStackAllocation" name="test_skip_and_fail" time="4.2" file="inductor/test_aot_inductor.py">
+      <failure message="...">[snip]</failure>
+    </testcase>
+    <testcase classname="AOTInductorTestABICompatibleCpuWithStackAllocation" name="test_fail_and_skip" time="4.2" file="inductor/test_aot_inductor.py">
+      <skipped message="...">[snip]</skipped>
+    </testcase>
+  </testsuite>
+</testsuites>

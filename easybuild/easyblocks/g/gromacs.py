@@ -71,6 +71,8 @@ class EB_GROMACS(CMakeMake):
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
+            'python_pkg': [None, "Build gmxapi Python package. None (default) is auto-detect." +
+                           "True or False forces behaviour.", CUSTOM],
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
             'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
                        "True or False forces behaviour.", CUSTOM],
@@ -334,7 +336,14 @@ class EB_GROMACS(CMakeMake):
                 if gromacs_version >= '2020':
                     # build Python bindings if Python is loaded as a dependency
                     python_root = get_software_root('Python')
-                    if python_root:
+                    if self.cfg['python_pkg'] and not python_root:
+                        msg = "Building Python gmxapi has been requested but Python is not listed as a dependency."
+                        raise EasyBuildError(msg)
+                    elif python_root and self.cfg['python_pkg'] is False:
+                        msg = "Python was found, but compilation without Python gmxapi has been requested."
+                        self.log.info(msg)
+                        self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=OFF")
+                    elif python_root:
                         self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=ON")
                         bin_python = os.path.join(python_root, 'bin', 'python')
                         # For find_package(PythonInterp)

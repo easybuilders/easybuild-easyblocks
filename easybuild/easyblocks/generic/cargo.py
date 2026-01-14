@@ -37,14 +37,16 @@ import shutil
 import tempfile
 from glob import glob
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
+import easybuild.tools.tomllib as tomllib
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, extract_file, mkdir
+from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, dump_toml, extract_file, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, write_file, which
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -78,59 +80,54 @@ replace-with = "vendored-sources"
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
 
 
-def get_workspace_members(crate_dir: Path):
-    """Find all members of a cargo workspace in crate_dir.
+def _get_workspace_members(cargo_toml: Dict[str, Any]) -> Optional[List[str]]:
+    """Find all members of a cargo workspace in the parsed the Cargo.toml file.
 
-    (Minimally) parse the Cargo.toml file.
-
-    Return a tuple: (has_package, workspace-members).
-    has_package determines if it is a virtual workspace ([workspace] and no [package])
-    workspace-members are all members (subfolder names) if it is a workspace, otherwise None
+    Returns all members (subfolder names) if it is a workspace, otherwise None
     """
-    cargo_toml = crate_dir / 'Cargo.toml'
-    lines = [line.strip() for line in read_file(cargo_toml).splitlines()]
-    # A virtual (workspace) manifest has no [package], but only a [workspace] section.
-    has_package = '[package]' in lines
-
-    # We are looking for this:
-    # [workspace]
-    # members = [
-    # "reqwest-middleware",
-    # "reqwest-tracing",
-    # "reqwest-retry",
-    # ]
-
     try:
-        start_idx = lines.index('[workspace]')
-    except ValueError:
-        return has_package, None
-    # Find "members = [" and concatenate the value, stop at end of section or file
-    member_str = None
-    for line in lines[start_idx + 1:]:
-        if line.startswith('#'):
-            continue  # Skip comments
-        if re.match(r'\[\w+\]', line):
-            break  # New section
-        if member_str is None:
-            m = re.match(r'members\s+=\s+\[', line)
-            if m:
-                member_str = line[m.end():]
-        else:
-            member_str += line
-        # Stop if we reach the end of the list
-        if member_str is not None and member_str.endswith(']'):
-            member_str = member_str[:-1]
-            break
-    if member_str is None:
+        workspace = cargo_toml['workspace']
+    except KeyError:
+        return None
+    try:
+        return workspace['members']
+    except KeyError:
         raise EasyBuildError('Failed to find members in %s', cargo_toml)
-    # Split at commas after removing possibly trailing ones and remove the quotes
-    members = [member.strip().strip('"') for member in member_str.rstrip(',').split(',')]
-    # Sanity check that we didn't pick up anything unexpected
-    invalid_members = [member for member in members if not re.match(r'(\w|-)+', member)]
-    if invalid_members:
-        raise EasyBuildError('Failed to parse %s: Found seemingly invalid members: %s',
-                             cargo_toml, ', '.join(invalid_members))
-    return has_package, members
+
+
+def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, Any]):
+    """Resolve workspace references in the Cargo.toml file"""
+    # Lines such as 'authors.workspace = true' must be replaced by 'authors = <value from workspace.package>'
+    content: str = read_file(cargo_toml_path)
+    cargo_toml = tomllib.loads(content)
+    workspace = workspace_toml['workspace']
+
+    def do_merge(parent, child):
+        if isinstance(parent, dict):
+            return {**parent, **child}  # Merge dictionaries, overwrite with child values
+        return parent
+
+    def do_replacement(section_name, workspace_section_name=None):
+        try:
+            section: Dict[str, Any] = cargo_toml[section_name]
+            workspace_section: Dict[str, Any] = workspace[workspace_section_name or section_name]
+        except KeyError:
+            return
+        if section.pop('workspace', False):
+            section = do_merge(workspace_section, section)
+            cargo_toml[section_name] = section
+
+        for key, value in section.items():
+            if isinstance(value, dict) and value.pop('workspace', False):
+                section[key] = do_merge(workspace_section[key], value)
+
+    do_replacement('package')
+    do_replacement('dependencies')
+    do_replacement('build-dependencies', 'dependencies')
+    do_replacement('dev-dependencies', 'dependencies')
+    do_replacement('lints')
+
+    write_file(cargo_toml_path, dump_toml(cargo_toml))
 
 
 def get_checksum(src, log):
@@ -322,21 +319,23 @@ class Cargo(ExtensionEasyBlock):
             extraction_dir = self.vendor_dir if is_vendor_crate else self.builddir
 
             self.log.info("Unpacking source of %s", src['name'])
-            existing_dirs = set(os.listdir(extraction_dir))
+            existing_files = set(os.listdir(extraction_dir))
             extract_file(src['path'], extraction_dir, cmd=src['cmd'],
                          extra_options=self.cfg['unpack_options'], change_into_dir=False, trace=False)
-            new_extracted_dirs = set(os.listdir(extraction_dir)) - existing_dirs
+            new_extracted_files = set(os.listdir(extraction_dir)) - existing_files
+            new_extracted_dirs = sorted(x for x in new_extracted_files
+                                        if os.path.isdir(os.path.join(extraction_dir, x)))
+            self.log.info(f"New directories found after extracting {src['name']}: {new_extracted_dirs}")
 
             if len(new_extracted_dirs) == 0:
                 # Extraction went wrong
                 raise EasyBuildError("Unpacking sources of '%s' failed", src['name'])
-            # There can be multiple folders but we just use the first new one as the finalpath
-            if len(new_extracted_dirs) > 1:
-                self.log.warning(f"Found multiple folders when extracting {src['name']}: "
-                                 f"{', '.join(new_extracted_dirs)}.")
-            src_dir = os.path.join(extraction_dir, new_extracted_dirs.pop())
+            elif len(new_extracted_dirs) == 1:
+                src_dir = os.path.join(extraction_dir, new_extracted_dirs[0])
+            else:
+                # if there are multiple subdirectories, we use parent directory as finalpath
+                src_dir = extraction_dir
             self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
-
             src['finalpath'] = src_dir
 
         if self.cfg['offline']:
@@ -354,7 +353,8 @@ class Cargo(ExtensionEasyBlock):
         tmp_dir = Path(tempfile.mkdtemp(dir=self.builddir, prefix='tmp_crate_'))
         # Add checksum file for each crate such that it is recognized by cargo.
         # Glob to catch multiple folders in a source archive.
-        for crate_dir in (p.parent for p in Path(self.vendor_dir).glob('*/Cargo.toml')):
+        for cargo_toml in Path(self.vendor_dir).glob('*/Cargo.toml'):
+            crate_dir = cargo_toml.parent
             src = path_to_source.get(str(crate_dir))
             if src:
                 try:
@@ -372,11 +372,12 @@ class Cargo(ExtensionEasyBlock):
             # otherwise (Only "[workspace]" section and no "[package]" section)
             # we have to remove the top-level folder or cargo fails with:
             # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
-            has_package, members = get_workspace_members(crate_dir)
+            parsed_toml = tomllib.loads(read_file(cargo_toml))
+            members = _get_workspace_members(parsed_toml)
             if members:
                 self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(members))
                 if not any((crate_dir / crate).is_dir() for crate in members):
-                    if not has_package:
+                    if 'package' not in parsed_toml:
                         raise EasyBuildError(f'Virtual manifest found in {crate_dir} but none of the member folders '
                                              'exist. This cannot be handled by the build.')
                     # Packages from crates.io contain only a single crate even if the Cargo.toml file lists multiple
@@ -397,7 +398,9 @@ class Cargo(ExtensionEasyBlock):
                         # Use copy_dir to resolve symlinks that might point to the parent folder
                         copy_dir(tmp_crate_dir / member, target_path, symlinks=False)
                         cargo_pkg_dirs.append(target_path)
-                    if has_package:
+                        self.log.info(f'Resolving workspace values for crate {member}')
+                        _merge_sub_crate(target_path / 'Cargo.toml', parsed_toml)
+                    if 'package' in parsed_toml:
                         # Remove the copied crate folders
                         for member in members:
                             remove_dir(tmp_crate_dir / member)
@@ -475,7 +478,7 @@ class Cargo(ExtensionEasyBlock):
 
     @property
     def profile(self):
-        return 'debug' if self.toolchain.options.get('debug', None) else 'release'
+        return 'debug' if self.toolchain.options.get('debug') else 'release'
 
     def build_step(self):
         """Build with cargo"""
