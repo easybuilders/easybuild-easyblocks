@@ -63,8 +63,7 @@ class EB_AOCL_minus_LAPACK(CMakeMake):
         """Adapt ctest parameters depending on run_lapack_tests/run_long_tests"""
         if self.cfg.get('runtest') is True and not self.cfg.get('test_cmd'):
             self.cfg.update('pretestopts', ' LD_LIBRARY_PATH=%(installdir)s/lib:$LD_LIBRARY_PATH ')
-            if ((not self.cfg['run_lapack_tests'] or not self.cfg['run_long_tests']) and
-                '-E' not in self.cfg['testopts']):
+            if not (self.cfg['run_lapack_tests'] and self.cfg['run_long_tests']) and '-E' not in self.cfg['testopts']:
                 skip = []
                 if not self.cfg['run_lapack_tests']:
                     skip += ['netlib']
