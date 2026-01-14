@@ -211,6 +211,12 @@ class EB_GROMACS(CMakeMake):
                     cuda_cc_semicolon_sep = self.cfg.get_cuda_cc_template_value(
                         "cuda_cc_semicolon_sep").replace('.', '')
                     self.cfg.update('configopts', '-DGMX_CUDA_TARGET_SM="%s"' % cuda_cc_semicolon_sep)
+
+                # Enable HeFFTe support for multi-GPU FFT support (added in v2023) if it's listed as a dependency
+                heffte_root = get_software_root('HeFFTe')
+                if gromacs_version >= '2023' and heffte_root:
+                    self.cfg.update('configopts', '-DGMX_USE_HEFFTE=ON')
+                    self.cfg.update('configopts', '-DHeffte_ROOT=%s' % heffte_root)
             else:
                 # explicitly disable GPU support if CUDA is not available,
                 # to avoid that GROMACS finds and uses a system-wide CUDA compiler
@@ -246,6 +252,11 @@ class EB_GROMACS(CMakeMake):
             # PLUMED patching must be done at different stages depending on
             # version of GROMACS. Just prepare first part of cmd here
             plumed_cmd = "plumed-patch -p -e %s" % engine
+
+        # Enable hwloc support (added in v2016) if it's listed as dependency
+        if gromacs_version >= '2016' and get_software_root('hwloc'):
+            self.cfg.update('configopts', '-DGMX_HWLOC=ON')
+            self.cfg.update('configopts', '-DHWLOC_DIR=%s' % get_software_root('hwloc'))
 
         # Ensure that the GROMACS log files report how the code was patched
         # during the build, so that any problems are easier to diagnose.
