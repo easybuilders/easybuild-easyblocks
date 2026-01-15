@@ -54,9 +54,9 @@ class EB_AOCL_minus_LAPACK(CMakeMake):
         # only add configure options to configopts easyconfig parameter if they're not defined yet,
         # to allow easyconfig to override specifies settings
         for key, value in sorted(configopts.items()):
-            opt = '-D%s=' % key
+            opt = f'-D{key}='
             if opt not in self.cfg['configopts']:
-                self.cfg.update('configopts', opt + "'%s'" % value)
+                self.cfg.update('configopts', f"{opt}'{value}'")
 
         super().configure_step()
 
