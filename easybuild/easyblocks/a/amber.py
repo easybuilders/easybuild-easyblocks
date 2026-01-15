@@ -356,7 +356,10 @@ class EB_Amber(CMakeMake):
                 testdir = self.builddir
                 testname_cs = 'test.cuda_serial'
                 testname_cp = 'test.cuda_parallel'
-            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, testdir)
+            pretestcommands = ' && '.join([
+                'export OMP_NUM_THREADS=1',  # avoid having as many threads as cores
+                'source %s/amber.sh && cd %s' % (self.installdir, testdir)
+            ])
 
             # serial tests
             if LooseVersion(self.version) >= LooseVersion('24'):
