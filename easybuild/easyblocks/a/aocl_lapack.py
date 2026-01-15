@@ -10,7 +10,8 @@ import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.openblas import EB_OpenBLAS
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import apply_regex_substitutions, read_file
+from easybuild.tools.filetools import apply_regex_substitutions
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -76,8 +77,9 @@ class EB_AOCL_minus_LAPACK(CMakeMake):
 
         # check number of failing LAPACK tests more closely
         if self.cfg['run_lapack_tests']:
-            logfile = os.path.join(self.separate_build_dir, 'Testing/Temporary/LastTest.log')
-            EB_OpenBLAS.check_lapack_test_results(self, read_file(logfile))
+            netlib_dir = os.path.join(self.cfg['start_dir'], 'netlib-test/libflame_netlib')
+            res = run_shell_cmd(f"cd {netlib_dir} && ./lapack_testing.py -s")
+            EB_OpenBLAS.check_lapack_test_results(self, res.output)
 
     def sanity_check_step(self):
         """ Custom sanity check for AOCL-LAPACK """
