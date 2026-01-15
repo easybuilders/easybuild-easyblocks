@@ -667,7 +667,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         return self.multi_python or use_ebpythonprefixes
 
-    def compose_install_command(self, prefix, extrapath=None, installopts=None):
+    def compose_install_command(self, prefix, extrapath=None, installopts=None, install_src=None):
         """Compose full install command."""
 
         if self.using_pip_install():
@@ -697,7 +697,8 @@ class PythonPackage(ExtensionEasyBlock):
         if extrapath:
             cmd.append(extrapath)
 
-        loc = self.cfg.get('install_src')
+        loc = self.cfg.get('install_src') if install_src is None else install_src
+
         if not loc:
             if self._should_unpack_source() or not self.src:
                 # specify current directory
