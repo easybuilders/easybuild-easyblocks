@@ -1619,7 +1619,7 @@ class EB_LLVM(CMakeMake):
         shlib_ext = '.' + get_shared_lib_ext()
 
         if not hasattr(self, 'nvptx_target_cond'):
-            # Need to perform the target configuration if not done already eg whe running in `--module-only`
+            # Need to perform the target configuration if not done already e.g. when running in `--module-only`
             # or `--sanity-check-only` modes
             self._configure_build_targets()
 
