@@ -125,7 +125,6 @@ DISABLE_WERROR_OPTS = {
 
 GENERAL_OPTS = {
     'CMAKE_VERBOSE_MAKEFILE': 'ON',
-    # 'LLVM_INCLUDE_BENCHMARKS': 'OFF',
     'LLVM_INSTALL_UTILS': 'ON',
     # If EB is launched from a venv, avoid giving priority to the venv's python
     'Python3_FIND_VIRTUALENV': 'STANDARD',
