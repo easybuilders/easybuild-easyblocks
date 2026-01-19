@@ -230,7 +230,7 @@ class EB_LLVM(CMakeMake):
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
             'test_suite_ignore_patterns': [None, "List of test to ignore (if the string matches)", CUSTOM],
             'test_suite_ignore_timeouts': [False, "Do not treat timedoud tests as failures", CUSTOM],
-            'test_suite_include_benchmarks': [False, "If False do not build the benchmarks tests", CUSTOM],
+            'test_suite_include_benchmarks': [False, "Include benchmarks in the LLVM tests (default False)", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
             'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
