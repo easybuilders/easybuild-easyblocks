@@ -453,8 +453,7 @@ class NvidiaBase(PackedBinary):
         # version, and only cares about the supported GPUs and found CUDA driver.
         # On a system without GPUs, this may return an incompatible CUDA version to the one
         # we define in active_cuda_version.
-        desired_cuda_version = self.cfg['default_cuda_version'] or self.active_cuda_version
-        desired_cuda_var_regex = [(r'DESIREDCUDA=\$(.*)', f'DESIREDCUDA={str(desired_cuda_version)}')]
+        desired_cuda_var_regex = [(r'DESIREDCUDA=\$(.*)', f'DESIREDCUDA={str(self.active_cuda_version)}')]
         apply_regex_substitutions('./install_components/install', desired_cuda_var_regex,
                                   on_missing_match='error')
 
