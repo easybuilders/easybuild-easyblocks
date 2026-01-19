@@ -580,7 +580,7 @@ class EB_LLVM(CMakeMake):
             setvar(varname, sep.join(flags - torm))
 
     def remove_unsupported_flang_opts(self):
-        """For version of LLVM where `flang` is invoched at build time to build modules, ensure that unsupported
+        """For version of LLVM where `flang` is invoked at build time to build modules, ensure that unsupported
         options are removed from F90FLAGS and FFLAGS."""
         unsupported_flang_opts = set()
         if self.version >= '21':
