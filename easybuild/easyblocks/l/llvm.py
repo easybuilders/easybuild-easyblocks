@@ -587,8 +587,6 @@ class EB_LLVM(CMakeMake):
             if self.version < '22':
                 unsupported_flang_opts.update([
                     '-fmath-errno', '-fno-math-errno',
-                    # These are supported since 21.x
-                    # '-fslp-vectorize', '-fvectorize', '-fno-vectorize',
                     '-fno-unsafe-math-optimizations',
                 ])
 
