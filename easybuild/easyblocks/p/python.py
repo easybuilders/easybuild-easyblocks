@@ -175,6 +175,60 @@ def det_installed_python_packages(names_only=True, python_cmd=None):
     return [pkg['name'] for pkg in pkgs] if names_only else pkgs
 
 
+def run_pip_list(eb_pkgs, python_cmd=None):
+    """
+    Run pip list to verify names and versions of installed Python packages
+
+    :param eb_pkgs: list of (name, version) tuples as specified in the easyconfig
+    """
+
+    log = fancylogger.getLogger('run_pip_list', fname=False)
+
+    if python_cmd is None:
+        python_cmd = 'python'
+
+    pip_list_errors = []
+
+    msg = "Check on installed Python package names and versions with 'pip list': "
+
+    try:
+        pkgs = det_installed_python_packages(names_only=False, python_cmd=python_cmd)
+    except EasyBuildError as err:
+        trace_msg(msg + 'FAIL')
+        pip_list_errors.append(f"pip list cmd failed:\n{err}")
+
+    trace_msg(msg + 'OK')
+    log.info("pip list cmd passed successfully")
+    pip_pkgs = {x['name']: x['version'] for x in pkgs}
+
+    missing_names = []
+    missing_versions = []
+
+    for name, version in eb_pkgs:
+        if name not in pip_pkgs:
+            missing_names.append(name)
+        elif version != pip_pkgs[name]:
+            missing_versions.append(f'{name}-{version} (pip list version: {pip_pkgs[name]})')
+
+    log.info(f"Found {len(missing_names)} missing names and {len(missing_versions)} missing versions "
+             f"out of {len(eb_pkgs)} packages")
+
+    if missing_names:
+        missing_names_str = '\n'.join(missing_names)
+        msg = "The following Python packages were likely specified with a wrong name because they are missing "
+        msg += f"from the 'pip list' output:\n{missing_names_str}\n"
+        pip_list_errors.append(msg)
+
+    if missing_versions:
+        missing_versions_str = '\n'.join(missing_versions)
+        msg = "The following Python packages were likely specified with a wrong version because they have "
+        msg += f"another version in the 'pip list' output:\n{missing_versions_str}\n"
+        pip_list_errors.append(msg)
+
+    if pip_list_errors:
+        raise EasyBuildError('\n'.join(pip_list_errors))
+
+
 def run_pip_check(python_cmd=None, unversioned_packages=None):
     """
     Check installed Python packages using 'pip check'
@@ -182,7 +236,7 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
     :param unversioned_packages: set of Python packages to exclude in the version existence check
     :param python_cmd: Python command to use (if None, 'python' is used)
     """
-    log = fancylogger.getLogger('det_installed_python_packages', fname=False)
+    log = fancylogger.getLogger('run_pip_check', fname=False)
 
     if python_cmd is None:
         python_cmd = 'python'
