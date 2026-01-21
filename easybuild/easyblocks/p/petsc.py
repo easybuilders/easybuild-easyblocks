@@ -256,7 +256,7 @@ class EB_PETSc(ConfigureMake):
         sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy', 'mpi4py',
                     'papi', 'ScaLAPACK', 'SciPy-bundle', 'SCOTCH', 'SuiteSparse']
 
-        for dep in (name for name in self.cfg.dependencies(runtime_only=True) if name not in sep_deps):
+        for dep in (name for name in self.cfg.dependency_names(runtime_only=True) if name not in sep_deps):
             if isinstance(dep, str):
                 dep = (dep, dep)
             deproot = get_software_root(dep[0])
