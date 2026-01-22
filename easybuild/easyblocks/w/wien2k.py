@@ -276,6 +276,8 @@ class EB_WIEN2k(EasyBlock):
                 scalapack_libs = os.getenv('LIBSCALAPACK').split()
                 scalapack = next((lib[2:] for lib in scalapack_libs if 'scalapack' in lib), 'scalapack')
                 blacs = next((lib[2:] for lib in scalapack_libs if 'blacs' in lib or 'blas' in lib), 'openblas')
+                blacs_root = get_software_root('FlexiBLAS') or os.getenv('MKLROOT') or \
+                             get_software_root('OpenBLAS') or ''
                 qa.extend([
                     (r"You need to KNOW details about your installed MPI, ELPA, and FFTW \) \(y/N\)", 'y'),
                     (r"Do you want to use a present ScaLAPACK installation\? \(Y,n\):", 'y'),
@@ -285,7 +287,7 @@ class EB_WIEN2k(EasyBlock):
                     (r"Please specify the target architecture of your ScaLAPACK libraries \(e.g. intel64\)\!:", ''),
                     (r"ScaLAPACK root:", os.getenv('MKLROOT') or os.getenv('EBROOTSCALAPACK')),
                     (r"ScaLAPACK library:", scalapack),
-                    (r"BLACS root:", get_software_root('FlexiBLAS') or os.getenv('MKLROOT') or get_software_root('OpenBLAS') or ''),
+                    (r"BLACS root:", blacs_root),
                     (r"BLACS library:", blacs),
                     (r"Please enter your choice of additional libraries\!:", rplibs),
                     (r"Do you want to use a present FFTW installation\? \(Y,n\):", 'y'),
