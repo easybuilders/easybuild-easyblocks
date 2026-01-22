@@ -359,7 +359,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 return
 
             # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3650
-            pre_test_opts = ""
+            pretestopts = ""
             if self.cfg.get('test_mpi_socket_binding', True):
                 mpi_fam = self.toolchain.mpi_family()
                 if mpi_fam == toolchain.OPENMPI:
@@ -370,14 +370,18 @@ class EB_QuantumESPRESSO(EasyBlock):
                     else:
                         env_name = 'OMPI_MCA_hwloc_base_bind_to_socket'
                         env_value = '1'
-                    pre_test_opts = f'export {env_name}={env_value} && '
-
+                    pretestopts += f'export {env_name}={env_value} && '
+            
+            pretestopts += self.cfg.get('pretestopts', '')
             thr = self.cfg.get('test_suite_threshold', 0.97)
             # When compiled with OpenMP some tests silently requests up to 4 threads
-            concurrent = max(1, self.cfg.parallel // (self._test_nprocs * 4))
             allow_fail = self.cfg.get('test_suite_allow_failures', [])
 
-            cmd = f'{pre_test_opts} ctest -j{concurrent} --output-on-failure'
+            if self.cfg.get('with_cuda', False):
+                cmd = f'{pretestopts} ctest -j1 --output-on-failure'
+            else:
+                concurrent = max(1, self.cfg.parallel // (self._test_nprocs * 4))
+                cmd = f'{pretestopts} ctest -j{concurrent} --output-on-failure'
 
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
