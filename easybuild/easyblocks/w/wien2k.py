@@ -285,7 +285,7 @@ class EB_WIEN2k(EasyBlock):
                     (r"Please specify the target architecture of your ScaLAPACK libraries \(e.g. intel64\)\!:", ''),
                     (r"ScaLAPACK root:", os.getenv('MKLROOT') or os.getenv('EBROOTSCALAPACK')),
                     (r"ScaLAPACK library:", scalapack),
-                    (r"BLACS root:", os.getenv('EBROOTFLEXIBLAS') or os.getenv('MKLROOT') or os.getenv('OPENBLAS')),
+                    (r"BLACS root:", get_software_root('FlexiBLAS') or os.getenv('MKLROOT') or get_software_root('OpenBLAS') or ''),
                     (r"BLACS library:", blacs),
                     (r"Please enter your choice of additional libraries\!:", rplibs),
                     (r"Do you want to use a present FFTW installation\? \(Y,n\):", 'y'),
