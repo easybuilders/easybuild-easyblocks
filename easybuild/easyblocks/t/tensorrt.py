@@ -99,14 +99,15 @@ class EB_TensorRT(PythonPackage, Binary):
     def sanity_check_step(self):
         """Custom sanity check for TensorRT."""
         custom_paths = {
-            'dirs': [self.pylibdir],
+            'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
         }
         if LooseVersion(self.version) >= LooseVersion('6'):
-            custom_paths['files'] = ['bin/trtexec', 'lib/libnvinfer_static.a']
+            lib_name = 'libnvinfer_static.a'
         else:
-            custom_paths['files'] = ['bin/trtexec', 'lib/libnvinfer.a']
+            lib_name = 'libnvinfer.a'
+        custom_paths = {'files': ['bin/trtexec', f'lib/{lib_name}']}
 
-        custom_commands = ["%s -c 'import tensorrt'" % self.python_cmd]
+        custom_commands = ["%(python)s -c 'import tensorrt'"]
 
         res = super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
