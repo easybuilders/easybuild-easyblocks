@@ -371,7 +371,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                         env_name = 'OMPI_MCA_hwloc_base_bind_to_socket'
                         env_value = '1'
                     pretestopts += f'export {env_name}={env_value} && '
-            
+
             pretestopts += self.cfg.get('pretestopts', '')
             thr = self.cfg.get('test_suite_threshold', 0.97)
             # When compiled with OpenMP some tests silently requests up to 4 threads
