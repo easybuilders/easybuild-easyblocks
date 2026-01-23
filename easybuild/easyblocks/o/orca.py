@@ -87,19 +87,19 @@ class EB_ORCA(PackedBinary, MakeCp):
             ]
 
             # Version 6 extra files
-            if LooseVersion(self.version) >= LooseVersion('6.0.0'):
+            if LooseVersion(self.version) >= LooseVersion('6.1.0'):
+                files_to_copy.extend(['datasets', 'lib', (['openCOSMORS'], 'bin')])
+            elif LooseVersion(self.version) >= LooseVersion('6.0.0'):
                 files_to_copy.extend(['datasets', 'lib', (['CompoundScripts', 'openCOSMORS'], 'bin')])
+            # Version 5 extra files
+            elif LooseVersion(self.version) >= LooseVersion('5.0.0'):
+                compoundmethods = (['ORCACompoundMethods'], 'bin')
+                files_to_copy.append(compoundmethods)
 
-            else:
-                # Version 5 extra files
-                if LooseVersion(self.version) >= LooseVersion('5.0.0'):
-                    compoundmethods = (['ORCACompoundMethods'], 'bin')
-                    files_to_copy.append(compoundmethods)
-
-                # Shared builds have additional libraries
-                libs_to_copy = (['liborca*'], 'lib')
-                if all([glob.glob(p) for p in libs_to_copy[0]]):
-                    files_to_copy.append(libs_to_copy)
+            # Shared builds have additional libraries
+            libs_to_copy = (['liborca*'], 'lib')
+            if all([glob.glob(p) for p in libs_to_copy[0]]):
+                files_to_copy.append(libs_to_copy)
 
             self.cfg['files_to_copy'] = files_to_copy
 

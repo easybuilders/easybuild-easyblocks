@@ -31,8 +31,8 @@ import os
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools import toolchain
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools import toolchain, LooseVersion
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import write_file
@@ -75,6 +75,14 @@ class EB_FlexiBLAS(CMakeMake):
             # make sure that all listed backends except imkl are (build)dependencies
             if 'imkl' in self.blas_libs and 'imkl' not in dep_names:
                 self.blas_libs.remove('imkl')
+            filtered_deps = build_option('filter_deps') or []
+            backends_filtered = [x for x in self.blas_libs if x in filtered_deps]
+            if backends_filtered:
+                warning_msg = "The following backends are also included in the list of filtered dependencies, "
+                warning_msg += "so they will be disabled anyway: " + ", ".join(backends_filtered)
+                print_warning(warning_msg)
+                for blas_lib in backends_filtered:
+                    self.blas_libs.remove(blas_lib)
             backends_nodep = [x for x in self.blas_libs if x not in dep_names]
             if backends_nodep:
                 raise EasyBuildError("One or more backends not listed as (build)dependencies: %s",
@@ -98,6 +106,8 @@ class EB_FlexiBLAS(CMakeMake):
         }
 
         supported_blas_libs = ['AOCL-BLAS', 'BLIS', 'NETLIB', 'OpenBLAS', 'imkl']
+        if LooseVersion(self.version) >= LooseVersion('3.4.5'):
+            supported_blas_libs += ['NVPL']
 
         # make sure that default backend is a supported library
         flexiblas_default = configopts['FLEXIBLAS_DEFAULT']
@@ -123,13 +133,17 @@ class EB_FlexiBLAS(CMakeMake):
             if blas_lib == 'imkl':
                 # For MKL there is gf_lp64 vs. intel_lp64 and gnu_thread vs. intel_thread (vs. sequential)
                 # For gf_lp64 vs intel_lp64 the difference is in the ABI for [sz]dot[uc], which FlexiBLAS
-                # can transparenly wrap.
+                # can transparently wrap.
                 # gnu_thread vs intel_thread links to libgomp vs. libiomp5 for the OpenMP library.
+                # LLVM flang follows gfortran for complex return values, but its OpenMP library libomp.so
+                # is compatible with Intel's
                 mkl_gnu_libs = "mkl_gf_lp64;mkl_gnu_thread;mkl_core;gomp;pthread;m;dl"
                 mkl_intel_libs = "mkl_intel_lp64;mkl_intel_thread;mkl_core;iomp5;pthread;m;dl"
+                mkl_llvm_libs = "mkl_intel_lp64;mkl_intel_thread;mkl_core;iomp5;pthread;m;dl"
                 mkl_compiler_mapping = {
                     toolchain.GCC: mkl_gnu_libs,
                     toolchain.INTELCOMP: mkl_intel_libs,
+                    toolchain.LLVM: mkl_llvm_libs,
                     toolchain.NVHPC: mkl_intel_libs,
                     toolchain.PGI: mkl_intel_libs,
                 }
@@ -138,6 +152,11 @@ class EB_FlexiBLAS(CMakeMake):
                     configopts[key] = mkl_compiler_mapping[comp_family]
                 except KeyError:
                     raise EasyBuildError("Compiler family not supported yet: %s", comp_family)
+            elif blas_lib == "NVPL":
+                # NVPL libraries do not explicitly link any OpenMP runtime,
+                # but try to lazily and dynamically find the OpenMP runtime in the
+                # built program. Supported are libgomp, libomp and libnvomp.
+                configopts[key] = "nvpl_blas_lp64_gomp;nvpl_blas_core"
             elif blas_lib == 'AOCL_mt':
                 configopts[key] = 'blis-mt'
             else:

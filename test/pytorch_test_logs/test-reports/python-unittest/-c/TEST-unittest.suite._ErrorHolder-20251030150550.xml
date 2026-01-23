@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="unittest.suite._ErrorHolder-20251030150550" tests="1" file="unittest/suite.py" time="0.000" timestamp="0001-01-01T00:00:00" failures="0" errors="1" skipped="0">
+	<testcase classname="" name="tearDownClass (__main__.TestFooCPU)" time="0.000" timestamp="0001-01-01T00:00:00">
+		<error type="RuntimeError" message="called with TestFooCPU"><![CDATA[Traceback (most recent call last):
+  File "/tmp/easybuild-tmp/eb-ek3ahsid/tmpuv_fi4bt/lib/python3.12/site-packages/torch/testing/_internal/common_device_type.py", line 901, in _tearDownClass
+    generic_test_class.tearDownClass.__func__(cls)
+  File "<string>", line 16, in tearDownClass
+RuntimeError: called with TestFooCPU
+]]></error>
+	</testcase>
+</testsuite>

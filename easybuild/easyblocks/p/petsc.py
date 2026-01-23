@@ -181,9 +181,9 @@ class EB_PETSc(ConfigureMake):
         # Don't build with MPI c++ bindings as this leads to a hard dependency
         # on libmpi and libmpi_cxx even for C code and non-MPI code
         cxxflags = os.getenv('CXXFLAGS') + ' ' + NO_MPI_CXX_EXT_FLAGS
-        self.cfg.update('configopts', '--CFLAGS="%s"' % os.getenv('CFLAGS'))
-        self.cfg.update('configopts', '--CXXFLAGS="%s"' % cxxflags)
-        self.cfg.update('configopts', '--FFLAGS="%s"' % os.getenv('F90FLAGS'))
+        self.cfg.update('configopts', '--COPTFLAGS="%s"' % os.getenv('CFLAGS'))
+        self.cfg.update('configopts', '--CXXOPTFLAGS="%s"' % cxxflags)
+        self.cfg.update('configopts', '--FOPTFLAGS="%s"' % os.getenv('F90FLAGS'))
 
         if not self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             self.cfg.update('configopts', '--with-gnu-compilers=0')
@@ -251,23 +251,17 @@ class EB_PETSc(ConfigureMake):
         else:
             raise EasyBuildError("One or more environment variables for BLAS/LAPACK not defined?")
 
-        # additional dependencies
-        # filter out deps handled seperately
-        sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy',
-                    'mpi4py', 'papi', 'ScaLAPACK', 'SciPy-bundle', 'SuiteSparse']
-        # SCOTCH has to be treated separately since they add weird postfixes
-        # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
-        if (LooseVersion(self.version) >= LooseVersion("3.17")):
-            sep_deps.append('SCOTCH')
+        # additional dependencies with generic options --with-xxx and --with-xxx-dir
+        # filter out deps already handled seperately
+        sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy', 'mpi4py',
+                    'papi', 'ScaLAPACK', 'SciPy-bundle', 'SCOTCH', 'SuiteSparse']
 
-        deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True) if not dep['name'] in sep_deps]
-        for dep in deps:
+        for dep in [dep['name'] for dep in self.cfg.dependencies(runtime_only=True) if dep['name'] not in sep_deps]:
             if isinstance(dep, str):
                 dep = (dep, dep)
             deproot = get_software_root(dep[0])
-            if deproot and dep[1] == "SCOTCH":
-                withdep = "--with-pt%s" % dep[1].lower()  # --with-ptscotch
-                self.cfg.update('configopts', '%s=1 %s-dir=%s' % (withdep, withdep, deproot))
+            withdep = "--with-%s" % dep[1].lower()
+            self.cfg.update('configopts', '%s=1 %s-dir=%s' % (withdep, withdep, deproot))
 
         # SCOTCH has to be treated separately since they add weird postfixes
         # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
@@ -284,8 +278,12 @@ class EB_PETSc(ConfigureMake):
             req_scotch_libs = ['libptesmumps.a', 'libptscotchparmetisv3.a', 'libptscotch.a',
                                'libptscotcherr.a', 'libesmumps.a', 'libscotch.a', 'libscotcherr.a']
             scotch_libs = [os.path.join(scotch, "lib", x) for x in req_scotch_libs]
-            lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
-            self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
+            if (LooseVersion(self.version) >= LooseVersion("3.17")):
+                lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
+                self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
+            else:
+                dir_spec = "-dir=%s" % scotch
+                self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', dir_spec]]))
 
         # SuiteSparse options
         suitesparse = get_software_root('SuiteSparse')

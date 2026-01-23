@@ -157,7 +157,11 @@ class CMakeMake(ConfigureMake):
             'install_libdir': ['lib', "Subdirectory to use for library installation files", CUSTOM],
             'runtest': [None, "Make target to test build or True to use CTest", BUILD],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
-            'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
+            'separate_build_dir': [True, "Perform build in a separate directory. "
+                                         "Can be set to a specific path to use, "
+                                         "otherwise a new, empty folder is created. "
+                                         "A relative path is relative to %(builddir)s. "
+                                         "To build in the source directory set this to 'False'.", CUSTOM],
         })
         return extra_vars
 
@@ -220,14 +224,31 @@ class CMakeMake(ConfigureMake):
                             if '-D%s=' % key not in cfg_configopts)
         self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
 
-    def configure_step(self, srcdir=None, builddir=None):
-        """Configure build using cmake"""
+    def configure_step(self, srcdir=None, builddir=None, fail_on_error=True, return_full_cmd_result=False):
+        """
+        Configure build using 'cmake'
+
+        :param srcdir: custom source directory to use (if None, use 'srcdir' easyconfig parameter, or start dir)
+        :param builddir: custom build directory to use (if None, 'easybuild_obj' in build directory will be used)
+        :param fail_on_error: raise error if cmake command failed with non-zero exit code (enabled by default)
+        :param return_full_cmd_result: return full result of running cmake command (not just the output)
+        """
 
         setup_cmake_env(self.toolchain)
 
-        if builddir is None and self.cfg.get('separate_build_dir', True):
-            self.separate_build_dir = create_unused_dir(self.builddir, 'easybuild_obj')
-            builddir = self.separate_build_dir
+        if builddir is None:
+            separate_build_dir = self.cfg['separate_build_dir']
+            if separate_build_dir is not False:
+                if separate_build_dir is True:
+                    self.separate_build_dir = create_unused_dir(self.builddir, 'easybuild_obj')
+                elif isinstance(separate_build_dir, str):
+                    # Note that the join returns separate_build_dir if it is absolute
+                    self.separate_build_dir = os.path.join(self.builddir, separate_build_dir)
+                    mkdir(self.separate_build_dir, parents=True)
+                else:
+                    raise EasyBuildError('Invalid value for separate_build_dir: %s (type %s)',
+                                         separate_build_dir, type(separate_build_dir))
+                builddir = self.separate_build_dir
 
         if builddir:
             mkdir(builddir, parents=True)
@@ -248,6 +269,10 @@ class CMakeMake(ConfigureMake):
         if install_target_subdir:
             install_target = os.path.join(install_target, install_target_subdir)
         options = {'CMAKE_INSTALL_PREFIX': install_target}
+
+        if self.cmake_version >= '3.16':
+            # Avoid some software using a lower log level than the default if this is unset
+            options['CMAKE_MESSAGE_LOG_LEVEL'] = 'STATUS'
 
         if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
             # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
@@ -401,9 +426,10 @@ class CMakeMake(ConfigureMake):
                 self.cfg.get('configure_cmd'),
                 self.cfg['configopts']])
 
-        res = run_shell_cmd(command)
+        res = run_shell_cmd(command, fail_on_error=fail_on_error)
         self.check_python_paths()
-        return res.output
+
+        return res if return_full_cmd_result else res.output
 
     def check_python_paths(self):
         """Check that there are no detected Python paths outside the Python dependency provided by EasyBuild"""

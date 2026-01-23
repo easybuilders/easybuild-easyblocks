@@ -130,13 +130,13 @@ class MesonNinja(EasyBlock):
         res = run_shell_cmd(cmd)
         return res.output
 
-    def build_step(self, verbose=False, path=None):
+    def build_step(self, *args, **kwargs):
         """
         Build with Ninja.
         """
         build_cmd = self.cfg.get('build_cmd', DEFAULT_BUILD_CMD)
 
-        parallel = f'-j {self.cfg.parallel}' if self.cfg.parallel > 1 else ''
+        parallel = f'-j {self.cfg.parallel}' if self.cfg.parallel >= 1 else ''
 
         cmd = "%(prebuildopts)s %(build_cmd)s -v %(parallel)s %(buildopts)s" % {
             'buildopts': self.cfg['buildopts'],

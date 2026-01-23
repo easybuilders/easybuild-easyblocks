@@ -232,18 +232,31 @@ class EB_FFTW(ConfigureMake):
     def test_step(self):
         """Custom implementation of test step for FFTW."""
 
-        if self.toolchain.mpi_family() is not None and not build_option('mpi_tests'):
+        comp_family = self.toolchain.comp_family()
+        mpi_family = self.toolchain.mpi_family()
+
+        if mpi_family is not None and not build_option('mpi_tests'):
             self.log.info("Skipping testing of FFTW since MPI testing is disabled")
             return
 
-        if self.toolchain.mpi_family() == toolchain.OPENMPI and not self.toolchain.comp_family() == TC_CONSTANT_FUJITSU:
+        if mpi_family == toolchain.OPENMPI and comp_family != TC_CONSTANT_FUJITSU:
 
             # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
             # to avoid that some tests fail if only a handful of cores are available
             ompi_ver = get_software_version('OpenMPI')
-            if LooseVersion(ompi_ver) >= LooseVersion('3.0'):
+            if ompi_ver and LooseVersion(ompi_ver) >= LooseVersion('5.0'):
+                if 'PRTE_MCA_rmaps_default_mapping_policy' not in self.cfg['pretestopts']:
+                    self.cfg.update('pretestopts', "export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe && ")
+            else:
+                # OpenMPI 4 and older (including NVHPC)
                 if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
                     self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
+
+                # workaround for problem with core binding with OpenMPI 4.x,
+                # errors like: hwloc_set_cpubind returned "Error" for bitmap "0"
+                # see https://github.com/open-mpi/ompi/issues/12470
+                if 'OMPI_MCA_hwloc_base_binding_policy' not in self.cfg['pretestopts']:
+                    self.cfg.update('pretestopts', "export OMPI_MCA_hwloc_base_binding_policy=none && ")
 
         super().test_step()
 

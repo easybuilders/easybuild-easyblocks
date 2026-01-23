@@ -120,6 +120,14 @@ class EB_Clang(CMakeMake):
         """Initialize custom class variables for Clang."""
 
         super().__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) >= LooseVersion('18.1.6'):
+            raise EasyBuildError(
+                "The Clang EasyBlock has been deprecated and does not support LLVM versions >= 18.1.6. "
+                "Please use the 'LLVM' EasyBlock instead, which supports building Clang as well "
+                "as other LLVM projects."
+            )
+
         self.llvm_src_dir = None
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
