@@ -78,3 +78,18 @@ class EB_cuDNN(Tarball):
             more_info='https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html'
         )
         return super().fetch_step(*args, **kwargs)
+
+    def make_module_extra(self):
+        """Set the install directory as CUDNN_HOME, CUDNN_ROOT, CUDNN_PATH."""
+
+        # avoid adding of installation directory to $PATH (cfr. Binary easyblock) since that may cause trouble,
+        # for example when there's a clash between command name and a subdirectory in the installation directory
+        # (like compute-sanitizer)
+        self.cfg['prepend_to_path'] = False
+
+        txt = super().make_module_extra()
+        txt += self.module_generator.set_environment('CUDNN_HOME', self.installdir)
+        txt += self.module_generator.set_environment('CUDNN_ROOT', self.installdir)
+        txt += self.module_generator.set_environment('CUDNN_PATH', self.installdir)
+        self.log.debug("make_module_extra added this: %s", txt)
+        return txt
