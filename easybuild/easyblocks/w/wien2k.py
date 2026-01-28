@@ -214,7 +214,10 @@ class EB_WIEN2k(EasyBlock):
             (r"\(like taskset -c\). Enter N / your_specific_command:", 'N'),
         ]
         if LooseVersion(self.version) >= LooseVersion("13"):
-            fftw_root = get_software_root('FFTW')
+            # Check if we are using FFTW.MPI first since it has both header files
+            fftw_root = get_software_root('FFTW.MPI')
+            if not fftw_root:
+                fftw_root = get_software_root('FFTW')
             if fftw_root:
                 fftw_maj = get_software_version('FFTW').split('.')[0]
                 fftw_spec = 'FFTW%s' % fftw_maj
@@ -272,7 +275,9 @@ class EB_WIEN2k(EasyBlock):
             if LooseVersion(self.version) >= LooseVersion("17"):
                 scalapack_libs = os.getenv('LIBSCALAPACK').split()
                 scalapack = next((lib[2:] for lib in scalapack_libs if 'scalapack' in lib), 'scalapack')
-                blacs = next((lib[2:] for lib in scalapack_libs if 'blacs' in lib), 'openblas')
+                blacs = next((lib[2:] for lib in scalapack_libs if 'blacs' in lib or 'blas' in lib), 'openblas')
+                blacs_root = get_software_root('FlexiBLAS') or os.getenv('MKLROOT') or \
+                    get_software_root('OpenBLAS') or ''
                 qa.extend([
                     (r"You need to KNOW details about your installed MPI, ELPA, and FFTW \) \(y/N\)", 'y'),
                     (r"Do you want to use a present ScaLAPACK installation\? \(Y,n\):", 'y'),
@@ -282,9 +287,9 @@ class EB_WIEN2k(EasyBlock):
                     (r"Please specify the target architecture of your ScaLAPACK libraries \(e.g. intel64\)\!:", ''),
                     (r"ScaLAPACK root:", os.getenv('MKLROOT') or os.getenv('EBROOTSCALAPACK')),
                     (r"ScaLAPACK library:", scalapack),
-                    (r"BLACS root:", os.getenv('MKLROOT') or os.getenv('EBROOTOPENBLAS')),
+                    (r"BLACS root:", blacs_root),
                     (r"BLACS library:", blacs),
-                    (r"Please enter your choice of additional libraries\!:", ''),
+                    (r"Please enter your choice of additional libraries\!:", rplibs),
                     (r"Do you want to use a present FFTW installation\? \(Y,n\):", 'y'),
                     (r"Please specify the path of your FFTW installation \(like /opt/fftw3/\) "
                         r"or accept present choice \(enter\):", fftw_root),
@@ -356,7 +361,7 @@ class EB_WIEN2k(EasyBlock):
         ])
 
         # don't check output too frequently for questions, or we'll provide incorrect answers...
-        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
 
         # post-configure patches
         parallel_options = {}
@@ -429,7 +434,7 @@ class EB_WIEN2k(EasyBlock):
             r"Compile time errors \(if any\) were:",
         ]
 
-        cmd = "./%s" % self.cfgscript
+        cmd = "%s ./%s" % (self.cfg['prebuildopts'], self.cfgscript)
         self.log.debug("no_qa for %s: %s", cmd, no_qa)
         run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa)
 
