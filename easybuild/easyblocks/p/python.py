@@ -362,6 +362,8 @@ class EB_Python(ConfigureMake):
                                              "order to make sure ctypes can still find libraries without it. "
                                              "Please make sure to add the checksum for this patch to 'checksums'.",
                                              CUSTOM],
+            'sanity_pip_list': [False, "Run 'python -m pip list' to ensure specified package name and version "
+                                       "are correct.", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -385,6 +387,9 @@ class EB_Python(ConfigureMake):
             # EasyBuild 5
             'use_pip': True,
         }
+
+        # build and install additional packages with PythonPackage easyblock
+        self.cfg['exts_defaultclass'] = "PythonPackage"
 
         exts_default_options = self.cfg.get_ref('exts_default_options')
         for key, default_value in ext_defaults.items():
@@ -544,8 +549,6 @@ class EB_Python(ConfigureMake):
         """
         Set default class and filter for Python packages
         """
-        # build and install additional packages with PythonPackage easyblock
-        self.cfg['exts_defaultclass'] = "PythonPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
         # don't pass down any build/install options that may have been specified
@@ -890,6 +893,15 @@ class EB_Python(ConfigureMake):
 
         # global 'pip check' to verify that version requirements are met for Python packages installed as extensions
         run_pip_check(python_cmd='python')
+
+        if self.cfg['sanity_pip_list']:
+            exts_list = self.cfg.get_ref('exts_list')
+            if exts_list and not self.ext_instances:
+                # populate self.ext_instances if not done yet (e.g. for --sanity-check-only or --rebuild --module-only)
+                self.init_ext_instances()
+
+            pkgs = [(x.name, x.version) for x in self.ext_instances]
+            run_pip_list(pkgs, python_cmd='python')
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
