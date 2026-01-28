@@ -32,6 +32,7 @@ EasyBuild support for building and installing Python, implemented as an easybloc
 @author: Jens Timmerman (Ghent University)
 @author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
 """
+import difflib
 import glob
 import json
 import os
@@ -202,7 +203,9 @@ def run_pip_list(pkgs, python_cmd=None):
 
     for name, version in pkgs:
         if name not in pip_pkgs:
-            missing_names.append(name)
+            close_matches = difflib.get_close_matches(name, pip_pkgs.keys())
+            missing_names.append(f'{name} (close matches: {close_matches})')
+
         elif version != pip_pkgs[name]:
             missing_versions.append(f'{name}-{version} (pip list version: {pip_pkgs[name]})')
 
