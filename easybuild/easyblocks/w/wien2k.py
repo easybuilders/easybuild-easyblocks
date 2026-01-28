@@ -361,7 +361,7 @@ class EB_WIEN2k(EasyBlock):
         ])
 
         # don't check output too frequently for questions, or we'll provide incorrect answers...
-        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
 
         # post-configure patches
         parallel_options = {}
@@ -434,7 +434,7 @@ class EB_WIEN2k(EasyBlock):
             r"Compile time errors \(if any\) were:",
         ]
 
-        cmd = "./%s" % self.cfgscript
+        cmd = "%s ./%s" % (self.cfg['prebuildopts'], self.cfgscript)
         self.log.debug("no_qa for %s: %s", cmd, no_qa)
         run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa)
 
