@@ -32,6 +32,7 @@ EasyBuild support for building and installing Python, implemented as an easybloc
 @author: Jens Timmerman (Ghent University)
 @author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
 """
+import difflib
 import glob
 import json
 import os
@@ -175,6 +176,58 @@ def det_installed_python_packages(names_only=True, python_cmd=None):
     return [pkg['name'] for pkg in pkgs] if names_only else pkgs
 
 
+def run_pip_list(pkgs, python_cmd=None):
+    """
+    Run pip list to verify names and versions of installed Python packages
+
+    :param pkgs: list of package tuples (name, version) as specified in the easyconfig
+    """
+
+    log = fancylogger.getLogger('run_pip_list', fname=False)
+
+    pip_list_errors = []
+
+    try:
+        msg = "Check on installed Python package names and versions with 'pip list': "
+        pip_pkgs_dict = det_installed_python_packages(names_only=False, python_cmd=python_cmd)
+        trace_msg(msg + 'OK')
+        log.info("pip list cmd passed successfully")
+    except EasyBuildError as err:
+        trace_msg(msg + 'FAIL')
+        pip_list_errors.append(f"pip list cmd failed:\n{err}")
+
+    pip_pkgs = {x['name']: x['version'] for x in pip_pkgs_dict}
+
+    missing_names = []
+    missing_versions = []
+
+    for name, version in pkgs:
+        if name not in pip_pkgs:
+            close_matches = difflib.get_close_matches(name, pip_pkgs.keys())
+            missing_names.append(f'{name} (close matches: {close_matches})')
+
+        elif version != pip_pkgs[name]:
+            missing_versions.append(f'{name}-{version} (pip list version: {pip_pkgs[name]})')
+
+    log.info(f"Found {len(missing_names)} missing names and {len(missing_versions)} missing versions "
+             f"out of {len(pkgs)} packages")
+
+    if missing_names:
+        missing_names_str = '\n'.join(missing_names)
+        msg = "The following Python packages were likely specified with a wrong name because they are missing "
+        msg += f"from the 'pip list' output:\n{missing_names_str}\n"
+        pip_list_errors.append(msg)
+
+    if missing_versions:
+        missing_versions_str = '\n'.join(missing_versions)
+        msg = "The following Python packages were likely specified with a wrong version because they have "
+        msg += f"another version in the 'pip list' output:\n{missing_versions_str}\n"
+        pip_list_errors.append(msg)
+
+    if pip_list_errors:
+        raise EasyBuildError('\n'.join(pip_list_errors))
+
+
 def run_pip_check(python_cmd=None, unversioned_packages=None):
     """
     Check installed Python packages using 'pip check'
@@ -182,7 +235,7 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
     :param unversioned_packages: set of Python packages to exclude in the version existence check
     :param python_cmd: Python command to use (if None, 'python' is used)
     """
-    log = fancylogger.getLogger('det_installed_python_packages', fname=False)
+    log = fancylogger.getLogger('run_pip_check', fname=False)
 
     if python_cmd is None:
         python_cmd = 'python'
@@ -309,6 +362,8 @@ class EB_Python(ConfigureMake):
                                              "order to make sure ctypes can still find libraries without it. "
                                              "Please make sure to add the checksum for this patch to 'checksums'.",
                                              CUSTOM],
+            'sanity_pip_list': [False, "Run 'python -m pip list' to ensure specified package name and version "
+                                       "are correct.", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -332,6 +387,9 @@ class EB_Python(ConfigureMake):
             # EasyBuild 5
             'use_pip': True,
         }
+
+        # build and install additional packages with PythonPackage easyblock
+        self.cfg['exts_defaultclass'] = "PythonPackage"
 
         exts_default_options = self.cfg.get_ref('exts_default_options')
         for key, default_value in ext_defaults.items():
@@ -491,8 +549,6 @@ class EB_Python(ConfigureMake):
         """
         Set default class and filter for Python packages
         """
-        # build and install additional packages with PythonPackage easyblock
-        self.cfg['exts_defaultclass'] = "PythonPackage"
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
 
         # don't pass down any build/install options that may have been specified
@@ -837,6 +893,15 @@ class EB_Python(ConfigureMake):
 
         # global 'pip check' to verify that version requirements are met for Python packages installed as extensions
         run_pip_check(python_cmd='python')
+
+        if self.cfg['sanity_pip_list']:
+            exts_list = self.cfg.get_ref('exts_list')
+            if exts_list and not self.ext_instances:
+                # populate self.ext_instances if not done yet (e.g. for --sanity-check-only or --rebuild --module-only)
+                self.init_ext_instances()
+
+            pkgs = [(x.name, x.version) for x in self.ext_instances]
+            run_pip_list(pkgs, python_cmd='python')
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):

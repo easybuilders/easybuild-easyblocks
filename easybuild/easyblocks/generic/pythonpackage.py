@@ -42,7 +42,7 @@ from sysconfig import get_config_vars
 import easybuild.tools.environment as env
 from easybuild.base import fancylogger
 from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES, set_py_env_vars
-from easybuild.easyblocks.python import det_installed_python_packages, det_pip_version, run_pip_check
+from easybuild.easyblocks.python import det_installed_python_packages, det_pip_version, run_pip_check, run_pip_list
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
@@ -415,6 +415,8 @@ class PythonPackage(ExtensionEasyBlock):
             'max_py_minver': [None, "Maximum minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [True, "Run 'python -m pip check' to ensure all required Python packages are "
                                        "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
+            'sanity_pip_list': [False, "Run 'python -m pip list' to ensure specified package name and version "
+                                       "are correct.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
             'unpack_sources': [None, "Unpack sources prior to build/install. Defaults to 'True' except for whl files",
@@ -1101,6 +1103,8 @@ class PythonPackage(ExtensionEasyBlock):
                 kwargs.update({'exts_filter': exts_filter})
 
         sanity_pip_check = self.cfg.get('sanity_pip_check', True)
+        sanity_pip_list = self.cfg.get('sanity_pip_list', False)
+
         if self.is_extension:
             sanity_pip_check_main = self.master.cfg.get('sanity_pip_check')
             if sanity_pip_check_main is not None:
@@ -1110,6 +1114,14 @@ class PythonPackage(ExtensionEasyBlock):
                 self.log.info(f"Sanity 'pip check' disabled for {self.name} extension, "
                               f"assuming that parent will take care of it"
                               )
+
+            sanity_pip_list_main = self.master.cfg.get('sanity_pip_list')
+            if sanity_pip_list_main is not None:
+                # If the main easyblock (e.g. PythonBundle) defines the variable
+                # we trust it does the pip list if requested and checks for mismatches
+                sanity_pip_list = False
+                self.log.info(f"Sanity 'pip list' disabled for {self.name} extension, "
+                              f"assuming that parent will take care of it")
 
         if sanity_pip_check:
             if not self.is_extension:
@@ -1125,6 +1137,9 @@ class PythonPackage(ExtensionEasyBlock):
 
             unversioned_packages = self.cfg.get('unversioned_packages', [])
             run_pip_check(python_cmd=python_cmd, unversioned_packages=unversioned_packages)
+
+        if sanity_pip_list:
+            run_pip_list([(self.name, self.version)], python_cmd=python_cmd)
 
         # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
         # and let ExtensionEasyBlock do its job
