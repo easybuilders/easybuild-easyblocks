@@ -262,7 +262,7 @@ class EB_Clang(CMakeMake):
                                      glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
-        if any([x['name'].startswith('llvm-project') for x in self.src]):
+        if any(x['name'].startswith('llvm-project') for x in self.src):
             # if sources contain 'llvm-project*', we use the full tarball
             find_source_dir("../llvm-project-*", os.path.join(self.llvm_src_dir, "llvm-project-%s" % self.version))
             self.cfg.update('configopts', '-DLLVM_ENABLE_PROJECTS="%s"' % ';'.join(self.cfg['llvm_projects']))
