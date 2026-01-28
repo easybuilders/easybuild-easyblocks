@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -61,7 +61,7 @@ class EB_Tkinter(EB_Python):
 
     def __init__(self, *args, **kwargs):
         """Initialize Tkinter-specific variables."""
-        super(EB_Tkinter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.tkinter_so_basename = None
 
     def configure_step(self):
@@ -78,11 +78,11 @@ class EB_Tkinter(EB_Python):
         # Use a temporary install directory, as we only want the Tkinter part of the full install.
         self.orig_installdir = self.installdir
         self.installdir = tempfile.mkdtemp(dir=self.builddir)
-        super(EB_Tkinter, self).configure_step()
+        super().configure_step()
 
     def install_step(self):
         """Install python but only keep the bits we need"""
-        super(EB_Tkinter, self).install_step()
+        super().install_step()
 
         if LooseVersion(self.version) >= LooseVersion('3'):
             tklibdir = "tkinter"
@@ -133,11 +133,5 @@ class EB_Tkinter(EB_Python):
             'files': [os.path.join(det_pylibdir(), self.tkinter_so_basename)],
             'dirs': ['lib']
         }
+        # Skip the sanity check of the Python easyblock
         super(EB_Python, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
-
-    def make_module_extra(self):
-        """Set PYTHONPATH"""
-        txt = super(EB_Tkinter, self).make_module_extra()
-        txt += self.module_generator.prepend_paths('PYTHONPATH', det_pylibdir())
-
-        return txt

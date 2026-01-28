@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2024 Ghent University
+# Copyright 2017-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage, PIP_INSTAL
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_TensorRT(PythonPackage, Binary):
@@ -58,7 +58,7 @@ class EB_TensorRT(PythonPackage, Binary):
 
     def __init__(self, *args, **kwargs):
         """Initialize TensorRT easyblock."""
-        super(EB_TensorRT, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # Setup for the Binary easyblock
         self.cfg['extract_sources'] = True
@@ -66,11 +66,6 @@ class EB_TensorRT(PythonPackage, Binary):
 
         # Setup for the extensions step
         self.cfg['exts_defaultclass'] = 'PythonPackage'
-
-        self.cfg['exts_default_options'] = {
-            'download_dep_fail': True,
-            'use_pip': True,
-        }
 
     def configure_step(self):
         """Custom configuration procedure for TensorRT."""
@@ -93,19 +88,25 @@ class EB_TensorRT(PythonPackage, Binary):
     def extensions_step(self):
         """Custom extensions procedure for TensorRT."""
 
-        super(EB_TensorRT, self).extensions_step()
+        super().extensions_step()
 
         pyver = ''.join(get_software_version('Python').split('.')[:2])
-        whls = [
-            os.path.join('graphsurgeon', 'graphsurgeon-*-py2.py3-none-any.whl'),
-            os.path.join('uff', 'uff-*-py2.py3-none-any.whl'),
-            os.path.join('python', 'tensorrt-%s-cp%s-*-linux_x86_64.whl' % (self.version, pyver)),
-        ]
+        whls = []
+        # graphsurgeon and uff removed in 10.0.1
+        if self.version < LooseVersion('10.0.1'):
+            whls.extend([
+                os.path.join('graphsurgeon', 'graphsurgeon-*-py2.py3-none-any.whl'),
+                os.path.join('uff', 'uff-*-py2.py3-none-any.whl'),
+            ])
+        whls.append(os.path.join('python', 'tensorrt-%s-cp%s-*-linux_x86_64.whl' % (self.version, pyver)))
+
+        installopts = ' '.join([self.cfg['installopts']] + self.py_installopts)
+
         for whl in whls:
             whl_paths = glob.glob(os.path.join(self.installdir, whl))
             if len(whl_paths) == 1:
                 cmd = PIP_INSTALL_CMD % {
-                    'installopts': self.cfg['installopts'],
+                    'installopts': installopts,
                     'loc': whl_paths[0],
                     'prefix': self.installdir,
                     'python': self.python_cmd,
@@ -117,9 +118,11 @@ class EB_TensorRT(PythonPackage, Binary):
                 # --ignore-installed is required to ensure *this* wheel is installed
                 cmd += " --ignore-installed --no-deps"
 
-                run_cmd(cmd, log_all=True, simple=True, log_ok=True)
+                run_shell_cmd(cmd)
+            elif whl_paths:
+                raise EasyBuildError("Failed to isolate .whl in %s: %s", self.installdir, whl_paths)
             else:
-                raise EasyBuildError("Failed to isolate .whl in %s: %s", whl_paths, self.installdir)
+                raise EasyBuildError("No .whl found in %s for patter %s", self.installdir, whl)
 
     def sanity_check_step(self):
         """Custom sanity check for TensorRT."""
@@ -133,6 +136,6 @@ class EB_TensorRT(PythonPackage, Binary):
 
         custom_commands = ["%s -c 'import tensorrt'" % self.python_cmd]
 
-        res = super(EB_TensorRT, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        res = super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
         return res

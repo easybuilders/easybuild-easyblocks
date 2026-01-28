@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2024 Free University of Brussels (VUB)
+# Copyright 2018-2025 Free University of Brussels (VUB)
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,7 +40,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, remove_dir, symlink, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 # the namespace file for the R extension
@@ -77,7 +77,7 @@ class EB_MXNet(MakeCp):
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
-        super(EB_MXNet, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.mxnet_src_dir = None
         self.py_ext = PythonPackage(self, {'name': self.name, 'version': self.version})
@@ -98,7 +98,7 @@ class EB_MXNet(MakeCp):
         to their right place.
         """
         # Extract everything into separate directories.
-        super(EB_MXNet, self).extract_step()
+        super().extract_step()
 
         mxnet_dirs = glob.glob(os.path.join(self.builddir, '*mxnet-*'))
         if len(mxnet_dirs) == 1:
@@ -142,7 +142,7 @@ class EB_MXNet(MakeCp):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for building and installing MXNet."""
-        super(EB_MXNet, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         self.py_ext.prepare_python()
 
     def configure_step(self):
@@ -172,14 +172,14 @@ class EB_MXNet(MakeCp):
         if get_software_root('NNPACK'):
             self.cfg.update('buildopts', 'USE_NNPACK=1')
 
-        super(EB_MXNet, self).configure_step()
+        super().configure_step()
 
     def install_step(self):
         """Specify list of files to copy"""
         self.cfg['files_to_copy'] = ['bin', 'include', 'lib']
         if LooseVersion(self.version) < LooseVersion('1.0'):
             self.cfg.update('files_to_copy', [(['dmlc-core/include/dmlc', 'nnvm/include/nnvm'], 'include')])
-        super(EB_MXNet, self).install_step()
+        super().install_step()
 
     def extensions_step(self):
         """Build & Install both Python and R extension"""
@@ -187,9 +187,9 @@ class EB_MXNet(MakeCp):
         self.py_ext.src = os.path.join(self.mxnet_src_dir, "python")
         change_dir(self.py_ext.src)
 
-        self.py_ext.prerun()
-        self.py_ext.run(unpack_src=False)
-        self.py_ext.postrun()
+        self.py_ext.pre_install_extension()
+        self.py_ext.install_extension(unpack_src=False)
+        self.py_ext.post_install_extension()
 
         if self.cfg['install_r_ext']:
             # This is off by default, because it's been working in the old version of MXNet and now it's not.
@@ -212,17 +212,18 @@ class EB_MXNet(MakeCp):
         # MXNet doesn't provide a list of its R dependencies by default
         write_file("NAMESPACE", R_NAMESPACE)
         change_dir(self.mxnet_src_dir)
-        self.r_ext.prerun()
+        self.r_ext.pre_install_extension()
         # MXNet is just weird. To install the R extension, we have to:
         # - First install the extension like it is
         # - Let R export the extension again. By doing this, all the dependencies get
         #   correctly filled and some mappings are done
         # - Reinstal the exported version
-        self.r_ext.run()
-        run_cmd("R_LIBS=%s Rscript -e \"require(mxnet); mxnet:::mxnet.export(\\\"R-package\\\")\"" % self.installdir)
+        self.r_ext.install_extension()
+        cmd = "R_LIBS=%s Rscript -e \"require(mxnet); mxnet:::mxnet.export(\\\"R-package\\\")\""
+        run_shell_cmd(cmd % self.installdir)
         change_dir(self.r_ext.src)
-        self.r_ext.run()
-        self.r_ext.postrun()
+        self.r_ext.install_extension()
+        self.r_ext.post_install_extension()
 
     def sanity_check_step(self):
         """Check for main library files for MXNet"""
@@ -230,7 +231,7 @@ class EB_MXNet(MakeCp):
             'files': ['lib/libmxnet.a', 'lib/libmxnet.%s' % get_shared_lib_ext()],
             'dirs': [],
         }
-        super(EB_MXNet, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
         # for the extension we are doing the loading of the fake module ourself
         try:
@@ -249,13 +250,7 @@ class EB_MXNet(MakeCp):
 
     def make_module_extra(self, *args, **kwargs):
         """Custom variables for MXNet module."""
-        txt = super(EB_MXNet, self).make_module_extra(*args, **kwargs)
-
-        for path in self.py_ext.all_pylibdirs:
-            fullpath = os.path.join(self.installdir, path)
-            # only extend $PYTHONPATH with existing, non-empty directories
-            if os.path.exists(fullpath) and os.listdir(fullpath):
-                txt += self.module_generator.prepend_paths('PYTHONPATH', path)
+        txt = super().make_module_extra(*args, **kwargs)
 
         txt += self.module_generator.prepend_paths("R_LIBS", [''])  # prepend R_LIBS with install path
 

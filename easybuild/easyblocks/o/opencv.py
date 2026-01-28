@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2024 Ghent University
+# Copyright 2018-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -53,19 +53,18 @@ class EB_OpenCV(CMakeMake):
         extra_vars.update({
             'cpu_dispatch': ['NONE', "Value to pass to -DCPU_DISPATCH configuration option", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for OpenCV."""
-        super(EB_OpenCV, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # can't be set before prepare_step is run
         self.pylibdir = None
 
     def prepare_step(self, *args, **kwargs):
         """Prepare environment for installing OpenCV."""
-        super(EB_OpenCV, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         self.pylibdir = det_pylibdir()
 
@@ -160,6 +159,22 @@ class EB_OpenCV(CMakeMake):
             self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
         else:
             self.cfg.update('configopts', '-DWITH_GTK=OFF')
+        flexiblas_root = get_software_root('FlexiBLAS')
+        if flexiblas_root:
+            # Fixes https://github.com/easybuilders/easybuild-easyblocks/issues/3873
+            # It should be possible to go as far back as 3.3 but than we have a mismatch in the lapack API between
+            # openCV and FlexiBLAS (was working with OpenBLAS until 0.3.20 where they adopted the same new API)
+            # See discussion and comments in https://github.com/easybuilders/easybuild-easyblocks/pull/3874
+            if LooseVersion(self.version) < '4.7':
+                msg = "Using custom LAPACK/BLAS is only supported since OpenCV 4.7. FlexiBLAS will not be used."
+                self.log.warning(msg)
+            else:
+                self.log.info("Explicitly using FlexiBLAS at %s", flexiblas_root)
+                self.cfg.update('configopts', f'-DLAPACK_LIBRARIES="{flexiblas_root}/lib/libflexiblas.so;-lm;-ldl"')
+                self.cfg.update('configopts', f'-DLAPACK_INCLUDE_DIR={flexiblas_root}/include/flexiblas')
+                self.cfg.update('configopts', '-DLAPACK_CBLAS_H=cblas.h')
+                self.cfg.update('configopts', '-DLAPACK_LAPACKE_H=lapacke.h')
+                self.cfg.update('configopts', '-DLAPACK_IMPL=flexiblas')
 
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options
@@ -200,13 +215,13 @@ class EB_OpenCV(CMakeMake):
             if 'f16c' not in avail_cpu_features:
                 self.cfg.update('configopts', '-DCPU_BASELINE_DISABLE=FP16')
 
-        super(EB_OpenCV, self).configure_step()
+        super().configure_step()
 
     def install_step(self):
         """
         Custom installation procedure for OpenCV: also copy IPP library into lib subdirectory of installation directory.
         """
-        super(EB_OpenCV, self).install_step()
+        super().install_step()
 
         if 'WITH_IPP=ON' in self.cfg['configopts']:
             common_dir = os.path.join('3rdparty', 'ippicv', 'ippicv_lnx')
@@ -237,18 +252,15 @@ class EB_OpenCV(CMakeMake):
         if get_software_root('Python'):
             custom_commands.append("python -c 'import cv2'")
 
-        super(EB_OpenCV, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom extra module file entries for OpenCV."""
-        txt = super(EB_OpenCV, self).make_module_extra()
+        txt = super().make_module_extra()
 
         if LooseVersion(self.version) >= LooseVersion('4.0'):
             txt += self.module_generator.prepend_paths('CPATH', os.path.join('include', 'opencv4'))
 
         txt += self.module_generator.prepend_paths('CLASSPATH', os.path.join('share', 'OpenCV', 'java'))
-
-        if os.path.exists(os.path.join(self.installdir, self.pylibdir)):
-            txt += self.module_generator.prepend_paths('PYTHONPATH', self.pylibdir)
 
         return txt

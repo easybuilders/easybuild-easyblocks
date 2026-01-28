@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,20 +48,32 @@ import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
+from easybuild.framework.easyconfig import CUSTOM
+from easybuild.toolchains.compiler.fujitsu import TC_CONSTANT_FUJITSU
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, mkdir, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext, get_cpu_architecture, AARCH64, POWER
 
 
 class EB_OpenFOAM(EasyBlock):
     """Support for building and installing OpenFOAM."""
 
+    @staticmethod
+    def extra_options():
+        """Custom easyconfig parameter specific to OpenFOAM."""
+        extra_vars = EasyBlock.extra_options()
+        extra_vars.update({
+            'sanity_check_motorbike': [True, "Should the motorbike sanity check run?", CUSTOM],
+            'sanity_check_oversubscribe': [True, "Should the motorbike sanity check use oversubscription?", CUSTOM],
+        })
+        return extra_vars
+
     def __init__(self, *args, **kwargs):
         """Specify that OpenFOAM should be built in install dir."""
 
-        super(EB_OpenFOAM, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.build_in_installdir = True
 
@@ -114,7 +126,7 @@ class EB_OpenFOAM(EasyBlock):
 
     def extract_step(self):
         """Extract sources as expected by the OpenFOAM(-Extend) build scripts."""
-        super(EB_OpenFOAM, self).extract_step()
+        super().extract_step()
         # make sure that the expected subdir is really there after extracting
         # if not, the build scripts (e.g., the etc/bashrc being sourced) will likely fail
         openfoam_installdir = os.path.join(self.installdir, self.openfoamdir)
@@ -143,7 +155,7 @@ class EB_OpenFOAM(EasyBlock):
     def patch_step(self, beginpath=None):
         """Adjust start directory and start path for patching to correct directory."""
         self.cfg['start_dir'] = os.path.join(self.installdir, self.openfoamdir)
-        super(EB_OpenFOAM, self).patch_step(beginpath=self.cfg['start_dir'])
+        super().patch_step(beginpath=self.cfg['start_dir'])
 
     def configure_step(self):
         """Configure OpenFOAM build by setting appropriate environment variables."""
@@ -271,7 +283,7 @@ class EB_OpenFOAM(EasyBlock):
         env.setvar("WM_COMPILE_OPTION", self.build_type)
 
         # parallel build spec
-        env.setvar("WM_NCOMPPROCS", str(self.cfg['parallel']))
+        env.setvar("WM_NCOMPPROCS", str(self.cfg.parallel))
 
         # OpenFOAM >= 3.0.0 can use 64 bit integers
         if not self.is_extend and self.looseversion >= LooseVersion('3.0'):
@@ -283,8 +295,8 @@ class EB_OpenFOAM(EasyBlock):
         # make sure lib/include dirs for dependencies are found
         openfoam_extend_v3 = self.is_extend and self.looseversion >= LooseVersion('3.0')
         if self.looseversion < LooseVersion("2") or openfoam_extend_v3:
-            self.log.debug("List of deps: %s" % self.cfg.dependencies())
-            for dep in self.cfg.dependencies():
+            self.log.debug("List of deps: %s" % self.cfg.dependencies(runtime_only=True))
+            for dep in self.cfg.dependencies(runtime_only=True):
                 dep_name = dep['name'].upper(),
                 dep_root = get_software_root(dep['name'])
                 env.setvar("%s_SYSTEM" % dep_name, "1")
@@ -347,11 +359,11 @@ class EB_OpenFOAM(EasyBlock):
             'makecmd': os.path.join(self.builddir, self.openfoamdir, '%s'),
         }
         if self.is_extend and self.looseversion >= LooseVersion('3.0'):
-            qa = {
-                "Proceed without compiling ParaView [Y/n]": 'Y',
-                "Proceed without compiling cudaSolvers? [Y/n]": 'Y',
-            }
-            noqa = [
+            qa = [
+                (r"Proceed without compiling ParaView \[Y/n\]", 'Y'),
+                (r"Proceed without compiling cudaSolvers\? \[Y/n\]", 'Y'),
+            ]
+            no_qa = [
                 ".* -o .*",
                 "checking .*",
                 "warning.*",
@@ -362,19 +374,20 @@ class EB_OpenFOAM(EasyBlock):
                 r"\s*\^\s*",  # warning indicator
                 "Cleaning .*",
             ]
-            run_cmd_qa(cmd_tmpl % 'Allwmake.firstInstall', qa, no_qa=noqa, log_all=True, simple=True, maxhits=500)
+            run_shell_cmd(cmd_tmpl % 'Allwmake.firstInstall', qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=500)
         else:
             cmd = 'Allwmake'
             if self.looseversion > LooseVersion('1606'):
                 # use Allwmake -log option if possible since this can be useful during builds, but also afterwards
                 cmd += ' -log'
-
-                if self.looseversion >= LooseVersion('2406'):
+                # source tarball for OpenFOAM v2412 does not include plugins,
+                # see discussion in https://github.com/easybuilders/easybuild-easyconfigs/pull/24663
+                if self.looseversion >= LooseVersion('2406') and self.version != 'v2412':
                     # Also build the plugins
                     cmd += ' && %s bash %s -log' % (self.cfg['prebuildopts'],
                                                     os.path.join(self.builddir, self.openfoamdir, 'Allwmake-plugins'))
 
-            run_cmd(cmd_tmpl % cmd, log_all=True, simple=True, log_output=True)
+            run_shell_cmd(cmd_tmpl % cmd)
 
     def det_psubdir(self):
         """Determine the platform-specific installation directory for OpenFOAM."""
@@ -485,7 +498,9 @@ class EB_OpenFOAM(EasyBlock):
         # modifyMesh is no longer there in OpenFOAM >= 12
         if self.is_dot_org and self.looseversion >= LooseVersion("12"):
             tools.remove("modifyMesh")
-        if self.looseversion >= LooseVersion('2406'):
+        # source tarball for OpenFOAM v2412 does not include plugins,
+        # see discussion in https://github.com/easybuilders/easybuild-easyconfigs/pull/24663
+        if self.looseversion >= LooseVersion('2406') and self.version != 'v2412':
             # built from the plugins
             tools.append("cartesianMesh")
 
@@ -540,7 +555,19 @@ class EB_OpenFOAM(EasyBlock):
 
         # run motorBike tutorial case to ensure the installation is functional (if it's available);
         # only for recent (>= v6.0) versions of openfoam.org variant
-        if self.is_dot_org and self.looseversion >= LooseVersion('6'):
+        # could be turned off by set 'sanity_check_motorbike' to False (default True)
+        if self.is_dot_org and self.looseversion >= LooseVersion('6') and self.cfg['sanity_check_motorbike']:
+
+            if (self.cfg['sanity_check_oversubscribe'] and
+                    self.toolchain.mpi_family() == toolchain.OPENMPI and
+                    self.toolchain.comp_family() != TC_CONSTANT_FUJITSU):
+                # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
+                # to avoid that motorBike fails if only a handful of cores are available
+                pre_cmds = [
+                    "export OMPI_MCA_rmaps_base_oversubscribe=true",
+                    "export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe",
+                ]
+
             openfoamdir_path = os.path.join(self.installdir, self.openfoamdir)
             if self.looseversion <= LooseVersion('10'):
                 motorbike_path = os.path.join(
@@ -561,54 +588,54 @@ class EB_OpenFOAM(EasyBlock):
 
             if self.looseversion <= LooseVersion('10'):
                 cmds = [
-                        "cp -a %s %s" % (motorbike_path, test_dir),
-                        # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
-                        "chmod -R +w %s" % test_dir,
-                        "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
-                        "source $FOAM_BASH",
-                        ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
-                        "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
-                        "runApplication surfaceFeatures",
-                        "runApplication blockMesh",
-                        "runApplication decomposePar -copyZero",
-                        "runParallel snappyHexMesh -overwrite",
-                        "runParallel patchSummary",
-                        "runParallel potentialFoam",
-                        "runParallel simpleFoam",
-                        "runApplication reconstructParMesh -constant",
-                        "runApplication reconstructPar -latestTime",
-                        "cd %s" % self.builddir,
-                        "rm -r %s" % test_dir,
+                    "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
+                    # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
+                    "chmod -R +w %s" % test_dir,
+                    "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                    "source $FOAM_BASH",
+                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
+                    "runApplication surfaceFeatures",
+                    "runApplication blockMesh",
+                    "runApplication decomposePar -copyZero",
+                    "runParallel snappyHexMesh -overwrite",
+                    "runParallel patchSummary",
+                    "runParallel potentialFoam",
+                    "runParallel simpleFoam",
+                    "runApplication reconstructParMesh -constant",
+                    "runApplication reconstructPar -latestTime",
+                    "cd %s" % self.builddir,
+                    "rm -r %s" % test_dir,
                 ]
             # v11 and above run the motorBike example differently
             else:
                 cmds = [
-                        "cp -a %s %s" % (motorbike_path, test_dir),
-                        # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
-                        "chmod -R +w  %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
-                        "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
-                        "source $FOAM_BASH",
-                        ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
-                        "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
-                        "runApplication blockMesh",
-                        "runApplication decomposePar -copyZero",
-                        "find . -type f -iname '*level*' -exec rm {} \\;",
-                        "runParallel renumberMesh -overwrite",
-                        "runParallel potentialFoam -initialiseUBCs",
-                        "runParallel simpleFoam",
-                        "cd %s" % self.builddir,
-                        "rm -r %s" % test_dir,
+                    "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
+                    # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
+                    "chmod -R +w  %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                    "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                    "source $FOAM_BASH",
+                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
+                    "runApplication blockMesh",
+                    "runApplication decomposePar -copyZero",
+                    "find . -type f -iname '*level*' -exec rm {} \\;",
+                    "runParallel renumberMesh -overwrite",
+                    "runParallel potentialFoam -initialiseUBCs",
+                    "runParallel simpleFoam",
+                    "cd %s" % self.builddir,
+                    "rm -r %s" % test_dir,
                 ]
             # all commands need to be run in a single shell command,
             # because sourcing $FOAM_BASH sets up environment
-            custom_commands.append(' && '.join(cmds))
+            custom_commands.append(' && '.join(pre_cmds + cmds))
 
-        super(EB_OpenFOAM, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self, altroot=None, altversion=None):
         """Define extra environment variables required by OpenFOAM"""
 
-        txt = super(EB_OpenFOAM, self).make_module_extra()
+        txt = super().make_module_extra()
 
         env_vars = [
             # Set WM_COMPILE_OPTION in the module file

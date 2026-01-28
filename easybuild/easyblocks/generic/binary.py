@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,7 +40,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, mkdir, remove_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 PREPEND_TO_PATH_DEFAULT = ['']
@@ -70,7 +70,7 @@ class Binary(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialize Binary-specific variables."""
-        super(Binary, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.actual_installdir = None
         if self.cfg.get('staged_install', False):
@@ -79,11 +79,17 @@ class Binary(EasyBlock):
             mkdir(self.installdir, parents=True)
             self.log.info("Performing staged installation via %s" % self.installdir)
 
+        prepend_to_path = self.cfg.get('prepend_to_path', PREPEND_TO_PATH_DEFAULT)
+        if isinstance(prepend_to_path, str):
+            prepend_to_path = [prepend_to_path]
+        if prepend_to_path:
+            self.module_load_environment.PATH.extend(prepend_to_path)
+
     def extract_step(self):
         """Copy all source files to the build directory"""
 
         if self.cfg.get('extract_sources', False):
-            super(Binary, self).extract_step()
+            super().extract_step()
         else:
             # required for correctly guessing start directory
             self.src[0]['finalpath'] = self.builddir
@@ -126,12 +132,12 @@ class Binary(EasyBlock):
                 for install_cmd in install_cmds:
                     cmd = ' '.join([self.cfg['preinstallopts'], install_cmd, self.cfg['installopts']])
                     self.log.info("Running install command for %s: '%s'..." % (self.name, cmd))
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
             else:
                 raise EasyBuildError("Incorrect value type for install_cmds, should be list or tuple: ",
                                      install_cmds)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Copy installation to actual installation directory in case of a staged installation."""
         if self.cfg.get('staged_install', False):
             staged_installdir = self.installdir
@@ -145,19 +151,9 @@ class Binary(EasyBlock):
                 raise EasyBuildError("Failed to move staged install from %s to %s: %s",
                                      staged_installdir, self.installdir, err)
 
-        super(Binary, self).post_install_step()
+        super().post_processing_step()
 
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""
         self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Binary)",
                       self.__class__.__name__)
-
-    def make_module_extra(self):
-        """Add the specified directories to the PATH."""
-
-        txt = super(Binary, self).make_module_extra()
-        prepend_to_path = self.cfg.get('prepend_to_path', PREPEND_TO_PATH_DEFAULT)
-        if prepend_to_path:
-            txt += self.module_generator.prepend_paths("PATH", prepend_to_path)
-        self.log.debug("make_module_extra added this: %s" % txt)
-        return txt

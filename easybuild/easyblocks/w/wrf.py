@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,8 +47,8 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir
 from easybuild.tools.filetools import patch_perl_script_autoflush, read_file, which
 from easybuild.tools.filetools import remove_file, symlink
-from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd, run_cmd_qa
+from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.run import run_shell_cmd
 
 
 def det_wrf_subdir(wrf_version):
@@ -69,12 +69,16 @@ class EB_WRF(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to WRF."""
-        super(EB_WRF, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.build_in_installdir = True
         self.comp_fam = None
 
         self.wrfsubdir = det_wrf_subdir(self.version)
+
+        main_dir = os.path.join(self.wrfsubdir, 'main')
+        self.module_load_environment.LD_LIBRARY_PATH = main_dir
+        self.module_load_environment.PATH = main_dir
 
     @staticmethod
     def extra_options():
@@ -97,6 +101,14 @@ class EB_WRF(EasyBlock):
 
         # define $NETCDF* for netCDF dependency (used when creating WRF module file)
         set_netcdf_env_vars(self.log)
+
+        if LooseVersion(self.version) >= '4.5.2':
+            # Prior to 4.5.2 we required patches for separate netCDF
+            # on newer versions it has a separate variable for C-netCDF
+            netcdf = get_software_root('netCDF')
+            netcdff = get_software_root('netCDF-Fortran')
+            env.setvar('NETCDF_C', netcdf)
+            env.setvar('NETCDF', netcdff)
 
         # HDF5 (optional) dependency
         hdf5 = get_software_root('HDF5')
@@ -137,7 +149,7 @@ class EB_WRF(EasyBlock):
         # enable support for large file support in netCDF
         env.setvar('WRFIO_NCD_LARGE_FILE_SUPPORT', '1')
 
-        # patch arch/Config_new.pl script, so that run_cmd_qa receives all output to answer questions
+        # patch arch/Config_new.pl script, so that run_shell_cmd receives all output to answer questions
         if LooseVersion(self.version) < LooseVersion('4.0'):
             patch_perl_script_autoflush(os.path.join(wrfdir, "arch", "Config_new.pl"))
 
@@ -146,7 +158,11 @@ class EB_WRF(EasyBlock):
         self.comp_fam = self.toolchain.comp_family()
         if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
-                build_type_option = r"INTEL\ \(ifort\/icc\)"
+                if (get_software_root('intel-compilers') and
+                        LooseVersion(get_software_version('intel-compilers')) >= '2024'):
+                    build_type_option = r"INTEL \(ifx\/icx\)"
+                else:
+                    build_type_option = r"INTEL\ \(ifort\/icc\)"
             else:
                 build_type_option = "Linux x86_64 i486 i586 i686, ifort compiler with icc"
 
@@ -190,31 +206,29 @@ class EB_WRF(EasyBlock):
 
         # run configure script
         cmd = ' '.join([self.cfg['preconfigopts'], './configure', self.cfg['configopts']])
-        qa = {
+        qa = [
             # named group in match will be used to construct answer
-            "Compile for nesting? (1=basic, 2=preset moves, 3=vortex following) [default 1]:": "1",
-            "Compile for nesting? (0=no nesting, 1=basic, 2=preset moves, 3=vortex following) [default 0]:": "0"
-        }
+            (r"Compile for nesting\? \(1=basic, .*\) \[default 1\]:", '1'),
+            (r"Compile for nesting\? \(0=no nesting, .*\) \[default 0\]:", '0'),
+            # named group in match will be used to construct answer
+            (r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question, "%(nr)s"),
+        ]
         no_qa = [
             "testing for fseeko and fseeko64",
             r"If you wish to change the default options, edit the file:[\s\n]*arch/configure_new.defaults"
         ]
-        std_qa = {
-            # named group in match will be used to construct answer
-            r"%s.*\n(.*\n)*Enter selection\s*\[[0-9]+-[0-9]+\]\s*:" % build_type_question: "%(nr)s",
-        }
 
-        run_cmd_qa(cmd, qa, no_qa=no_qa, std_qa=std_qa, log_all=True, simple=True, maxhits=200)
+        run_shell_cmd(cmd, qa_patterns=qa, qa_wait_patterns=no_qa, qa_timeout=200)
 
         cfgfile = 'configure.wrf'
 
         # make sure correct compilers are being used
         comps = {
-            'SCC': os.getenv('CC'),
-            'SFC': os.getenv('F90'),
-            'CCOMP': os.getenv('CC'),
-            'DM_FC': os.getenv('MPIF90'),
-            'DM_CC': "%s -DMPI2_SUPPORT" % os.getenv('MPICC'),
+            'SCC': os.environ['CC'],
+            'SFC': os.environ['F90'],
+            'CCOMP': os.environ['CC'],
+            'DM_FC': os.environ['MPIF90'],
+            'DM_CC': "%s -DMPI2_SUPPORT" % os.environ['MPICC'],
         }
         regex_subs = [(r"^(%s\s*=\s*).*$" % k, r"\1 %s" % v) for (k, v) in comps.items()]
         # fix hardcoded preprocessor
@@ -233,16 +247,20 @@ class EB_WRF(EasyBlock):
             if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
 
                 # -O3 -heap-arrays is required to resolve compilation error
-                for envvar in ['CFLAGS', 'FFLAGS']:
-                    val = os.getenv(envvar)
+                envars = ['FFLAGS']
+                if comps['SCC'] != 'icx':  # -heap-arrays not supported by LLVM-based icx
+                    envars.append('CFLAGS')
+                for envvar in envars:
+                    val = os.environ[envvar]
                     if '-O3' in val:
-                        env.setvar(envvar, '%s -heap-arrays' % val)
-                        self.log.info("Updated %s to '%s'" % (envvar, os.getenv(envvar)))
+                        val += ' -heap-arrays'
+                        env.setvar(envvar, val)
+                        self.log.info("Updated %s to '%s'" % (envvar, val))
 
             # replace -O3 with desired optimization options
             regex_subs = [
-                (r"^(FCOPTIM.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.getenv('FFLAGS')),
-                (r"^(CFLAGS_LOCAL.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.getenv('CFLAGS')),
+                (r"^(FCOPTIM.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.environ['FFLAGS']),
+                (r"^(CFLAGS_LOCAL.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.environ['CFLAGS']),
             ]
             apply_regex_substitutions(cfgfile, regex_subs)
 
@@ -250,10 +268,7 @@ class EB_WRF(EasyBlock):
         """Build and install WRF and testcases using provided compile script."""
 
         # enable parallel build
-        par = self.cfg['parallel']
-        self.par = ''
-        if par:
-            self.par = "-j %s" % par
+        self.par = f'-j {self.cfg.parallel}' if self.cfg.parallel else ''
 
         # fix compile script shebang to use provided tcsh
         cmpscript = os.path.join(self.start_dir, 'compile')
@@ -279,12 +294,12 @@ class EB_WRF(EasyBlock):
 
         # build wrf
         cmd = "%s %s wrf" % (cmpscript, self.par)
-        run_cmd(cmd, log_all=True, simple=True, log_output=True)
+        run_shell_cmd(cmd)
 
         # build two testcases to produce ideal.exe and real.exe
         for test in ["em_real", "em_b_wave"]:
             cmd = "%s %s %s" % (cmpscript, self.par, test)
-            run_cmd(cmd, log_all=True, simple=True, log_output=True)
+            run_shell_cmd(cmd)
 
     def test_step(self):
         """Build and run tests included in the WRF distribution."""
@@ -326,16 +341,19 @@ class EB_WRF(EasyBlock):
             # determine number of MPI ranks to use in tests (1/2 of available processors + 1);
             # we need to limit max number of MPI ranks (8 is too high for some tests, 4 is OK),
             # since otherwise run may fail because domain size is too small
-            n_mpi_ranks = min(self.cfg['parallel'] // 2 + 1, 4)
+            n_mpi_ranks = min(self.cfg.parallel // 2 + 1, 4)
 
             # prepare run command
 
             # stack limit needs to be set to unlimited for WRF to work well
+            test_cmd = "ulimit -s unlimited "
+            pretestopts = self.cfg['pretestopts']
             if self.cfg['buildtype'] in self.parallel_build_types:
-                test_cmd = "ulimit -s unlimited && %s && %s" % (self.toolchain.mpi_cmd_for("./ideal.exe", 1),
-                                                                self.toolchain.mpi_cmd_for("./wrf.exe", n_mpi_ranks))
+                test_cmd += f' && {pretestopts} {self.toolchain.mpi_cmd_for("./ideal.exe", 1)}'
+                test_cmd += f' && {pretestopts} {self.toolchain.mpi_cmd_for("./wrf.exe", n_mpi_ranks)}'
             else:
-                test_cmd = "ulimit -s unlimited && ./ideal.exe && ./wrf.exe >rsl.error.0000 2>&1"
+                test_cmd += f' && {pretestopts} ./ideal.exe'
+                test_cmd += f' && {pretestopts} ./wrf.exe >rsl.error.0000 2>&1'
 
             # regex to check for successful test run
             re_success = re.compile("SUCCESS COMPLETE WRF")
@@ -344,7 +362,7 @@ class EB_WRF(EasyBlock):
                 """Run a single test and check for success."""
 
                 # run test
-                (_, ec) = run_cmd(test_cmd, log_all=False, log_ok=False, simple=False)
+                res = run_shell_cmd(test_cmd, fail_on_error=False)
 
                 # read output file
                 out_fn = 'rsl.error.0000'
@@ -353,7 +371,7 @@ class EB_WRF(EasyBlock):
                 else:
                     out_txt = 'FILE NOT FOUND'
 
-                if ec == 0:
+                if res.exit_code == 0:
                     # exit code zero suggests success, but let's make sure...
                     if re_success.search(out_txt):
                         self.log.info("Test %s ran successfully (found '%s' in %s)", test, re_success.pattern, out_fn)
@@ -362,7 +380,7 @@ class EB_WRF(EasyBlock):
                                              test, re_success.pattern, out_fn, out_txt)
                 else:
                     # non-zero exit code means trouble, show command output
-                    raise EasyBuildError("Test %s failed with exit code %s, output: %s", test, ec, out_txt)
+                    raise EasyBuildError("Test %s failed with exit code %s, output: %s", test, res.exit_code, out_txt)
 
                 # clean up stuff that gets in the way
                 fn_prefs = ["wrfinput_", "namelist.output", "wrfout_", "rsl.out.", "rsl.error."]
@@ -379,7 +397,7 @@ class EB_WRF(EasyBlock):
 
                 # build and install
                 cmd = "./compile %s %s" % (self.par, test)
-                run_cmd(cmd, log_all=True, simple=True)
+                run_shell_cmd(cmd)
 
                 # run test
                 try:
@@ -431,22 +449,13 @@ class EB_WRF(EasyBlock):
             'dirs': [os.path.join(self.wrfsubdir, d) for d in ['main', 'run']],
         }
 
-        super(EB_WRF, self).sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_req_guess(self):
-        """Path-like environment variable updates specific to WRF."""
-
-        maindir = os.path.join(self.wrfsubdir, 'main')
-        return {
-            'PATH': [maindir],
-            'LD_LIBRARY_PATH': [maindir],
-            'MANPATH': [],
-        }
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add netCDF environment variables to module file."""
-        txt = super(EB_WRF, self).make_module_extra()
-        for netcdf_var in ['NETCDF', 'NETCDFF']:
-            if os.getenv(netcdf_var) is not None:
-                txt += self.module_generator.set_environment(netcdf_var, os.getenv(netcdf_var))
+        txt = super().make_module_extra()
+        for netcdf_var in ['NETCDF', 'NETCDF_C', 'NETCDFF']:
+            val = os.getenv(netcdf_var)
+            if val is not None:
+                txt += self.module_generator.set_environment(netcdf_var, val)
         return txt

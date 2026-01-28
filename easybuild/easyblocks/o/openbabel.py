@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,7 +31,6 @@ EasyBuild support for OpenBabel, implemented as an easyblock
 import glob
 import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
@@ -48,13 +47,18 @@ class EB_OpenBabel(CMakeMake):
         extra_vars.update({
             'with_python_bindings': [True, "Try to build Open Babel's Python bindings. (-DPYTHON_BINDINGS=ON)", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize OpenBabel-specific variables."""
-        super(EB_OpenBabel, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.with_python = False
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare step, modified to ensure install dir is deleted before building"""
+        super().prepare_step(*args, **kwargs)
+        # Needs to delete the install dir to avoid segfaults when doing the pybind tests
+        self.make_installdir()
 
     def configure_step(self):
         """Custom configure procedure for OpenBabel."""
@@ -95,7 +99,7 @@ class EB_OpenBabel(CMakeMake):
         else:
             self.log.info("Not using Eigen")
 
-        super(EB_OpenBabel, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for OpenBabel."""
@@ -103,19 +107,11 @@ class EB_OpenBabel(CMakeMake):
             'files': ['bin/obabel', 'lib/libopenbabel.%s' % get_shared_lib_ext()],
             'dirs': ['share/openbabel'],
         }
-        super(EB_OpenBabel, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom variables for OpenBabel module."""
-        txt = super(EB_OpenBabel, self).make_module_extra()
-        if self.with_python:
-            if LooseVersion(self.version) >= LooseVersion('2.4'):
-                # since OpenBabel 2.4.0 the Python bindings under
-                # ${PREFIX}/lib/python2.7/site-packages  rather than ${PREFIX}/lib
-                ob_pythonpath = det_pylibdir()
-            else:
-                ob_pythonpath = 'lib'
-            txt += self.module_generator.prepend_paths('PYTHONPATH', [ob_pythonpath])
+        txt = super().make_module_extra()
         babel_libdir = os.path.join(self.installdir, 'lib', 'openbabel', self.version)
         txt += self.module_generator.set_environment('BABEL_LIBDIR', babel_libdir)
         babel_datadir = os.path.join(self.installdir, 'share', 'openbabel', self.version)

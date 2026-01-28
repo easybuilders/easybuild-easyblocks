@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,8 +43,7 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_file, read_file, write_file
-from easybuild.tools.py2vs3 import string_type
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_MATLAB(PackedBinary):
@@ -52,7 +51,7 @@ class EB_MATLAB(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to MATLAB."""
-        super(EB_MATLAB, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.comp_fam = None
         self.configfile = os.path.join(self.builddir, 'my_installer_input.txt')
         self.outputfile = os.path.join(self.builddir, 'my_installer_output.txt')
@@ -167,7 +166,7 @@ class EB_MATLAB(PackedBinary):
             except KeyError:
                 raise EasyBuildError("The MATLAB install key is not set. This can be set either with the environment "
                                      "variable EB_MATLAB_KEY or by the easyconfig variable 'key'.")
-        if isinstance(keys, string_type):
+        if isinstance(keys, str):
             keys = keys.split(',')
 
         # Compile the installation key regex outside of the loop
@@ -186,7 +185,7 @@ class EB_MATLAB(PackedBinary):
             except IOError as err:
                 raise EasyBuildError("Failed to update config file %s: %s", self.configfile, err)
 
-            (out, _) = run_cmd(cmd, log_all=True, simple=False)
+            res = run_shell_cmd(cmd)
 
             # check installer output for known signs of trouble
             patterns = [
@@ -201,9 +200,9 @@ class EB_MATLAB(PackedBinary):
 
             for pattern in patterns:
                 regex = re.compile(pattern, re.I)
-                if regex.search(out):
+                if regex.search(res.output):
                     raise EasyBuildError("Found error pattern '%s' in output of installation command '%s': %s",
-                                         regex.pattern, cmd, out)
+                                         regex.pattern, cmd, res.output)
                 with open(self.outputfile) as f:
                     if regex.search(f.read()):
                         raise EasyBuildError("Found error pattern '%s' in output file of installer at %s",
@@ -215,11 +214,11 @@ class EB_MATLAB(PackedBinary):
             'files': ["bin/matlab", "bin/glnxa64/MATLAB", "toolbox/local/classpath.txt"],
             'dirs': ["java/jar"],
         }
-        super(EB_MATLAB, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
-        txt = super(EB_MATLAB, self).make_module_extra()
+        txt = super().make_module_extra()
 
         if self.cfg['java_options']:
             txt += self.module_generator.set_environment('_JAVA_OPTIONS', self.cfg['java_options'])

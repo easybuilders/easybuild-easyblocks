@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -29,7 +29,7 @@ EasyBuild support for OCaml packages, implemented as an easyblock
 """
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class OCamlPackage(ExtensionEasyBlock):
@@ -39,11 +39,11 @@ class OCamlPackage(ExtensionEasyBlock):
         """Raise error when configure step is run: installing OCaml packages stand-alone is not supported (yet)"""
         raise EasyBuildError("Installing OCaml packages stand-alone is not supported (yet)")
 
-    def run(self):
+    def install_extension(self):
         """Perform OCaml package installation (as extension)."""
         # install using 'opam install'
-        run_cmd("eval `opam config env` && opam install -yv %s.%s" % (self.name, self.version))
+        run_shell_cmd("eval `opam config env` && opam install -yv %s.%s" % (self.name, self.version))
 
         # 'opam pin add' fixes the version of the package
         # see https://opam.ocaml.org/doc/Usage.html#opampin
-        run_cmd("eval `opam config env` && opam pin -yv add %s %s" % (self.name, self.version))
+        run_shell_cmd("eval `opam config env` && opam pin -yv add %s %s" % (self.name, self.version))

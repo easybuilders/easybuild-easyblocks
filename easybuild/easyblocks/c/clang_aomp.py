@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -65,7 +65,7 @@ class EB_Clang_minus_AOMP(Bundle):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_Clang_minus_AOMP, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # List of LLVM target architectures to build for, extended in the 'prepare_step'
         self.target_archs = ['AMDGPU']
@@ -100,7 +100,7 @@ class EB_Clang_minus_AOMP(Bundle):
         """
         Prepare build environment
         """
-        super(EB_Clang_minus_AOMP, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # Detect CPU architecture and setup build targets for LLVM
         cpu_arch = get_cpu_architecture()
@@ -134,7 +134,7 @@ class EB_Clang_minus_AOMP(Bundle):
         """
         Go through each component and setup configuration for the later Bundle install step
         """
-        super(EB_Clang_minus_AOMP, self).configure_step()
+        super().configure_step()
 
         # Ensure necessary libraries are downloaded and can be found
         device_lib_dir_pattern = os.path.join(self.builddir, 'ROCm-Device-Libs-*')
@@ -145,7 +145,7 @@ class EB_Clang_minus_AOMP(Bundle):
             raise EasyBuildError("Could not find 'ROCm-Device-Libs' source directory in %s", self.builddir)
 
         num_comps = len(self.cfg['components'])
-        for idx, comp in enumerate(self.comp_cfgs):
+        for idx, (comp, _) in enumerate(self.comp_instances):
             name = comp['name']
             msg = "configuring bundle component %s %s (%d/%d)..." % (name, comp['version'], idx + 1, num_comps)
             print_msg(msg)
@@ -153,7 +153,7 @@ class EB_Clang_minus_AOMP(Bundle):
                 self.cfg_method[name](comp)
                 self.log.info(msg)
             else:
-                self.log.warn("Component %s has no configure method!" % name)
+                self.log.warning("Component %s has no configure method!" % name)
 
     def sanity_check_step(self):
         """

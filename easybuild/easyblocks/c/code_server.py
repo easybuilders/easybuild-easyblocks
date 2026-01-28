@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2024 Ghent University
+# Copyright 2012-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,7 +48,7 @@ class EB_code_minus_server(PackedBinary, EasyBlock):
         else:
             raise EasyBuildError("Architecture %s is not supported for code-server on EasyBuild", myarch)
 
-        super(EB_code_minus_server, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg.template_values['mapped_arch'] = self.mapped_arch
         self.cfg.generate_template_values()
@@ -61,7 +61,7 @@ class EB_code_minus_server(PackedBinary, EasyBlock):
             # set the install command to a default
             self.log.info("For %s, using default installation command '%s'..." % (self.name, cmd))
             self.cfg['install_cmd'] = cmd
-        super(EB_code_minus_server, self).install_step()
+        super().install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for code-server."""
@@ -72,7 +72,7 @@ class EB_code_minus_server(PackedBinary, EasyBlock):
 
         custom_commands = ["code-server --help"]
 
-        res = super(EB_code_minus_server, self).sanity_check_step(
+        res = super().sanity_check_step(
             custom_paths=custom_paths,
             custom_commands=custom_commands
         )
@@ -81,5 +81,4 @@ class EB_code_minus_server(PackedBinary, EasyBlock):
 
     def make_module_extra(self):
         """Add the default directories to the PATH."""
-        txt = EasyBlock.make_module_extra(self)
-        return txt
+        return EasyBlock.make_module_extra(self)

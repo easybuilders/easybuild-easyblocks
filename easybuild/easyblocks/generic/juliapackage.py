@@ -1,5 +1,5 @@
 ##
-# Copyright 2022-2024 Vrije Universiteit Brussel
+# Copyright 2022-2025 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,7 +40,7 @@ from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.filetools import copy_dir, mkdir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.utilities import trace_msg
 
 EXTS_FILTER_JULIA_PACKAGES = ("julia -e 'using %(ext_name)s'", "")
@@ -107,14 +107,14 @@ class JuliaPackage(ExtensionEasyBlock):
         }
 
         try:
-            out, _ = run_cmd(julia_read_cmd[env_var], log_all=True, simple=False, trace=False)
+            res = run_shell_cmd(julia_read_cmd[env_var], hidden=True)
         except KeyError:
             raise EasyBuildError("Unknown Julia environment variable requested: %s", env_var)
 
         try:
-            parsed_var = ast.literal_eval(out)
+            parsed_var = ast.literal_eval(res.output)
         except SyntaxError:
-            raise EasyBuildError("Failed to parse %s from julia shell: %s", env_var, out)
+            raise EasyBuildError("Failed to parse %s from julia shell: %s", env_var, res.output)
 
         return parsed_var
 
@@ -227,9 +227,9 @@ class JuliaPackage(ExtensionEasyBlock):
             "julia -e '%s'" % julia_pkg_cmd,
             self.cfg['installopts'],
         ])
-        (out, _) = run_cmd(cmd, log_all=True, simple=False, trace=trace)
+        res = run_shell_cmd(cmd)
 
-        return out
+        return res.output
 
     def include_pkg_dependencies(self):
         """Add to installation environment all Julia packages already present in its dependencies"""
@@ -258,7 +258,7 @@ class JuliaPackage(ExtensionEasyBlock):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for Julia package installation."""
-        super(JuliaPackage, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         if get_software_root('Julia') is None:
             raise EasyBuildError("Julia not included as dependency!")
@@ -283,13 +283,13 @@ class JuliaPackage(ExtensionEasyBlock):
 
         return self.install_pkg()
 
-    def run(self):
+    def install_extension(self):
         """Install Julia package as an extension."""
 
         if not self.src:
             errmsg = "No source found for Julia package %s, required for installation. (src: %s)"
             raise EasyBuildError(errmsg, self.name, self.src)
-        ExtensionEasyBlock.run(self, unpack_src=True)
+        ExtensionEasyBlock.install_extension(self, unpack_src=True)
 
         self.prepare_julia_env()
         self.install_pkg()
@@ -317,7 +317,7 @@ class JuliaPackage(ExtensionEasyBlock):
         allowing user to add custom Julia packages while having packages in this installation available.
         See issue easybuilders/easybuild-easyconfigs#17455
         """
-        mod = super(JuliaPackage, self).make_module_extra()
+        mod = super().make_module_extra()
         if self.module_generator.SYNTAX:
             mod += JULIA_PATHS_SOFT_INIT[self.module_generator.SYNTAX]
         mod += self.module_generator.append_paths('JULIA_DEPOT_PATH', [''])
