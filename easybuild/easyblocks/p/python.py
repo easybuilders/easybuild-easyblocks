@@ -175,43 +175,39 @@ def det_installed_python_packages(names_only=True, python_cmd=None):
     return [pkg['name'] for pkg in pkgs] if names_only else pkgs
 
 
-def run_pip_list(eb_pkgs, python_cmd=None):
+def run_pip_list(pkgs, python_cmd=None):
     """
     Run pip list to verify names and versions of installed Python packages
 
-    :param eb_pkgs: list of (name, version) tuples as specified in the easyconfig
+    :param pkgs: list of package tuples (name, version) as specified in the easyconfig
     """
 
     log = fancylogger.getLogger('run_pip_list', fname=False)
 
-    if python_cmd is None:
-        python_cmd = 'python'
-
     pip_list_errors = []
 
-    msg = "Check on installed Python package names and versions with 'pip list': "
-
     try:
-        pkgs = det_installed_python_packages(names_only=False, python_cmd=python_cmd)
+        msg = "Check on installed Python package names and versions with 'pip list': "
+        pip_pkgs_dict = det_installed_python_packages(names_only=False, python_cmd=python_cmd)
+        trace_msg(msg + 'OK')
+        log.info("pip list cmd passed successfully")
     except EasyBuildError as err:
         trace_msg(msg + 'FAIL')
         pip_list_errors.append(f"pip list cmd failed:\n{err}")
 
-    trace_msg(msg + 'OK')
-    log.info("pip list cmd passed successfully")
-    pip_pkgs = {x['name']: x['version'] for x in pkgs}
+    pip_pkgs = {x['name']: x['version'] for x in pip_pkgs_dict}
 
     missing_names = []
     missing_versions = []
 
-    for name, version in eb_pkgs:
+    for name, version in pkgs:
         if name not in pip_pkgs:
             missing_names.append(name)
         elif version != pip_pkgs[name]:
             missing_versions.append(f'{name}-{version} (pip list version: {pip_pkgs[name]})')
 
     log.info(f"Found {len(missing_names)} missing names and {len(missing_versions)} missing versions "
-             f"out of {len(eb_pkgs)} packages")
+             f"out of {len(pkgs)} packages")
 
     if missing_names:
         missing_names_str = '\n'.join(missing_names)

@@ -29,7 +29,6 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 """
 import os
 
-
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES, find_python_cmd_from_ec
 from easybuild.easyblocks.generic.pythonpackage import get_pylibdirs, PythonPackage, run_pip_check, run_pip_list
@@ -231,14 +230,15 @@ class PythonBundle(Bundle):
         for param in mismatched_params:
             msg = (f"For bundles of PythonPackage extensions the {param} parameter "
                    "must be set at the top level, outside of exts_list")
-            if param == 'sanity_pip_list':
-                raise EasyBuildError(msg)
-            else:
+            if param == 'sanity_pip_check':
                 self.log.deprecated(msg, '6.0')
+            else:
+                # no deprecation warning needed for sanity_pip_list
+                raise EasyBuildError(msg)
 
         if sanity_pip_check:
             run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
 
         if sanity_pip_list:
-            eb_pkgs = [(x.name, x.version) for x in py_exts]
-            run_pip_list(eb_pkgs, python_cmd=self.python_cmd)
+            pkgs = [(x.name, x.version) for x in py_exts]
+            run_pip_list(pkgs, python_cmd=self.python_cmd)
