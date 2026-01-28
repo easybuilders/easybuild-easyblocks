@@ -291,7 +291,7 @@ class Cargo(ExtensionEasyBlock):
 
     def extract_step(self):
         """
-        Unpack the source files and populate them with required .cargo-checksum.json if offline
+        Unpack the source files and populate them with required .cargo-checksum.json
         """
         self.vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
         mkdir(self.vendor_dir)
@@ -357,15 +357,21 @@ class Cargo(ExtensionEasyBlock):
             self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
             src['finalpath'] = src_dir
 
-        if self.cfg['offline']:
-            self._setup_offline_config(git_sources)
+        if self.cfg['crates']:
+            if not self.cfg['offline']:
+                self.log.warning(f'{self.name} has crates but `offline = False`. '
+                                 'This might donwload newer versions or just fail.')
+            self._setup_vendored_crates(git_sources)
+        elif self.cfg['offline']:
+            self.log.warning(f'{self.name} specifies `offline = True` but has no crates. '
+                             'The build will fail if any crate needs to be downloaded')
 
-    def _setup_offline_config(self, git_sources):
+    def _setup_vendored_crates(self, git_sources):
         """
-        Setup the configuration required for offline builds
+        Setup the configuration required to use the vendored crates specified in the easyconfig
         :param git_sources: dict mapping (git_repo, rev) to extracted source
         """
-        self.log.info("Setting up vendored crates for offline operation")
+        self.log.info("Setting up vendored crates%s", " for offline operation" if self.cfg['offline'] else "")
 
         self.log.debug("Setting up checksum files and unpacking workspaces with virtual manifest")
         path_to_source = {src['finalpath']: src for src in self.src}
@@ -382,7 +388,7 @@ class Cargo(ExtensionEasyBlock):
                     self.log.debug(f"Computing checksum for {src['path']}.")
                     checksum = compute_checksum(src['path'], checksum_type=CHECKSUM_TYPE_SHA256)
             else:
-                self.log.debug(f'No source found for {crate_dir}. Using nul-checksum for vendoring')
+                self.log.debug(f'No source found for {crate_dir}. Using null-checksum for vendoring')
                 checksum = 'null'
             cargo_pkg_dirs = [crate_dir]  # Default case: Single crate
             # Sources might contain multiple crates/folders in a so-called "workspace".
@@ -434,10 +440,15 @@ class Cargo(ExtensionEasyBlock):
                 chkfile = os.path.join(pkg_dir, '.cargo-checksum.json')
                 write_file(chkfile, CARGO_CHECKSUM_JSON.format(checksum=checksum))
 
-        self.log.debug("Writting config.toml entry for vendored crates from crate.io")
         config_toml = os.path.join(self.cargo_home, 'config.toml')
-        # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
-        write_file(config_toml, CONFIG_TOML_SOURCE_VENDOR.format(vendor_dir=self.vendor_dir))
+        # Only "redirect" crate.io sources if any crate from it was provided.
+        if any(len(crate) == 2 for crate in self.crates):
+            self.log.debug("Writting config.toml entry for vendored crates from crate.io")
+            if not self.cfg['offline']:
+                self.log.warning("Downloads from crates.io won't be possible even though `offline = False` is set.")
+            write_file(config_toml, CONFIG_TOML_SOURCE_VENDOR.format(vendor_dir=self.vendor_dir))
+        elif not self.cfg['offline']:
+            self.log.info("No vendored crates from crate.io given, downloading from crate.io may be possible")
 
         # Tell cargo about the vendored git sources to avoid it failing with:
         # Unable to update https://github.com/[...]
