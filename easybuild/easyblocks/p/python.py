@@ -74,6 +74,8 @@ PY_ENV_VARS = {
     'PIP_DISABLE_PIP_VERSION_CHECK': 'true',
 }
 
+REGEX_PIP_NORMALIZE = re.compile(r"[-_.]+")
+
 # We want the following import order:
 # 1. Packages installed into VirtualEnv
 # 2. Packages installed into $EBPYTHONPREFIXES (e.g. our modules)
@@ -176,9 +178,13 @@ def det_installed_python_packages(names_only=True, python_cmd=None):
     return [pkg['name'] for pkg in pkgs] if names_only else pkgs
 
 
+def normalize_pip(name):
+    return REGEX_PIP_NORMALIZE.sub("-", name).lower()
+
+
 def run_pip_list(pkgs, python_cmd=None):
     """
-    Run pip list to verify names and versions of installed Python packages
+    Run pip list to verify normalized names and versions of installed Python packages
 
     :param pkgs: list of package tuples (name, version) as specified in the easyconfig
     """
@@ -196,7 +202,8 @@ def run_pip_list(pkgs, python_cmd=None):
         trace_msg(msg + 'FAIL')
         pip_list_errors.append(f"pip list cmd failed:\n{err}")
 
-    pip_pkgs = {x['name']: x['version'] for x in pip_pkgs_dict}
+    pkgs = [(normalize_pip(name), version) for name, version in pkgs]
+    pip_pkgs = {normalize_pip(x['name']): x['version'] for x in pip_pkgs_dict}
 
     missing_names = []
     missing_versions = []
