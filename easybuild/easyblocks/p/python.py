@@ -202,19 +202,19 @@ def run_pip_list(pkgs, python_cmd=None):
         trace_msg(msg + 'FAIL')
         pip_list_errors.append(f"pip list cmd failed:\n{err}")
 
-    pkgs = [(normalize_pip(name), version) for name, version in pkgs]
-    pip_pkgs = {normalize_pip(x['name']): x['version'] for x in pip_pkgs_dict}
+    normalized_pkgs = [(normalize_pip(name), version) for name, version in pkgs]
+    normalized_pip_pkgs = {normalize_pip(x['name']): x['version'] for x in pip_pkgs_dict}
 
     missing_names = []
     missing_versions = []
 
-    for name, version in pkgs:
-        if name not in pip_pkgs:
-            close_matches = difflib.get_close_matches(name, pip_pkgs.keys())
+    for name, version in normalized_pkgs:
+        if name not in normalized_pip_pkgs:
+            close_matches = difflib.get_close_matches(name, normalized_pip_pkgs.keys())
             missing_names.append(f'{name} (close matches: {close_matches})')
 
-        elif version != pip_pkgs[name]:
-            missing_versions.append(f'{name}-{version} (pip list version: {pip_pkgs[name]})')
+        elif version != normalized_pip_pkgs[name]:
+            missing_versions.append(f'{name}-{version} (pip list version: {normalized_pip_pkgs[name]})')
 
     log.info(f"Found {len(missing_names)} missing names and {len(missing_versions)} missing versions "
              f"out of {len(pkgs)} packages")
