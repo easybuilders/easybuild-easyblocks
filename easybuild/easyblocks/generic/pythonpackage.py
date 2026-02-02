@@ -138,6 +138,7 @@ if {{$shell in {{bash fish zsh}}}} {{
 }}
 """
 
+
 def click_lua_autocomplete_script(bin_name):
     """Generate Lua script for setting up autocompletion for Click-based command line tools."""
     bin_name_nomin = bin_name.replace('-', '_')
@@ -149,6 +150,7 @@ def click_lua_autocomplete_script(bin_name):
     )
     return lua_script
 
+
 def click_tcl_autocomplete_script(bin_name):
     """"Generate Tcl script for setting up autocompletion for Click-based command line tools."""
     bin_name_nomin = bin_name.replace('-', '_')
@@ -159,6 +161,7 @@ def click_tcl_autocomplete_script(bin_name):
         _click_bin_envvar=click_bin_envvar,
     )
     return tcl_script
+
 
 def det_python_version(python_cmd):
     """Determine version of specified 'python' command."""
@@ -480,8 +483,8 @@ class PythonPackage(ExtensionEasyBlock):
                                "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'click_autocomplete_bins': [None, "List of command line tools installed by the package that use "
-                                                "the 'click' package and for which autocompletion scripts should be "
-                                                "generated (default: None)", CUSTOM],
+                                              "the 'click' package and for which autocompletion scripts should be "
+                                              "generated (default: None)", CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected. "
                                   "Defaults to True unless 'use_pip_for_deps' or 'use_pip_requirement' is True.",
                                   CUSTOM],
