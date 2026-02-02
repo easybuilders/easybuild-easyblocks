@@ -1133,6 +1133,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
 
         success, fail_msg = True, ''
+        custom_commands = kwargs.pop('custom_commands', [])
 
         # load module early ourselves rather than letting parent sanity_check_step method do so,
         # since custom actions taken below require that environment is set up properly already
@@ -1222,6 +1223,14 @@ class PythonPackage(ExtensionEasyBlock):
             self.clean_up_fake_module(self.fake_mod_data)
             self.sanity_check_module_loaded = False
 
+        for click_bin in self.click_autocomplete_bins:
+            click_bin_nomin = click_bin.replace('-', '_')
+            click_bin_envvar = click_bin_nomin.upper()
+            custom_commands.append(
+                f'_{click_bin_envvar}_COMPLETE=bash_source {click_bin} | grep _{click_bin_nomin}_completion'
+            )
+
+        kwargs['custom_commands'] = custom_commands
         parent_success, parent_fail_msg = super().sanity_check_step(*args, **kwargs)
 
         if parent_fail_msg:
