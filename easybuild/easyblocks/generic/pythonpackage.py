@@ -51,6 +51,7 @@ from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, symlink, which, write_file, search_file
 from easybuild.tools.modules import ModEnvVarType, get_software_root
+from easybuild.tools.module_generator import ModuleGeneratorLua, ModuleGeneratorTcl
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.utilities import nub
 from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
@@ -74,6 +75,90 @@ PY_INSTALL_SCHEMES = [
     PY_INSTALL_SCHEME_POSIX_LOCAL,
 ]
 
+CLICK_LUA_AUTOCOMPLETE_TEMPLATE = """
+local shell = myShellName()
+
+if (shell == "bash") or (shell == "sh") then
+    execute{{cmd="eval \\"$(_{_click_bin_envvar}_COMPLETE=bash_source {_click_bin})\\"", modeA={{"load"}}}}
+    execute{{cmd="complete -r {_click_bin} && unset _{_click_bin_nomin}_completion_setup && unset \
+_{_click_bin_nomin}_completion", modeA={{"unload"}}}}
+elseif (shell == "zsh") then
+    execute{{cmd="eval \\"$(_{_click_bin_envvar}_COMPLETE=zsh_source {_click_bin})\\"", modeA={{"load"}}}}
+    execute{{cmd="unset '_comps[{_click_bin}]' && unset -f _{_click_bin_nomin}_completion", modeA={{"unload"}}}}
+elseif (shell == "fish") then
+    execute{{cmd="eval (env _{_click_bin_envvar}_COMPLETE=fish_source {_click_bin})", modeA={{"load"}}}}
+    execute{{cmd="complete -e {_click_bin} && functions --erase _{_click_bin_nomin}_completion", modeA={{"unload"}}}}
+else
+    LmodMessage("Autocompletion cannot be setup automatically for shell: " .. shell)
+end
+"""
+
+CLICK_TCL_AUTOCOMPLETE_TEMPLATE = """
+set shell [module-info shell]
+if {{$shell in {{bash fish zsh}}}} {{
+    # using "puts stdout" to send command to shell to evaluate requires EnvModules or Lmod >=8.6.18
+    if {{![info exists ::env(LMOD_VERSION)] || \\
+        [string equal [lindex [lsort -dictionary [list 8.6.18 $::env(LMOD_VERSION)]] 0] 8.6.18] \\
+    }} {{
+        switch -- [module-info mode] {{
+            load {{
+                switch -- $shell {{
+                    bash {{
+                        puts stdout "eval \\"\\$(_{_click_bin_envvar}_COMPLETE=bash_source {_click_bin})\\""
+                    }}
+                    zsh  {{
+                        puts stdout "eval \\"\\$(_{_click_bin_envvar}_COMPLETE=zsh_source {_click_bin})\\""
+                    }}
+                    fish {{
+                        puts stdout "eval (env _{_click_bin_envvar}_COMPLETE=fish_source {_click_bin})"
+                    }}
+                }}
+            }}
+            remove - unload {{
+                switch -- $shell {{
+                    bash {{
+                        puts stdout {{unset -f _{_click_bin_nomin}_completion 2>/dev/null || true}}
+                        puts stdout {{unset -f _{_click_bin_nomin}_completion_setup 2>/dev/null || true}}
+                        puts stdout {{complete -r {_click_bin}}}
+                    }}
+                    zsh  {{
+                        puts stdout {{unset -f _{_click_bin_nomin}_completion 2>/dev/null || true}}
+                        puts stdout {{unset '_comps[{_click_bin}]'}}
+                    }}
+                    fish {{
+                        puts stdout {{functions -e _{_click_bin_nomin}_completion}}
+                        puts stdout {{complete -e -c {_click_bin}}}
+                    }}
+                }}
+            }}
+        }}
+    }}
+}} else {{
+    puts stderr "Autocompletion of `aiida-pseudo` cannot be setup automatically for shell: $shell"
+}}
+"""
+
+def click_lua_autocomplete_script(bin_name):
+    """Generate Lua script for setting up autocompletion for Click-based command line tools."""
+    bin_name_nomin = bin_name.replace('-', '_')
+    click_bin_envvar = bin_name_nomin.upper()
+    lua_script = CLICK_LUA_AUTOCOMPLETE_TEMPLATE.format(
+        _click_bin=bin_name,
+        _click_bin_nomin=bin_name_nomin,
+        _click_bin_envvar=click_bin_envvar,
+    )
+    return lua_script
+
+def click_tcl_autocomplete_script(bin_name):
+    """"Generate Tcl script for setting up autocompletion for Click-based command line tools."""
+    bin_name_nomin = bin_name.replace('-', '_')
+    click_bin_envvar = bin_name_nomin.upper()
+    tcl_script = CLICK_TCL_AUTOCOMPLETE_TEMPLATE.format(
+        _click_bin=bin_name,
+        _click_bin_nomin=bin_name_nomin,
+        _click_bin_envvar=click_bin_envvar,
+    )
+    return tcl_script
 
 def det_python_version(python_cmd):
     """Determine version of specified 'python' command."""
@@ -394,6 +479,9 @@ class PythonPackage(ExtensionEasyBlock):
                                "Otherwise it will be used as-is. A value of None then skips the build step. "
                                "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
+            'click_autocomplete_bins': [None, "List of command line tools installed by the package that use "
+                                                "the 'click' package and for which autocompletion scripts should be "
+                                                "generated (default: None)", CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected. "
                                   "Defaults to True unless 'use_pip_for_deps' or 'use_pip_requirement' is True.",
                                   CUSTOM],
@@ -459,6 +547,8 @@ class PythonPackage(ExtensionEasyBlock):
         self.python_cmd = None
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
+
+        self.click_autocomplete_bins = self.cfg['click_autocomplete_bins'] or []
 
         self.install_cmd_output = ''
 
@@ -1155,3 +1245,30 @@ class PythonPackage(ExtensionEasyBlock):
                     txt += self.module_generator.prepend_paths(PYTHONPATH, path)
 
         return super().make_module_extra(*args, **kwargs) + txt
+
+    def _make_click_module_footer(self, click_bin):
+        """Generate Click autocomplete script for module footer."""
+        extra_footer = []
+        if isinstance(self.module_generator, ModuleGeneratorTcl):
+            self.log.debug("Adding Click autocomplete for '%s' in Tcl module", click_bin)
+            extra_footer.append(click_tcl_autocomplete_script(click_bin))
+        elif isinstance(self.module_generator, ModuleGeneratorLua):
+            self.log.debug("Adding Click autocomplete for '%s' in Lua module", click_bin)
+            extra_footer.append(click_lua_autocomplete_script(click_bin))
+        else:
+            self.log.warning("Not adding Click autocomplete for '%s' in unknown module syntax", click_bin)
+
+        return extra_footer
+
+    def make_module_footer(self):
+        footer = super().make_module_footer()
+
+        extra_footer = []
+        for click_bin in self.click_autocomplete_bins:
+            extra_footer += self._make_click_module_footer(click_bin)
+
+        if extra_footer:
+            extra_footer = '\n'.join(extra_footer)
+            footer += '\n' + extra_footer + '\n'
+
+        return footer
