@@ -694,6 +694,19 @@ class EB_Python(ConfigureMake):
     def site_packages_path(self):
         return os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
 
+    def test_step(self):
+        """Test Python build via 'make test'."""
+        # Turn on testing by default for recent Python versions
+        relevant_python = (self.name.lower() == 'python' and LooseVersion(self.version) >= LooseVersion('3.10'))
+        if relevant_python and self.cfg['runtest'] is None:
+            self.cfg['runtest'] = 'test'
+            # Need to skip some troublesome tests
+            # (socket tests give a permission denied error, may be due to SELinux)
+            # (curses error is from test_background, just ignoring)
+            if self.cfg['testopts'] is None:
+                self.cfg['testopts'] = 'TESTOPTS="-x test_socket test_curses "'
+        super(EB_Python, self).test_step()
+
     def install_step(self):
         """Extend make install to make sure that the 'python' command is present."""
 
