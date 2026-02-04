@@ -269,8 +269,8 @@ class Bundle(EasyBlock):
         """
         checksum_issues = super().check_checksums()
 
-        for comp, _ in self.comp_instances:
-            checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
+        for comp_cfg, _ in self.comp_instances:
+            checksum_issues.extend(self.check_checksums_for(comp_cfg, sub="of component %s" % comp_cfg['name']))
 
         return checksum_issues
 
