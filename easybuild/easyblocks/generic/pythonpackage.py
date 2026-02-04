@@ -134,7 +134,7 @@ if {{$shell in {{bash fish zsh}}}} {{
         }}
     }}
 }} else {{
-    puts stderr "Autocompletion of `aiida-pseudo` cannot be setup automatically for shell: $shell"
+    puts stderr "Autocompletion of `{_click_bin}` cannot be setup automatically for shell: $shell"
 }}
 """
 
