@@ -279,7 +279,7 @@ class Bundle(EasyBlock):
         Pre-configure step.
         At this point, dependencies are known. So transfer them to all components.
         """
-        super().prepare_step(self, *args, **kwargs)
+        super().prepare_step(*args, **kwargs)
         for _, comp in self.comp_instances:
             comp.toolchain.dependencies = self.toolchain.dependencies
 
