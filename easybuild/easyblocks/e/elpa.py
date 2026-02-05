@@ -38,6 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
 from easybuild.toolchains.compiler.inteliccifort import TC_CONSTANT_INTELCOMP
 from easybuild.toolchains.compiler.llvm_compilers import TC_CONSTANT_LLVM
+from easybuild.toolchains.compiler.nvidia_compilers import TC_CONSTANT_NVHPC
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions
@@ -218,6 +219,7 @@ class EB_ELPA(ConfigureMake):
             TC_CONSTANT_GCC: 'cpp',
             TC_CONSTANT_INTELCOMP: 'cpp',
             TC_CONSTANT_LLVM: 'clang -E',
+            TC_CONSTANT_NVHPC: 'nvc -E',
         }
         comp_fam = self.toolchain.comp_family()
         if comp_fam in cpp_dict:
