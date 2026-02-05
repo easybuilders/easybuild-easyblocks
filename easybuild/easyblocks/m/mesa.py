@@ -49,16 +49,6 @@ class EB_Mesa(MesonNinja):
 
         self.gallium_configopts = []
 
-        # Mesa fails to build with libunwind on aarch64
-        # See https://github.com/easybuilders/easybuild-easyblocks/issues/2150
-        if get_cpu_architecture() == AARCH64:
-            given_config_opts = self.cfg.get('configopts')
-            if "-Dlibunwind=true" in given_config_opts:
-                self.log.warning('libunwind not supported on aarch64, stripping from configopts!')
-                configopts_libunwind_stripped = given_config_opts.replace('-Dlibunwind=true', '-Dlibunwind=false')
-                self.cfg.set_keys({'configopts': configopts_libunwind_stripped})
-                self.log.warning('New configopts after stripping: ' + self.cfg.get('configopts'))
-
         # Check user-defined Gallium drivers
         gallium_drivers = self.get_configopt_value('gallium-drivers')
 

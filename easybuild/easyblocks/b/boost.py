@@ -141,6 +141,8 @@ class EB_Boost(EasyBlock):
                 toolset = 'gcc'
             elif self.toolchain.comp_family() == toolchain.NVHPC:
                 toolset = 'pgi'
+            elif self.toolchain.comp_family() == toolchain.LLVM:
+                toolset = 'clang'
             else:
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 

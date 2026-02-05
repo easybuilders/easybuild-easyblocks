@@ -49,7 +49,7 @@ from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
-from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, symlink, which, write_file
+from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, symlink, which, write_file, search_file
 from easybuild.tools.modules import ModEnvVarType, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.utilities import nub
@@ -404,6 +404,7 @@ class PythonPackage(ExtensionEasyBlock):
                                   "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
             'install_target': ['install', "Option to pass to setup.py", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
+            'pip_no_build_isolation': [True, "Use --no-build-isolation with pip install", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
                                    "the pip version check. Enabled by default when pip_ignore_installed=True", CUSTOM],
             'pip_verbose': [None, "Pass --verbose to 'pip install' (if pip is used). "
@@ -494,8 +495,15 @@ class PythonPackage(ExtensionEasyBlock):
 
         # avoid that lib subdirs are appended to $*LIBRARY_PATH if they don't provide libraries
         # typically, only lib/pythonX.Y/site-packages should be added to $PYTHONPATH (see make_module_extra)
-        self.module_load_environment.LD_LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
-        self.module_load_environment.LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
+        try:
+            self.module_load_environment.LD_LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
+            self.module_load_environment.LIBRARY_PATH.type = ModEnvVarType.PATH_WITH_TOP_FILES
+        except KeyError as e:
+            if self.is_extension:
+                # When used as a conda extension the 2 variables are fully removed, so no need to change their type
+                self.log.debug(f'Ignoring error when setting type of (LD_)LIBRARY_PATH module variables: {e}')
+            else:
+                raise
 
     def determine_install_command(self):
         """
@@ -617,6 +625,48 @@ class PythonPackage(ExtensionEasyBlock):
         py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
         return py_install_scheme == PY_INSTALL_SCHEME_POSIX_LOCAL and self.using_pip_install()
 
+    def should_use_ebpythonprefixes(self) -> bool:
+        """
+        Determine if we should update $EBPYTHONPREFIXES rather than $PYTHONPATH.
+        If this Python package was installed for multiple Python versions, the package is using
+        .pth files, or if we prefer it; note: although EasyBuild framework also has logic for
+        this in EasyBlock.make_module_extra, we retain full control here, since the logic is
+        slightly different.
+        """
+
+        use_ebpythonprefixes = False
+        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+
+        if 'Python' in runtime_deps:
+            self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
+            if build_option('prefer_python_search_path') == EBPYTHONPREFIXES:
+                self.log.info("Preferred Python search path is $EBPYTHONPREFIXES, so using that")
+                use_ebpythonprefixes = True
+
+        # Check if the installdir or sources contain any .pth files. For them to work correctly,
+        # Python needs these files to be in the sitedir path. While this typically works system-wide
+        # or in a venv, having Python modules in separate directories is unusual, and only having
+        # $PYTHONPATH will ignore these files.
+        # Our sitecustomize.py adds paths in $EBPYTHONPREFIXES to the sitedir path though, allowing
+        # these .pth files to work as expected. See: https://docs.python.org/3/library/site.html#module-site
+        # .pth files always should be in the site folder, so most of the path is fixed.
+        # Try the installation directory first
+        _, install_path_configuration_files = search_file([self.installdir], r".*\.pth$", silent=True)
+        if self.installdir and install_path_configuration_files:
+            self.log.info(f"Found path configuration file in installation directory '{self.installdir}'. "
+                          "Enabling $EBPYTHONPREFIXES...")
+            use_ebpythonprefixes = True
+        # If we did a test installation, check that one as well. Ensure that pypkg_test_installdir is set,
+        # since that might not be the case for sanity_check_only or module_only.
+        if self.testinstall and self.pypkg_test_installdir:
+            _, test_path_configuration_files = search_file([self.pypkg_test_installdir], r".*\.pth$", silent=True)
+            if test_path_configuration_files:
+                self.log.info("Found path configuration file in test installation directory "
+                              f"'{self.pypkg_test_installdir}'. Enabling $EBPYTHONPREFIXES...")
+                use_ebpythonprefixes = True
+
+        return self.multi_python or use_ebpythonprefixes
+
     def compose_install_command(self, prefix, extrapath=None, installopts=None):
         """Compose full install command."""
 
@@ -635,8 +685,10 @@ class PythonPackage(ExtensionEasyBlock):
                 # (see also https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support);
                 # since we provide all required dependencies already, we disable this via --no-build-isolation
                 if LooseVersion(pip_version) >= LooseVersion('10.0'):
-                    if '--no-build-isolation' not in self.cfg['installopts']:
-                        self.py_installopts.append('--no-build-isolation')
+                    pip_no_build_isolation = self.cfg.get('pip_no_build_isolation', True)
+                    no_build_isolation_flag = '--no-build-isolation'
+                    if pip_no_build_isolation and no_build_isolation_flag not in self.cfg['installopts']:
+                        self.py_installopts.append(no_build_isolation_flag)
 
             elif not self.dry_run:
                 raise EasyBuildError("Failed to determine pip version!")
@@ -773,6 +825,9 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
+        # gives CMake a hint for which Python version to use
+        env.setvar("Python3_ROOT_DIR", get_software_root('Python'))
+
         # creates log entries for python being used, for debugging
         cmd = "%(python)s -V; %(python)s -c 'import sys; print(sys.executable, sys.path)'"
         run_shell_cmd(cmd % {'python': self.python_cmd}, hidden=True)
@@ -821,7 +876,7 @@ class PythonPackage(ExtensionEasyBlock):
             out, ec = (None, None)
 
             if self.testinstall:
-                # install in test directory and export PYTHONPATH
+                # install in test directory and export PYTHONPATH and / or EBPYTHONPREFIX if we need it
 
                 try:
                     if self.pypkg_test_installdir is None:
@@ -849,7 +904,6 @@ class PythonPackage(ExtensionEasyBlock):
                 # add install location to both $PYTHONPATH and $PATH
                 abs_pylibdirs = [os.path.join(actual_installdir, pylibdir) for pylibdir in self.all_pylibdirs]
                 extrapath = "export PYTHONPATH=%s && " % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
-
                 extrapath += "export PATH=%s:$PATH && " % os.path.join(actual_installdir, 'bin')
 
                 cmd = self.compose_install_command(self.pypkg_test_installdir, extrapath=extrapath)
@@ -857,6 +911,11 @@ class PythonPackage(ExtensionEasyBlock):
 
                 self.py_post_install_shenanigans(self.pypkg_test_installdir)
 
+                # Requires having the installation in place to work correctly, since no path configuration files
+                # will be found otherwise
+                if self.should_use_ebpythonprefixes():
+                    extrapath += "export EBPYTHONPREFIXES=%s && " % os.pathsep.join([self.pypkg_test_installdir] +
+                                                                                    ['$EBPYTHONPREFIXES'])
             if self.testcmd:
                 testcmd = self.testcmd % {'python': self.python_cmd}
                 cmd = ' '.join([
@@ -1084,20 +1143,7 @@ class PythonPackage(ExtensionEasyBlock):
         """Add install path to PYTHONPATH"""
         txt = ''
 
-        # update $EBPYTHONPREFIXES rather than $PYTHONPATH
-        # if this Python package was installed for multiple Python versions, or if we prefer it;
-        # note: although EasyBuild framework also has logic for this in EasyBlock.make_module_extra,
-        # we retain full control here, since the logic is slightly different
-        use_ebpythonprefixes = False
-        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
-
-        if 'Python' in runtime_deps:
-            self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
-            if build_option('prefer_python_search_path') == EBPYTHONPREFIXES:
-                self.log.info("Preferred Python search path is $EBPYTHONPREFIXES, so using that")
-                use_ebpythonprefixes = True
-
-        if self.multi_python or use_ebpythonprefixes:
+        if self.should_use_ebpythonprefixes():
             path = ''  # EBPYTHONPREFIXES are relative to the install dir
             txt += self.module_generator.prepend_paths(EBPYTHONPREFIXES, path)
         elif self.require_python:
