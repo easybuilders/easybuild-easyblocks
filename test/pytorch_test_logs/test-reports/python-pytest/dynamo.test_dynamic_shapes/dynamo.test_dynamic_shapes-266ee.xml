@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="10" time="4.2">
+    <testcase classname="DynamicShapesMiscTests" name="test_patched_builtin_functions_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesMiscTests" name="test_proxy_frozen_dataclass_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesMiscTests" name="test_pt2_compliant_ops_are_allowed_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesMiscTests" name="test_pt2_compliant_overload_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesMiscTests" name="test_pure_python_accumulate_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesMiscTests" name="test_py_guards_mark_dynamic_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesMiscTests" name="test_python_slice_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesMiscTests" name="test_pytree_tree_flatten_unflatten_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py"/>
+    <testcase classname="DynamicShapesMiscTests" name="test_pytree_tree_leaves_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py">
+      <failure message="...">[snip]</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

@@ -56,12 +56,12 @@ class CMakeNinja(CMakeMake, MesonNinja):
 
     def configure_step(self, *args, **kwargs):
         """Configure using CMake."""
-        CMakeMake.configure_step(self, *args, **kwargs)
+        return CMakeMake.configure_step(self, *args, **kwargs)
 
     def build_step(self, *args, **kwargs):
         """Build using MesonNinja."""
-        MesonNinja.build_step(self, *args, **kwargs)
+        return MesonNinja.build_step(self, *args, **kwargs)
 
     def install_step(self, *args, **kwargs):
         """Install using MesonNinja."""
-        MesonNinja.install_step(self, *args, **kwargs)
+        return MesonNinja.install_step(self, *args, **kwargs)

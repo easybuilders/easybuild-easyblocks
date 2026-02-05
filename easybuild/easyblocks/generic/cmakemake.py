@@ -224,8 +224,15 @@ class CMakeMake(ConfigureMake):
                             if '-D%s=' % key not in cfg_configopts)
         self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
 
-    def configure_step(self, srcdir=None, builddir=None):
-        """Configure build using cmake"""
+    def configure_step(self, srcdir=None, builddir=None, fail_on_error=True, return_full_cmd_result=False):
+        """
+        Configure build using 'cmake'
+
+        :param srcdir: custom source directory to use (if None, use 'srcdir' easyconfig parameter, or start dir)
+        :param builddir: custom build directory to use (if None, 'easybuild_obj' in build directory will be used)
+        :param fail_on_error: raise error if cmake command failed with non-zero exit code (enabled by default)
+        :param return_full_cmd_result: return full result of running cmake command (not just the output)
+        """
 
         setup_cmake_env(self.toolchain)
 
@@ -262,6 +269,10 @@ class CMakeMake(ConfigureMake):
         if install_target_subdir:
             install_target = os.path.join(install_target, install_target_subdir)
         options = {'CMAKE_INSTALL_PREFIX': install_target}
+
+        if self.cmake_version >= '3.16':
+            # Avoid some software using a lower log level than the default if this is unset
+            options['CMAKE_MESSAGE_LOG_LEVEL'] = 'STATUS'
 
         if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
             # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
@@ -415,9 +426,10 @@ class CMakeMake(ConfigureMake):
                 self.cfg.get('configure_cmd'),
                 self.cfg['configopts']])
 
-        res = run_shell_cmd(command)
+        res = run_shell_cmd(command, fail_on_error=fail_on_error)
         self.check_python_paths()
-        return res.output
+
+        return res if return_full_cmd_result else res.output
 
     def check_python_paths(self):
         """Check that there are no detected Python paths outside the Python dependency provided by EasyBuild"""
