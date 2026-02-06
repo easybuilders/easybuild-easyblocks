@@ -309,6 +309,7 @@ class EB_Python(ConfigureMake):
                                              "order to make sure ctypes can still find libraries without it. "
                                              "Please make sure to add the checksum for this patch to 'checksums'.",
                                              CUSTOM],
+            'freethreading': [False, "Build without GIL", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -579,6 +580,9 @@ class EB_Python(ConfigureMake):
         if self._has_ensure_pip():
             self.cfg.update('configopts', "--with-ensurepip=" + ('no', 'upgrade')[self.install_pip])
 
+        if self.cfg['freethreading'] and LooseVersion(self.version) >= LooseVersion('3.13.0'):
+            self.cfg.update('configopts', "--disable-gil")
+
         modules_setup = os.path.join(self.cfg['start_dir'], 'Modules', 'Setup')
         if LooseVersion(self.version) < LooseVersion('3.8.0'):
             modules_setup += '.dist'
@@ -692,7 +696,8 @@ class EB_Python(ConfigureMake):
 
     @property
     def site_packages_path(self):
-        return os.path.join('lib', 'python' + self.pyshortver, 'site-packages')
+        suffix = "t" if self.cfg.get('freethreading') else ""
+        return os.path.join('lib', 'python' + self.pyshortver + suffix, 'site-packages')
 
     def install_step(self):
         """Extend make install to make sure that the 'python' command is present."""
