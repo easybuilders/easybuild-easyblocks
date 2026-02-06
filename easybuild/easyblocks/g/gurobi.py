@@ -87,8 +87,11 @@ class EB_Gurobi(Tarball):
 
     def sanity_check_step(self):
         """Custom sanity check for Gurobi."""
+        files = ['grbprobe', 'grbtune', 'gurobi_cl']
+        if LooseVersion(self.version) < LooseVersion('13'):
+            files.append('gurobi.sh')
         custom_paths = {
-            'files': ['bin/%s' % f for f in ['grbprobe', 'grbtune', 'gurobi_cl', 'gurobi.sh']],
+            'files': ['bin/%s' % f for f in files],
             'dirs': ['matlab'],
         }
 
