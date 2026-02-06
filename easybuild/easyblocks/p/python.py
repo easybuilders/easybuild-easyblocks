@@ -878,9 +878,9 @@ class EB_Python(ConfigureMake):
         pyver = 'python' + self.pyshortver
         custom_paths = {
             'files': [
-                os.path.join('bin', pyver),
+                os.path.join('bin', pyver + abiflags),
                 os.path.join('bin', 'python'),
-                os.path.join('bin', pyver + '-config'),
+                os.path.join('bin', pyver + abiflags + '-config'),
                 os.path.join('bin', 'python-config'),
                 os.path.join('lib', 'lib' + pyver + abiflags + '.' + shlib_ext),
             ],
