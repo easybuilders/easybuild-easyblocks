@@ -793,15 +793,15 @@ class EB_LLVM(CMakeMake):
             if LooseVersion(self.version) < '22':  # Force checking if these are resolved in newer LLVM versions
                 # This test assumes a native x86 runtime environment
                 new_ignore_patterns.append('Flang :: Driver/fast-math.f90')
-                
+
                 # This test is for AARCH64
                 new_ignore_patterns.append('Flang :: Driver/flang-ld-aarch64.f90')
-                
+
                 # Flang's LLVM CodeGen backend (in versions 20.1.X) does not support returning
                 # complex numbers of certain precisions (like complex(16) or complex(32)) on RISC-V target.
                 # This is a known limitation in current Flang/LLVM support.
                 new_ignore_patterns.append('Flang :: Integration/debug-complex-1.f90')
-                
+
                 # The error message of the test itself says:
                 # "
                 # Expected: succeeded
