@@ -725,7 +725,7 @@ class EB_PyTorch(PythonPackage):
                                 f"(out of {parsed_test_result.test_cnt}):")
         if parsed_test_result.failed_suites:
             failure_msgs.append('Failed tests (suites/files):')
-            failure_msgs = ['\t%s (%s)' % (suite.name, suite.summary) for suite in parsed_test_result.failed_suites]
+            failure_msgs.extend('\t%s (%s)' % (suite.name, suite.summary) for suite in parsed_test_result.failed_suites)
 
         # At the end of stdout of the test command there is a summary of failed suites.
         # We should have determined all those test suites and only those.
