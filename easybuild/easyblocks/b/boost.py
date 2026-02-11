@@ -139,6 +139,8 @@ class EB_Boost(EasyBlock):
                 toolset = 'intel-linux'
             elif self.toolchain.comp_family() == toolchain.GCC:
                 toolset = 'gcc'
+            elif self.toolchain.comp_family() == toolchain.NVHPC:
+                toolset = 'pgi'
             elif self.toolchain.comp_family() == toolchain.LLVM:
                 toolset = 'clang'
             else:
