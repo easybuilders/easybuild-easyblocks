@@ -171,7 +171,7 @@ class Cargo(ExtensionEasyBlock):
 
     @staticmethod
     def src_parameter_names():
-        return super().src_parameter_names() + ['crates']
+        return super(Cargo, Cargo).src_parameter_names() + ['crates']
 
     @staticmethod
     def crate_src_filename(pkg_name, pkg_version, _url=None, rev=None):
