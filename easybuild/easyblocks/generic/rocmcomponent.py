@@ -44,6 +44,7 @@ HIP_PLATFORM_AMD = "amd"
 HIP_PLATFORM_NVIDIA = "nvidia"
 
 TOOLCHAIN_ROCM_LLVM = "rocm-llvm"
+TOOLCHAIN_LLVM = "llvm"
 TOOLCHAIN_HIPCC = "hipcc"
 TOOLCHAIN_DEFAULT = "default"
 
@@ -56,9 +57,9 @@ class ROCmComponent(CMakeMake):
         """Extra easyconfig parameters for ROCmComponent"""
         extra_vars = CMakeMake.extra_options(extra_vars)
         extra_vars.update({
-            'compiler_toolchain': [TOOLCHAIN_ROCM_LLVM, f"Select toolchain to build the package. "
-                                                        f"Allowed values: {TOOLCHAIN_DEFAULT}, {TOOLCHAIN_ROCM_LLVM}, "
-                                                        f"{TOOLCHAIN_HIPCC}", CUSTOM],
+            'compiler_toolchain': [TOOLCHAIN_DEFAULT, f"Select toolchain to build the package. "
+                                                      f"Allowed values: {TOOLCHAIN_DEFAULT}, {TOOLCHAIN_ROCM_LLVM}, "
+                                                      f"{TOOLCHAIN_LLVM}, {TOOLCHAIN_HIPCC}", CUSTOM],
             'hip_platform': [HIP_PLATFORM_AMD, f"Specify HIP platform. "
                                                f"Allowed values: {HIP_PLATFORM_AMD}, {HIP_PLATFORM_NVIDIA}", CUSTOM],
         })
