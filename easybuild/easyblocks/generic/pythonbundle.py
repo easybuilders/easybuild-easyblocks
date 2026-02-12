@@ -232,13 +232,9 @@ class PythonBundle(Bundle):
         footer = super().make_module_footer()
 
         click_autocomplete_bins = []
-        for extension in self.cfg['exts_list']:
-            try:
-                _, _, ext_data = extension
-            except ValueError:
-                self.log.warning("Could not unpack extension data for extension '%s'", str(extension))
-                ext_data = {}
-            click_autocomplete_bins += ext_data.get('click_autocomplete_bins') or []
+        for ext in self.cfg['exts_list']:
+            if isinstance(ext, tuple) and len(ext) == 3 and isinstance(ext[2], dict):
+                click_autocomplete_bins += ext[2].get('click_autocomplete_bins') or []
 
         extra_footer = []
         for click_bin in click_autocomplete_bins:
