@@ -831,6 +831,28 @@ class PythonPackage(ExtensionEasyBlock):
 
         return ' '.join(cmd)
 
+    def install_dummy_package(self):
+        """
+        Create dist-info directory inside site-packages with the metadata for
+        the given target package
+        """
+        py_package_metadata = [
+            "Metadata-Version: 2.1",
+            f"Name: {self.name}",
+            f"Version: {self.version}",
+        ]
+
+        # make dist-info directory
+        dist_info_name = f"{self.name.replace('-','_')}-{self.version}.dist-info"
+        dist_info_path = os.path.join(self.installdir, self.pylibdir, dist_info_name)
+        mkdir(dist_info_path, parents=True)
+
+        # install METADATA file
+        metadata_path = os.path.join(dist_info_path, 'METADATA')
+        write_file(metadata_path, '\n'.join(py_package_metadata))
+
+        self.log.info(f"Installation of dummy package for {self.name}-{self.version} successfull")
+
     def py_post_install_shenanigans(self, install_dir):
         """
         Run post-installation shenanigans on specified installation directory, incl:
