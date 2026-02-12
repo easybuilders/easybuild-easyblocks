@@ -226,6 +226,9 @@ class PythonBundle(Bundle):
             run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
 
     def make_module_footer(self):
+        """
+        Extend module footer with statements to set up shell completion for Click-based Python tools.
+        """
         footer = super().make_module_footer()
 
         click_autocomplete_bins = []
