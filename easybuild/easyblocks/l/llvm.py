@@ -31,6 +31,7 @@ EasyBuild support for building and installing LLVM, implemented as an easyblock
 @author: Simon Branford (University of Birmingham)
 @author: Kenneth Hoste (Ghent University)
 @author: Davide Grassano (CECAM HQ - Lausanne)
+@author: Prateek Chawla (Juelich Supercomputing Centre)
 """
 import contextlib
 import glob
@@ -225,6 +226,7 @@ class EB_LLVM(CMakeMake):
             'install_libcxx_modules':
                 [None, "Install libstdc++ modules. Default relies on default of build system", CUSTOM],
             'minimal': [False, "Build LLVM only", CUSTOM],
+            'max_link_jobs': [2, "Maximum number of link jobs, defaults to 2", CUSTOM],
             'python_bindings': [False, "Install python bindings", CUSTOM],
             'skip_all_tests': [False, "Skip running of tests", CUSTOM],
             'skip_sanitizer_tests': [True, "Do not run the sanitizer tests", CUSTOM],
@@ -317,6 +319,8 @@ class EB_LLVM(CMakeMake):
             self.general_opts[opt] = 'OFF'
 
         self.full_llvm = self.cfg['full_llvm']
+
+        self.general_opts.update({"LLVM_PARALLEL_LINK_JOBS": self.cfg['max_link_jobs']})
 
         if self.cfg['minimal']:
             conflicts = [_ for _ in self.minimal_conflicts if self.cfg[_]]
