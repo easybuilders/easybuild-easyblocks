@@ -551,7 +551,7 @@ class PythonPackage(ExtensionEasyBlock):
         self.pylibdir = UNKNOWN
         self.all_pylibdirs = [UNKNOWN]
 
-        self.click_autocomplete_bins = self.cfg.get('click_autocomplete_bins', [])
+        self.click_autocomplete_bins = self.cfg.get('click_autocomplete_bins') or []
 
         self.install_cmd_output = ''
 
