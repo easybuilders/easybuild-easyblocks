@@ -483,8 +483,8 @@ class PythonPackage(ExtensionEasyBlock):
                                "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'click_autocomplete_bins': [None, "List of command line tools installed by the package that use "
-                                              "the 'click' package and for which autocompletion scripts should be "
-                                              "generated (default: None)", CUSTOM],
+                                              "the 'click' package and for which autocompletion scripts "
+                                              "should be generated", CUSTOM],
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected. "
                                   "Defaults to True unless 'use_pip_for_deps' or 'use_pip_requirement' is True.",
                                   CUSTOM],
