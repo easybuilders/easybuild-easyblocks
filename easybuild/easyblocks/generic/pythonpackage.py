@@ -1273,6 +1273,9 @@ class PythonPackage(ExtensionEasyBlock):
         return extra_footer
 
     def make_module_footer(self):
+        """
+        Extend module footer with statements to set up shell completion for Click-based Python tools.
+        """
         footer = super().make_module_footer()
 
         extra_footer = []
