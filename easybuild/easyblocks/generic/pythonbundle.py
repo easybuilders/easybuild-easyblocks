@@ -238,7 +238,7 @@ class PythonBundle(Bundle):
             except ValueError:
                 self.log.warning("Could not unpack extension data for extension '%s'", str(extension))
                 ext_data = {}
-            click_autocomplete_bins += ext_data.get('click_autocomplete_bins', [])
+            click_autocomplete_bins += ext_data.get('click_autocomplete_bins') or []
 
         extra_footer = []
         for click_bin in click_autocomplete_bins:
