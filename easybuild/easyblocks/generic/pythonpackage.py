@@ -41,7 +41,7 @@ from sysconfig import get_config_vars
 
 import easybuild.tools.environment as env
 from easybuild.base import fancylogger
-from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES, set_py_env_vars
+from easybuild.easyblocks.python import EXTS_FILTER_DUMMY_PACKAGES, EXTS_FILTER_PYTHON_PACKAGES, set_py_env_vars
 from easybuild.easyblocks.python import det_installed_python_packages, det_pip_version, run_pip_check
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
@@ -488,6 +488,8 @@ class PythonPackage(ExtensionEasyBlock):
             'download_dep_fail': [None, "Fail if downloaded dependencies are detected. "
                                   "Defaults to True unless 'use_pip_for_deps' or 'use_pip_requirement' is True.",
                                   CUSTOM],
+            'dummy_package': [None, "Install a dummy package empty in contents but visible by Python package managers "
+                                    "such as pip", CUSTOM],
             'fix_python_shebang_for': [['bin/*'], "List of files for which Python shebang should be fixed "
                                                   "to '#!/usr/bin/env python' (glob patterns supported) "
                                                   "(default: ['bin/*'])", CUSTOM],
@@ -559,6 +561,12 @@ class PythonPackage(ExtensionEasyBlock):
         home = os.path.expanduser('~')
         if os.path.exists(os.path.join(home, 'site.cfg')):
             raise EasyBuildError("Found site.cfg in your home directory (%s), please remove it.", home)
+
+        # dummy packages have no sources
+        if self.cfg.get('dummy_package', False):
+            self.log.info(f"Disabling sources for dummy package {self.name}-{self.version}")
+            self.cfg['source_urls'] = []
+            self.cfg['sources'] = []
 
         # use lowercase name as default value for expected module name (used in sanity check)
         if 'modulename' not in self.options:
@@ -950,6 +958,10 @@ class PythonPackage(ExtensionEasyBlock):
     def build_step(self):
         """Build Python package using setup.py"""
 
+        if self.cfg.get('dummy_package', False):
+            self.log.info(f"Skipping build step for installation of dummy package {self.name}-{self.version}")
+            return
+
         # inject extra '%(python)s' template value before getting value of 'buildcmd' custom easyconfig parameter
         self.cfg.template_values['python'] = self.python_cmd
         build_cmd = self.cfg['buildcmd']
@@ -981,6 +993,10 @@ class PythonPackage(ExtensionEasyBlock):
 
         :param return_output: return output and exit code of test command
         """
+
+        if self.cfg.get('dummy_package', False):
+            self.log.info(f"Skipping test step for installation of dummy package {self.name}-{self.version}")
+            return None
 
         if isinstance(self.cfg['runtest'], str):
             self.testcmd = self.cfg['runtest']
@@ -1053,8 +1069,14 @@ class PythonPackage(ExtensionEasyBlock):
             if return_output_ec:
                 return (out, ec)
 
+        return None
+
     def install_step(self):
         """Install Python package to a custom path using setup.py"""
+
+        if self.cfg.get('dummy_package', False):
+            self.install_dummy_package()
+            return
 
         # if posix_local is the active installation scheme there will be
         # a 'local' subdirectory in the specified prefix;
@@ -1103,6 +1125,10 @@ class PythonPackage(ExtensionEasyBlock):
 
     def install_extension(self, *args, **kwargs):
         """Perform the actual Python package build/installation procedure"""
+
+        if self.cfg.get('dummy_package', False):
+            self.install_dummy_package()
+            return
 
         # we unpack unless explicitly told otherwise
         kwargs.setdefault('unpack_src', self._should_unpack_source())
@@ -1194,26 +1220,36 @@ class PythonPackage(ExtensionEasyBlock):
         # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
         if not self.is_extension:
+            site_package_dir = os.path.join('lib', 'python%(pyshortver)s', 'site-packages')
+            default_sanity_dirs = [site_package_dir]
+
+            if self.cfg.get('dummy_package', False):
+                dist_info_name = f"{self.name.replace('-','_')}-{self.version}.dist-info"
+                default_sanity_dirs.append(os.path.join(site_package_dir, dist_info_name))
+
             kwargs.setdefault('custom_paths', {
                 'files': [],
-                'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
+                'dirs': default_sanity_dirs,
             })
 
-        # make sure 'exts_filter' is defined, which is used for sanity check
+        # make sure 'exts_filter' argument is defined, which is used for sanity check
+        exts_sanity_filter = EXTS_FILTER_PYTHON_PACKAGES
+        if self.cfg.get('dummy_package', False):
+            exts_sanity_filter = EXTS_FILTER_DUMMY_PACKAGES
+
         if self.multi_python:
             # when installing for multiple Python versions, we must use 'python', not a full-path 'python' command!
-            python_cmd = 'python'
+            pip_check_python_cmd = 'python'
             if 'exts_filter' not in kwargs:
-                kwargs.update({'exts_filter': EXTS_FILTER_PYTHON_PACKAGES})
+                kwargs.update({'exts_filter': exts_sanity_filter})
         else:
             # 'python' is replaced by full path to active 'python' command
             # (which is required especially when installing with system Python)
             if self.python_cmd is None:
                 self.prepare_python()
-            python_cmd = self.python_cmd
+            pip_check_python_cmd = self.python_cmd
             if 'exts_filter' not in kwargs:
-                orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
-                exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
+                exts_filter = (exts_sanity_filter[0].replace('python', self.python_cmd), exts_sanity_filter[1])
                 kwargs.update({'exts_filter': exts_filter})
 
         sanity_pip_check = self.cfg.get('sanity_pip_check', True)
@@ -1240,7 +1276,7 @@ class PythonPackage(ExtensionEasyBlock):
                                          self.short_mod_name)
 
             unversioned_packages = self.cfg.get('unversioned_packages', [])
-            run_pip_check(python_cmd=python_cmd, unversioned_packages=unversioned_packages)
+            run_pip_check(python_cmd=pip_check_python_cmd, unversioned_packages=unversioned_packages)
 
         # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
         # and let ExtensionEasyBlock do its job
