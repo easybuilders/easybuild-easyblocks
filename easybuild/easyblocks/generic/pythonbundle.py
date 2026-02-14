@@ -202,7 +202,6 @@ class PythonBundle(Bundle):
         super()._sanity_check_step_extensions()
 
         sanity_pip_check = self.cfg['sanity_pip_check']
-        sanity_pip_list = self.cfg['sanity_pip_list']
         unversioned_packages = set(self.cfg['unversioned_packages'])
 
         # The options should be set in the main EC and cannot be different between extensions.
@@ -211,16 +210,12 @@ class PythonBundle(Bundle):
         all_unversioned_packages = unversioned_packages.copy()
         py_exts = [x for x in self.ext_instances if isinstance(x, PythonPackage)]
 
-        checks = {
-            'sanity_pip_check': sanity_pip_check,
-            'sanity_pip_list': sanity_pip_list,
-        }
         mismatched_params = set()
 
         for ext in py_exts:
-            for param, value in checks.items():
-                if ext.cfg[param] != value:
-                    mismatched_params.add(param)
+            if ext.cfg['sanity_pip_check'] != sanity_pip_check:
+                mismatched_params.add('sanity_pip_check')
+                sanity_pip_check = True  # Either the main set it or any extension enabled it
 
             all_unversioned_packages.update(ext.cfg['unversioned_packages'])
 
@@ -230,15 +225,9 @@ class PythonBundle(Bundle):
         for param in mismatched_params:
             msg = (f"For bundles of PythonPackage extensions the {param} parameter "
                    "must be set at the top level, outside of exts_list")
-            if param == 'sanity_pip_check':
-                self.log.deprecated(msg, '6.0')
-            else:
-                # no deprecation warning needed for sanity_pip_list
-                raise EasyBuildError(msg)
+            self.log.deprecated(msg, '6.0')
 
         if sanity_pip_check:
             run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
-
-        if sanity_pip_list:
             pkgs = [(x.name, x.version) for x in py_exts]
-            run_pip_list(pkgs, python_cmd=self.python_cmd)
+            run_pip_list(pkgs, python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)

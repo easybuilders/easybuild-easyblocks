@@ -182,7 +182,7 @@ def normalize_pip(name):
     return REGEX_PIP_NORMALIZE.sub("-", name).lower()
 
 
-def run_pip_list(pkgs, python_cmd=None):
+def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None):
     """
     Run pip list to verify normalized names and versions of installed Python packages
 
@@ -202,6 +202,11 @@ def run_pip_list(pkgs, python_cmd=None):
         trace_msg(msg + 'FAIL')
         pip_list_errors.append(f"pip list cmd failed:\n{err}")
 
+    if unversioned_packages:
+        normalized_unversioned = {normalize_pip(x) for x in unversioned_packages}
+    else:
+        normalized_unversioned = set()
+
     normalized_pkgs = [(normalize_pip(name), version) for name, version in pkgs]
     normalized_pip_pkgs = {normalize_pip(x['name']): x['version'] for x in pip_pkgs_dict}
 
@@ -209,12 +214,15 @@ def run_pip_list(pkgs, python_cmd=None):
     missing_versions = []
 
     for name, version in normalized_pkgs:
+        if name in normalized_unversioned:
+            continue
+
         if name not in normalized_pip_pkgs:
             close_matches = difflib.get_close_matches(name, normalized_pip_pkgs.keys())
             missing_names.append(f'{name} (close matches: {close_matches})')
 
         elif version != normalized_pip_pkgs[name]:
-            missing_versions.append(f'{name}-{version} (pip list version: {normalized_pip_pkgs[name]})')
+            missing_versions.append(f'{name} {version} (pip list version: {normalized_pip_pkgs[name]})')
 
     log.info(f"Found {len(missing_names)} missing names and {len(missing_versions)} missing versions "
              f"out of {len(pkgs)} packages")
@@ -232,7 +240,7 @@ def run_pip_list(pkgs, python_cmd=None):
         pip_list_errors.append(msg)
 
     if pip_list_errors:
-        raise EasyBuildError('\n'.join(pip_list_errors))
+        raise EasyBuildError('\n' + '\n'.join(pip_list_errors))
 
 
 def run_pip_check(python_cmd=None, unversioned_packages=None):
@@ -284,9 +292,10 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
     # so it will contain a version, but the raw tar.gz does not.
     pkgs = det_installed_python_packages(names_only=False, python_cmd=python_cmd)
     faulty_version = '0.0.0'
-    faulty_pkg_names = sorted([pkg['name'] for pkg in pkgs if pkg['version'] == faulty_version])
+    faulty_pkg_names = sorted([normalize_pip(pkg['name']) for pkg in pkgs if pkg['version'] == faulty_version])
 
-    for unversioned_package in sorted(unversioned_packages):
+    normalized_unversioned = {normalize_pip(x) for x in unversioned_packages}
+    for unversioned_package in sorted(normalized_unversioned):
         try:
             faulty_pkg_names.remove(unversioned_package)
             log.debug(f"Excluding unversioned package '{unversioned_package}' from check")
@@ -369,8 +378,6 @@ class EB_Python(ConfigureMake):
                                              "order to make sure ctypes can still find libraries without it. "
                                              "Please make sure to add the checksum for this patch to 'checksums'.",
                                              CUSTOM],
-            'sanity_pip_list': [False, "Run 'python -m pip list' to ensure specified package name and version "
-                                       "are correct.", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -901,14 +908,13 @@ class EB_Python(ConfigureMake):
         # global 'pip check' to verify that version requirements are met for Python packages installed as extensions
         run_pip_check(python_cmd='python')
 
-        if self.cfg['sanity_pip_list']:
-            exts_list = self.cfg.get_ref('exts_list')
-            if exts_list and not self.ext_instances:
-                # populate self.ext_instances if not done yet (e.g. for --sanity-check-only or --rebuild --module-only)
-                self.init_ext_instances()
+        exts_list = self.cfg.get_ref('exts_list')
+        if exts_list and not self.ext_instances:
+            # populate self.ext_instances if not done yet (e.g. with --sanity-check-only or --rebuild --module-only)
+            self.init_ext_instances()
 
-            pkgs = [(x.name, x.version) for x in self.ext_instances]
-            run_pip_list(pkgs, python_cmd='python')
+        pkgs = [(x.name, x.version) for x in self.ext_instances]
+        run_pip_list(pkgs, python_cmd='python')
 
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
