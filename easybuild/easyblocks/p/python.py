@@ -219,7 +219,7 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None):
 
         if name not in normalized_pip_pkgs:
             close_matches = difflib.get_close_matches(name, normalized_pip_pkgs.keys())
-            missing_names.append(f'{name} (close matches: {close_matches})')
+            missing_names.append(f'{name} (close matches in pip list: {close_matches})')
 
         elif version != normalized_pip_pkgs[name]:
             missing_versions.append(f'{name} {version} (pip list version: {normalized_pip_pkgs[name]})')
@@ -230,13 +230,13 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None):
     if missing_names:
         missing_names_str = '\n'.join(missing_names)
         msg = "The following Python packages were likely specified with a wrong name because they are missing "
-        msg += f"from the 'pip list' output:\n{missing_names_str}\n"
+        msg += f"from the 'pip list' output:\n{missing_names_str}"
         pip_list_errors.append(msg)
 
     if missing_versions:
         missing_versions_str = '\n'.join(missing_versions)
         msg = "The following Python packages were likely specified with a wrong version because they have "
-        msg += f"another version in the 'pip list' output:\n{missing_versions_str}\n"
+        msg += f"another version in the 'pip list' output:\n{missing_versions_str}"
         pip_list_errors.append(msg)
 
     if pip_list_errors:

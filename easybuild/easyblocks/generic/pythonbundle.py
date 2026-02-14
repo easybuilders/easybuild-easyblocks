@@ -215,9 +215,10 @@ class PythonBundle(Bundle):
         for ext in py_exts:
             if ext.cfg['sanity_pip_check'] != sanity_pip_check:
                 mismatched_params.add('sanity_pip_check')
-                sanity_pip_check = True  # Either the main set it or any extension enabled it
-
             all_unversioned_packages.update(ext.cfg['unversioned_packages'])
+
+        if 'sanity_pip_check' in mismatched_params:
+            sanity_pip_check = True  # Either the main set it or any extension enabled it
 
         if all_unversioned_packages != unversioned_packages:
             mismatched_params.add('unversioned_packages')
