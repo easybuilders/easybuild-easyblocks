@@ -466,7 +466,7 @@ class EB_Python(ConfigureMake):
             else:
                 msg = "The length of 'checksums' (%s) is not equal to the total amount of sources (%s) + patches (%s). "
                 msg += "Did you forget to add a checksum for patch_ctypes_ld_library_path?"
-                raise EasyBuildError(msg, len(checksums), len(sources), len(len_patches + 1))
+                raise EasyBuildError(msg, len(checksums), len(sources), len_patches + 1)
         # If LD_LIBRARY_PATH is filtered, but no patch is specified, warn the user that his may not work
         elif (
             'LD_LIBRARY_PATH' in filtered_env_vars and

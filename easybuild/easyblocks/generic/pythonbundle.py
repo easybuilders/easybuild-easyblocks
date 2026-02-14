@@ -231,3 +231,24 @@ class PythonBundle(Bundle):
             run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
             pkgs = [(x.name, x.version) for x in py_exts]
             run_pip_list(pkgs, python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
+
+    def make_module_footer(self):
+        """
+        Extend module footer with statements to set up shell completion for Click-based Python tools.
+        """
+        footer = super().make_module_footer()
+
+        click_autocomplete_bins = []
+        for ext in self.cfg['exts_list']:
+            if isinstance(ext, tuple) and len(ext) == 3 and isinstance(ext[2], dict):
+                click_autocomplete_bins += ext[2].get('click_autocomplete_bins') or []
+
+        extra_footer = []
+        for click_bin in click_autocomplete_bins:
+            extra_footer += PythonPackage._make_click_module_footer(self, click_bin)
+
+        if extra_footer:
+            extra_footer = '\n'.join(extra_footer)
+            footer += '\n' + extra_footer + '\n'
+
+        return footer
