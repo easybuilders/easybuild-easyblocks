@@ -78,6 +78,7 @@ class EB_psmpi(EB_MPICH):
             toolchain.INTELCOMP: 'intel',
             toolchain.PGI: 'pgi',
             toolchain.NVHPC: 'nvhpc',
+            toolchain.LLVM: 'llvm',
         }
 
         # ParaStationMPI defines its environment through confsets. So these should be unset

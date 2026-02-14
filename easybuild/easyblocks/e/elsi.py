@@ -130,6 +130,12 @@ class EB_ELSI(CMakeMake):
             self.cfg.update('configopts', "-DENABLE_BSEPACK=ON -DUSE_EXTERNAL_BSEPACK=ON")
             external_libs.extend(['bsepack', 'sseig'])
 
+        magma = get_software_root('magma')
+        if magma:
+            self.log.info("Using external MAGMA.")
+            self.cfg.update('configopts', "-DENABLE_MAGMA=ON")
+            external_libs.append('magma')
+
         if get_software_root('imkl') or get_software_root('ScaLAPACK'):
             external_libs.extend(re.findall(r'lib(.*?)\.a', os.environ['SCALAPACK%s_STATIC_LIBS' % self.env_suff]))
         else:
