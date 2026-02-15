@@ -1219,8 +1219,8 @@ class PythonPackage(ExtensionEasyBlock):
                                          self.short_mod_name)
 
             unversioned_packages = self.cfg.get('unversioned_packages', [])
-            run_pip_check(python_cmd=python_cmd, unversioned_packages=unversioned_packages)
-            run_pip_list([(self.name, self.version)], python_cmd=python_cmd)
+            run_pip_check(python_cmd=python_cmd)
+            run_pip_list([(self.name, self.version)], python_cmd=python_cmd, unversioned_packages=unversioned_packages)
 
         # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
         # and let ExtensionEasyBlock do its job

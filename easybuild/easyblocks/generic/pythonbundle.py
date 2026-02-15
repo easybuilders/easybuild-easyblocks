@@ -229,7 +229,7 @@ class PythonBundle(Bundle):
             self.log.deprecated(msg, '6.0')
 
         if sanity_pip_check:
-            run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
+            run_pip_check(python_cmd=self.python_cmd)
             pkgs = [(x.name, x.version) for x in py_exts]
             run_pip_list(pkgs, python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
 

@@ -191,6 +191,17 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None):
 
     log = fancylogger.getLogger('run_pip_list', fname=False)
 
+    if unversioned_packages is None:
+        unversioned_packages = set()
+    elif isinstance(unversioned_packages, (list, tuple)):
+        unversioned_packages = set(unversioned_packages)
+    elif not isinstance(unversioned_packages, set):
+        raise EasyBuildError("Incorrect value type for 'unversioned_packages' in run_pip_check: %s",
+                             type(unversioned_packages))
+
+    if build_option('ignore_pip_unversioned_pkgs'):
+        unversioned_packages.update(build_option('ignore_pip_unversioned_pkgs'))
+
     pip_list_errors = []
 
     try:
@@ -200,27 +211,70 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None):
         log.info("pip list cmd passed successfully")
     except EasyBuildError as err:
         trace_msg(msg + 'FAIL')
-        pip_list_errors.append(f"pip list cmd failed:\n{err}")
+        raise EasyBuildError(f"pip list cmd failed:\n{err}")
 
     if unversioned_packages:
         normalized_unversioned = {normalize_pip(x) for x in unversioned_packages}
     else:
         normalized_unversioned = set()
 
-    normalized_pkgs = [(normalize_pip(name), version) for name, version in pkgs]
+    # Create normalized name -> version mapping from the pip list output
     normalized_pip_pkgs = {normalize_pip(x['name']): x['version'] for x in pip_pkgs_dict}
+
+    # Check for packages that likely were not installed correctly (version '0.0.0'), excluding packages that are listed
+    # as "unversioned".  This is a common issue caused by using setup.py as the installation method for a package which
+    # is released as a generic wheel named name-version-py2.py3-none-any.whl. `tox` creates those from version
+    # controlled source code so it will contain a version, but the raw tar.gz does not.
+    zero_version = '0.0.0'
+    zero_pkg_names = sorted([name for (name, version) in normalized_pip_pkgs.items() if version == zero_version])
+
+    for unversioned_package in sorted(normalized_unversioned):
+        try:
+            zero_pkg_names.remove(unversioned_package)
+            log.debug(f"Excluding unversioned package '{unversioned_package}' from check")
+        except ValueError:
+            try:
+                version = normalized_pip_pkgs[unversioned_package]
+            except KeyError:
+                msg = f"Package '{unversioned_package}' in unversioned_packages was not found in "
+                msg += "the installed packages. Check that the name from `python -m pip list` is used "
+                msg += "which may be different than the module name."
+            else:
+                msg = f"Package '{unversioned_package}' in unversioned_packages has a version of {version} "
+                msg += "which is valid. Please remove it from unversioned_packages."
+            pip_list_errors.append(msg)
+
+    log.info("Found %s invalid packages out of %s packages", len(zero_pkg_names), len(normalized_pip_pkgs))
+    if zero_pkg_names:
+        zero_pkg_names_str = '\n'.join(zero_pkg_names)
+        msg = "The following Python packages were likely not installed correctly because they show a "
+        msg += f"version of '{zero_version}':\n{zero_pkg_names_str}\n"
+        msg += "This may be solved by using a *-none-any.whl file as the source instead. "
+        msg += "See e.g. the SOURCE*_WHL templates.\n"
+        msg += "Otherwise you could check if the package provides a version at all or if e.g. poetry is "
+        msg += "required (check the source for a pyproject.toml and see PEP517 for details on that)."
+        pip_list_errors.append(msg)
+
+    normalized_pkgs = [(normalize_pip(name), version) for name, version in pkgs]
 
     missing_names = []
     missing_versions = []
 
     for name, version in normalized_pkgs:
+        # Skip packages in the unversioned list: they have already been checked
         if name in normalized_unversioned:
             continue
 
+        # Skip packages in the zero_pkg_names list: they have already been added to pip_list_errors
+        if name in zero_pkg_names:
+            continue
+
+        # Check for missing (likely wrong) packages names and propose close matches
         if name not in normalized_pip_pkgs:
             close_matches = difflib.get_close_matches(name, normalized_pip_pkgs.keys())
             missing_names.append(f'{name} (close matches in pip list: {close_matches})')
 
+        # Check for missing (likely wrong) package versions
         elif version != normalized_pip_pkgs[name]:
             missing_versions.append(f'{name} {version} (pip list version: {normalized_pip_pkgs[name]})')
 
@@ -243,7 +297,7 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None):
         raise EasyBuildError('\n' + '\n'.join(pip_list_errors))
 
 
-def run_pip_check(python_cmd=None, unversioned_packages=None):
+def run_pip_check(python_cmd=None, **kwargs):
     """
     Check installed Python packages using 'pip check'
 
@@ -252,19 +306,17 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
     """
     log = fancylogger.getLogger('run_pip_check', fname=False)
 
+    kwargs_keys = kwargs.keys()
+    if 'unversioned_packages' in kwargs_keys:
+        msg = "Parameter `unversioned_packages` is no longer supported."
+        log.deprecated(msg, '6.0')
+        kwargs_keys -= {'unversioned_packages'}
+
+    if kwargs_keys:
+        raise EasyBuildError(f'Parameter(s) {kwargs_keys} are not allowed.')
+
     if python_cmd is None:
         python_cmd = 'python'
-
-    if unversioned_packages is None:
-        unversioned_packages = set()
-    elif isinstance(unversioned_packages, (list, tuple)):
-        unversioned_packages = set(unversioned_packages)
-    elif not isinstance(unversioned_packages, set):
-        raise EasyBuildError("Incorrect value type for 'unversioned_packages' in run_pip_check: %s",
-                             type(unversioned_packages))
-
-    if build_option('ignore_pip_unversioned_pkgs'):
-        unversioned_packages.update(build_option('ignore_pip_unversioned_pkgs'))
 
     pip_check_cmd = f"{python_cmd} -m pip check"
 
@@ -285,42 +337,6 @@ def run_pip_check(python_cmd=None, unversioned_packages=None):
     else:
         trace_msg(msg + 'OK')
         log.info(f"`{pip_check_cmd}` passed successfully")
-
-    # Also check for a common issue where the package version shows up as 0.0.0 often caused
-    # by using setup.py as the installation method for a package which is released as a generic wheel
-    # named name-version-py2.py3-none-any.whl. `tox` creates those from version controlled source code
-    # so it will contain a version, but the raw tar.gz does not.
-    pkgs = det_installed_python_packages(names_only=False, python_cmd=python_cmd)
-    faulty_version = '0.0.0'
-    faulty_pkg_names = sorted([normalize_pip(pkg['name']) for pkg in pkgs if pkg['version'] == faulty_version])
-
-    normalized_unversioned = {normalize_pip(x) for x in unversioned_packages}
-    for unversioned_package in sorted(normalized_unversioned):
-        try:
-            faulty_pkg_names.remove(unversioned_package)
-            log.debug(f"Excluding unversioned package '{unversioned_package}' from check")
-        except ValueError:
-            try:
-                version = next(pkg['version'] for pkg in pkgs if pkg['name'] == unversioned_package)
-            except StopIteration:
-                msg = f"Package '{unversioned_package}' in unversioned_packages was not found in "
-                msg += "the installed packages. Check that the name from `python -m pip list` is used "
-                msg += "which may be different than the module name."
-            else:
-                msg = f"Package '{unversioned_package}' in unversioned_packages has a version of {version} "
-                msg += "which is valid. Please remove it from unversioned_packages."
-            pip_check_errors.append(msg)
-
-    log.info("Found %s invalid packages out of %s packages", len(faulty_pkg_names), len(pkgs))
-    if faulty_pkg_names:
-        faulty_pkg_names_str = '\n'.join(faulty_pkg_names)
-        msg = "The following Python packages were likely not installed correctly because they show a "
-        msg += f"version of '{faulty_version}':\n{faulty_pkg_names_str}\n"
-        msg += "This may be solved by using a *-none-any.whl file as the source instead. "
-        msg += "See e.g. the SOURCE*_WHL templates.\n"
-        msg += "Otherwise you could check if the package provides a version at all or if e.g. poetry is "
-        msg += "required (check the source for a pyproject.toml and see PEP517 for details on that)."
-        pip_check_errors.append(msg)
 
     if pip_check_errors:
         raise EasyBuildError('\n'.join(pip_check_errors))
