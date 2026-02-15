@@ -496,13 +496,11 @@ class EasyBlockSpecificTest(TestCase):
         self.assertTrue(os.path.exists(local_test_py))
 
     def test_run_pip_check(self):
-        """Test run_pip_check function provided by PythonPackage easyblock."""
+        """Test run_pip_check function provided by EB_Python easyblock."""
 
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
             if "pip check" in cmd:
                 output = "No broken requirements found."
-            elif "pip list" in cmd:
-                output = '[{"name": "example", "version": "1.2.3"}]'
             elif "pip --version" in cmd:
                 output = "pip 20.0"
             else:
@@ -516,36 +514,11 @@ class EasyBlockSpecificTest(TestCase):
         with self.mocked_stdout_stderr():
             python.run_pip_check(python_cmd=sys.executable)
 
-        # test ignored of unversioned Python packages
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
-            if "pip check" in cmd:
-                output = "No broken requirements found."
-            elif "pip list" in cmd:
-                output = '[{"name": "zero", "version": "0.0.0"}]'
-            elif "pip --version" in cmd:
-                output = "pip 20.0"
-            else:
-                # unexpected command
-                return None
-
-            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
-                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
-
-        python.run_shell_cmd = mocked_run_shell_cmd_pip
-        with self.mocked_stdout_stderr():
-            python.run_pip_check(python_cmd=sys.executable, unversioned_packages=('zero', ))
-
-        with self.mocked_stdout_stderr():
-            python.run_pip_check(python_cmd=sys.executable, unversioned_packages=set(['zero']))
-
         # inject all possible errors
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
             if "pip check" in cmd:
                 output = "foo-1.2.3 requires bar-4.5.6, which is not installed."
                 exit_code = 1
-            elif "pip list" in cmd:
-                output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong", "version": "0.0.0"}]'
-                exit_code = 0
             elif "pip --version" in cmd:
                 output = "pip 20.0"
                 exit_code = 0
@@ -560,14 +533,10 @@ class EasyBlockSpecificTest(TestCase):
         error_pattern = '\n'.join([
             "pip check.*failed.*",
             "foo.*requires.*bar.*not installed.*",
-            r"Package 'example'.*version of 1\.2\.3 which is valid.*",
-            "Package 'nosuchpkg' in unversioned_packages was not found in the installed packages.*",
-            r".*not installed correctly.*version of '0\.0\.0':",
-            "wrong",
         ])
         with self.mocked_stdout_stderr():
             self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_check,
-                                  python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
+                                  python_cmd=sys.executable)
 
         # invalid pip version
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
@@ -577,6 +546,64 @@ class EasyBlockSpecificTest(TestCase):
         python.run_shell_cmd = mocked_run_shell_cmd_pip
         error_pattern = "Failed to determine pip version!"
         self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_check, python_cmd=sys.executable)
+
+    def test_run_pip_list(self):
+        """Test run_pip_list function provided by EB_Python easyblock."""
+
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip list" in cmd:
+                output = '[{"name": "example", "version": "1.2.3"}]'
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        with self.mocked_stdout_stderr():
+            python.run_pip_list(python_cmd=sys.executable)
+
+        # test ignored unversioned Python packages
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip list" in cmd:
+                output = '[{"name": "zero", "version": "0.0.0"}]'
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        with self.mocked_stdout_stderr():
+            python.run_pip_list(python_cmd=sys.executable, unversioned_packages=('zero', ))
+
+        with self.mocked_stdout_stderr():
+            python.run_pip_list(python_cmd=sys.executable, unversioned_packages=set('zero'))
+
+        # inject all possible errors
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip list" in cmd:
+                output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong", "version": "0.0.0"}]'
+                exit_code = 0
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=exit_code, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        error_pattern = '\n'.join([
+            r"Package 'example'.*version of 1\.2\.3 which is valid.*",
+            "Package 'nosuchpkg' in unversioned_packages was not found in the installed packages.*",
+            r".*not installed correctly.*version of '0\.0\.0':",
+            "wrong",
+        ])
+        with self.mocked_stdout_stderr():
+            self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_list,
+                                  python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
 
     def test_symlink_dist_site_packages(self):
         """Test symlink_dist_site_packages provided by PythonPackage easyblock."""
