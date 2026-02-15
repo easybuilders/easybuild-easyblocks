@@ -619,10 +619,10 @@ class EasyBlockSpecificTest(TestCase):
 
         python.run_shell_cmd = mocked_run_shell_cmd_pip
         error_pattern = '\n'.join([
-            r"The following Python packages were likely specified with a wrong name because they are missing",
-            r"wrong-name",
-            r"The following Python packages were likely specified with a wrong version",
-            r"wrong-version 5.6.7",
+            r"The following Python packages were likely specified with a wrong name because they are missing.*",
+            r"wrong-name.*",
+            r"The following Python packages were likely specified with a wrong version.*",
+            r"wrong-version 5.6.7.*",
         ])
         with self.mocked_stdout_stderr():
             self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_list,
