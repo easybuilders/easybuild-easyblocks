@@ -178,6 +178,51 @@ def det_installed_python_packages(names_only=True, python_cmd=None):
     return [pkg['name'] for pkg in pkgs] if names_only else pkgs
 
 
+def run_pip_check(python_cmd=None, **kwargs):
+    """
+    Check installed Python packages using 'pip check'
+
+    :param unversioned_packages: set of Python packages to exclude in the version existence check
+    :param python_cmd: Python command to use (if None, 'python' is used)
+    """
+    log = fancylogger.getLogger('run_pip_check', fname=False)
+
+    kwargs_keys = kwargs.keys()
+    if 'unversioned_packages' in kwargs_keys:
+        msg = "Parameter `unversioned_packages` is no longer supported."
+        log.deprecated(msg, '6.0')
+        kwargs_keys -= {'unversioned_packages'}
+
+    if kwargs_keys:
+        raise EasyBuildError(f'Parameter(s) {kwargs_keys} are not allowed.')
+
+    if python_cmd is None:
+        python_cmd = 'python'
+
+    pip_check_cmd = f"{python_cmd} -m pip check"
+
+    pip_version = det_pip_version(python_cmd=python_cmd)
+    if not pip_version:
+        raise EasyBuildError("Failed to determine pip version!")
+    min_pip_version = LooseVersion('9.0.0')
+    if LooseVersion(pip_version) < min_pip_version:
+        raise EasyBuildError(f"pip >= {min_pip_version} is required for '{pip_check_cmd}', found {pip_version}")
+
+    pip_check_errors = []
+
+    res = run_shell_cmd(pip_check_cmd, fail_on_error=False, hidden=True)
+    msg = "Check on requirements for installed Python packages with 'pip check': "
+    if res.exit_code:
+        trace_msg(msg + 'FAIL')
+        pip_check_errors.append(f"`{pip_check_cmd}` failed:\n{res.output}")
+    else:
+        trace_msg(msg + 'OK')
+        log.info(f"`{pip_check_cmd}` passed successfully")
+
+    if pip_check_errors:
+        raise EasyBuildError('\n'.join(pip_check_errors))
+
+
 def normalize_pip(name):
     return REGEX_PIP_NORMALIZE.sub("-", name).lower()
 
@@ -295,51 +340,6 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None):
 
     if pip_list_errors:
         raise EasyBuildError('\n' + '\n'.join(pip_list_errors))
-
-
-def run_pip_check(python_cmd=None, **kwargs):
-    """
-    Check installed Python packages using 'pip check'
-
-    :param unversioned_packages: set of Python packages to exclude in the version existence check
-    :param python_cmd: Python command to use (if None, 'python' is used)
-    """
-    log = fancylogger.getLogger('run_pip_check', fname=False)
-
-    kwargs_keys = kwargs.keys()
-    if 'unversioned_packages' in kwargs_keys:
-        msg = "Parameter `unversioned_packages` is no longer supported."
-        log.deprecated(msg, '6.0')
-        kwargs_keys -= {'unversioned_packages'}
-
-    if kwargs_keys:
-        raise EasyBuildError(f'Parameter(s) {kwargs_keys} are not allowed.')
-
-    if python_cmd is None:
-        python_cmd = 'python'
-
-    pip_check_cmd = f"{python_cmd} -m pip check"
-
-    pip_version = det_pip_version(python_cmd=python_cmd)
-    if not pip_version:
-        raise EasyBuildError("Failed to determine pip version!")
-    min_pip_version = LooseVersion('9.0.0')
-    if LooseVersion(pip_version) < min_pip_version:
-        raise EasyBuildError(f"pip >= {min_pip_version} is required for '{pip_check_cmd}', found {pip_version}")
-
-    pip_check_errors = []
-
-    res = run_shell_cmd(pip_check_cmd, fail_on_error=False, hidden=True)
-    msg = "Check on requirements for installed Python packages with 'pip check': "
-    if res.exit_code:
-        trace_msg(msg + 'FAIL')
-        pip_check_errors.append(f"`{pip_check_cmd}` failed:\n{res.output}")
-    else:
-        trace_msg(msg + 'OK')
-        log.info(f"`{pip_check_cmd}` passed successfully")
-
-    if pip_check_errors:
-        raise EasyBuildError('\n'.join(pip_check_errors))
 
 
 def set_py_env_vars(log, verbose=False):
