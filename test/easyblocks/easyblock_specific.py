@@ -580,7 +580,7 @@ class EasyBlockSpecificTest(TestCase):
             python.run_pip_list([], python_cmd=sys.executable, unversioned_packages=('zero', ))
 
         with self.mocked_stdout_stderr():
-            python.run_pip_list([], python_cmd=sys.executable, unversioned_packages=set('zero'))
+            python.run_pip_list([], python_cmd=sys.executable, unversioned_packages={'zero'})
 
         # inject all possible errors
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
