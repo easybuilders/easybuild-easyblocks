@@ -562,7 +562,7 @@ class EasyBlockSpecificTest(TestCase):
 
         python.run_shell_cmd = mocked_run_shell_cmd_pip
         with self.mocked_stdout_stderr():
-            python.run_pip_list(python_cmd=sys.executable)
+            python.run_pip_list([], python_cmd=sys.executable)
 
         # test ignored unversioned Python packages
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
@@ -577,10 +577,10 @@ class EasyBlockSpecificTest(TestCase):
 
         python.run_shell_cmd = mocked_run_shell_cmd_pip
         with self.mocked_stdout_stderr():
-            python.run_pip_list(python_cmd=sys.executable, unversioned_packages=('zero', ))
+            python.run_pip_list([], python_cmd=sys.executable, unversioned_packages=('zero', ))
 
         with self.mocked_stdout_stderr():
-            python.run_pip_list(python_cmd=sys.executable, unversioned_packages=set('zero'))
+            python.run_pip_list([], python_cmd=sys.executable, unversioned_packages=set('zero'))
 
         # inject all possible errors
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
@@ -602,7 +602,7 @@ class EasyBlockSpecificTest(TestCase):
             "wrong",
         ])
         with self.mocked_stdout_stderr():
-            self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_list,
+            self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_list, [],
                                   python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
 
     def test_symlink_dist_site_packages(self):
