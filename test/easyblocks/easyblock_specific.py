@@ -567,7 +567,7 @@ class EasyBlockSpecificTest(TestCase):
         # test ignored unversioned Python packages
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
             if "pip list" in cmd:
-                output = '[{"name": "zero", "version": "0.0.0"}]'
+                output = '[{"name": "zero", "version": "0.0.0"}, {"name": "example-pkg", "version": "1.2.3"}]'
             else:
                 # unexpected command
                 return None
@@ -577,12 +577,12 @@ class EasyBlockSpecificTest(TestCase):
 
         python.run_shell_cmd = mocked_run_shell_cmd_pip
         with self.mocked_stdout_stderr():
-            python.run_pip_list([], python_cmd=sys.executable, unversioned_packages=('zero', ))
+            python.run_pip_list([('example_pkg', '1.2.3')], python_cmd=sys.executable, unversioned_packages=('zero', ))
 
         with self.mocked_stdout_stderr():
-            python.run_pip_list([], python_cmd=sys.executable, unversioned_packages={'zero'})
+            python.run_pip_list([('example.pkg', '1.2.3')], python_cmd=sys.executable, unversioned_packages={'zero'})
 
-        # inject all possible errors
+        # inject all possible errors with unversioned packages
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
             if "pip list" in cmd:
                 output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong", "version": "0.0.0"}]'
@@ -604,6 +604,30 @@ class EasyBlockSpecificTest(TestCase):
         with self.mocked_stdout_stderr():
             self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_list, [],
                                   python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
+
+        # inject errors with mismatched packages name or version
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip list" in cmd:
+                output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong-version", "version": "1.1.1"}]'
+                exit_code = 0
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=exit_code, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        error_pattern = '\n'.join([
+            r"The following Python packages were likely specified with a wrong name because they are missing",
+            r"wrong-name (close matches",
+            r"The following Python packages were likely specified with a wrong version",
+            r"wrong-version 5.6.7 (pip list",
+        ])
+        with self.mocked_stdout_stderr():
+            self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_list,
+                                  [('wrong_name', '1.2.3'), ('wrong_version', '5.6.7')],
+                                  python_cmd=sys.executable)
 
     def test_symlink_dist_site_packages(self):
         """Test symlink_dist_site_packages provided by PythonPackage easyblock."""
