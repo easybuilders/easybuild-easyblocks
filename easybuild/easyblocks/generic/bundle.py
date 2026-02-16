@@ -257,6 +257,13 @@ class Bundle(EasyBlock):
             self.cfg['sanity_check_paths'] = self.backup_sanity_paths
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
 
+    def post_init(self):
+        super().post_init()
+        for _, comp in self.comp_instances:
+            # correct build/install dirs after possibly changing them in parent post_init
+            comp.builddir = self.builddir
+            comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
+
     def check_checksums(self):
         """
         Check whether a SHA256 checksum is available for all sources & patches (incl. extensions).
@@ -278,9 +285,6 @@ class Bundle(EasyBlock):
         super().prepare_step(*args, **kwargs)
         for _, comp in self.comp_instances:
             comp.toolchain.dependencies = self.toolchain.dependencies
-            # correct build/install dirs
-            comp.builddir = self.builddir
-            comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
 
     def patch_step(self):
         """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
