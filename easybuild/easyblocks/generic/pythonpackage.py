@@ -736,7 +736,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
 
         use_ebpythonprefixes = False
-        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+        runtime_deps = self.cfg.dependency_names(runtime_only=True)
 
         if 'Python' in runtime_deps:
             self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
@@ -768,7 +768,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         return self.multi_python or use_ebpythonprefixes
 
-    def compose_install_command(self, prefix, extrapath=None, installopts=None):
+    def compose_install_command(self, prefix, extrapath=None, installopts=None, install_src=None):
         """Compose full install command."""
 
         if self.using_pip_install():
@@ -798,7 +798,8 @@ class PythonPackage(ExtensionEasyBlock):
         if extrapath:
             cmd.append(extrapath)
 
-        loc = self.cfg.get('install_src')
+        loc = self.cfg.get('install_src') if install_src is None else install_src
+
         if not loc:
             if self._should_unpack_source() or not self.src:
                 # specify current directory
@@ -1251,6 +1252,9 @@ class PythonPackage(ExtensionEasyBlock):
             if 'exts_filter' not in kwargs:
                 exts_filter = (exts_sanity_filter[0].replace('python', self.python_cmd), exts_sanity_filter[1])
                 kwargs.update({'exts_filter': exts_filter})
+
+        # inject extra '%(python)s' template value for use by sanity check commands
+        self.cfg.template_values['python'] = pip_check_python_cmd
 
         sanity_pip_check = self.cfg.get('sanity_pip_check', True)
         if self.is_extension:

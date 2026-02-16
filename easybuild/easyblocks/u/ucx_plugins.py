@@ -117,7 +117,7 @@ class EB_UCX_Plugins(ConfigureMake):
         """Add extra statements to generated module file specific to UCX plugins"""
         txt = super().make_module_extra(*args, **kwargs)
 
-        base_conf = dict()
+        base_conf = {}
         cmd = ['ucx_info', '-b']
         full_cmd = ' '.join(cmd)
         self.log.info("Running command '%s'" % full_cmd)
