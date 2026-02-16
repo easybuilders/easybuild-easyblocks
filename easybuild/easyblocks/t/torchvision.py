@@ -44,7 +44,7 @@ class EB_torchvision(PythonPackage):
         """Initialize torchvision easyblock."""
         super().__init__(*args, **kwargs)
 
-        dep_names = set(dep['name'] for dep in self.cfg.dependencies())
+        dep_names = self.cfg.dependency_names()
 
         # require that PyTorch is listed as dependency
         if 'PyTorch' not in dep_names:

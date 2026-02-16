@@ -392,7 +392,7 @@ class EB_GROMACS(CMakeMake):
 
             # set regression test path
             prefix = 'regressiontests'
-            if any([src['name'].startswith(prefix) for src in self.src]):
+            if any(src['name'].startswith(prefix) for src in self.src):
                 self.cfg.update('configopts', "-DREGRESSIONTEST_PATH='%%(builddir)s/%s-%%(version)s' " % prefix)
 
             # enable OpenMP support if desired

@@ -98,7 +98,7 @@ class EB_ORCA(PackedBinary, MakeCp):
 
             # Shared builds have additional libraries
             libs_to_copy = (['liborca*'], 'lib')
-            if all([glob.glob(p) for p in libs_to_copy[0]]):
+            if all(glob.glob(p) for p in libs_to_copy[0]):
                 files_to_copy.append(libs_to_copy)
 
             self.cfg['files_to_copy'] = files_to_copy

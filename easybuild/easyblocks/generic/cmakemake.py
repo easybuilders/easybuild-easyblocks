@@ -333,7 +333,7 @@ class CMakeMake(ConfigureMake):
 
         # If the cache does not exist CMake reads the environment variables
         cache_exists = os.path.exists('CMakeCache.txt')
-        env_to_options = dict()
+        env_to_options = {}
 
         # Setting compilers is not required unless we want absolute paths
         if self.cfg.get('abs_path_compilers', False) or cache_exists:
