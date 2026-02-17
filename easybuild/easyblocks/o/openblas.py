@@ -222,17 +222,18 @@ class EB_OpenBLAS(ConfigureMake):
         if self.cfg['runtest']:
             run_tests += [self.cfg['runtest']]
 
-        for runtest in run_tests:
-            # Try to limit parallelism for the tests. If OMP_NUM_THREADS or OPENBLAS_NUM_THREADS is already set,
-            # use the existing value. If not, we'll set OMP_NUM_THREADS for OpenBLAS built with OpenMP, and
-            # OPENBLAS_NUM_THREADS if built with threads.
-            parallelism_env = ''
-            if "USE_OPENMP='1'" in self.cfg['testopts'] and 'OMP_NUM_THREADS' not in self.cfg['pretestopts']:
-                parallelism_env += f'OMP_NUM_THREADS={self.cfg.parallel} '
-            if "USE_THREAD='1'" in self.cfg['testopts'] and 'OPENBLAS_NUM_THREADS' not in self.cfg['pretestopts']:
-                parallelism_env += f'OPENBLAS_NUM_THREADS={self.cfg.parallel} '
+        test_opts, pre_test_opts = self.cfg['testopts'], self.cfg['pretestopts']
+        # Try to limit parallelism for the tests. If OMP_NUM_THREADS or OPENBLAS_NUM_THREADS is already set,
+        # use the existing value. If not, we'll set OMP_NUM_THREADS for OpenBLAS built with OpenMP, and
+        # OPENBLAS_NUM_THREADS if built with threads.
+        parallelism_env = ''
+        if re.search(r'USE_OPENMP=["\']?1', test_opts) and 'OMP_NUM_THREADS' not in pre_test_opts:
+            parallelism_env += f'OMP_NUM_THREADS={self.cfg.parallel} '
+        if re.search(r'USE_THREAD=["\']?1', test_opts) and 'OPENBLAS_NUM_THREADS' not in pre_test_opts:
+            parallelism_env += f'OPENBLAS_NUM_THREADS={self.cfg.parallel} '
 
-            cmd = f"{parallelism_env} {self.cfg['pretestopts']} make {runtest} {self.cfg['testopts']}"
+        for runtest in run_tests:
+            cmd = f"{parallelism_env} {pre_test_opts} make {runtest} {test_opts}"
             res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed
