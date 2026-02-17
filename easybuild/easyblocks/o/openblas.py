@@ -228,9 +228,9 @@ class EB_OpenBLAS(ConfigureMake):
         # OPENBLAS_NUM_THREADS if built with threads.
         parallelism_env = ''
         if re.search(r'USE_OPENMP=["\']?1', test_opts) and 'OMP_NUM_THREADS' not in pre_test_opts:
-            parallelism_env += f'OMP_NUM_THREADS={self.cfg.parallel} '
+            parallelism_env += f'export OMP_NUM_THREADS={self.cfg.parallel} && '
         if re.search(r'USE_THREAD=["\']?1', test_opts) and 'OPENBLAS_NUM_THREADS' not in pre_test_opts:
-            parallelism_env += f'OPENBLAS_NUM_THREADS={self.cfg.parallel} '
+            parallelism_env += f'export OPENBLAS_NUM_THREADS={self.cfg.parallel} && '
 
         for runtest in run_tests:
             cmd = f"{parallelism_env} {pre_test_opts} make {runtest} {test_opts}"
