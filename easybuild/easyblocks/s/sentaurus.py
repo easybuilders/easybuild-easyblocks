@@ -87,7 +87,7 @@ class EB_Sentaurus(Binary):
         self.check_accepted_eula(name='Synopsys', more_info=synopsys_eula)
 
         # Check early to inform user it is required for license
-        self.siteid = self.cfg['siteid'] or os.getenv('EB_SENTAURUS_SITEID', '0000')
+        self.siteid = self.cfg['siteid'] or os.getenv('EB_SENTAURUS_SITEID')
         if self.siteid is None:
             raise EasyBuildError("siteid is required but not specified")
 
