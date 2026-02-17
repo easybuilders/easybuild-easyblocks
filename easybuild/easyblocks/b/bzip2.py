@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,7 @@ import shutil
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -56,27 +56,27 @@ class EB_bzip2(ConfigureMake):
         """Set extra options for 'make' command (CC, CFLAGS)."""
 
         if 'CC=' not in self.cfg['buildopts']:
-            self.cfg.update('buildopts', 'CC="%s"' % os.getenv('CC'))
+            self.cfg.update('buildopts', f'CC="{os.getenv("CC")}"')
         if 'CFLAGS=' not in self.cfg['buildopts']:
-            self.cfg.update('buildopts', "CFLAGS='-Wall -Winline %s -g $(BIGFILES)'" % os.getenv('CFLAGS'))
+            self.cfg.update('buildopts', f"CFLAGS='-Wall -Winline {os.getenv('CFLAGS')} -g $(BIGFILES)'")
 
     def install_step(self):
         """Install in non-standard path by passing PREFIX variable to make install."""
 
-        self.cfg.update('installopts', "PREFIX=%s" % self.installdir)
-        super(EB_bzip2, self).install_step()
+        self.cfg.update('installopts', f"PREFIX={self.installdir}")
+        super().install_step()
 
         # also build & install shared libraries, if desired
         if self.cfg['with_shared_libs']:
 
-            cmd = "%s make -f Makefile-libbz2_so %s" % (self.cfg['prebuildopts'], self.cfg['buildopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            cmd = f"{self.cfg['prebuildopts']} make -f Makefile-libbz2_so {self.cfg['buildopts']}"
+            run_shell_cmd(cmd)
 
             # copy shared libraries to <install dir>/lib
             shlib_ext = get_shared_lib_ext()
             libdir = os.path.join(self.installdir, 'lib')
             try:
-                for lib in glob.glob('libbz2.%s.*' % shlib_ext):
+                for lib in glob.glob(f'libbz2.{shlib_ext}.*'):
                     # only way to copy a symlink is to check for it,
                     # cfr. http://stackoverflow.com/questions/4847615/copying-a-symbolic-link-in-python
                     if os.path.islink(lib):
@@ -86,25 +86,29 @@ class EB_bzip2(ConfigureMake):
             except OSError as err:
                 raise EasyBuildError("Copying shared libraries to installation dir %s failed: %s", libdir, err)
 
-            # create symlink libbz2.so >> libbz2.so.1.0.6
-            try:
-                cwd = os.getcwd()
-                os.chdir(libdir)
-                os.symlink('libbz2.%s.%s' % (shlib_ext, self.version), 'libbz2.%s' % shlib_ext)
-                os.chdir(cwd)
-            except OSError as err:
-                raise EasyBuildError("Creating symlink for libbz2.so failed: %s", err)
+            # create (un)versioned symlinks for libbz2.so.X.Y.Z
+            split_ver = self.version.split('.')
+            sym_exts = ['.' + '.'.join(split_ver[-3:x]) for x in range(1, 3)]  # e.g. ['.1', '.1.0'] for version 1.0.8
+            cwd = os.getcwd()
+            for sym in [f'libbz2.{shlib_ext}{x}' for x in [''] + sym_exts]:
+                if not os.path.exists(os.path.join(libdir, sym)):
+                    try:
+                        os.chdir(libdir)
+                        os.symlink(f'libbz2.{shlib_ext}.{self.version}', sym)
+                        os.chdir(cwd)
+                    except OSError as err:
+                        raise EasyBuildError("Creating symlink for libbz2.so failed: %s", err)
 
     def sanity_check_step(self):
         """Custom sanity check for bzip2."""
         libs = ['lib/libbz2.a']
         if self.cfg['with_shared_libs']:
             shlib_ext = get_shared_lib_ext()
-            libs.extend(['lib/libbz2.%s.%s' % (shlib_ext, self.version), 'lib/libbz2.%s' % shlib_ext])
+            libs.extend([f'lib/libbz2.{shlib_ext}.{self.version}', f'lib/libbz2.{shlib_ext}'])
 
         custom_paths = {
-            'files': ['bin/b%s' % x for x in ['unzip2', 'zcat', 'zdiff', 'zgrep', 'zip2', 'zip2recover', 'zmore']] +
+            'files': [f'bin/b{x}' for x in ['unzip2', 'zcat', 'zdiff', 'zgrep', 'zip2', 'zip2recover', 'zmore']] +
             ['include/bzlib.h'] + libs,
             'dirs': [],
         }
-        super(EB_bzip2, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

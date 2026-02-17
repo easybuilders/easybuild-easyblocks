@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,8 +44,7 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, read_file, write_file
-from easybuild.tools.py2vs3 import string_type
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_MCR(PackedBinary):
@@ -53,7 +52,7 @@ class EB_MCR(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to MCR."""
-        super(EB_MCR, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.comp_fam = None
         self.configfilename = "my_installer_input.txt"
         self.subdir = None
@@ -81,11 +80,16 @@ class EB_MCR(PackedBinary):
             config = regdest.sub("destinationFolder=%s" % self.installdir, config)
             config = regagree.sub("agreeToLicense=Yes", config)
             config = regmode.sub("mode=silent", config)
-        else:
+        elif LooseVersion(self.version) < LooseVersion('R2024a'):
             config = '\n'.join([
                 "destinationFolder=%s" % self.installdir,
                 "agreeToLicense=Yes",
                 "mode=silent",
+            ])
+        else:
+            config = '\n'.join([
+                "destinationFolder=%s" % self.installdir,
+                "agreeToLicense=yes",
             ])
 
         write_file(configfile, config)
@@ -111,12 +115,12 @@ class EB_MCR(PackedBinary):
 
         configfile = "%s/%s" % (self.builddir, self.configfilename)
         cmd = "%s ./install -v -inputFile %s %s" % (self.cfg['preinstallopts'], configfile, self.cfg['installopts'])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for MCR."""
         self.set_subdir()
-        if not isinstance(self.subdir, string_type):
+        if not isinstance(self.subdir, str):
             raise EasyBuildError("Could not identify which subdirectory to pick: %s" % self.subdir)
 
         custom_paths = {
@@ -131,16 +135,16 @@ class EB_MCR(PackedBinary):
                 os.path.join(self.subdir, 'runtime', 'glnxa64'),
                 os.path.join(self.subdir, 'sys', 'os', 'glnxa64'),
             ])
-        super(EB_MCR, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
-        txt = super(EB_MCR, self).make_module_extra()
+        txt = super().make_module_extra()
 
         self.set_subdir()
         # if no subdir was selected, set it to NOTFOUND
         # this is done to enable the use of --module-only without having an actual MCR installation
-        if not isinstance(self.subdir, string_type):
+        if not isinstance(self.subdir, str):
             self.subdir = 'NOTFOUND'
 
         xapplresdir = os.path.join(self.installdir, self.subdir, 'X11', 'app-defaults')

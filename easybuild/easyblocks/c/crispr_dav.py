@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2024 Ghent University
+# Copyright 2020-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,10 +43,10 @@ class EB_CRISPR_minus_DAV(Binary):
 
     def __init__(self, *args, **kwargs):
         """Constructor for CRISPR-DAV easyblock."""
-        super(EB_CRISPR_minus_DAV, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.cfg['extract_sources'] = True
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Update configuration files with correct paths to dependencies and files in installation."""
 
         # getting paths of deps + files we will work with
@@ -125,10 +125,10 @@ class EB_CRISPR_minus_DAV(Binary):
             example_cmd,
         ]
 
-        super(EB_CRISPR_minus_DAV, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
-        txt = super(EB_CRISPR_minus_DAV, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.prepend_paths('PATH', [''])
         return txt
 

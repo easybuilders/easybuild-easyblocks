@@ -1,5 +1,5 @@
 ##
-# Copyright 2014-2024 Ghent University
+# Copyright 2014-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,7 @@ import re
 from easybuild.easyblocks.generic.makecp import MakeCp
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class CmdCp(MakeCp):
@@ -67,7 +67,9 @@ class CmdCp(MakeCp):
             # determine command to use
             # find (first) regex match, then complete matching command template
             cmd = None
-            for pattern, regex_cmd in self.cfg['cmds_map']:
+            for pattern, regex_cmd in self.cfg.get_ref('cmds_map'):
+                pattern = pattern % self.cfg.template_values
+                regex_cmd = regex_cmd % self.cfg.template_values
                 try:
                     regex = re.compile(pattern)
                 except re.error as err:
@@ -78,6 +80,6 @@ class CmdCp(MakeCp):
                     break
             if cmd is None:
                 raise EasyBuildError("No match for %s in %s, don't know which command to use.",
-                                     src, self.cfg['cmds_map'])
+                                     src, self.cfg.get_ref('cmds_map'))
 
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)

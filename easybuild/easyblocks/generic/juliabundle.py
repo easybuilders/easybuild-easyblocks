@@ -1,5 +1,5 @@
 ##
-# Copyright 2022-2024 Vrije Universiteit Brussel
+# Copyright 2022-2025 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,11 +31,9 @@ import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JuliaPackage
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
 
 
-class JuliaBundle(Bundle):
+class JuliaBundle(Bundle, JuliaPackage):
     """
     Bundle of JuliaPackages: install Julia packages as extensions in a bundle
     Defines custom sanity checks and module environment
@@ -52,7 +50,7 @@ class JuliaBundle(Bundle):
 
     def __init__(self, *args, **kwargs):
         """Initialize JuliaBundle easyblock."""
-        super(JuliaBundle, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg['exts_defaultclass'] = 'JuliaPackage'
         self.cfg['exts_filter'] = EXTS_FILTER_JULIA_PACKAGES
@@ -80,19 +78,12 @@ class JuliaBundle(Bundle):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for installing bundle of Julia packages."""
-        super(JuliaBundle, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
-        if get_software_root('Julia') is None:
-            raise EasyBuildError("Julia not included as dependency!")
-
-    def make_module_extra(self, *args, **kwargs):
-        """
-        Module has to append installation directory to JULIA_DEPOT_PATH to keep
-        the user depot in the top entry. See issue easybuilders/easybuild-easyconfigs#17455
-        """
-        txt = super(JuliaBundle, self).make_module_extra()
-        txt += self.module_generator.append_paths('JULIA_DEPOT_PATH', [''])
-        return txt
+    def install_step(self):
+        """Prepare installation environment and dd all dependencies to project environment."""
+        self.prepare_julia_env()
+        self.include_pkg_dependencies()
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for bundle of Julia packages"""
@@ -100,4 +91,8 @@ class JuliaBundle(Bundle):
             'files': [],
             'dirs': [os.path.join('packages', self.name)],
         }
-        super(JuliaBundle, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
+
+    def make_module_extra(self, *args, **kwargs):
+        """Custom module environment from JuliaPackage"""
+        return super().make_module_extra(*args, **kwargs)

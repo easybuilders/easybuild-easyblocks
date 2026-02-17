@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,7 +44,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools import LooseVersion
 
 
@@ -62,7 +62,7 @@ class EB_numpy(FortranPythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Initialize numpy-specific class variables."""
-        super(EB_numpy, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
@@ -71,194 +71,250 @@ class EB_numpy(FortranPythonPackage):
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
 
-        # see e.g. https://github.com/numpy/numpy/pull/2809/files
-        self.sitecfg = '\n'.join([
-            "[DEFAULT]",
-            "library_dirs = %(libs)s",
-            "include_dirs= %(includes)s",
-            "search_static_first=True",
-        ])
+        if LooseVersion(self.version) >= LooseVersion('2.0'):
+            # for newer numpy verion (Meson-based), we need to use specific installation options
+            self.log.info(f"Using Meson-based procedure to configure build for numpy version {self.version}")
 
-        # If both FlexiBLAS and MKL are found, we assume that FlexiBLAS has a dependency on MKL.
-        # In this case we want to link to FlexiBLAS and not directly to MKL.
-        imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
+            # see https://numpy.org/devdocs/building/compilers_and_options.html#controlling-build-parallelism
+            self.cfg.update('installopts', f"-Ccompile-args='-j{self.cfg.parallel}'")
 
-        if imkl_direct:
-
-            if self.toolchain.comp_family() == toolchain.GCC:
-                # see https://software.intel.com/en-us/articles/numpyscipy-with-intel-mkl,
-                # section Building with GNU Compiler chain
-                extrasiteconfig = '\n'.join([
-                    "[mkl]",
-                    "lapack_libs = ",
-                    "mkl_libs = mkl_rt",
-                ])
-            else:
-                extrasiteconfig = '\n'.join([
-                    "[mkl]",
-                    "lapack_libs = %(lapack)s",
-                    "mkl_libs = %(blas)s",
-                ])
-
-        else:
-            # [atlas] the only real alternative, even for non-ATLAS BLAS libs (e.g., OpenBLAS, ACML, ...)
-            # using only the [blas] and [lapack] sections results in sub-optimal builds that don't provide _dotblas.so;
-            # it does require a CBLAS interface to be available for the BLAS library being used
-            # e.g. for ACML, the CBLAS module providing a C interface needs to be used
-            extrasiteconfig = '\n'.join([
-                "[atlas]",
-                "atlas_libs = %(lapack)s",
-                "[lapack]",
-                "lapack_libs = %(lapack)s",  # required by scipy, that uses numpy's site.cfg
-            ])
-
-        blas = None
-        lapack = None
-        fft = None
-
-        if imkl_direct:
-            # with IMKL, no spaces and use '-Wl:'
-            # redefine 'Wl,' to 'Wl:' so that the patch file can do its job
-            def get_libs_for_mkl(varname):
-                """Get list of libraries as required for MKL patch file."""
-                libs = self.toolchain.variables['LIB%s' % varname].copy()
-                libs.try_remove(['pthread', 'dl'])
-                tweaks = {
-                    'prefix': '',
-                    'prefix_begin_end': '-Wl:',
-                    'separator': ',',
-                    'separator_begin_end': ',',
-                }
-                libs.try_function_on_element('change', kwargs=tweaks)
-                libs.SEPARATOR = ','
-                return str(libs)  # str causes list concatenation and adding prefixes & separators
-
-            blas = get_libs_for_mkl('BLAS_MT')
-            lapack = get_libs_for_mkl('LAPACK_MT')
-            fft = get_libs_for_mkl('FFT')
-
-            # make sure the patch file is there
-            # we check for a typical characteristic of a patch file that cooperates with the above
-            # not fool-proof, but better than enforcing a particular patch filename
-            patch_found = False
-            patch_wl_regex = re.compile(r"replace\(':',\s*','\)")
-            for patch in self.patches:
-                # patches are either strings (extension) or dicts (easyblock)
-                if isinstance(patch, dict):
-                    patch = patch['path']
-                if patch_wl_regex.search(read_file(patch)):
-                    patch_found = True
-                    break
-            if not patch_found:
-                raise EasyBuildError("Building numpy on top of Intel MKL requires a patch to "
-                                     "handle -Wl linker flags correctly, which doesn't seem to be there.")
-
-        else:
-            # unless Intel MKL is used, $ATLAS should be set to take full control,
-            # and to make sure a fully optimized version is built, including _dotblas.so
-            # which is critical for decent performance of the numpy.dot (matrix dot product) function!
-            env.setvar('ATLAS', '1')
-
-            lapack = ', '.join([x for x in self.toolchain.get_variable('LIBLAPACK_MT', typ=list) if x != "pthread"])
-            fft = ', '.join(self.toolchain.get_variable('LIBFFT', typ=list))
-
-        libs = ':'.join(self.toolchain.get_variable('LDFLAGS', typ=list))
-        includes = ':'.join(self.toolchain.get_variable('CPPFLAGS', typ=list))
-
-        # CBLAS is required for ACML, because it doesn't offer a C interface to BLAS
-        if get_software_root('ACML'):
-            cblasroot = get_software_root('CBLAS')
-            if cblasroot:
-                lapack = ', '.join([lapack, "cblas"])
-                cblaslib = os.path.join(cblasroot, 'lib')
-                # with numpy as extension, CBLAS might not be included in LDFLAGS because it's not part of a toolchain
-                if cblaslib not in libs:
-                    libs = ':'.join([libs, cblaslib])
-            else:
-                raise EasyBuildError("CBLAS is required next to ACML to provide a C interface to BLAS, "
-                                     "but it's not loaded.")
-
-        if fft:
-            extrasiteconfig += "\n[fftw]\nlibraries = %s" % fft
-
-        suitesparseroot = get_software_root('SuiteSparse')
-        if suitesparseroot:
-
-            extrasiteconfig += '\n'.join([
-                "[amd]",
-                "library_dirs = %s" % os.path.join(suitesparseroot, 'lib'),
-                "include_dirs = %s" % os.path.join(suitesparseroot, 'include'),
-                "amd_libs = amd",
-                "[umfpack]",
-                "library_dirs = %s" % os.path.join(suitesparseroot, 'lib'),
-                "include_dirs = %s" % os.path.join(suitesparseroot, 'include'),
-                "umfpack_libs = umfpack",
-            ])
-
-        self.sitecfg = '\n'.join([self.sitecfg, extrasiteconfig])
-
-        self.sitecfg = self.sitecfg % {
-            'blas': blas,
-            'lapack': lapack,
-            'libs': libs,
-            'includes': includes,
-        }
-
-        super(EB_numpy, self).configure_step()
-
-        if LooseVersion(self.version) < LooseVersion('1.21'):
-            # check configuration (for debugging purposes)
-            cmd = "%s setup.py config" % self.python_cmd
-            run_cmd(cmd, log_all=True, simple=True)
-
-        if LooseVersion(self.version) >= LooseVersion('1.26'):
-            # control BLAS/LAPACK library being used
-            # see https://github.com/numpy/numpy/blob/v1.26.2/doc/source/release/1.26.1-notes.rst#build-system-changes
-            # and 'blas-order' in https://github.com/numpy/numpy/blob/v1.26.2/meson_options.txt
-            blas_lapack_names = {
-                toolchain.BLIS: 'blis',
-                toolchain.FLEXIBLAS: 'flexiblas',
-                toolchain.LAPACK: 'lapack',
-                toolchain.INTELMKL: 'mkl',
-                toolchain.OPENBLAS: 'openblas',
-            }
-            blas_family = self.toolchain.blas_family()
-            if blas_family in blas_lapack_names:
-                self.cfg.update('installopts', "-Csetup-args=-Dblas=" + blas_lapack_names[blas_family])
-            else:
-                raise EasyBuildError("Unknown BLAS library for numpy %s: %s", self.version, blas_family)
-
-            lapack_family = self.toolchain.lapack_family()
-            if lapack_family in blas_lapack_names:
-                self.cfg.update('installopts', "-Csetup-args=-Dlapack=" + blas_lapack_names[lapack_family])
-            else:
-                raise EasyBuildError("Unknown LAPACK library for numpy %s: %s", self.version, lapack_family)
-
+            # see https://numpy.org/devdocs/building/blas_lapack.html
             self.cfg.update('installopts', "-Csetup-args=-Dallow-noblas=false")
+            blas_lapack_lib_used = None
+            for blas_lapack_lib in ('FlexiBLAS', 'imkl', 'BLIS', 'OpenBLAS'):
+                numpy_name = 'mkl' if blas_lapack_lib == 'imkl' else blas_lapack_lib.lower()
+                if get_software_root(blas_lapack_lib):
+                    self.cfg.update('installopts', "-Csetup-args=-Dblas-order=" + numpy_name)
+                    self.cfg.update('installopts', "-Csetup-args=-Dlapack-order=" + numpy_name)
+                    blas_lapack_lib_used = blas_lapack_lib
+                    break
+
+            # make sure that a BLAS/LAPACK library was found
+            if blas_lapack_lib_used is None:
+                raise EasyBuildError("No known BLAS/LAPACK library found when configuring numpy installation!")
+        else:
+            self.log.info(f"Using classic procedure to configure build for numpy version {self.version}")
+
+            # see e.g. https://github.com/numpy/numpy/pull/2809/files
+            self.sitecfg = '\n'.join([
+                "[DEFAULT]",
+                "library_dirs = %(libs)s",
+                "include_dirs= %(includes)s",
+                "search_static_first=True",
+            ])
+
+            # If both FlexiBLAS and MKL are found, we assume that FlexiBLAS has a dependency on MKL.
+            # In this case we want to link to FlexiBLAS and not directly to MKL.
+            imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
+
+            if imkl_direct:
+
+                if self.toolchain.comp_family() == toolchain.GCC:
+                    # see https://software.intel.com/en-us/articles/numpyscipy-with-intel-mkl,
+                    # section Building with GNU Compiler chain
+                    extrasiteconfig = '\n'.join([
+                        "[mkl]",
+                        "lapack_libs = ",
+                        "mkl_libs = mkl_rt",
+                    ])
+                else:
+                    extrasiteconfig = '\n'.join([
+                        "[mkl]",
+                        "lapack_libs = %(lapack)s",
+                        "mkl_libs = %(blas)s",
+                    ])
+
+            else:
+                # [atlas] the only real alternative, even for non-ATLAS BLAS libs (e.g., OpenBLAS, ACML, ...)
+                # using only the [blas] and [lapack] sections results in sub-optimal builds
+                # that don't provide _dotblas.so;
+                # it does require a CBLAS interface to be available for the BLAS library being used
+                # e.g. for ACML, the CBLAS module providing a C interface needs to be used
+                extrasiteconfig = '\n'.join([
+                    "[atlas]",
+                    "atlas_libs = %(lapack)s",
+                    "[lapack]",
+                    "lapack_libs = %(lapack)s",  # required by scipy, that uses numpy's site.cfg
+                ])
+
+            blas = None
+            lapack = None
+            fft = None
+
+            if imkl_direct:
+                # with IMKL, no spaces and use '-Wl:'
+                # redefine 'Wl,' to 'Wl:' so that the patch file can do its job
+                def get_libs_for_mkl(varname):
+                    """Get list of libraries as required for MKL patch file."""
+                    libs = self.toolchain.variables['LIB%s' % varname].copy()
+                    libs.try_remove(['pthread', 'dl'])
+                    tweaks = {
+                        'prefix': '',
+                        'prefix_begin_end': '-Wl:',
+                        'separator': ',',
+                        'separator_begin_end': ',',
+                    }
+                    libs.try_function_on_element('change', kwargs=tweaks)
+                    libs.SEPARATOR = ','
+                    return str(libs)  # str causes list concatenation and adding prefixes & separators
+
+                blas = get_libs_for_mkl('BLAS_MT')
+                lapack = get_libs_for_mkl('LAPACK_MT')
+                fft = get_libs_for_mkl('FFT')
+
+                # make sure the patch file is there
+                # we check for a typical characteristic of a patch file that cooperates with the above
+                # not fool-proof, but better than enforcing a particular patch filename
+                patch_found = False
+                patch_wl_regex = re.compile(r"replace\(':',\s*','\)")
+                for patch in self.patches:
+                    # patches are either strings (extension) or dicts (easyblock)
+                    if isinstance(patch, dict):
+                        patch = patch['path']
+                    if patch_wl_regex.search(read_file(patch)):
+                        patch_found = True
+                        break
+                if not patch_found:
+                    raise EasyBuildError("Building numpy on top of Intel MKL requires a patch to "
+                                         "handle -Wl linker flags correctly, which doesn't seem to be there.")
+
+            else:
+                # unless Intel MKL is used, $ATLAS should be set to take full control,
+                # and to make sure a fully optimized version is built, including _dotblas.so
+                # which is critical for decent performance of the numpy.dot (matrix dot product) function!
+                env.setvar('ATLAS', '1')
+
+                lapack = ', '.join([x for x in self.toolchain.get_variable('LIBLAPACK_MT', typ=list) if x != "pthread"])
+                fft = ', '.join(self.toolchain.get_variable('LIBFFT', typ=list))
+
+            libs = ':'.join(self.toolchain.get_variable('LDFLAGS', typ=list))
+            includes = ':'.join(self.toolchain.get_variable('CPPFLAGS', typ=list))
+
+            # CBLAS is required for ACML, because it doesn't offer a C interface to BLAS
+            if get_software_root('ACML'):
+                cblasroot = get_software_root('CBLAS')
+                if cblasroot:
+                    lapack = ', '.join([lapack, "cblas"])
+                    cblaslib = os.path.join(cblasroot, 'lib')
+                    # with numpy as extension, CBLAS might not be included in LDFLAGS
+                    # because it's not part of a toolchain
+                    if cblaslib not in libs:
+                        libs = ':'.join([libs, cblaslib])
+                else:
+                    raise EasyBuildError("CBLAS is required next to ACML to provide a C interface to BLAS, "
+                                         "but it's not loaded.")
+
+            if fft:
+                extrasiteconfig += "\n[fftw]\nlibraries = %s" % fft
+
+            suitesparseroot = get_software_root('SuiteSparse')
+            if suitesparseroot:
+
+                extrasiteconfig += '\n'.join([
+                    "[amd]",
+                    "library_dirs = %s" % os.path.join(suitesparseroot, 'lib'),
+                    "include_dirs = %s" % os.path.join(suitesparseroot, 'include'),
+                    "amd_libs = amd",
+                    "[umfpack]",
+                    "library_dirs = %s" % os.path.join(suitesparseroot, 'lib'),
+                    "include_dirs = %s" % os.path.join(suitesparseroot, 'include'),
+                    "umfpack_libs = umfpack",
+                ])
+
+            self.sitecfg = '\n'.join([self.sitecfg, extrasiteconfig])
+
+            self.sitecfg = self.sitecfg % {
+                'blas': blas,
+                'lapack': lapack,
+                'libs': libs,
+                'includes': includes,
+            }
+
+            if LooseVersion(self.version) < LooseVersion('1.26'):
+                # NumPy detects the required math by trying to link a minimal code containing a call to `log(0.)`.
+                # The first try is without any libraries, which works with `gcc -fno-math-errno`
+                # (our optimization default)
+                # because the call gets removed due to not having any effect.
+                # So it concludes that `-lm` is not required.
+                # This then fails to detect availability of functions such as `acosh` which do not get removed
+                # in the same way and so less exact replacements are used instead which e.g. fail the tests on PPC.
+                # This variable makes it try `-lm` first and is supported until the Meson backend is used in 1.26+.
+                env.setvar('MATHLIB', 'm')
+
+            super().configure_step()
+
+            if LooseVersion(self.version) < LooseVersion('1.21'):
+                # check configuration (for debugging purposes)
+                cmd = "%s setup.py config" % self.python_cmd
+                run_shell_cmd(cmd)
+
+            if LooseVersion(self.version) >= LooseVersion('1.26'):
+                # control BLAS/LAPACK library being used
+                # https://github.com/numpy/numpy/blob/v1.26.2/doc/source/release/1.26.1-notes.rst#build-system-changes
+                # and 'blas-order' in https://github.com/numpy/numpy/blob/v1.26.2/meson_options.txt
+                blas_lapack_names = {
+                    toolchain.BLIS: 'blis',
+                    toolchain.FLEXIBLAS: 'flexiblas',
+                    toolchain.LAPACK: 'lapack',
+                    toolchain.INTELMKL: 'mkl',
+                    toolchain.OPENBLAS: 'openblas',
+                }
+                blas_family = self.toolchain.blas_family()
+                if blas_family in blas_lapack_names:
+                    self.cfg.update('installopts', "-Csetup-args=-Dblas=" + blas_lapack_names[blas_family])
+                else:
+                    raise EasyBuildError("Unknown BLAS library for numpy %s: %s", self.version, blas_family)
+
+                lapack_family = self.toolchain.lapack_family()
+                if lapack_family in blas_lapack_names:
+                    self.cfg.update('installopts', "-Csetup-args=-Dlapack=" + blas_lapack_names[lapack_family])
+                else:
+                    raise EasyBuildError("Unknown LAPACK library for numpy %s: %s", self.version, lapack_family)
+
+                self.cfg.update('installopts', "-Csetup-args=-Dallow-noblas=false")
+
+    def build_step(self, *args, **kwargs):
+        """
+        Custom build step for numpy
+        """
+        # no need for separate build step for numpy >= 2.0
+        if LooseVersion(self.version) < LooseVersion('2.0'):
+            super().build_step(*args, **kwargs)
 
     def test_step(self):
         """Run available numpy unit tests, and more."""
 
         # determine command to use to run numpy test suite,
         # and whether test results should be ignored or not
-        if self.cfg['ignore_test_result']:
-            test_code = 'numpy.test(verbose=2)'
+        if LooseVersion(self.version) >= LooseVersion('2.0'):
+
+            # spin requires that path to where numpy was installed is in 'build-install' when using --no-build;
+            # while the 'build' part can be customized, the '-install' part is hardcoded,
+            # so just specify path in which test installation of numpy is done to parent test step;
+            self.pypkg_test_installdir = os.path.join(os.getcwd(), 'build-install')
+
+            # test suite should be run via 'spin' tool,
+            # see https://numpy.org/devdocs/dev/development_environment.html#testing-builds
+            self.testcmd = "spin test --no-build --verbose"
         else:
-            if LooseVersion(self.version) >= LooseVersion('1.15'):
-                # Numpy 1.15+ returns a True on success. Hence invert to get a failure value
-                test_code = 'sys.exit(not numpy.test(verbose=2))'
+            if self.cfg['ignore_test_result']:
+                test_code = 'numpy.test(verbose=2)'
             else:
-                # Return value is a TextTestResult. Check the errors member for any error
-                test_code = 'sys.exit(len(numpy.test(verbose=2).errors) > 0)'
+                if LooseVersion(self.version) >= LooseVersion('1.15'):
+                    # Numpy 1.15+ returns a True on success. Hence invert to get a failure value
+                    test_code = 'sys.exit(not numpy.test(verbose=2))'
+                else:
+                    # Return value is a TextTestResult. Check the errors member for any error
+                    test_code = 'sys.exit(len(numpy.test(verbose=2).errors) > 0)'
 
-        # Prepend imports
-        test_code = "import sys; import numpy; " + test_code
+            # Prepend imports
+            test_code = "import sys; import numpy; " + test_code
 
-        # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
-        # see http://projects.scipy.org/numpy/ticket/182
-        self.testcmd = "unset LDFLAGS && cd .. && %%(python)s -c '%s'" % test_code
+            # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
+            # see http://projects.scipy.org/numpy/ticket/182
+            self.testcmd = "unset LDFLAGS && cd .. && %%(python)s -c '%s'" % test_code
 
-        super(EB_numpy, self).test_step()
+        super().test_step()
 
         # temporarily install numpy, it doesn't alow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()
@@ -267,11 +323,11 @@ class EB_numpy(FortranPythonPackage):
             mkdir(pylibdir, parents=True)
         pythonpath = "export PYTHONPATH=%s &&" % os.pathsep.join(abs_pylibdirs + ['$PYTHONPATH'])
         cmd = self.compose_install_command(tmpdir, extrapath=pythonpath)
-        run_cmd(cmd, log_all=True, simple=True, verbose=False)
+        run_shell_cmd(cmd)
 
         try:
             pwd = os.getcwd()
-            os.chdir(tmpdir)
+            change_dir(tmpdir)
         except OSError as err:
             raise EasyBuildError("Faild to change to %s: %s", tmpdir, err)
 
@@ -283,20 +339,20 @@ class EB_numpy(FortranPythonPackage):
             '-s "import numpy; x = numpy.random.random((%(size)d, %(size)d))"' % {'size': size},
             '"numpy.dot(x, x.T)"',
         ])
-        (out, ec) = run_cmd(cmd, simple=False)
-        self.log.debug("Test output: %s" % out)
+        res = run_shell_cmd(cmd)
+        self.log.debug("Test output: %s" % res.output)
 
         # fetch result
         time_msec = None
         msec_re = re.compile(r"\d+ loops, best of \d+: (?P<time>[0-9.]+) msec per loop")
-        res = msec_re.search(out)
-        if res:
-            time_msec = float(res.group('time'))
+        msec = msec_re.search(res.output)
+        if msec:
+            time_msec = float(msec.group('time'))
         else:
             sec_re = re.compile(r"\d+ loops, best of \d+: (?P<time>[0-9.]+) sec per loop")
-            res = sec_re.search(out)
-            if res:
-                time_msec = 1000 * float(res.group('time'))
+            sec = sec_re.search(res.output)
+            if sec:
+                time_msec = 1000 * float(sec.group('time'))
             elif self.dry_run:
                 # use fake value during dry run
                 time_msec = 123
@@ -313,19 +369,20 @@ class EB_numpy(FortranPythonPackage):
             raise EasyBuildError("Time for %dx%d matrix dot product: %d msec >= %d msec => ERROR",
                                  size, size, time_msec, self.cfg['blas_test_time_limit'])
         try:
-            os.chdir(pwd)
+            change_dir(pwd)
             remove_dir(tmpdir)
         except OSError as err:
             raise EasyBuildError("Failed to change back to %s: %s", pwd, err)
 
     def install_step(self):
         """Install numpy and remove numpy build dir, so scipy doesn't find it by accident."""
-        super(EB_numpy, self).install_step()
+
+        super().install_step()
 
         builddir = os.path.join(self.builddir, "numpy")
         try:
             if os.path.isdir(builddir):
-                os.chdir(self.builddir)
+                change_dir(self.builddir)
                 remove_dir(builddir)
             else:
                 self.log.debug("build dir %s already clean" % builddir)
@@ -333,9 +390,9 @@ class EB_numpy(FortranPythonPackage):
         except OSError as err:
             raise EasyBuildError("Failed to clean up numpy build dir %s: %s", builddir, err)
 
-    def run(self):
+    def install_extension(self):
         """Install numpy as an extension"""
-        super(EB_numpy, self).run()
+        super().install_extension()
 
         return self.make_module_extra_numpy_include()
 
@@ -388,7 +445,7 @@ class EB_numpy(FortranPythonPackage):
             # _dotblas is required for decent performance of numpy.dot(), but only there in numpy 1.9.x and older
             custom_commands.append("python -c 'import numpy.core._dotblas'")
 
-        return super(EB_numpy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra_numpy_include(self):
         """
@@ -414,6 +471,6 @@ class EB_numpy(FortranPythonPackage):
         """
         Add additional update statements in module file specific to numpy
         """
-        txt = super(EB_numpy, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.make_module_extra_numpy_include()
         return txt

@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="0" skipped="0" tests="4" time="4.2">
+    <!-- Tests in common path test/dist/foo/bar -->
+    <testcase classname="test.dist.foo.bar.test_foo.TestName" name="test_func1" time="4.2" file="test_foo.py"/>
+    <testcase classname="test.dist.foo.bar.test_foo.TestBar" name="test_func2" time="4.2" file="test_foo.py"/>
+    <testcase classname="test.dist.foo.bar.test_2" name="test_func3" time="4.2" file="test_2.py"/>
+    <!-- Extra test directly in run_test.py -->
+    <testcase classname="TestName" name="test_bar" time="4.2" file="run_test.py"/>
+  </testsuite>
+</testsuites>

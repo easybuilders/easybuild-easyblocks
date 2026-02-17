@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,11 +47,11 @@ class CargoPythonPackage(PythonPackage, Cargo):  # PythonPackage must come first
 
         return extra_vars
 
-    def __init__(self, *args, **kwargs):
-        """Constructor for CargoPythonPackage easyblock."""
-        Cargo.__init__(self, *args, **kwargs)
-        PythonPackage.__init__(self, *args, **kwargs)
-
     def extract_step(self):
         """Specifically use the overloaded variant from Cargo as is populates vendored sources with checksums."""
         return Cargo.extract_step(self)
+
+    def configure_step(self):
+        """Run configure for Cargo and PythonPackage"""
+        Cargo.configure_step(self)
+        PythonPackage.configure_step(self)

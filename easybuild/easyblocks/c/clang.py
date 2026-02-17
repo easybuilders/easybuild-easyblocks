@@ -1,6 +1,6 @@
 ##
-# Copyright 2013-2024 Dmitri Gribenko
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2025 Dmitri Gribenko
+# Copyright 2013-2025 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -43,12 +43,12 @@ from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.clang import Clang
-from easybuild.tools import run
+from easybuild.tools.config import ERROR
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, symlink, which
-from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64
 from easybuild.tools.systemtools import get_cpu_architecture, get_os_name, get_os_version, get_shared_lib_ext
 from easybuild.tools.environment import setvar
@@ -119,13 +119,23 @@ class EB_Clang(CMakeMake):
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables for Clang."""
 
-        super(EB_Clang, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) >= LooseVersion('18.1.6'):
+            raise EasyBuildError(
+                "The Clang EasyBlock has been deprecated and does not support LLVM versions >= 18.1.6. "
+                "Please use the 'LLVM' EasyBlock instead, which supports building Clang as well "
+                "as other LLVM projects."
+            )
+
         self.llvm_src_dir = None
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
         self.llvm_obj_dir_stage3 = None
-        self.make_parallel_opts = ""
         self.runtime_lib_path = "lib"
+
+        # Bypass the .mod file check for GCCcore installs
+        self.cfg['skip_mod_files_sanity_check'] = True
 
         if not self.cfg['llvm_projects']:
             self.cfg['llvm_projects'] = []
@@ -216,7 +226,7 @@ class EB_Clang(CMakeMake):
 
     def check_readiness_step(self):
         """Fail early on RHEL 5.x and derivatives because of known bug in libc."""
-        super(EB_Clang, self).check_readiness_step()
+        super().check_readiness_step()
         # RHEL 5.x have a buggy libc.  Building stage 2 will fail.
         if get_os_name() in ['redhat', 'RHEL', 'centos', 'SL'] and get_os_version().startswith('5.'):
             raise EasyBuildError("Can not build Clang on %s v5.x: libc is buggy, building stage 2 will fail. "
@@ -228,7 +238,7 @@ class EB_Clang(CMakeMake):
         """
 
         # Extract everything into separate directories.
-        super(EB_Clang, self).extract_step()
+        super().extract_step()
 
         # Find the full path to the directory that was unpacked from llvm-*.tar.gz.
         for tmp in self.src:
@@ -252,7 +262,7 @@ class EB_Clang(CMakeMake):
                                      glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
-        if any([x['name'].startswith('llvm-project') for x in self.src]):
+        if any(x['name'].startswith('llvm-project') for x in self.src):
             # if sources contain 'llvm-project*', we use the full tarball
             find_source_dir("../llvm-project-*", os.path.join(self.llvm_src_dir, "llvm-project-%s" % self.version))
             self.cfg.update('configopts', '-DLLVM_ENABLE_PROJECTS="%s"' % ';'.join(self.cfg['llvm_projects']))
@@ -325,21 +335,21 @@ class EB_Clang(CMakeMake):
             disable_san_tests = False
             # all sanitizer tests will fail when there's a limit on the vmem
             # this is ugly but I haven't found a cleaner way so far
-            (vmemlim, ec) = run_cmd("ulimit -v", regexp=False)
-            if not vmemlim.startswith("unlimited"):
+            res = run_shell_cmd("ulimit -v", fail_on_error=False)
+            if not res.output.startswith("unlimited"):
                 disable_san_tests = True
-                self.log.warn("There is a virtual memory limit set of %s KB. The tests of the "
-                              "sanitizers will be disabled as they need unlimited virtual "
-                              "memory unless --strict=error is used." % vmemlim.strip())
+                self.log.warning("There is a virtual memory limit set of %s KB. The tests of the "
+                                 "sanitizers will be disabled as they need unlimited virtual "
+                                 "memory unless --strict=error is used." % res.output.strip())
 
             # the same goes for unlimited stacksize
-            (stacklim, ec) = run_cmd("ulimit -s", regexp=False)
-            if stacklim.startswith("unlimited"):
+            res = run_shell_cmd("ulimit -s", fail_on_error=False)
+            if res.output.startswith("unlimited"):
                 disable_san_tests = True
-                self.log.warn("The stacksize limit is set to unlimited. This causes the ThreadSanitizer "
-                              "to fail. The sanitizers tests will be disabled unless --strict=error is used.")
+                self.log.warning("The stacksize limit is set to unlimited. This causes the ThreadSanitizer "
+                                 "to fail. The sanitizers tests will be disabled unless --strict=error is used.")
 
-            if (disable_san_tests or self.cfg['skip_sanitizer_tests']) and build_option('strict') != run.ERROR:
+            if (disable_san_tests or self.cfg['skip_sanitizer_tests']) and build_option('strict') != ERROR:
                 self.log.debug("Disabling the sanitizer tests")
                 self.disable_sanitizer_tests()
 
@@ -401,9 +411,6 @@ class EB_Clang(CMakeMake):
 
         self.cfg.update('configopts', '-DLLVM_TARGETS_TO_BUILD="%s"' % ';'.join(build_targets))
 
-        if self.cfg['parallel']:
-            self.make_parallel_opts = "-j %s" % self.cfg['parallel']
-
         # If hwloc is included as a dep, use it in OpenMP runtime for affinity
         hwloc_root = get_software_root('hwloc')
         if hwloc_root:
@@ -449,9 +456,9 @@ class EB_Clang(CMakeMake):
 
         # directory structure has changed in version 14.x, cmake must start in llvm sub directory
         if LooseVersion(self.version) >= LooseVersion('14'):
-            super(EB_Clang, self).configure_step(srcdir=os.path.join(self.llvm_src_dir, "llvm"))
+            super().configure_step(srcdir=os.path.join(self.llvm_src_dir, "llvm"))
         else:
-            super(EB_Clang, self).configure_step(srcdir=self.llvm_src_dir)
+            super().configure_step(srcdir=self.llvm_src_dir)
 
     def disable_sanitizer_tests(self):
         """Disable the tests of all the sanitizers by removing the test directories from the build system"""
@@ -546,12 +553,12 @@ class EB_Clang(CMakeMake):
 
         self.log.info("Configuring")
         if LooseVersion(self.version) >= LooseVersion('14'):
-            run_cmd("cmake %s %s" % (' '.join(options), os.path.join(self.llvm_src_dir, "llvm")), log_all=True)
+            run_shell_cmd("cmake %s %s" % (' '.join(options), os.path.join(self.llvm_src_dir, "llvm")))
         else:
-            run_cmd("cmake %s %s" % (' '.join(options), self.llvm_src_dir), log_all=True)
+            run_shell_cmd("cmake %s %s" % (' '.join(options), self.llvm_src_dir))
 
         self.log.info("Building")
-        run_cmd("make %s VERBOSE=1" % self.make_parallel_opts, log_all=True)
+        run_shell_cmd(f"make {self.parallel_flag} VERBOSE=1")
 
         # restore $PATH
         setvar('PATH', orig_path)
@@ -562,7 +569,7 @@ class EB_Clang(CMakeMake):
         # Stage 1: build using system compiler.
         self.log.info("Building stage 1")
         change_dir(self.llvm_obj_dir_stage1)
-        super(EB_Clang, self).build_step()
+        super().build_step()
 
         if self.cfg['bootstrap']:
             self.log.info("Building stage 2")
@@ -578,7 +585,7 @@ class EB_Clang(CMakeMake):
                 change_dir(self.llvm_obj_dir_stage3)
             else:
                 change_dir(self.llvm_obj_dir_stage1)
-            run_cmd("make %s check-all" % self.make_parallel_opts, log_all=True)
+            run_shell_cmd(f"make {self.parallel_flag} check-all")
 
     def install_step(self):
         """Install stage 3 binaries."""
@@ -587,7 +594,7 @@ class EB_Clang(CMakeMake):
             change_dir(self.llvm_obj_dir_stage3)
         else:
             change_dir(self.llvm_obj_dir_stage1)
-        super(EB_Clang, self).install_step()
+        super().install_step()
 
         # the static analyzer is not installed by default
         # we do it by hand
@@ -609,9 +616,9 @@ class EB_Clang(CMakeMake):
             except OSError as err:
                 raise EasyBuildError("Failed to copy static analyzer dirs to install dir: %s", err)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Install python bindings."""
-        super(EB_Clang, self).post_install_step()
+        super().post_processing_step()
 
         # copy Python bindings here in post-install step so that it is not done more than once in multi_deps context
         if self.cfg['python_bindings']:
@@ -752,26 +759,29 @@ class EB_Clang(CMakeMake):
             custom_paths['files'].extend([os.path.join("lib", "python", "clang", "cindex.py")])
             custom_commands.extend(["python -c 'import clang'"])
 
-        super(EB_Clang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_step(self, *args, **kwargs):
+        """
+        Set paths for module load environment based on the actual installation files
+        """
+        # Ensure that installation files are not added to search paths to headers and libs
+        mod_env_headers = self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS)
+        mod_env_libs = ['LIBRARY_PATH']
+        for disallowed_var in mod_env_headers + mod_env_libs:
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
+        # Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
+        self.module_load_environment.LD_LIBRARY_PATH = ['lib', 'lib64', self.runtime_lib_path]
+
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Custom variables for Clang module."""
-        txt = super(EB_Clang, self).make_module_extra()
+        txt = super().make_module_extra()
         # we set the symbolizer path so that asan/tsan give meanfull output by default
         asan_symbolizer_path = os.path.join(self.installdir, 'bin', 'llvm-symbolizer')
         txt += self.module_generator.set_environment('ASAN_SYMBOLIZER_PATH', asan_symbolizer_path)
         if self.cfg['python_bindings']:
             txt += self.module_generator.prepend_paths('PYTHONPATH', os.path.join("lib", "python"))
         return txt
-
-    def make_module_req_guess(self):
-        """
-        Clang can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        """
-        guesses = super(EB_Clang, self).make_module_req_guess()
-        guesses.update({
-            'CPATH': [],
-            'LIBRARY_PATH': [],
-            'LD_LIBRARY_PATH': ['lib', 'lib64', self.runtime_lib_path],
-        })
-        return guesses

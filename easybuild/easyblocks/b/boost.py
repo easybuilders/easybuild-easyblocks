@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,8 +52,8 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import ERROR
 from easybuild.tools.filetools import apply_regex_substitutions, read_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
-from easybuild.tools.systemtools import AARCH64, POWER, UNKNOWN
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, UNKNOWN
 from easybuild.tools.systemtools import get_cpu_architecture, get_glibc_version, get_shared_lib_ext
 
 
@@ -62,7 +62,7 @@ class EB_Boost(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialize Boost-specific variables."""
-        super(EB_Boost, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.pyvers = []
 
@@ -91,7 +91,7 @@ class EB_Boost(EasyBlock):
 
     def patch_step(self):
         """Patch Boost source code before building."""
-        super(EB_Boost, self).patch_step()
+        super().patch_step()
 
         # TIME_UTC is also defined in recent glibc versions, so we need to rename it for old Boost versions (<= 1.49)
         glibc_version = get_glibc_version()
@@ -111,7 +111,7 @@ class EB_Boost(EasyBlock):
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
 
-        super(EB_Boost, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # keep track of Python version(s) used during installation,
         # so we can perform a complete sanity check
@@ -139,12 +139,14 @@ class EB_Boost(EasyBlock):
                 toolset = 'intel-linux'
             elif self.toolchain.comp_family() == toolchain.GCC:
                 toolset = 'gcc'
+            elif self.toolchain.comp_family() == toolchain.LLVM:
+                toolset = 'clang'
             else:
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 
         cmd = "%s ./bootstrap.sh --with-toolset=%s --prefix=%s %s"
         tup = (self.cfg['preconfigopts'], toolset, self.installdir, self.cfg['configopts'])
-        run_cmd(cmd % tup, log_all=True, simple=True)
+        run_shell_cmd(cmd % tup)
 
         # Use build_toolset if specified or the bootstrap toolset without the OS suffix
         self.toolset = self.cfg['build_toolset'] or re.sub('-linux$', '', toolset)
@@ -227,8 +229,8 @@ class EB_Boost(EasyBlock):
                 self.bjamoptions += " -s%s_INCLUDE=%s/include" % (lib.upper(), libroot)
                 self.bjamoptions += " -s%s_LIBPATH=%s/lib" % (lib.upper(), libroot)
 
-        if self.cfg['parallel']:
-            self.paracmd = "-j %s" % self.cfg['parallel']
+        if self.cfg.parallel > 1:
+            self.paracmd = f"-j {self.cfg.parallel}"
         else:
             self.paracmd = ''
 
@@ -282,7 +284,7 @@ class EB_Boost(EasyBlock):
             self.paracmd,
             self.cfg['buildopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def install_step(self):
         """Install Boost by copying files to install dir."""
@@ -298,7 +300,7 @@ class EB_Boost(EasyBlock):
             self.paracmd,
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         if self.cfg['tagged_layout']:
             if LooseVersion(self.version) >= LooseVersion("1.69.0") or not self.cfg['single_threaded']:
@@ -326,6 +328,8 @@ class EB_Boost(EasyBlock):
                     lib_mt_suffix += '-a64'
                 elif get_cpu_architecture() == POWER:
                     lib_mt_suffix += '-p64'
+                elif get_cpu_architecture() == RISCV64:
+                    lib_mt_suffix += '-r64'
                 else:
                     lib_mt_suffix += '-x64'
 
@@ -355,11 +359,11 @@ class EB_Boost(EasyBlock):
                 if self.cfg['tagged_layout']:
                     custom_paths['files'].append(os.path.join('lib', 'libboost_mpi%s.%s' % (lib_mt_suffix, shlib_ext)))
 
-        super(EB_Boost, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set up a BOOST_ROOT environment variable to e.g. ease Boost handling by cmake"""
-        txt = super(EB_Boost, self).make_module_extra()
+        txt = super().make_module_extra()
         if not self.cfg['only_python_bindings']:
             txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
         return txt

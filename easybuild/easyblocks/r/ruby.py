@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2024 Ghent University
+# Copyright 2015-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -48,7 +48,7 @@ class EB_Ruby(ConfigureMake):
         """Updates configure options for the Ruby base install"""
 
         self.cfg.update('configopts', "--disable-install-doc --enable-shared")
-        super(EB_Ruby, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Ruby gems"""
@@ -58,4 +58,4 @@ class EB_Ruby(ConfigureMake):
                       'lib/libruby.%s' % get_shared_lib_ext()],
             'dirs': ['include/ruby-%s.0' % majver, 'lib/pkgconfig', 'lib/ruby/%s.0' % majver, 'lib/ruby/gems'],
         }
-        return super(EB_Ruby, self).sanity_check_step(custom_paths=custom_paths)
+        return super().sanity_check_step(custom_paths=custom_paths)

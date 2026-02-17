@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,7 +40,7 @@ class EB_ELSI(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize ELSI-specific variables."""
-        super(EB_ELSI, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.enable_sips = False
         self.internal_ntpoly = True
         self.env_suff = '_MT' if self.toolchain.options.get('openmp', None) else ''
@@ -52,7 +52,6 @@ class EB_ELSI(CMakeMake):
         extra_vars.update({
             'build_internal_pexsi': [None, "Build internal PEXSI solver", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         extra_vars['build_shared_libs'][0] = True
         return extra_vars
 
@@ -131,6 +130,12 @@ class EB_ELSI(CMakeMake):
             self.cfg.update('configopts', "-DENABLE_BSEPACK=ON -DUSE_EXTERNAL_BSEPACK=ON")
             external_libs.extend(['bsepack', 'sseig'])
 
+        magma = get_software_root('magma')
+        if magma:
+            self.log.info("Using external MAGMA.")
+            self.cfg.update('configopts', "-DENABLE_MAGMA=ON")
+            external_libs.append('magma')
+
         if get_software_root('imkl') or get_software_root('ScaLAPACK'):
             external_libs.extend(re.findall(r'lib(.*?)\.a', os.environ['SCALAPACK%s_STATIC_LIBS' % self.env_suff]))
         else:
@@ -142,7 +147,7 @@ class EB_ELSI(CMakeMake):
         self.cfg.update('configopts', "-DLIB_PATHS='%s'" % ';'.join(lib_paths))
         self.cfg.update('configopts', "-DINC_PATHS='%s'" % ';'.join(inc_paths))
 
-        super(EB_ELSI, self).configure_step()
+        super().configure_step()
 
     def sanity_check_step(self):
         """Custom sanity check for ELSI."""
@@ -173,4 +178,4 @@ class EB_ELSI(CMakeMake):
             'dirs': [],
         }
 
-        super(EB_ELSI, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

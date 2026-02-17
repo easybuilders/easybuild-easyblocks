@@ -1,5 +1,6 @@
+#!/usr/bin/env python
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,23 +28,33 @@ EasyBuild support for installing Cargo packages (Rust lang package system)
 
 @author: Mikael Oehman (Chalmers University of Technology)
 @author: Alex Domingo (Vrije Universiteit Brussel)
+@author: Alexander Grund (TU Dresden)
 """
 
 import os
 import re
+import shutil
+import tempfile
+from glob import glob
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
-from easybuild.tools.build_log import EasyBuildError, print_warning
+import easybuild.tools.tomllib as tomllib
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.filetools import extract_file, change_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools import LooseVersion
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import compute_checksum, mkdir, write_file
+from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, dump_toml, extract_file, mkdir
+from easybuild.tools.filetools import read_file, remove_dir, write_file, which
+from easybuild.tools.modules import get_software_version
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
+CRATES_REGISTRY_URL = 'registry+https://github.com/rust-lang/crates.io-index'
 
 CONFIG_TOML_SOURCE_VENDOR = """
 [source.vendored-sources]
@@ -54,14 +65,92 @@ replace-with = "vendored-sources"
 
 """
 
-CONFIG_TOML_PATCH_GIT = """
-[patch."{repo}"]
-{crates}
-"""
-CONFIG_TOML_PATCH_GIT_CRATES = """{0} = {{ path = "{1}" }}
+CONFIG_TOML_SOURCE_GIT = """
+[source."{url}?rev={rev}"]
+git = "{url}"
+rev = "{rev}"
+replace-with = "vendored-sources"
 """
 
-CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{chksum}"}}'
+CONFIG_TOML_SOURCE_GIT_BRANCH = """
+[source."{url}?rev={rev}"]
+git = "{url}"
+rev = "{rev}"
+branch = "{branch}"
+replace-with = "vendored-sources"
+"""
+
+CONFIG_LOCK_SOURCE = """
+[[package]]
+name = "{name}"
+version = "{version}"
+source = "{source}"
+# checksum intentionally not set
+"""
+
+CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
+
+
+def _get_workspace_members(cargo_toml: Dict[str, Any]) -> Optional[List[str]]:
+    """Find all members of a cargo workspace in the parsed the Cargo.toml file.
+
+    Returns all members (subfolder names) if it is a workspace, otherwise None
+    """
+    try:
+        workspace = cargo_toml['workspace']
+    except KeyError:
+        return None
+    try:
+        return workspace['members']
+    except KeyError:
+        raise EasyBuildError('Failed to find members in %s', cargo_toml)
+
+
+def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, Any]):
+    """Resolve workspace references in the Cargo.toml file"""
+    # Lines such as 'authors.workspace = true' must be replaced by 'authors = <value from workspace.package>'
+    content: str = read_file(cargo_toml_path)
+    cargo_toml = tomllib.loads(content)
+    workspace = workspace_toml['workspace']
+
+    def do_merge(parent, child):
+        if isinstance(parent, dict):
+            return {**parent, **child}  # Merge dictionaries, overwrite with child values
+        return parent
+
+    def do_replacement(section_name, workspace_section_name=None):
+        try:
+            section: Dict[str, Any] = cargo_toml[section_name]
+            workspace_section: Dict[str, Any] = workspace[workspace_section_name or section_name]
+        except KeyError:
+            return
+        if section.pop('workspace', False):
+            section = do_merge(workspace_section, section)
+            cargo_toml[section_name] = section
+
+        for key, value in section.items():
+            if isinstance(value, dict) and value.pop('workspace', False):
+                section[key] = do_merge(workspace_section[key], value)
+
+    do_replacement('package')
+    do_replacement('dependencies')
+    do_replacement('build-dependencies', 'dependencies')
+    do_replacement('dev-dependencies', 'dependencies')
+    do_replacement('lints')
+
+    write_file(cargo_toml_path, dump_toml(cargo_toml))
+
+
+def get_checksum(src, log):
+    """Get the checksum from an extracted source"""
+    checksum = src['checksum']
+    if isinstance(checksum, dict):
+        try:
+            checksum = checksum[src['name']]
+        except KeyError:
+            log.warning('No checksum for %s in %s', checksum, src['name'])
+            checksum = None
+    return checksum
 
 
 class Cargo(ExtensionEasyBlock):
@@ -81,24 +170,35 @@ class Cargo(ExtensionEasyBlock):
         return extra_vars
 
     @staticmethod
-    def crate_src_filename(pkg_name, pkg_version, *args):
-        """Crate tarball filename based on package name and version"""
-        return "{0}-{1}.tar.gz".format(pkg_name, pkg_version)
+    def src_parameter_names():
+        return ExtensionEasyBlock.src_parameter_names() + ['crates']
 
     @staticmethod
-    def crate_download_filename(pkg_name, pkg_version, *args):
+    def crate_src_filename(pkg_name, pkg_version, _url=None, rev=None):
+        """Crate tarball filename based on package name, version and optionally git revision"""
+        filename = [pkg_name, pkg_version]
+        filename_ext = '.tar.gz'
+
+        if rev is not None:
+            # sources from a git repo
+            filename.append(rev[:8])  # append short commit hash
+            filename_ext = '.tar.xz'  # use a reproducible archive format
+
+        return '-'.join(filename) + filename_ext
+
+    @staticmethod
+    def crate_download_filename(pkg_name, pkg_version):
         """Crate download filename based on package name and version"""
-        return "{0}/{1}/download".format(pkg_name, pkg_version)
+        return f"{pkg_name}/{pkg_version}/download"
 
     def rustc_optarch(self):
         """Determines what architecture to target.
         Translates GENERIC optarch, and respects rustc specific optarch.
         General optarchs are ignored as there is no direct translation.
         """
-        if systemtools.X86_64 == systemtools.get_cpu_architecture():
+        generic = '-C target-cpu=generic'
+        if systemtools.get_cpu_architecture() == systemtools.X86_64:
             generic = '-C target-cpu=x86-64'
-        else:
-            generic = '-C target-cpu=generic'
 
         optimal = '-C target-cpu=native'
 
@@ -111,34 +211,33 @@ class Cargo(ExtensionEasyBlock):
                         return generic
                     else:
                         return '-' + rust_optarch
-                self.log.info("no rustc information in the optarch dict, so using %s" % optimal)
+                self.log.info(f"Given 'optarch' has no specific information on rustc, so using {optimal}")
             elif optarch == OPTARCH_GENERIC:
                 return generic
             else:
-                self.log.warning("optarch is ignored as there is no translation for rustc, so using %s" % optimal)
+                self.log.warning(f"Ignoring 'optarch' because there is no translation for rustc, so using {optimal}")
+
         return optimal
 
     def __init__(self, *args, **kwargs):
         """Constructor for Cargo easyblock."""
-        super(Cargo, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.cargo_home = os.path.join(self.builddir, '.cargo')
-        self.vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
-        env.setvar('CARGO_HOME', self.cargo_home)
-        env.setvar('RUSTC', 'rustc')
-        env.setvar('RUSTDOC', 'rustdoc')
-        env.setvar('RUSTFMT', 'rustfmt')
-        env.setvar('RUSTFLAGS', self.rustc_optarch())
-        env.setvar('RUST_LOG', 'DEBUG')
-        env.setvar('RUST_BACKTRACE', '1')
+        self.set_cargo_vars()
 
-        # Populate sources from "crates" list of tuples (only once)
-        if self.cfg['crates']:
-            # Move 'crates' list from easyconfig parameter to property,
-            # to avoid that creates are processed into 'sources' easyconfig parameter again
-            # when easyblock is initialized again using the same parsed easyconfig
-            # (for example when check_sha256_checksums function is called, like in easyconfigs test suite)
-            self.crates = self.cfg['crates']
-            self.cfg['crates'] = []
+        # copy EasyConfig instance before we make changes to it
+        self.cfg = self.cfg.copy()
+
+        if self.is_extension:
+            self.cfg['crates'] = self.options.get('crates', [])  # Don't inherit crates from parent
+            # The (regular) extract step for extensions is not run so our handling of crates as (multiple) sources
+            # cannot be used for extensions.
+            if self.crates:
+                raise EasyBuildError(f"Extension '{self.name}' cannot have crates. "
+                                     "You can add them to the top-level config parameters when using e.g."
+                                     "the Cargo or CargoPythonBundle easyblock.")
+        else:
+            # Populate sources from "crates" list of tuples
             sources = []
             for crate_info in self.crates:
                 if len(crate_info) == 2:
@@ -155,93 +254,296 @@ class Cargo(ExtensionEasyBlock):
                         repo_name = repo_name[:-4]
                     sources.append({
                         'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
-                        'filename': self.crate_src_filename(crate, version),
+                        'filename': self.crate_src_filename(crate, version, rev=rev),
                     })
-
             self.cfg.update('sources', sources)
+
+    def set_cargo_vars(self):
+        """Set environment variables for Rust compilation and Cargo"""
+        rustc_optarch = self.rustc_optarch()
+        gcc = which('gcc')  # makes sure gcc wrapper is used in case of rpath linking.
+
+        env.setvar('CARGO_HOME', self.cargo_home)
+        env.setvar('RUSTC', 'rustc')
+        env.setvar('RUSTDOC', 'rustdoc')
+        env.setvar('RUSTFMT', 'rustfmt')
+        env.setvar('RUSTFLAGS', f'{rustc_optarch} -C linker={gcc}')
+        env.setvar('RUST_LOG', 'DEBUG')
+        env.setvar('RUST_BACKTRACE', '1')
+
+        # Use environment variable since it would also be passed along to builds triggered via python packages
+        if self.cfg['offline']:
+            env.setvar('CARGO_NET_OFFLINE', 'true')
+
+    @property
+    def crates(self):
+        """Return the crates as defined in the EasyConfig"""
+        return self.cfg['crates']
+
+    def load_module(self, *args, **kwargs):
+        """(Re)set environment variables after loading module file.
+
+        Required here to ensure the variables are defined for stand-alone installations and extensions,
+        because the environment is reset to the initial environment right before loading the module.
+        """
+        super().load_module(*args, **kwargs)
+        self.set_cargo_vars()
 
     def extract_step(self):
         """
         Unpack the source files and populate them with required .cargo-checksum.json if offline
         """
+        self.vendor_dir = os.path.join(self.builddir, 'easybuild_vendor')
         mkdir(self.vendor_dir)
 
         vendor_crates = {self.crate_src_filename(*crate): crate for crate in self.crates}
-        git_sources = {crate[2]: [] for crate in self.crates if len(crate) == 4}
+        # Track git sources for building the cargo config and avoiding duplicated folders
+        git_sources = {}
 
         for src in self.src:
-            extraction_dir = self.builddir
+            # Check if the source is a vendored crate
+            is_vendor_crate = src['name'] in vendor_crates
+            if is_vendor_crate:
+                # Store crate for later
+                src['crate'] = vendor_crates[src['name']]
+                crate_name = src['crate'][0]
+
+            # Check for git crates, `git_key` will be set to a true-ish value for those
+            if not is_vendor_crate or len(src['crate']) == 2:
+                git_key = None
+            else:
+                git_key = src['crate'][2:]
+                git_repo, rev = git_key
+                self.log.debug("Sources of %s(%s) belong to git repo: %s rev %s",
+                               crate_name, src['name'], git_repo, rev)
+                # Do a sanity check that sources for the same repo and revision are the same
+                try:
+                    previous_source = git_sources[git_key]
+                except KeyError:
+                    git_sources[git_key] = src
+                else:
+                    previous_checksum = get_checksum(previous_source, self.log)
+                    current_checksum = get_checksum(src, self.log)
+                    if previous_checksum and current_checksum and previous_checksum != current_checksum:
+                        raise EasyBuildError("Sources for the same git repository need to be identical. "
+                                             "Mismatch found for %s rev %s in %s (checksum: %s) vs %s (checksum: %s)",
+                                             git_repo, rev, previous_source['name'], previous_checksum,
+                                             src['name'], current_checksum)
+                    self.log.info("Source %s already extracted to %s by %s. Skipping extraction.",
+                                  src['name'], previous_source['finalpath'], previous_source['name'])
+                    src['finalpath'] = previous_source['finalpath']
+                    continue
+
             # Extract dependency crates into vendor subdirectory, separate from sources of main package
-            if src['name'] in vendor_crates:
-                extraction_dir = self.vendor_dir
+            extraction_dir = self.vendor_dir if is_vendor_crate else self.builddir
 
             self.log.info("Unpacking source of %s", src['name'])
-            existing_dirs = set(os.listdir(extraction_dir))
-            crate_dir = None
-            src_dir = extract_file(src['path'], extraction_dir, cmd=src['cmd'],
-                                   extra_options=self.cfg['unpack_options'], change_into_dir=False)
-            new_extracted_dirs = set(os.listdir(extraction_dir)) - existing_dirs
+            existing_files = set(os.listdir(extraction_dir))
+            extract_file(src['path'], extraction_dir, cmd=src['cmd'],
+                         extra_options=self.cfg['unpack_options'], change_into_dir=False, trace=False)
+            new_extracted_files = set(os.listdir(extraction_dir)) - existing_files
+            new_extracted_dirs = sorted(x for x in new_extracted_files
+                                        if os.path.isdir(os.path.join(extraction_dir, x)))
+            self.log.info(f"New directories found after extracting {src['name']}: {new_extracted_dirs}")
 
-            if len(new_extracted_dirs) == 1:
-                # Expected crate tarball with 1 folder
-                crate_dir = new_extracted_dirs.pop()
-                src_dir = os.path.join(extraction_dir, crate_dir)
-                self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
-            elif len(new_extracted_dirs) == 0:
+            if len(new_extracted_dirs) == 0:
                 # Extraction went wrong
                 raise EasyBuildError("Unpacking sources of '%s' failed", src['name'])
-            # TODO: properly handle case with multiple extracted folders
-            # this is currently in a grey area, might still be used by cargo
-
-            change_dir(src_dir)
-            self.src[self.src.index(src)]['finalpath'] = src_dir
-
-            if self.cfg['offline'] and crate_dir:
-                # Create checksum file for extracted sources required by vendored crates.io sources
-                self.log.info('creating .cargo-checksums.json file for : %s', crate_dir)
-                chksum = compute_checksum(src['path'], checksum_type='sha256')
-                chkfile = os.path.join(extraction_dir, crate_dir, '.cargo-checksum.json')
-                write_file(chkfile, CARGO_CHECKSUM_JSON.format(chksum=chksum))
-                # Add path to extracted sources for any crate from a git repo
-                try:
-                    crate_name, _, crate_repo, _ = vendor_crates[src['name']]
-                except (ValueError, KeyError):
-                    pass
-                else:
-                    self.log.debug("Sources of %s belong to git repo: %s", src['name'], crate_repo)
-                    git_src_dir = (crate_name, src_dir)
-                    git_sources[crate_repo].append(git_src_dir)
+            elif len(new_extracted_dirs) == 1:
+                src_dir = os.path.join(extraction_dir, new_extracted_dirs[0])
+            else:
+                # if there are multiple subdirectories, we use parent directory as finalpath
+                src_dir = extraction_dir
+            self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
+            src['finalpath'] = src_dir
 
         if self.cfg['offline']:
-            self.log.info("Setting vendored crates dir for offline operation")
-            config_toml = os.path.join(self.cargo_home, 'config.toml')
-            # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
-            # because the rust source subdirectories might differ with python packages
-            self.log.debug("Writting config.toml entry for vendored crates from crate.io")
-            write_file(config_toml, CONFIG_TOML_SOURCE_VENDOR.format(vendor_dir=self.vendor_dir), append=True)
+            self._setup_offline_config(git_sources)
 
-            # also vendor sources from other git sources (could be many crates for one git source)
-            for git_repo, repo_crates in git_sources.items():
-                self.log.debug("Writting config.toml entry for git repo: %s", git_repo)
-                config_crates = ''.join([CONFIG_TOML_PATCH_GIT_CRATES.format(*crate) for crate in repo_crates])
-                write_file(config_toml, CONFIG_TOML_PATCH_GIT.format(repo=git_repo, crates=config_crates), append=True)
+    def _setup_offline_config(self, git_sources):
+        """
+        Setup the configuration required for offline builds
+        :param git_sources: dict mapping (git_repo, rev) to extracted source
+        """
+        self.log.info("Setting up vendored crates for offline operation")
 
-            # Use environment variable since it would also be passed along to builds triggered via python packages
-            env.setvar('CARGO_NET_OFFLINE', 'true')
+        self.log.debug("Setting up checksum files and unpacking workspaces with virtual manifest")
+        path_to_source = {src['finalpath']: src for src in self.src}
+        tmp_dir = Path(tempfile.mkdtemp(dir=self.builddir, prefix='tmp_crate_'))
+        # Add checksum file for each crate such that it is recognized by cargo.
+        # Glob to catch multiple folders in a source archive.
+        for cargo_toml in Path(self.vendor_dir).glob('*/Cargo.toml'):
+            crate_dir = cargo_toml.parent
+            src = path_to_source.get(str(crate_dir))
+            if src:
+                try:
+                    checksum = src[CHECKSUM_TYPE_SHA256]
+                except KeyError:
+                    self.log.debug(f"Computing checksum for {src['path']}.")
+                    checksum = compute_checksum(src['path'], checksum_type=CHECKSUM_TYPE_SHA256)
+            else:
+                self.log.debug(f'No source found for {crate_dir}. Using nul-checksum for vendoring')
+                checksum = 'null'
+            cargo_pkg_dirs = [crate_dir]  # Default case: Single crate
+            # Sources might contain multiple crates/folders in a so-called "workspace".
+            # We have to move the individual packages out of the workspace so cargo can find them.
+            # If there is a main package it should to used too,
+            # otherwise (Only "[workspace]" section and no "[package]" section)
+            # we have to remove the top-level folder or cargo fails with:
+            # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
+            parsed_toml = tomllib.loads(read_file(cargo_toml))
+            members = _get_workspace_members(parsed_toml)
+            if members:
+                self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(members))
+                if not any((crate_dir / crate).is_dir() for crate in members):
+                    if 'package' not in parsed_toml:
+                        raise EasyBuildError(f'Virtual manifest found in {crate_dir} but none of the member folders '
+                                             'exist. This cannot be handled by the build.')
+                    # Packages from crates.io contain only a single crate even if the Cargo.toml file lists multiple
+                    # members. Those members are in separate packages on crates.io, so this is a fairly common case.
+                    self.log.debug(f"Member folders of {crate_dir} don't exist so assuming they are in individual "
+                                   "crates, e.g. from/on crates.io")
+                else:
+                    cargo_pkg_dirs = []
+                    tmp_crate_dir = tmp_dir / crate_dir.name
+                    shutil.move(crate_dir, tmp_crate_dir)
+                    for member in members:
+                        # A member crate might be in a subfolder, e.g. 'components/foo',
+                        # which we need to ignore and make the crate a top-level folder.
+                        target_path = Path(self.vendor_dir, os.path.basename(member))
+                        if target_path.exists():
+                            raise EasyBuildError(f'Cannot move {member} out of {crate_dir.name} '
+                                                 f'as target path {target_path} exists')
+                        # Use copy_dir to resolve symlinks that might point to the parent folder
+                        copy_dir(tmp_crate_dir / member, target_path, symlinks=False)
+                        cargo_pkg_dirs.append(target_path)
+                        self.log.info(f'Resolving workspace values for crate {member}')
+                        _merge_sub_crate(target_path / 'Cargo.toml', parsed_toml)
+                    if 'package' in parsed_toml:
+                        # Remove the copied crate folders
+                        for member in members:
+                            remove_dir(tmp_crate_dir / member)
+                        # Keep the main package in the original location
+                        shutil.move(tmp_crate_dir, crate_dir)
+                        cargo_pkg_dirs.append(crate_dir)
+                    else:
+                        self.log.info(f'Virtual manifest found in {crate_dir}, removing it')
+                        remove_dir(tmp_crate_dir)
+            for pkg_dir in cargo_pkg_dirs:
+                self.log.info('creating .cargo-checksums.json file for %s', pkg_dir.name)
+                chkfile = os.path.join(pkg_dir, '.cargo-checksum.json')
+                write_file(chkfile, CARGO_CHECKSUM_JSON.format(checksum=checksum))
+
+        self.log.debug("Writting config.toml entry for vendored crates from crate.io")
+        config_toml = os.path.join(self.cargo_home, 'config.toml')
+        # Replace crates-io with vendored sources using build dir wide toml file in CARGO_HOME
+        write_file(config_toml, CONFIG_TOML_SOURCE_VENDOR.format(vendor_dir=self.vendor_dir))
+
+        # Tell cargo about the vendored git sources to avoid it failing with:
+        # Unable to update https://github.com/[...]
+        # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
+        for (git_repo, rev), src in git_sources.items():
+            crate_name = src['crate'][0]
+            git_branch = self._get_crate_git_repo_branch(crate_name)
+            template = CONFIG_TOML_SOURCE_GIT_BRANCH if git_branch else CONFIG_TOML_SOURCE_GIT
+            self.log.debug(f"Writing config.toml entry for git repo: {git_repo} branch {git_branch}, rev {rev}")
+            write_file(config_toml, template.format(url=git_repo, rev=rev, branch=git_branch), append=True)
+
+    def _get_crate_git_repo_branch(self, crate_name):
+        """
+        Find the dependency definition for given crate in all Cargo.toml files of sources
+        Return branch target for given crate_name if any
+        """
+        # Search all Cargo.toml files in main source and vendored crates
+        cargo_toml_files = []
+        for cargo_source_dir in (self.src[0]['finalpath'], self.vendor_dir):
+            cargo_toml_files.extend(glob(os.path.join(cargo_source_dir, '**', 'Cargo.toml'), recursive=True))
+
+        if not cargo_toml_files:
+            raise EasyBuildError("Cargo.toml file not found in sources")
+
+        self.log.debug(
+            f"Searching definition of crate '{crate_name}' in the following files: {', '.join(cargo_toml_files)}"
+        )
+
+        git_repo_spec = re.compile(re.escape(crate_name) + r"\s*=\s*{([^}]*)}", re.M)
+        git_branch_spec = re.compile(r'branch\s*=\s*"([^"]*)"', re.M)
+
+        for cargo_toml in cargo_toml_files:
+            git_repo_crate = git_repo_spec.search(read_file(cargo_toml))
+            if git_repo_crate:
+                self.log.debug(f"Found specification in {cargo_toml} for crate '{crate_name}': " +
+                               git_repo_crate.group())
+                git_repo_crate_contents = git_repo_crate.group(1)
+                git_branch_crate = git_branch_spec.search(git_repo_crate_contents)
+                if git_branch_crate:
+                    self.log.debug(f"Found git branch requirement for crate '{crate_name}': " +
+                                   git_branch_crate.group())
+                    return git_branch_crate.group(1)
+
+        return None
+
+    def prepare_step(self, *args, **kwargs):
+        """
+        Custom prepare step: set environment variable for Rust/cargo after setting up build environment.
+        """
+        super().prepare_step(*args, **kwargs)
+
+        self.set_cargo_vars()
 
     def configure_step(self):
-        """Empty configuration step."""
-        pass
+        """Create lockfile if it doesn't exist"""
+        cargo_lock = 'Cargo.lock'
+        # Crates should be specified in the main easyconfig for extensions
+        if self.is_extension:
+            crates = self.master.crates
+        else:
+            crates = self.crates
+        if crates and os.path.exists('Cargo.toml') and not os.path.exists(cargo_lock):
+            locate_project_output = run_shell_cmd('cargo -q locate-project --message-format=plain --workspace').output
+            # Usually it is the only line, but there might be some prior messages like warnings
+            # Find path right path by going backwards through each line
+            try:
+                root_toml = next(p for p in locate_project_output.splitlines()[::-1] if os.path.exists(p))
+            except StopIteration:
+                self.log.warning("Failed to find project Cargo.toml. Skipping lockfile check & creation.")
+            else:
+                cargo_lock_path = os.path.join(os.path.dirname(root_toml), cargo_lock)
+                if not os.path.exists(cargo_lock_path):
+                    rust_version = LooseVersion(get_software_version('Rust'))
+                    # File format version, the latest supported is used for forward compatibility
+                    # Versions 1 and 2 were internal only, 2 being autodetected
+                    # 1.47 introduced the version marker as version 3
+                    # 1.78 marked version 4 as stable
+                    if rust_version < '1.47':
+                        version = None
+                    elif rust_version < '1.78':
+                        version = 3
+                    else:
+                        version = 4
+                    # Use vendored crates to ensure those versions are used
+                    self.log.info(f"No {cargo_lock} file found, creating one at {cargo_lock_path}")
+                    content = f'version = {version}\n' if version is not None else ''
+                    for crate_info in crates:
+                        if len(crate_info) == 2:
+                            name, version = crate_info
+                            source = CRATES_REGISTRY_URL
+                        else:
+                            name, version, repo, rev = crate_info
+                            source = f'git+{repo}?rev={rev}#{rev}'
+
+                        content += CONFIG_LOCK_SOURCE.format(name=name, version=version, source=source)
+                    write_file(cargo_lock_path, content)
 
     @property
     def profile(self):
-        return 'debug' if self.toolchain.options.get('debug', None) else 'release'
+        return 'debug' if self.toolchain.options.get('debug') else 'release'
 
     def build_step(self):
         """Build with cargo"""
         parallel = ''
-        if self.cfg['parallel']:
-            parallel = "-j %s" % self.cfg['parallel']
+        if self.cfg.parallel > 1:
+            parallel = f"-j {self.cfg.parallel}"
 
         tests = ''
         if self.cfg['enable_tests']:
@@ -249,9 +551,9 @@ class Cargo(ExtensionEasyBlock):
 
         lto = ''
         if self.cfg['lto'] is not None:
-            lto = '--config profile.%s.lto=\\"%s\\"' % (self.profile, self.cfg['lto'])
+            lto = f'--config profile.{self.profile}.lto="{self.cfg["lto"]}"'
 
-        run_cmd('rustc --print cfg', log_all=True, simple=True)  # for tracking in log file
+        run_shell_cmd('rustc --print cfg')  # for tracking in log file
         cmd = ' '.join([
             self.cfg['prebuildopts'],
             'cargo build',
@@ -261,7 +563,7 @@ class Cargo(ExtensionEasyBlock):
             parallel,
             self.cfg['buildopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def test_step(self):
         """Test with cargo"""
@@ -272,7 +574,7 @@ class Cargo(ExtensionEasyBlock):
                 '--profile=' + self.profile,
                 self.cfg['testopts'],
             ])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
     def install_step(self):
         """Install with cargo"""
@@ -284,57 +586,82 @@ class Cargo(ExtensionEasyBlock):
             '--path=.',
             self.cfg['installopts'],
         ])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
 
 def generate_crate_list(sourcedir):
     """Helper for generating crate list"""
-    import toml
+    from urllib.parse import parse_qs, urlsplit  # pylint: disable=import-outside-toplevel
+
+    import toml  # pylint: disable=import-outside-toplevel
 
     cargo_toml = toml.load(os.path.join(sourcedir, 'Cargo.toml'))
-    cargo_lock = toml.load(os.path.join(sourcedir, 'Cargo.lock'))
+
+    try:
+        cargo_lock = toml.load(os.path.join(sourcedir, 'Cargo.lock'))
+    except FileNotFoundError as err:
+        print("\nNo Cargo.lock file found. Generate one with 'cargo generate-lockfile'\n")
+        raise err
 
     try:
         app_name = cargo_toml['package']['name']
     except KeyError:
         app_name = os.path.basename(os.path.abspath(sourcedir))
         print_warning('Did not find a [package] name= entry. Assuming it is the folder name: ' + app_name)
-    deps = cargo_lock['package']
 
     app_in_cratesio = False
     crates = []
     other_crates = []
-    for dep in deps:
+    for dep in cargo_lock['package']:
         name = dep['name']
         version = dep['version']
-        if 'source' in dep:
-            if name == app_name:
-                app_in_cratesio = True  # exclude app itself, needs to be first in crates list or taken from pypi
-            else:
-                if dep['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
-                    crates.append((name, version))
-                else:
-                    # Lock file has revision#revision in the url
-                    url, rev = dep['source'].rsplit('#', maxsplit=1)
-                    for prefix in ('registry+', 'git+'):
-                        if url.startswith(prefix):
-                            url = url[len(prefix):]
-                    # Remove branch name if present
-                    url = re.sub(r'\?branch=\w+$', '', url)
-                    crates.append((name, version, url, rev))
-        else:
+        try:
+            source_url = dep['source']
+        except KeyError:
             other_crates.append((name, version))
+            continue
+        if name == app_name:
+            app_in_cratesio = True  # exclude app itself, needs to be first in crates list or taken from pypi
+        else:
+            if source_url == CRATES_REGISTRY_URL:
+                crates.append((name, version))
+            else:
+                # Lock file has revision and branch in the url
+                url = re.sub(r'^(registry|git)\+', '', source_url)  # Strip prefix if present
+                parsed_url = urlsplit(url)
+                url = re.split('[#?]', url, maxsplit=1)[0]  # Remove query and fragment
+                rev = parsed_url.fragment
+                if not rev:
+                    raise ValueError(f"Revision not found in URL {url}")
+                qs = parse_qs(parsed_url.query)
+                rev_qs = qs.get('rev', [None])[0]
+                if rev_qs is not None and rev_qs != rev:
+                    # It is not an error if one is the short version of the other
+                    # E.g. https://github.com/astral/lsp-types.git?rev=3512a9f#3512a9f33eadc5402cfab1b8f7340824c8ca1439
+                    if (rev_qs and rev.startswith(rev_qs)) or rev_qs.startswith(rev):
+                        # The query value is the relevant one if both are present
+                        rev = rev_qs
+                    else:
+                        raise ValueError(f"Found different revision in query of URL {url}: {rev_qs} (expected: {rev})")
+                crates.append((name, version, url, rev))
     return app_in_cratesio, crates, other_crates
 
 
-if __name__ == '__main__':
-    import sys
+def main():
+    import sys  # pylint: disable=import-outside-toplevel
+    if len(sys.argv) != 2:
+        print('Expected path to folder containing Cargo.[toml,lock]')
+        sys.exit(1)
     app_in_cratesio, crates, other = generate_crate_list(sys.argv[1])
-    print(other)
+    print('Other crates (no source in Cargo.lock):', other)
     if app_in_cratesio or crates:
         print('crates = [')
         if app_in_cratesio:
             print('    (name, version),')
-        for crate_info in crates:
+        for crate_info in sorted(crates):
             print("    %s," % str(crate_info))
         print(']')
+
+
+if __name__ == '__main__':
+    main()

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,14 +46,14 @@ class EB_HPCC(EB_HPL):
         Create Make.UNKNOWN file to build from
         """
         # the build script file should be created in the hpl subdir
-        super(EB_HPCC, self).configure_step(subdir='hpl')
+        super().configure_step(subdir='hpl')
 
     def build_step(self):
         """
         Build with make and correct make options
         """
         # TOPdir should always be ../../.. regardless of what it was in the HPL build script file
-        super(EB_HPCC, self).build_step(topdir='../../..')
+        super().build_step(topdir='../../..')
 
     def install_step(self):
         """
@@ -78,4 +78,4 @@ class EB_HPCC(EB_HPL):
 
         custom_commands = ['hpcc']
 
-        super(EB_HPL, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
