@@ -488,19 +488,21 @@ class Bundle(EasyBlock):
         """
         if self.cfg['exts_list'] or self.cfg['sanity_check_paths'] or self.cfg['sanity_check_commands']:
             super().sanity_check_step(*args, **kwargs)
+            test_module_load = False
         else:
-            # Only load the module, if not yet done. Also required for the component sanity checking
             self.log.info("Testing loading of module '%s' by means of sanity check" % self.full_mod_name)
+            test_module_load = True
 
-        if self.sanity_check_module_loaded:
-            loaded_module = False
-        else:
+        cnt = len(self.comp_cfgs_sanity_check)
+
+        if not self.sanity_check_module_loaded and (test_module_load or cnt > 0):  # Need it loaded for components too
             self.sanity_check_load_module(extension=kwargs.get('extension', False),
                                           extra_modules=kwargs.get('extra_modules'))
             loaded_module = self.sanity_check_module_loaded
+        else:
+            loaded_module = False
 
         # run sanity checks for specific components
-        cnt = len(self.comp_cfgs_sanity_check)
         if cnt > 0:
             for idx, comp in enumerate(self.comp_cfgs_sanity_check):
                 print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp.name, comp.version, idx + 1, cnt)
