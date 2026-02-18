@@ -647,7 +647,7 @@ class EB_GCC(ConfigureMake):
         # enable building of libstdc++_libbacktrace
         if self.cfg['with_cxx_backtrace'] is not None:
             if self.cfg['with_cxx_backtrace']:
-                # '--enable-libstdcxx-backtrace' is undefined by default. No need to explicitly 
+                # '--enable-libstdcxx-backtrace' is undefined by default. No need to explicitly
                 # disable it if 'with_cxx_backtrace' is set to False
                 self.configopts += " --enable-libstdcxx-backtrace"
 
