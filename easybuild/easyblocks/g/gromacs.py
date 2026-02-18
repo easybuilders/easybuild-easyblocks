@@ -164,6 +164,8 @@ class EB_GROMACS(CMakeMake):
         gromacs_version = LooseVersion(self.version)
 
         if gromacs_version >= '2025':
+            # Build gromacs with PLUMED support
+            # https://manual.gromacs.org/documentation/2025.0/install-guide/index.html#building-with-plumed-support
             self.cfg.update('configopts', "-DGMX_USE_PLUMED=ON")
             return
 
