@@ -155,6 +155,52 @@ class EB_GROMACS(CMakeMake):
         cuda = get_software_root('CUDA')
         return cuda and self.double_prec_pattern in self.cfg['configopts']
 
+    def plumed_through_patch(self):
+        gromacs_version = LooseVersion(self.version)
+
+        return gromacs_version < '2025'
+
+    def set_plumed_cmd(self):
+        gromacs_version = LooseVersion(self.version)
+
+        if gromacs_version >= '2025':
+            self.cfg.update('configopts', "-DGMX_USE_PLUMED=ON")
+            return
+
+        # Need to check if PLUMED has an engine for this version
+        engine = 'gromacs-%s' % self.version
+
+        res = run_shell_cmd("plumed-patch -l")
+        if not re.search(engine, res.output):
+            plumed_ver = get_software_version('PLUMED')
+            msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version,
+                                                                                   res.output)
+            if self.cfg['ignore_plumed_version_check']:
+                self.log.warning(msg)
+            else:
+                raise EasyBuildError(msg)
+
+        # PLUMED patching must be done at different stages depending on
+        # version of GROMACS. Just prepare first part of cmd here
+        plumed_cmd = "plumed-patch -p -e %s" % engine
+
+        if gromacs_version >= '5.1':
+            # Use shared or static patch depending on
+            # setting of self.cfg['build_shared_libs']
+            # and adapt cmake flags accordingly as per instructions
+            # from "plumed patch -i"
+            if self.cfg['build_shared_libs']:
+                mode = 'shared'
+            else:
+                mode = 'static'
+            plumed_cmd = plumed_cmd + ' -m %s' % mode
+
+        self.plumed_cmd = plumed_cmd
+
+    def run_plumed_cmd(self):
+        if self.plumed_cmd:
+            run_shell_cmd(self.plumed_cmd)
+
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for GROMACS."""
 
@@ -229,23 +275,7 @@ class EB_GROMACS(CMakeMake):
 
         if plumed_root:
             self.log.info('PLUMED support has been enabled.')
-
-            # Need to check if PLUMED has an engine for this version
-            engine = 'gromacs-%s' % self.version
-
-            res = run_shell_cmd("plumed-patch -l")
-            if not re.search(engine, res.output):
-                plumed_ver = get_software_version('PLUMED')
-                msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version,
-                                                                                       res.output)
-                if self.cfg['ignore_plumed_version_check']:
-                    self.log.warning(msg)
-                else:
-                    raise EasyBuildError(msg)
-
-            # PLUMED patching must be done at different stages depending on
-            # version of GROMACS. Just prepare first part of cmd here
-            plumed_cmd = "plumed-patch -p -e %s" % engine
+            self.set_plumed_cmd()
 
         # Ensure that the GROMACS log files report how the code was patched
         # during the build, so that any problems are easier to diagnose.
@@ -294,7 +324,7 @@ class EB_GROMACS(CMakeMake):
 
             # Now patch GROMACS for PLUMED between configure and build
             if plumed_root:
-                run_shell_cmd(plumed_cmd)
+                self.run_plumed_cmd()
 
         else:
             if '-DGMX_MPI=ON' in self.cfg['configopts']:
@@ -354,18 +384,7 @@ class EB_GROMACS(CMakeMake):
 
             # Now patch GROMACS for PLUMED before cmake
             if plumed_root:
-                if gromacs_version >= '5.1':
-                    # Use shared or static patch depending on
-                    # setting of self.cfg['build_shared_libs']
-                    # and adapt cmake flags accordingly as per instructions
-                    # from "plumed patch -i"
-                    if self.cfg['build_shared_libs']:
-                        mode = 'shared'
-                    else:
-                        mode = 'static'
-                    plumed_cmd = plumed_cmd + ' -m %s' % mode
-
-                run_shell_cmd(plumed_cmd)
+                self.run_plumed_cmd()
 
             # prefer static libraries, if available
             if self.cfg['build_shared_libs']:
