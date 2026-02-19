@@ -155,19 +155,33 @@ class EB_GROMACS(CMakeMake):
         cuda = get_software_root('CUDA')
         return cuda and self.double_prec_pattern in self.cfg['configopts']
 
-    def plumed_through_patch(self):
+    def is_using_plumed_kernel(self):
         gromacs_version = LooseVersion(self.version)
 
-        return gromacs_version < '2025'
+        return not gromacs_version < '2025'
 
-    def using_cmake(self):
+    def is_cmake_shared_lib_plumed_patch_supported(self):
         gromacs_version = LooseVersion(self.version)
 
         return gromacs_version >= '5.1'
 
-    def check_if_plumed_has_an_engine_for_patched_version(self):
-        engine = 'gromacs-%s' % self.version
+    def configure_runtime_loading_of_plumed(self):
+        # Since 2025.0 GROMACS can use a subset of PLUMED interface by loading the PLUMED kernel library at runtime
 
+        # 1. Enable building with the nativelly supported PLUMED functions:
+        # https://manual.gromacs.org/documentation/2025.0/install-guide/index.html#building-with-plumed-support
+        self.cfg.update('configopts', "-DGMX_USE_PLUMED=ON")
+
+        # 2. Set the location of the runtime loaded PLUMED library:
+        # https://manual.gromacs.org/documentation/2025.0/reference-manual/special/plumed.html
+        self.cfg.update('modextrapaths', {
+            'PLUMED_KERNEL': {
+                'paths': '$EBROOTPLUMED/lib/libplumedKernel.so',
+                'prepend': False
+            }
+        })
+
+    def check_plumed_version_supports_patching_gromacs_engine(self, engine):
         res = run_shell_cmd("plumed-patch -l")
         if not re.search(engine, res.output):
             plumed_ver = get_software_version('PLUMED')
@@ -179,21 +193,19 @@ class EB_GROMACS(CMakeMake):
                 raise EasyBuildError(msg)
 
     def set_plumed_cmd(self):
-        gromacs_version = LooseVersion(self.version)
-
-        if gromacs_version >= '2025':
-            # Build gromacs with PLUMED support
-            # https://manual.gromacs.org/documentation/2025.0/install-guide/index.html#building-with-plumed-support
-            self.cfg.update('configopts', "-DGMX_USE_PLUMED=ON")
+        if self.is_using_plumed_kernel():
+            self.configure_runtime_loading_of_plumed()
             return
 
-        self.check_if_plumed_has_an_engine_for_patched_version()
+        engine = 'gromacs-%s' % self.version
+
+        self.check_plumed_version_supports_patching_gromacs_engine(engine)
 
         # PLUMED patching must be done at different stages depending on
         # version of GROMACS. Just prepare first part of cmd here
         plumed_cmd = "plumed-patch -p -e %s" % engine
 
-        if self.using_cmake():
+        if self.is_cmake_shared_lib_plumed_patch_supported():
             # Use shared or static patch depending on
             # setting of self.cfg['build_shared_libs']
             # and adapt cmake flags accordingly as per instructions
