@@ -160,16 +160,12 @@ class EB_GROMACS(CMakeMake):
 
         return gromacs_version < '2025'
 
-    def set_plumed_cmd(self):
+    def using_cmake(self):
         gromacs_version = LooseVersion(self.version)
 
-        if gromacs_version >= '2025':
-            # Build gromacs with PLUMED support
-            # https://manual.gromacs.org/documentation/2025.0/install-guide/index.html#building-with-plumed-support
-            self.cfg.update('configopts', "-DGMX_USE_PLUMED=ON")
-            return
+        return gromacs_version >= '5.1'
 
-        # Need to check if PLUMED has an engine for this version
+    def check_if_plumed_has_an_engine_for_patched_version(self):
         engine = 'gromacs-%s' % self.version
 
         res = run_shell_cmd("plumed-patch -l")
@@ -182,11 +178,22 @@ class EB_GROMACS(CMakeMake):
             else:
                 raise EasyBuildError(msg)
 
+    def set_plumed_cmd(self):
+        gromacs_version = LooseVersion(self.version)
+
+        if gromacs_version >= '2025':
+            # Build gromacs with PLUMED support
+            # https://manual.gromacs.org/documentation/2025.0/install-guide/index.html#building-with-plumed-support
+            self.cfg.update('configopts', "-DGMX_USE_PLUMED=ON")
+            return
+
+        self.check_if_plumed_has_an_engine_for_patched_version()
+
         # PLUMED patching must be done at different stages depending on
         # version of GROMACS. Just prepare first part of cmd here
         plumed_cmd = "plumed-patch -p -e %s" % engine
 
-        if gromacs_version >= '5.1':
+        if self.using_cmake():
             # Use shared or static patch depending on
             # setting of self.cfg['build_shared_libs']
             # and adapt cmake flags accordingly as per instructions
