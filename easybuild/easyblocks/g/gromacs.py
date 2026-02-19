@@ -76,6 +76,9 @@ class EB_GROMACS(CMakeMake):
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
             'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
                        "True or False forces behaviour.", CUSTOM],
+            'parallel_test': [None, "Number of tests to run in parallel. Can help with hanging tests caused by " +
+                              "oversubscribed MPI processes. With None (default) the value of the parallel value " +
+                              "is used.", CUSTOM],
         })
         return extra_vars
 
@@ -564,7 +567,10 @@ class EB_GROMACS(CMakeMake):
 
                 # run 'make check' or whatever the easyconfig specifies
                 # in parallel since it involves more compilation
-                self.cfg.update('runtest', f"-j {self.cfg.parallel}")
+                if self.parallel_test:
+                    self.cfg.update('runtest', f"-j {self.parallel_test}")
+                else:
+                    self.cfg.update('runtest', f"-j {self.cfg.parallel}")
                 super().test_step()
 
                 if build_option('rpath'):
