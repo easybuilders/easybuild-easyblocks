@@ -5,6 +5,47 @@ These release notes can also be consulted at https://docs.easybuild.io/release-n
 
 The latest version of easybuild-easyblocks provides 206 software-specific easyblocks and 46 generic easyblocks.
 
+v5.2.1 (20 Feb 2026)
+--------------------
+
+- new easyblocks:
+  - software-specific easyblocks for AOCL-LAPACK (#4042) and ROCm-LLVM (#3823)
+- bug fixes:
+  - avoid incorrect symlinks for NVHPC by force-setting selected CUDA version in install script (#4024)
+  - fix typo in description for `build_env_vars` easyconfig parameter of `BuildEnv` easyblock (#4030)
+  - disable FlexiBLAS backends that are in the list of filtered dependencies (#4031)
+  - transfer dependencies in Bundle easyblock and fix sanity check for module only (#4037, #4057)
+  - fix missed sanity check in custom easyblock for GCC (#4041)
+  - set `$Python3_ROOT_DIR` in `PythonPackage` easyblock (#4043)
+  - ensure AmberTools will find the correct Python library and include dir (#4045)
+  - fix setting Python variables in TensorRT easyblock (#4046)
+  - fix WIEN2k easyblock for newer toolchains (#4048)
+  - fix error reporting for number of checksums vs number of sources + patches in custom easyblock for Python (#4055)
+  - fix call to parent for static method `src_parameter_names` in `Cargo` easyblock (#4062)
+  - fix limiting of threads for OpenBLAS tests (#4067)
+- enhancements:
+  - add support for detecting external MAGMA library for ELSI (#3536)
+  - create lockfile for Cargo package if missing (#3995)
+  - explictly call `PythonPackage` and `Cargo` configure step in `CargoPythonPackage` easyblock (#3996)
+  - allow oversubscription in sanity check for OpenFOAM (#4019)
+  - allow to enable more components in Extrae (#4027)
+  - add fallback architecture for zen5 to BLIS easyblock (#4034)
+  - add LLVM support to ParaStationMPI easyblock (#4047)
+  - allow easier reuse of `compose_install_command` of `PythonPackage`, and add `%(python)s` template and default Python libdir in sanity check (#4050) 
+  - update ELPA easyblock to make it aware of NVHPC toolchain compiler (#4051)
+  - add option to allow missing or additional detected PyTorch test suites (#4052)
+  - update QuantumESPRESSO easyblock - add pretestopts + GPU test cmd (#4053)
+  - enhance `PythonPackage` and `PythonBundle` to support updating module footers for click autocompletion for specified binaries (#4056)
+- updates:
+  - update custom easyblock for FDTD-Solutions so it can be used to install Lumerical-FDTD (#3362)
+  - changes to LLVM easyblock required for LLVM 21 (#3902)
+  - update custom easyblock for Gurobi for version 13 (#4060)
+- other changes:
+  - make `CargoPythonPackage` the default class for extensions/components of `CargoPythonBundle` (#3993)
+- code cleanup: 
+  - enable flake8-comprehension code style check and fix issues (#3989)
+
+
 v5.2.0 (23 Dec 2025)
 --------------------
 
