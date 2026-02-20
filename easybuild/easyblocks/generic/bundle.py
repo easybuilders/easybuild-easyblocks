@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -241,7 +241,18 @@ class Bundle(EasyBlock):
                     # Patch step is skipped so adding postinstall patches of components here is harmless
                     self.cfg.update('patches', comp_postinstall_patches)
 
-                self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
+                # instantiate the component to transfer further information
+                comp_instance = comp_cfg.easyblock(comp_cfg, logfile=self.logfile)
+
+                # correct build/install dirs
+                comp_instance.builddir = self.builddir
+                comp_instance.install_subdir, comp_instance.installdir = self.install_subdir, self.installdir
+
+                # check if sanity checks are enabled for the component
+                if self.cfg['sanity_check_all_components'] or comp_cfg['name'] in self.cfg['sanity_check_components']:
+                    self.comp_cfgs_sanity_check.append(comp_instance)
+                # lastly, add it to the list of components we'll deal with later
+                self.comp_instances.append((comp_cfg, comp_instance))
 
             self.cfg.update('checksums', checksums_patches + orig_checksums)
 
@@ -258,10 +269,19 @@ class Bundle(EasyBlock):
         """
         checksum_issues = super().check_checksums()
 
-        for comp, _ in self.comp_instances:
-            checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
+        for comp_cfg, _ in self.comp_instances:
+            checksum_issues.extend(self.check_checksums_for(comp_cfg, sub="of component %s" % comp_cfg['name']))
 
         return checksum_issues
+
+    def prepare_step(self, *args, **kwargs):
+        """
+        Pre-configure step.
+        At this point, dependencies are known. So transfer them to all components.
+        """
+        super().prepare_step(*args, **kwargs)
+        for _, comp in self.comp_instances:
+            comp.toolchain.dependencies = self.toolchain.dependencies
 
     def patch_step(self):
         """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
@@ -319,10 +339,6 @@ class Bundle(EasyBlock):
                       (comp.name, comp.version, idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", comp.name, comp.version, cfg.easyblock)
 
-            # correct build/install dirs
-            comp.builddir = self.builddir
-            comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
-
             # make sure we can build in parallel
             comp.set_parallel()
 
@@ -360,10 +376,6 @@ class Bundle(EasyBlock):
 
                 # location of first unpacked source is used to determine where to apply patch(es)
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
-
-            # check if sanity checks are enabled for the component
-            if self.cfg['sanity_check_all_components'] or comp.name in self.cfg['sanity_check_components']:
-                self.comp_cfgs_sanity_check.append(comp)
 
             self._install_component(comp)
 

@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2025 Ghent University
+# Copyright 2021-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,7 @@ import os
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import toolchain, LooseVersion
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.environment import setvar
 from easybuild.tools.filetools import write_file
@@ -69,18 +69,26 @@ class EB_FlexiBLAS(CMakeMake):
         """Easyblock constructor."""
         super().__init__(*args, **kwargs)
 
-        dep_names = [dep['name'] for dep in self.cfg.dependencies()]
+        dep_names = self.cfg.dependency_names()
         if self.cfg['backends']:
             self.blas_libs = self.cfg['backends'][:]
             # make sure that all listed backends except imkl are (build)dependencies
             if 'imkl' in self.blas_libs and 'imkl' not in dep_names:
                 self.blas_libs.remove('imkl')
+            filtered_deps = build_option('filter_deps') or []
+            backends_filtered = [x for x in self.blas_libs if x in filtered_deps]
+            if backends_filtered:
+                warning_msg = "The following backends are also included in the list of filtered dependencies, "
+                warning_msg += "so they will be disabled anyway: " + ", ".join(backends_filtered)
+                print_warning(warning_msg)
+                for blas_lib in backends_filtered:
+                    self.blas_libs.remove(blas_lib)
             backends_nodep = [x for x in self.blas_libs if x not in dep_names]
             if backends_nodep:
                 raise EasyBuildError("One or more backends not listed as (build)dependencies: %s",
                                      ', '.join(backends_nodep))
         else:
-            build_dep_names = set(dep['name'] for dep in self.cfg.dependencies(build_only=True))
+            build_dep_names = self.cfg.dependency_names(build_only=True)
             self.blas_libs = [x for x in dep_names if x not in build_dep_names]
 
         self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')
