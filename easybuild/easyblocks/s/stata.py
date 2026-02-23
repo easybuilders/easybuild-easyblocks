@@ -69,9 +69,16 @@ class EB_Stata(PackedBinary):
         }
         super().sanity_check_step(custom_paths=custom_paths)
 
-        # make sure required libpng library is there for Stata
-        # Stata depends on a very old version of libpng, so we need to provide it
-        res = run_shell_cmd("ldd %s" % os.path.join(self.installdir, 'stata'))
-        regex = re.compile('libpng.*not found', re.M)
-        if regex.search(res.output):
-            raise EasyBuildError("Required libpng library for 'stata' is not available")
+        stata_bin = os.path.join(self.installdir, "stata")
+
+        res = run_shell_cmd("file %s" % stata_bin)
+        # guard against installations using a wrapper for stata
+        if 'ELF' in res.output:
+            # make sure required libpng library is there for Stata
+            # Stata depends on a very old version of libpng, so we need to provide it
+            res = run_shell_cmd("ldd %s" % os.path.join(self.installdir, 'stata'))
+            regex = re.compile('libpng.*not found', re.M)
+            if regex.search(res.output):
+                raise EasyBuildError("Required libpng library for 'stata' is not available")
+        else:
+            self.log.info("sanity_check_step: %s is not an ELF binary, skipping ldd check" % stata_bin)
