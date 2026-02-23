@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2025 Ghent University
+# Copyright 2019-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (https://ugent.be/hpc/en),
@@ -48,7 +48,7 @@ class EB_Gctf(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Constructor of Gctf easyblock."""
-        super(EB_Gctf, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cuda_mod_name, self.cuda_name = None, None
         self.gctf_bin = None
@@ -58,7 +58,7 @@ class EB_Gctf(EasyBlock):
         """
         Determine name of Gctf binary to install based on CUDA version.
         """
-        super(EB_Gctf, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         if not get_software_root('CUDA'):
             raise EasyBuildError("CUDA must be a direct (build)dependency of Gctf")
@@ -130,4 +130,4 @@ class EB_Gctf(EasyBlock):
             'dirs': []
         }
 
-        super(EB_Gctf, self).sanity_check_step(custom_paths)
+        super().sanity_check_step(custom_paths)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,13 +32,15 @@ EasyBuild support for installing the Intel Performance Primitives (IPP) library,
 @author: Jens Timmerman (Ghent University)
 @author: Lumir Jasiok (IT4Innovations)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
+@author: Jan Andre Reuter (Forschungszentrum Juelich GmbH)
 """
 
 from easybuild.tools import LooseVersion
 import os
 
-from easybuild.easyblocks.generic.intelbase import IntelBase, ACTIVATION_NAME_2012, LICENSE_FILE_NAME_2012
+from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.systemtools import get_platform_name
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -47,6 +49,27 @@ class EB_ipp(IntelBase):
     """
     Support for installing Intel Integrated Performance Primitives library
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) < '2021':
+            raise EasyBuildError(
+                f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2021.0."
+            )
+
+        platform_name = get_platform_name()
+        if platform_name.startswith('x86_64'):
+            self.arch = "intel64"
+        elif platform_name.startswith('i386') or platform_name.startswith('i686'):
+            if LooseVersion(self.version) >= '2022.0':
+                raise EasyBuildError(f"ipp is not supported on {platform_name} starting with 2022.0.0")
+            self.arch = 'ia32'
+        else:
+            raise EasyBuildError("Failed to determine system architecture based on %s", platform_name)
+
+    def prepare_step(self, *args, **kwargs):
+        kwargs['requires_runtime_license'] = False
+        super().prepare_step(*args, **kwargs)
 
     def install_step(self):
         """
@@ -54,29 +77,10 @@ class EB_ipp(IntelBase):
         - create silent cfg file
         - execute command
         """
-
-        platform_name = get_platform_name()
-        if platform_name.startswith('x86_64'):
-            self.arch = "intel64"
-        elif platform_name.startswith('i386') or platform_name.startswith('i686'):
-            self.arch = 'ia32'
-        else:
-            raise EasyBuildError("Failed to determine system architecture based on %s", platform_name)
-
         silent_cfg_names_map = None
-        silent_cfg_extras = None
-
-        if LooseVersion(self.version) < LooseVersion('8.0'):
-            silent_cfg_names_map = {
-                'activation_name': ACTIVATION_NAME_2012,
-                'license_file_name': LICENSE_FILE_NAME_2012,
-            }
-
-        # in case of IPP 9.x, we have to specify ARCH_SELECTED in silent.cfg
-        if LooseVersion(self.version) >= LooseVersion('9.0'):
-            silent_cfg_extras = {
-                'ARCH_SELECTED': self.arch.upper()
-            }
+        silent_cfg_extras = {
+            'ARCH_SELECTED': self.arch.upper()
+        }
 
         super(EB_ipp, self).install_step(silent_cfg_names_map=silent_cfg_names_map, silent_cfg_extras=silent_cfg_extras)
 
@@ -85,19 +89,7 @@ class EB_ipp(IntelBase):
         shlib_ext = get_shared_lib_ext()
 
         dirs = [os.path.join('ipp', x) for x in ['bin', 'include', os.path.join('tools', 'intel64')]]
-        if LooseVersion(self.version) < LooseVersion('8.0'):
-            dirs.extend([
-                os.path.join('compiler', 'lib', 'intel64'),
-                os.path.join('ipp', 'interfaces', 'data-compression'),
-            ])
-        elif LooseVersion(self.version) < LooseVersion('9.0'):
-            dirs.extend([
-                os.path.join('composerxe', 'lib', 'intel64'),
-            ])
-
         ipp_libs = ['cc', 'ch', 'core', 'cv', 'dc', 'i', 's', 'vm']
-        if LooseVersion(self.version) < LooseVersion('9.0'):
-            ipp_libs.extend(['ac', 'di', 'j', 'm', 'r', 'sc', 'vc'])
 
         custom_paths = {
             'files': [
@@ -109,21 +101,39 @@ class EB_ipp(IntelBase):
 
         super(EB_ipp, self).sanity_check_step(custom_paths=custom_paths)
 
-    def make_module_req_guess(self):
+    def make_module_step(self, *args, **kwargs):
         """
-        A dictionary of possible directories to look for
+        Set paths for module load environment based on the actual installation files
         """
-        guesses = super(EB_ipp, self).make_module_req_guess()
+        major_minor_version = '.'.join(self.version.split('.')[:2])
+        if LooseVersion(major_minor_version) >= '2022.0':
+            include_path = os.path.join('ipp', major_minor_version, 'include')
+            lib_path = os.path.join('ipp', major_minor_version, 'lib')
+            cmake_prefix_path = os.path.join('ipp', major_minor_version)
+            cmake_module_path = os.path.join('ipp', major_minor_version, 'lib', 'cmake')
+        else:
+            include_path = os.path.join('ipp', self.version, 'include')
+            lib_path = os.path.join('ipp', self.version, 'lib', self.arch)
+            cmake_prefix_path = os.path.join('ipp', self.version)
+            cmake_module_path = os.path.join('ipp', self.version, 'lib', 'cmake')
 
-        if LooseVersion(self.version) >= LooseVersion('9.0'):
-            lib_path = [os.path.join('ipp', 'lib', self.arch), os.path.join('lib', self.arch)]
-            include_path = os.path.join('ipp', 'include')
+        self.module_load_environment.PATH = []
+        self.module_load_environment.LD_LIBRARY_PATH = [lib_path]
+        self.module_load_environment.LIBRARY_PATH = self.module_load_environment.LD_LIBRARY_PATH
+        self.module_load_environment.CMAKE_PREFIX_PATH = os.path.join(cmake_prefix_path)
+        self.module_load_environment.CMAKE_MODULE_PATH = os.path.join(cmake_module_path)
+        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, include_path)
 
-            guesses.update({
-                'LD_LIBRARY_PATH': lib_path,
-                'LIBRARY_PATH': lib_path,
-                'CPATH': [include_path],
-                'INCLUDE': [include_path],
-            })
+        return super().make_module_step(*args, **kwargs)
 
-        return guesses
+    def make_module_extra(self):
+        """Overwritten from Application to add extra txt"""
+        major_minor_version = '.'.join(self.version.split('.')[:2])
+
+        txt = super().make_module_extra()
+
+        ipproot = os.path.join(self.installdir, 'ipp', major_minor_version)
+        txt += self.module_generator.set_environment('IPPROOT', ipproot)
+        txt += self.module_generator.set_environment('IPP_TARGET_ARCH', self.arch)
+
+        return txt

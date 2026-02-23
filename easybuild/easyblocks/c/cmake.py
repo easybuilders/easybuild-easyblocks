@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2025 Alexander Grund
+# Copyright 2020-2026 Alexander Grund
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -56,7 +56,7 @@ class EB_CMake(ConfigureMake):
 
         Tweak UnixPaths.cmake if EasyBuild is configured with --sysroot.
         """
-        super(EB_CMake, self).patch_step()
+        super().patch_step()
 
         sysroot = build_option('sysroot')
         if sysroot:
@@ -105,7 +105,7 @@ class EB_CMake(ConfigureMake):
         cmake_include_path = []
 
         available_system_options = ['BZIP2', 'CURL', 'EXPAT', 'LIBARCHIVE', 'ZLIB']
-        for dep in self.cfg.dependencies():
+        for dep in self.cfg.dependencies(runtime_only=True):
             dep_name = dep['name']
             dep_root = get_software_root(dep_name)
             if not dep_root:
@@ -146,11 +146,11 @@ class EB_CMake(ConfigureMake):
 
         self.cfg['configopts'] = configure_opts + ' -- ' + cmake_opts
 
-        super(EB_CMake, self).configure_step()
+        super().configure_step()
 
     def install_step(self):
         """Create symlinks for CMake binaries"""
-        super(EB_CMake, self).install_step()
+        super().install_step()
         # Some applications assume the existance of e.g. cmake3 to distinguish it from cmake, which can be 2 or 3
         maj_ver = self.version.split('.')[0]
         bin_path = os.path.join(self.installdir, 'bin')
@@ -168,4 +168,4 @@ class EB_CMake(ConfigureMake):
         }
         commands = ['cmake --help', 'ccmake --help']
 
-        super(EB_CMake, self).sanity_check_step(custom_paths=paths, custom_commands=commands)
+        super().sanity_check_step(custom_paths=paths, custom_commands=commands)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2025 Vrije Universiteit Brussel
+# Copyright 2021-2026 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -36,7 +36,6 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import write_file
-from easybuild.tools.py2vs3 import string_type
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture
 
 
@@ -61,7 +60,7 @@ class EB_ORCA(PackedBinary, MakeCp):
 
     def __init__(self, *args, **kwargs):
         """Init and validate easyconfig parameters and system architecture"""
-        super(EB_ORCA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # If user overwrites 'files_to_copy', custom 'sanity_check_paths' must be present
         if self.cfg['files_to_copy'] and not self.cfg['sanity_check_paths']:
@@ -88,19 +87,19 @@ class EB_ORCA(PackedBinary, MakeCp):
             ]
 
             # Version 6 extra files
-            if LooseVersion(self.version) >= LooseVersion('6.0.0'):
-                files_to_copy.extend(['datasets', 'lib', (['CompoundScripts'], 'bin')])
+            if LooseVersion(self.version) >= LooseVersion('6.1.0'):
+                files_to_copy.extend(['datasets', 'lib', (['openCOSMORS'], 'bin')])
+            elif LooseVersion(self.version) >= LooseVersion('6.0.0'):
+                files_to_copy.extend(['datasets', 'lib', (['CompoundScripts', 'openCOSMORS'], 'bin')])
+            # Version 5 extra files
+            elif LooseVersion(self.version) >= LooseVersion('5.0.0'):
+                compoundmethods = (['ORCACompoundMethods'], 'bin')
+                files_to_copy.append(compoundmethods)
 
-            else:
-                # Version 5 extra files
-                if LooseVersion(self.version) >= LooseVersion('5.0.0'):
-                    compoundmethods = (['ORCACompoundMethods'], 'bin')
-                    files_to_copy.append(compoundmethods)
-
-                # Shared builds have additional libraries
-                libs_to_copy = (['liborca*'], 'lib')
-                if all([glob.glob(p) for p in libs_to_copy[0]]):
-                    files_to_copy.append(libs_to_copy)
+            # Shared builds have additional libraries
+            libs_to_copy = (['liborca*'], 'lib')
+            if all(glob.glob(p) for p in libs_to_copy[0]):
+                files_to_copy.append(libs_to_copy)
 
             self.cfg['files_to_copy'] = files_to_copy
 
@@ -119,7 +118,7 @@ class EB_ORCA(PackedBinary, MakeCp):
                     if isinstance(spec, tuple):
                         file_pattern = spec[0]
                         dest_dir = spec[1]
-                    elif isinstance(spec, string_type):
+                    elif isinstance(spec, str):
                         file_pattern = spec
                         dest_dir = ''
                     else:
@@ -127,7 +126,7 @@ class EB_ORCA(PackedBinary, MakeCp):
                             "Found neither string nor tuple as file to copy: '%s' (type %s)", spec, type(spec)
                         )
 
-                    if isinstance(file_pattern, string_type):
+                    if isinstance(file_pattern, str):
                         file_pattern = [file_pattern]
 
                     source_files = []
@@ -154,7 +153,7 @@ H  -0.7920   0.0000  -0.4973
 H   0.7920   0.0000  -0.4973
 *
 """
-        nprocs = self.cfg.get('parallel', 1)
+        nprocs = self.cfg.parallel
         test_input_content = test_input_content % {'nprocs': nprocs}
         test_input_path = os.path.join(self.builddir, 'eb_test_hf_water.inp')
         write_file(test_input_path, test_input_content)
@@ -181,4 +180,4 @@ H   0.7920   0.0000  -0.4973
             "%s | grep -c '%s'" % (test_orca_cmd, test_output_regex),
         ]
 
-        super(EB_ORCA, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_METIS(ConfigureMake):
@@ -47,7 +47,7 @@ class EB_METIS(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Define custom class variables for METIS."""
-        super(EB_METIS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.lib_exts = []
 
     def configure_step(self, *args, **kwargs):
@@ -60,7 +60,7 @@ class EB_METIS(ConfigureMake):
                 apply_regex_substitutions('Makefile', [(r'^(CONFIG_FLAGS\s*=\s*)', r'\1 -DCMAKE_SKIP_RPATH=ON ')])
 
             cmd = "make %s config prefix=%s" % (self.cfg['configopts'], self.installdir)
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             if 'shared=1' in self.cfg['configopts']:
                 self.lib_exts.append('so')
@@ -75,7 +75,7 @@ class EB_METIS(ConfigureMake):
         if self.toolchain.options['pic']:
             self.cfg.update('buildopts', 'CC="$CC -fPIC"')
 
-        super(EB_METIS, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """
@@ -123,7 +123,7 @@ class EB_METIS(ConfigureMake):
                 raise EasyBuildError("Something went wrong during symlink creation: %s", err)
 
         else:
-            super(EB_METIS, self).install_step()
+            super().install_step()
 
     def sanity_check_step(self):
         """Custom sanity check for METIS (more extensive for recent version (>= v5))"""
@@ -145,4 +145,4 @@ class EB_METIS(ConfigureMake):
             ['lib/libmetis.%s' % x for x in self.lib_exts],
             'dirs': dirs,
         }
-        super(EB_METIS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

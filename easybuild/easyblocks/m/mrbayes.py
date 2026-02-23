@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,14 +42,14 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import copy_file, mkdir
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_MrBayes(ConfigureMake):
     """Support for building/installing MrBayes."""
 
     def __init__(self, *args, **kwargs):
-        super(EB_MrBayes, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         # For later MrBayes versions, no longer need to use this easyblock
         last_supported_version = '3.2.6'
         if LooseVersion(self.version) > LooseVersion(last_supported_version):
@@ -75,7 +75,7 @@ class EB_MrBayes(ConfigureMake):
 
             # run autoconf to generate configure script
             cmd = "autoconf"
-            run_cmd(cmd)
+            run_shell_cmd(cmd)
 
             # set config opts
             beagle = get_software_root('beagle-lib')
@@ -90,7 +90,7 @@ class EB_MrBayes(ConfigureMake):
                 self.cfg.update('configopts', '--enable-mpi')
 
             # configure
-            super(EB_MrBayes, self).configure_step()
+            super().configure_step()
         else:
 
             # no configure script prior to v3.2
@@ -117,4 +117,4 @@ class EB_MrBayes(ConfigureMake):
 
         custom_commands = ["mb <<< %s" % x for x in ["about", "help"]]
 
-        super(EB_MrBayes, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

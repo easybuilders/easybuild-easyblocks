@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,14 +31,23 @@ import copy
 import os
 import re
 import sys
-from easybuild.tools import LooseVersion
+import tempfile
+from collections import OrderedDict
 
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pip_version
+from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file, write_file
 from easybuild.tools.modules import get_software_root_env_var_name
-from easybuild.tools.py2vs3 import OrderedDict
 from easybuild.tools.utilities import flatten
+
+
+EGGINFO = """Metadata-Version: 2.1
+Name: easybuild
+Version: %s
+Summary: %s
+Platform: UNKNOWN
+"""
 
 
 # note: we can't use EB_EasyBuild as easyblock name, as that would require an easyblock named 'easybuild.py',
@@ -48,11 +57,28 @@ class EB_EasyBuildMeta(PythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Initialize custom class variables."""
-        super(EB_EasyBuildMeta, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.real_initial_environ = copy.deepcopy(self.initial_environ)
 
         self.easybuild_pkgs = ['easybuild-framework', 'easybuild-easyblocks', 'easybuild-easyconfigs']
+
+        # check whether 'easybuild' package is part of the sources
+        self.with_easybuild_pkg = False
+        for source in self.cfg['sources']:
+            if isinstance(source, dict):
+                pkg_name = source.get('filename')
+                if pkg_name is None:
+                    raise EasyBuildError(f"Unknown filename for source: {source}")
+            elif isinstance(source, str):
+                pkg_name = source
+            else:
+                raise EasyBuildError(f"Unknown type of source specification: {source}")
+
+            if pkg_name == f'easybuild-{self.version}':
+                self.with_easybuild_pkg = True
+                break
+
         if LooseVersion(self.version) >= LooseVersion('2.0') and LooseVersion(self.version) <= LooseVersion('3.999'):
             # deliberately include vsc-install & vsc-base twice;
             # first time to ensure the specified vsc-install/vsc-base package is available when framework gets installed
@@ -65,27 +91,9 @@ class EB_EasyBuildMeta(PythonPackage):
             self.easybuild_pkgs.extend(['vsc-base', 'vsc-install'])
             # consider setuptools first, in case it is listed as a sources
             self.easybuild_pkgs.insert(0, 'setuptools')
-
-        # opt-in to using pip for recent version of EasyBuild, if:
-        # - EasyBuild is being installed for Python >= 3.6;
-        # - pip is available, and recent enough (>= 21.0);
-        # - use_pip is not specified;
-        pyver = sys.version.split(' ')[0]
-        self.log.info("Python version: %s", pyver)
-        if sys.version_info >= (3, 6) and self.cfg['use_pip'] is None:
-            # try to determine pip version, ignore any failures that occur while doing so;
-            # problems may occur due changes in environment ($PYTHONPATH, etc.)
-            pip_version = None
-            try:
-                pip_version = det_pip_version(python_cmd=sys.executable)
-                self.log.info("Found Python v%s + pip: %s", pyver, pip_version)
-            except Exception as err:
-                self.log.warning("Failed to determine pip version: %s", err)
-
-            if pip_version and LooseVersion(pip_version) >= LooseVersion('21.0'):
-                self.log.info("Auto-enabling use of pip to install EasyBuild!")
-                self.cfg['use_pip'] = True
-                self.determine_install_command()
+        elif LooseVersion(self.version) >= LooseVersion('5.0') and self.with_easybuild_pkg:
+            # use easybuild-base for easybuild to avoid matching all easybuild-* directories during install
+            self.easybuild_pkgs.append('easybuild-base')
 
     # Override this function since we want to respect the user choice for the python installation to use
     # (which can be influenced by EB_PYTHON and EB_INSTALLPYTHON)
@@ -107,7 +115,7 @@ class EB_EasyBuildMeta(PythonPackage):
         else:
             self.log.debug("Not unsetting $%s since it's not set" % env_var_name)
 
-        super(EB_EasyBuildMeta, self).check_readiness_step()
+        super().check_readiness_step()
 
     def build_step(self):
         """No building for EasyBuild packages."""
@@ -152,15 +160,19 @@ class EB_EasyBuildMeta(PythonPackage):
                     if pkg == 'easybuild-easyconfigs':
                         self.fix_easyconfigs_setup_py_setuptools61()
 
-                    super(EB_EasyBuildMeta, self).install_step()
+                    super().install_step()
+
+            if not self.with_easybuild_pkg:
+                egginfo = os.path.join(self.installdir, self.pylibdir, f'easybuild-{self.version}.egg-info')
+                write_file(egginfo, EGGINFO % (self.version, ''.join(self.cfg['description'].splitlines())))
 
         except OSError as err:
             raise EasyBuildError("Failed to install EasyBuild packages: %s", err)
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Remove setuptools.pth file that hard includes a system-wide (site-packages) path, if it is there."""
 
-        super(EB_EasyBuildMeta, self).post_install_step()
+        super().post_processing_step()
 
         setuptools_pth = os.path.join(self.installdir, self.pylibdir, 'setuptools.pth')
         if os.path.exists(setuptools_pth):
@@ -177,6 +189,9 @@ class EB_EasyBuildMeta(PythonPackage):
 
     def sanity_check_step(self):
         """Custom sanity check for EasyBuild."""
+
+        if self.python_cmd is None:
+            self.prepare_python()
 
         # check whether easy-install.pth contains correct entries
         easy_install_pth = os.path.join(self.installdir, self.pylibdir, 'easy-install.pth')
@@ -215,7 +230,7 @@ class EB_EasyBuildMeta(PythonPackage):
         # order matters, e.g. setuptools before distutils
         eb_dirs = OrderedDict()
         eb_dirs['setuptools'] = []
-        eb_dirs['distutils.core'] = flatten([x for x in subdirs_by_pkg.values()])
+        eb_dirs['distutils.core'] = flatten(subdirs_by_pkg.values())
 
         # determine setup tool (setuptools or distutils)
         setup_tool = None
@@ -279,20 +294,23 @@ class EB_EasyBuildMeta(PythonPackage):
             val = self.initial_environ.pop(key)
             self.log.info("$%s found in environment, unset for running sanity check (was: %s)", key, val)
 
-        super(EB_EasyBuildMeta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        with tempfile.TemporaryDirectory() as tempdir:
+            #  Similar avoid a custom config being used which might define options unknown to that EasyBuild version
+            self.initial_environ['XDG_CONFIG_HOME'] = tempdir
+            super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """
         Set $EB_INSTALLPYTHON to ensure that this EasyBuild installation uses the same Python executable it was
         installed with (which can still be overridden by the user with $EB_PYTHON).
         """
-        txt = super(EB_EasyBuildMeta, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('EB_INSTALLPYTHON', self.python_cmd)
         return txt
 
     def make_module_step(self, fake=False):
         """Create module file, before copy of original environment that was tampered with is restored."""
-        modpath = super(EB_EasyBuildMeta, self).make_module_step(fake=fake)
+        modpath = super().make_module_step(fake=fake)
 
         if not fake:
             # restore copy of original environment

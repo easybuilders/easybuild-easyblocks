@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2025 Ghent University
+# Copyright 2019-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,25 +37,15 @@ from easybuild.tools.systemtools import get_cpu_features
 class EB_numexpr(PythonPackage):
     """Support for building/installing numexpr."""
 
-    @staticmethod
-    def extra_options():
-        """Override some custom easyconfig parameters specifically for numexpr."""
-        extra_vars = PythonPackage.extra_options()
-
-        extra_vars['download_dep_fail'][0] = True
-        extra_vars['use_pip'][0] = True
-
-        return extra_vars
-
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for numexpr."""
-        super(EB_numexpr, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.imkl_root = None
 
     def configure_step(self):
         """Custom configuration procedure for numexpr."""
-        super(EB_numexpr, self).configure_step()
+        super().configure_step()
 
         self.imkl_root = get_software_root('imkl')
 
@@ -124,4 +114,4 @@ class EB_numexpr(PythonPackage):
             if LooseVersion(self.version) >= LooseVersion('2.7.3'):
                 custom_commands.append("""python -c "import numexpr; numexpr.set_vml_accuracy_mode('low')" """)
 
-        return super(EB_numexpr, self).sanity_check_step(custom_commands=custom_commands)
+        return super().sanity_check_step(custom_commands=custom_commands)

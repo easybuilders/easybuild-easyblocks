@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2025 Ghent University
-# Copyright 2019-2025 Micael Oliveira
+# Copyright 2009-2026 Ghent University
+# Copyright 2019-2026 Micael Oliveira
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,6 +37,8 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
 from easybuild.toolchains.compiler.inteliccifort import TC_CONSTANT_INTELCOMP
+from easybuild.toolchains.compiler.llvm_compilers import TC_CONSTANT_LLVM
+from easybuild.toolchains.compiler.nvidia_compilers import TC_CONSTANT_NVHPC
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions
@@ -77,7 +79,7 @@ class EB_ELPA(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for ELPA."""
-        super(EB_ELPA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         for flag in ELPA_CPU_FEATURE_FLAGS:
             # fail-safe: make sure we're not overwriting an existing attribute (could lead to weird bugs if we do)
@@ -85,12 +87,13 @@ class EB_ELPA(ConfigureMake):
                 raise EasyBuildError("EasyBlock attribute '%s' already exists")
             setattr(self, flag, self.cfg['use_%s' % flag])
 
+        optarch = build_option('optarch') or self.toolchain.options.get('optarch', None)
         # auto-detect CPU features that can be used and are not enabled/disabled explicitly,
         # but only if --optarch=GENERIC is not being used
         if self.cfg['auto_detect_cpu_features']:
 
             # if --optarch=GENERIC is used, we will not use no CPU feature
-            if build_option('optarch') == OPTARCH_GENERIC:
+            if optarch == OPTARCH_GENERIC:
                 cpu_features = []
             else:
                 cpu_features = ELPA_CPU_FEATURE_FLAGS
@@ -178,7 +181,7 @@ class EB_ELPA(ConfigureMake):
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
 
-        return super(EB_ELPA, self).run_all_steps(*args, **kwargs)
+        return super().run_all_steps(*args, **kwargs)
 
     def configure_step(self):
         """Configure step for ELPA"""
@@ -206,7 +209,8 @@ class EB_ELPA(ConfigureMake):
             self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=sm_%s' % cuda_cc_string)
             self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc_string)
             # There is a dedicated kernel for sm80, but only from version 2021.11.001 onwards
-            if float(cuda_cc) >= 8.0 and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
+            # Trying to use these kernels for GPUs newer than sm80 will fail ELPA configure
+            if float(cuda_cc) == 8.0 and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
                 self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
 
         # From v2022.05.001 onwards, the config complains if CPP is not set, resulting in non-zero exit of configure
@@ -214,6 +218,8 @@ class EB_ELPA(ConfigureMake):
         cpp_dict = {
             TC_CONSTANT_GCC: 'cpp',
             TC_CONSTANT_INTELCOMP: 'cpp',
+            TC_CONSTANT_LLVM: 'clang -E',
+            TC_CONSTANT_NVHPC: 'nvc -E',
         }
         comp_fam = self.toolchain.comp_family()
         if comp_fam in cpp_dict:
@@ -223,11 +229,11 @@ class EB_ELPA(ConfigureMake):
                                  'current compiler family (%s). Please add the correct preprocessor '
                                  'for this compiler family to cpp_dict in the ELPA EasyBlock', comp_fam)
 
-        super(EB_ELPA, self).configure_step()
+        super().configure_step()
 
     def patch_step(self, *args, **kwargs):
         """Patch manual_cpp script to avoid using hardcoded /usr/bin/python."""
-        super(EB_ELPA, self).patch_step(*args, **kwargs)
+        super().patch_step(*args, **kwargs)
 
         # avoid that manual_cpp script uses hardcoded /usr/bin/python
         manual_cpp = 'manual_cpp'
@@ -268,4 +274,4 @@ class EB_ELPA(ConfigureMake):
 
         custom_paths['files'] = extra_files
 
-        super(EB_ELPA, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

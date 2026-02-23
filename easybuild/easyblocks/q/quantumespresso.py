@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,7 +46,7 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import copy_dir, copy_file
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -74,7 +74,7 @@ class EB_QuantumESPRESSO(EasyBlock):
 
     def __init__(self, ec, *args, **kwargs):
         """Select the correct EB depending on version."""
-        super(EB_QuantumESPRESSO, self).__init__(ec, *args, **kwargs)
+        super().__init__(ec, *args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('7.3.1'):
             self.log.info('Using legacy easyblock for Quantum ESPRESSO')
@@ -114,6 +114,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 'with_gipaw': [True, 'Enable GIPAW support', CUSTOM],
                 'with_d3q': [False, 'Enable D3Q support', CUSTOM],
                 'with_qmcpack': [False, 'Enable QMCPACK support', CUSTOM],
+                'test_mpi_socket_binding': [True, 'Run tests while binding to 1 socket in OpenMPI', CUSTOM],
                 'test_suite_nprocs': [1, 'Number of processors to use for the test suite', CUSTOM],
                 'test_suite_allow_failures': [
                     [],
@@ -135,7 +136,7 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         def __init__(self, *args, **kwargs):
             """Add extra config options specific to Quantum ESPRESSO."""
-            super(EB_QuantumESPRESSOcmake, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
             self.install_subdir = 'qe-%s' % self.version
 
@@ -145,7 +146,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             """Enable toolchain options for Quantum ESPRESSO."""
             comp_fam = self.toolchain.comp_family()
 
-            allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC, toolchain.NVHPC]
+            allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC, toolchain.NVHPC, toolchain.LLVM]
             if comp_fam not in allowed_toolchains:
                 raise EasyBuildError(
                     "EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam
@@ -289,6 +290,8 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         def _add_qmcpack(self):
             """Enable QMCPACK for Quantum ESPRESSO."""
+            if not get_software_root('HDF5'):
+                raise EasyBuildError('QMCPACK support requires HDF5')
             res = ['pw2qmcpack']
             self.check_bins += ['pw2qmcpack.x']
             return res
@@ -344,7 +347,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                     ldflags += ' -Wl,--copy-dt-needed-entries '
                     env.setvar('LDFLAGS', ldflags)
 
-            super(EB_QuantumESPRESSOcmake, self).configure_step()
+            super().configure_step()
 
         def test_step(self):
             """
@@ -355,17 +358,33 @@ class EB_QuantumESPRESSO(EasyBlock):
                 self.log.info("Skipping testing of QuantumESPRESSO since MPI testing is disabled")
                 return
 
+            # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3650
+            pretestopts = ""
+            if self.cfg.get('test_mpi_socket_binding', True):
+                mpi_fam = self.toolchain.mpi_family()
+                if mpi_fam == toolchain.OPENMPI:
+                    mpi_vers = get_software_version('OpenMPI')
+                    if LooseVersion(mpi_vers) >= '5':
+                        env_name = 'PRTE_MCA_rmaps_default_mapping_policy'
+                        env_value = 'package'
+                    else:
+                        env_name = 'OMPI_MCA_hwloc_base_bind_to_socket'
+                        env_value = '1'
+                    pretestopts += f'export {env_name}={env_value} && '
+
+            pretestopts += self.cfg.get('pretestopts', '')
             thr = self.cfg.get('test_suite_threshold', 0.97)
-            concurrent = max(1, self.cfg.get('parallel', 1) // self._test_nprocs)
+            # When compiled with OpenMP some tests silently requests up to 4 threads
             allow_fail = self.cfg.get('test_suite_allow_failures', [])
 
-            cmd = ' '.join([
-                'ctest',
-                '-j%d' % concurrent,
-                '--output-on-failure',
-            ])
+            if self.cfg.get('with_cuda', False):
+                cmd = f'{pretestopts} ctest -j1 --output-on-failure'
+            else:
+                concurrent = max(1, self.cfg.parallel // (self._test_nprocs * 4))
+                cmd = f'{pretestopts} ctest -j{concurrent} --output-on-failure'
 
-            (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+            res = run_shell_cmd(cmd, fail_on_error=False)
+            out = res.output
 
             # Example output:
             # 74% tests passed, 124 tests failed out of 481
@@ -483,7 +502,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 'dirs': []
             }
 
-            super(EB_QuantumESPRESSOcmake, self).sanity_check_step(custom_paths=custom_paths)
+            super().sanity_check_step(custom_paths=custom_paths)
 
     # Legacy version of Quantum ESPRESSO easyblock
     # Do not update further
@@ -530,13 +549,13 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         def __init__(self, *args, **kwargs):
             """Add extra config options specific to Quantum ESPRESSO."""
-            super(EB_QuantumESPRESSOconfig, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
             self.install_subdir = "qe-%s" % self.version
 
         def patch_step(self):
             """Patch files from build dir (not start dir)."""
-            super(EB_QuantumESPRESSOconfig, self).patch_step(beginpath=self.builddir)
+            super().patch_step(beginpath=self.builddir)
 
         def _add_compiler_flags(self, comp_fam):
             """Add compiler flags to the build."""
@@ -852,7 +871,7 @@ class EB_QuantumESPRESSO(EasyBlock):
 
             self._adjust_compiler_flags(comp_fam)
 
-            super(EB_QuantumESPRESSOconfig, self).configure_step()
+            super().configure_step()
 
             # always include -w to supress warnings
             self.dflags.append('-w')
@@ -1051,7 +1070,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                     "cd %s" % test_dir,
                     "sed -i 's|export NETWORK_PSEUDO=.*|export NETWORK_PSEUDO=%s|g' ENVIRONMENT" % pseudo_loc
                 ])
-                run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+                run_shell_cmd(cmd, fail_on_error=False)
 
             targets = self.cfg.get('test_suite_targets', [])
             allow_fail = self.cfg.get('test_suite_allow_failures', [])
@@ -1069,7 +1088,8 @@ class EB_QuantumESPRESSO(EasyBlock):
                     pcmd = 'NPROCS=%d' % parallel
 
                 cmd = 'cd %s && %s make run-tests-%s' % (test_dir, pcmd, target)
-                (out, _) = run_cmd(cmd, log_all=False, log_ok=False, simple=False, regexp=False)
+                res = run_shell_cmd(cmd, fail_on_error=False)
+                out = res.output
 
                 # Example output:
                 # All done. 2 out of 2 tests passed.
@@ -1302,7 +1322,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 'dirs': []
             }
 
-            super(EB_QuantumESPRESSOconfig, self).sanity_check_step(custom_paths=custom_paths)
+            super().sanity_check_step(custom_paths=custom_paths)
 
 
 EB_QuantumESPRESSOconfig = EB_QuantumESPRESSO.EB_QuantumESPRESSOconfig

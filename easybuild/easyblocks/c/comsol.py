@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, find_flexlm_license, read_file, write_file
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -46,12 +46,12 @@ class EB_COMSOL(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to COMSOL."""
-        super(EB_COMSOL, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.configfile = os.path.join(self.builddir, 'my_setupconfig.ini')
 
     def extract_step(self):
         """Need to adjust the permissions on the top dir, the DVD has 0444."""
-        super(EB_COMSOL, self).extract_step()
+        super().extract_step()
 
         # The tar file comes from the DVD and has 0444 as permission at the top dir.
         adjust_permissions(self.builddir, stat.S_IWUSR)
@@ -124,7 +124,7 @@ class EB_COMSOL(PackedBinary):
         env.unset_env_vars(['DISPLAY'])
 
         cmd = ' '.join([self.cfg['preinstallopts'], setup_script, '-s', self.configfile, self.cfg['installopts']])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def sanity_check_step(self):
         """Custom sanity check for COMSOL."""
@@ -135,4 +135,4 @@ class EB_COMSOL(PackedBinary):
             ],
             'dirs': ["java/glnxa64", "plugins"],
         }
-        super(EB_COMSOL, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

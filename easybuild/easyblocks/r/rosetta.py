@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,7 +42,7 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, extract_file, mkdir, write_file
 from easybuild.tools.modules import get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
 
@@ -51,14 +51,14 @@ class EB_Rosetta(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to Rosetta."""
-        super(EB_Rosetta, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.srcdir = None
         self.cxx = None
 
     def extract_step(self):
         """Extract sources, if they haven't been already."""
-        super(EB_Rosetta, self).extract_step()
+        super().extract_step()
         # locate sources, and unpack if necessary
         # old 'bundles' tarballs contain a gzipped tarball for source, recent ones contain unpacked source
         try:
@@ -182,11 +182,9 @@ class EB_Rosetta(EasyBlock):
             os.chdir(self.srcdir)
         except OSError as err:
             raise EasyBuildError("Failed to change to %s: %s", self.srcdir, err)
-        par = ''
-        if self.cfg['parallel']:
-            par = "-j %s" % self.cfg['parallel']
+        par = f"-j {self.cfg.parallel}" if self.cfg.parallel > 1 else ""
         cmd = "python ./scons.py %s %s bin" % (self.cfg['buildopts'], par)
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def install_step(self):
         """
@@ -262,7 +260,7 @@ class EB_Rosetta(EasyBlock):
 
     def make_module_extra(self):
         """Define extra environment variables specific to Rosetta."""
-        txt = super(EB_Rosetta, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('ROSETTA3_DB', os.path.join(self.installdir, 'database'))
         return txt
 
@@ -284,4 +282,4 @@ class EB_Rosetta(EasyBlock):
             'files': ["bin/%s.%slinux%srelease" % (x, infix, self.cxx) for x in binaries],
             'dirs': [],
         }
-        super(EB_Rosetta, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

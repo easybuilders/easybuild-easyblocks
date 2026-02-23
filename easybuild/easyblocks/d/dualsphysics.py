@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,8 @@ from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions
 from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools import LooseVersion
 
 
 class EB_DualSPHysics(CMakeMakeCp):
@@ -48,32 +49,30 @@ class EB_DualSPHysics(CMakeMakeCp):
         """Extra easyconfig parameters for DualSPHysics."""
         extra_vars = CMakeMakeCp.extra_options()
 
-        extra_vars['separate_build_dir'][0] = True
-
         # files_to_copy is not mandatory here since we set it in the easyblock
         extra_vars['files_to_copy'][2] = CUSTOM
         return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize calss variables custom to DualSPHysics."""
-        super(EB_DualSPHysics, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.dsph_target = None
         self.shortver = '.'.join(self.version.split('.')[0:2])
 
     def prepare_step(self, *args, **kwargs):
         """Determine name of binary that will be installed."""
-        super(EB_DualSPHysics, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         if get_software_root('CUDA'):
-            self.dsph_target = 'GPU'
+            self.dsph_target = ''
         else:
             self.dsph_target = 'CPU'
 
     def configure_step(self):
         """Custom configure procedure for DualSPHysics."""
         srcdir = os.path.join(self.cfg['start_dir'], 'src/source')
-        super(EB_DualSPHysics, self).configure_step(srcdir=srcdir)
+        super().configure_step(srcdir=srcdir)
 
     def install_step(self):
         """Custom install procedure for DualSPHysics."""
@@ -88,11 +87,11 @@ class EB_DualSPHysics(CMakeMakeCp):
             (['bin/linux/*'], 'bin'),
             (['src/lib/linux_gcc/*'], 'lib'),
         ]
-        super(EB_DualSPHysics, self).install_step()
+        super().install_step()
 
-    def post_install_step(self):
+    def post_processing_step(self):
         """Custom post-installation step: ensure rpath is patched into binaries/libraries if configured."""
-        super(EB_DualSPHysics, self).post_install_step()
+        super().post_processing_step()
 
         if build_option('rpath'):
             # only the compiled binary (e.g. DualSPHysics5.0CPU_linux64) is rpath'd, the precompiled libraries
@@ -102,8 +101,8 @@ class EB_DualSPHysics(CMakeMakeCp):
                 self.installdir, 'bin', 'DualSPHysics%s%s_linux64' % (self.shortver, self.dsph_target)
             )
 
-            out, _ = run_cmd("patchelf --print-rpath %s" % rpathed_bin, simple=False, trace=False)
-            comp_rpath = out.strip()
+            res = run_shell_cmd("patchelf --print-rpath %s" % rpathed_bin, hidden=True)
+            comp_rpath = res.output.strip()
 
             files_to_patch = []
             for x in [('bin', '*_linux64'), ('bin', '*.so'), ('lib', '*.so')]:
@@ -111,14 +110,14 @@ class EB_DualSPHysics(CMakeMakeCp):
 
             try:
                 for x in files_to_patch:
-                    out, _ = run_cmd("patchelf --print-rpath %s" % x, trace=False)
-                    self.log.debug("Original RPATH for %s: %s" % (out, x))
+                    res = run_shell_cmd("patchelf --print-rpath %s" % x, hidden=True)
+                    self.log.debug("Original RPATH for %s: %s" % (res.output, x))
 
-                    run_cmd("patchelf --set-rpath '%s' --force-rpath %s" % (comp_rpath, x), trace=False)
-                    run_cmd("patchelf --shrink-rpath --force-rpath %s" % x, trace=False)
+                    run_shell_cmd("patchelf --set-rpath '%s' --force-rpath %s" % (comp_rpath, x), hidden=True)
+                    run_shell_cmd("patchelf --shrink-rpath --force-rpath %s" % x, hidden=True)
 
-                    out, _ = run_cmd("patchelf --print-rpath %s" % x, trace=False)
-                    self.log.debug("RPATH for %s (after patching and shrinking): %s" % (out, x))
+                    res = run_shell_cmd("patchelf --print-rpath %s" % x, hidden=True)
+                    self.log.debug("RPATH for %s (after patching and shrinking): %s" % (res.output, x))
 
             except OSError as err:
                 raise EasyBuildError("Failed to patch RPATH section in binaries/libraries: %s", err)
@@ -128,14 +127,27 @@ class EB_DualSPHysics(CMakeMakeCp):
 
         # repeated here in case other steps are skipped (e.g. due to --sanity-check-only)
         if get_software_root('CUDA'):
-            self.dsph_target = 'GPU'
+            self.dsph_target = ''
         else:
             self.dsph_target = 'CPU'
 
-        bins = ['GenCase', 'PartVTK', 'IsoSurface', 'MeasureTool', 'GenCase_MkWord', 'DualSPHysics4.0_LiquidGas',
-                'DualSPHysics4.0_LiquidGasCPU', 'DualSPHysics%s' % self.shortver,
-                'DualSPHysics%s%s' % (self.shortver, self.dsph_target), 'DualSPHysics%s_NNewtonian' % self.shortver,
-                'DualSPHysics%s_NNewtonianCPU' % self.shortver]
+        # Determine which binaries to check based on version
+        if LooseVersion(self.version) >= LooseVersion('5.4.0'):
+            bins = [
+                'GenCase', 'PartVTK', 'IsoSurface', 'MeasureTool',
+                'DualSPHysics%sCPU' % self.shortver
+            ]
+            if self.dsph_target == '':
+                bins.append('DualSPHysics%s' % self.shortver)
+        else:
+            bins = [
+                'GenCase', 'PartVTK', 'IsoSurface', 'MeasureTool', 'GenCase_MkWord',
+                'DualSPHysics4.0_LiquidGas', 'DualSPHysics4.0_LiquidGasCPU',
+                'DualSPHysics%s' % self.shortver,
+                'DualSPHysics%s%s' % (self.shortver, self.dsph_target),
+                'DualSPHysics%s_NNewtonian' % self.shortver,
+                'DualSPHysics%s_NNewtonianCPU' % self.shortver,
+            ]
 
         custom_paths = {
             'files': ['bin/%s_linux64' % x for x in bins],
@@ -144,4 +156,4 @@ class EB_DualSPHysics(CMakeMakeCp):
 
         custom_commands = ['%s_linux64 -h' % x for x in bins]
 
-        super(EB_DualSPHysics, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2025 Ghent University
+# Copyright 2018-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -88,11 +88,11 @@ class EB_Lua(ConfigureMake):
         }
         custom_commands = ["lua -e 'io.write(package.path)' | grep %s" % self.installdir]
 
-        super(EB_Lua, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Also define $LUA_DIR in generated module file."""
-        txt = super(EB_Lua, self).make_module_extra()
+        txt = super().make_module_extra()
 
         txt += self.module_generator.set_environment('LUA_DIR', self.installdir)
 

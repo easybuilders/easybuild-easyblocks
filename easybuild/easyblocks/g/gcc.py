@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,11 +47,11 @@ from easybuild.easyblocks.clang import DEFAULT_TARGETS_MAP as LLVM_ARCH_MAP
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file
+from easybuild.tools.config import build_option, IGNORE
+from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file, search_file
 from easybuild.tools.filetools import mkdir, move_file, read_file, symlink, which, write_file
-from easybuild.tools.modules import get_software_root
-from easybuild.tools.run import run_cmd
+from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
 from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext, get_os_name, get_os_type
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
@@ -160,7 +160,7 @@ class EB_GCC(ConfigureMake):
         return ConfigureMake.extra_options(extra_vars)
 
     def __init__(self, *args, **kwargs):
-        super(EB_GCC, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.stagedbuild = False
         # Each build iteration is related to a specific build, first build host compiler, then potentially build NVPTX
@@ -202,6 +202,14 @@ class EB_GCC(ConfigureMake):
         if get_cpu_family() == RISCV:
             self.log.warning('Setting withnvptx to False, since we are building on a RISC-V system')
             self.cfg['withnvptx'] = False
+
+        # GCC can find its own headers and libraries in most cases, but we had
+        # cases where paths top libraries needed to be set explicitly
+        # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3256
+        # Therefore, remove paths from header search paths but keep paths in LIBRARY_PATH
+        for disallowed_var in self.module_load_environment.alias_vars(MODULE_LOAD_ENV_HEADERS):
+            self.module_load_environment.remove(disallowed_var)
+            self.log.debug(f"Purposely not updating ${disallowed_var} in {self.name} module file")
 
     def create_dir(self, dirname):
         """
@@ -258,10 +266,11 @@ class EB_GCC(ConfigureMake):
 
                 # check whether GCC actually supports LTO (it may be configured with --disable-lto),
                 # by compiling a simple C program using -flto
-                out, ec = run_cmd("echo 'void main() {}' | gcc -x c -flto - -o /dev/null", simple=False, log_ok=False)
+                res = run_shell_cmd("echo 'void main() {}' | gcc -x c -flto - -o /dev/null", fail_on_error=False)
                 gcc_path = which('gcc')
-                if ec:
-                    self.log.info("GCC command %s doesn't seem to support LTO, test compile failed: %s", gcc_path, out)
+                if res.exit_code:
+                    self.log.info("GCC command %s doesn't seem to support LTO, test compile failed: %s", gcc_path,
+                                  res.output)
                     disable_mpfr_lto = True
                 else:
                     self.log.info("GCC command %s provides LTO support, so using it when building MPFR", gcc_path)
@@ -442,16 +451,16 @@ class EB_GCC(ConfigureMake):
         if host_type:
             cmd += ' --host=' + host_type
 
-        (out, ec) = run_cmd("%s %s" % (self.cfg['preconfigopts'], cmd), log_all=True, simple=False)
+        res = run_shell_cmd("%s %s" % (self.cfg['preconfigopts'], cmd))
 
-        if ec != 0:
-            raise EasyBuildError("Command '%s' exited with exit code != 0 (%s)", cmd, ec)
+        if res.exit_code != 0:
+            raise EasyBuildError("Command '%s' exited with exit code != 0 (%s)", cmd, res.exit_code)
 
         # configure scripts tend to simply ignore unrecognized options
         # we should be more strict here, because GCC is very much a moving target
         unknown_re = re.compile("WARNING: unrecognized options")
 
-        unknown_options = unknown_re.findall(out)
+        unknown_options = unknown_re.findall(res.output)
         if unknown_options:
             raise EasyBuildError("Unrecognized options found during configure: %s", unknown_options)
 
@@ -459,7 +468,7 @@ class EB_GCC(ConfigureMake):
         """
         Prepare build environment, track currently active build stage
         """
-        super(EB_GCC, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # Set the current build stage to the specified stage based on the iteration index
         self.current_stage = self.build_stages[self.iter_idx]
@@ -569,7 +578,7 @@ class EB_GCC(ConfigureMake):
                 if self.current_stage == NVPTX_TOOLS:
                     # Configure NVPTX tools and build
                     change_dir(self.nvptx_tools_dir)
-                    return super(EB_GCC, self).configure_step()
+                    return super().configure_step()
 
                 elif self.current_stage == AMD_LLVM:
                     # determine LLVM target to use for host CPU
@@ -591,7 +600,7 @@ class EB_GCC(ConfigureMake):
                         "-DCMAKE_BUILD_TYPE=Release",
                         self.llvm_dir,
                     ])
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
                     # Need to terminate the current configuration step, but we can't run 'configure' since LLVM uses
                     # CMake, we therefore run 'CMake' manually and then return nothing.
                     # The normal make stage will build LLVM for us as expected, note that we override the install step
@@ -627,7 +636,7 @@ class EB_GCC(ConfigureMake):
                     self.cfg.update('configopts', "--disable-sjlj-exceptions")
 
                     self.cfg['configure_cmd_prefix'] = '../'
-                    return super(EB_GCC, self).configure_step()
+                    return super().configure_step()
 
                 else:
                     raise EasyBuildError("Unknown offload configure step: %s, available: %s"
@@ -653,7 +662,7 @@ class EB_GCC(ConfigureMake):
                 "libc6-dev-i386",  # Debian-based
                 "gcc-c++-32bit",  # OpenSuSE, SLES
             ]
-            if not any([check_os_dependency(dep) for dep in glibc_32bit]):
+            if not any(check_os_dependency(dep) for dep in glibc_32bit):
                 raise EasyBuildError("Using multilib requires 32-bit glibc (install one of %s, depending on your OS)",
                                      ', '.join(glibc_32bit))
             self.configopts += " --enable-multilib --with-multilib-list=m32,m64"
@@ -668,13 +677,32 @@ class EB_GCC(ConfigureMake):
         # enable plugin support
         self.configopts += " --enable-plugins "
 
+        # Determine if ld.gold is available, as being slowly faded out with binutils 2.44 and newer.
+        # If binutils is loaded, check for ld.gold inside of that installation.
+        # If not loaded, check in $PATH, as binutils might have been filtered.
+        binutils_has_ld_gold = False
+        binutils_root = get_software_root('binutils')
+        if binutils_root:
+            _, hits = search_file([binutils_root], 'ld.gold')
+            if hits:
+                binutils_has_ld_gold = True
+        elif which('ld.gold', on_error=IGNORE):
+            binutils_has_ld_gold = True
+
         # use GOLD as default linker, except on RISC-V (since it's not supported there)
         if get_cpu_family() == RISCV:
             self.configopts += " --disable-gold --enable-ld=default"
         elif self.cfg['use_gold_linker']:
+            if not binutils_has_ld_gold:
+                raise EasyBuildError("Tried to set ld.gold as default linker, but ld.gold is not available.")
             self.configopts += " --enable-gold=default --enable-ld --with-plugin-ld=ld.gold"
         else:
-            self.configopts += " --enable-gold --enable-ld=default"
+            if binutils_has_ld_gold:
+                self.configopts += " --enable-gold"
+            else:
+                self.log.debug("Disabling ld.gold, as is was not found")
+                self.configopts += " --disable-gold"
+            self.configopts += " --enable-ld=default"
 
         # enable bootstrap build for self-containment (unless for staged build)
         if not self.stagedbuild:
@@ -726,20 +754,20 @@ class EB_GCC(ConfigureMake):
 
         if self.iter_idx > 0:
             # call standard build_step for nvptx-tools and nvptx GCC
-            return super(EB_GCC, self).build_step()
+            return super().build_step()
 
         if self.stagedbuild:
 
             # make and install stage 1 build of GCC
             paracmd = ''
-            if self.cfg['parallel']:
-                paracmd = "-j %s" % self.cfg['parallel']
+            if self.cfg.parallel > 1:
+                paracmd = f"-j {self.cfg.parallel}"
 
             cmd = "%s make %s %s" % (self.cfg['prebuildopts'], paracmd, self.cfg['buildopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             cmd = "make install %s" % (self.cfg['installopts'])
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
             # register built GCC as compiler to use for stage 2/3
             path = "%s/bin:%s" % (self.stage1installdir, os.getenv('PATH'))
@@ -780,6 +808,10 @@ class EB_GCC(ConfigureMake):
                     if lib == "gmp":
                         cmd = "./configure --prefix=%s " % stage2prefix
                         cmd += "--with-pic --disable-shared --enable-cxx "
+                        # Force C99 during configure to avoid newer C standard
+                        # being used. This avoids inconsistencies between the configure
+                        # result and the build, where we force C99 via a patch.
+                        cmd += "CFLAGS=-std=c99 "
 
                         # ensure generic build when 'generic' is set to True or when --optarch=GENERIC is used
                         # non-generic build can be enforced with generic=False if --optarch=GENERIC is used
@@ -858,10 +890,10 @@ class EB_GCC(ConfigureMake):
 
                     # build and 'install'
                     cmd = "make %s" % paracmd
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
                     cmd = "make install"
-                    run_cmd(cmd, log_all=True, simple=True)
+                    run_shell_cmd(cmd)
 
                     if lib == "gmp":
                         # make sure correct GMP is found
@@ -937,7 +969,7 @@ class EB_GCC(ConfigureMake):
             self.cfg.update('buildopts', 'bootstrap')
 
         # call standard build_step
-        super(EB_GCC, self).build_step()
+        super().build_step()
 
     def install_step(self, *args, **kwargs):
         """Custom install step: avoid installing LLVM when building with AMD GCN offloading support"""
@@ -963,22 +995,21 @@ class EB_GCC(ConfigureMake):
                 raise EasyBuildError("Failed to isolate GCC build directory in %s", self.builddir)
 
         else:
-            super(EB_GCC, self).install_step(*args, **kwargs)
+            super().install_step(*args, **kwargs)
 
-    def post_install_step(self, *args, **kwargs):
+    def post_processing_step(self, *args, **kwargs):
         """
         Post-processing after installation: add symlinks for cc, c++, f77, f95
         """
-        super(EB_GCC, self).post_install_step(*args, **kwargs)
+        super().post_processing_step(*args, **kwargs)
 
         # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')
-        for key in COMP_CMD_SYMLINKS:
-            src = COMP_CMD_SYMLINKS[key]
-            target = os.path.join(bindir, key)
+        for target, src in COMP_CMD_SYMLINKS.items():
+            target = os.path.join(bindir, target)
             if os.path.exists(target):
                 self.log.info("'%s' already exists in %s, not replacing it with symlink to '%s'",
-                              key, bindir, src)
+                              target, bindir, src)
             elif os.path.exists(os.path.join(bindir, src)):
                 symlink(src, target, use_abspath_source=False)
             else:
@@ -1078,7 +1109,7 @@ class EB_GCC(ConfigureMake):
             self.cfg['buildopts'] += ['', '']
             self.build_stages.append(AMD_LLVM)
             self.build_stages.append(AMD_NEWLIB)
-        return super(EB_GCC, self).run_all_steps(*args, **kwargs)
+        return super().run_all_steps(*args, **kwargs)
 
     def sanity_check_step(self):
         """
@@ -1112,7 +1143,7 @@ class EB_GCC(ConfigureMake):
         lib_files = []
         if LooseVersion(self.version) >= LooseVersion('4.2'):
             # libgomp was added in GCC 4.2.0
-            ["libgomp.%s" % sharedlib_ext, "libgomp.a"]
+            lib_files.extend(["libgomp.%s" % sharedlib_ext, "libgomp.a"])
         if os_type == 'Linux':
             lib_files.extend(["libgcc_s.%s" % sharedlib_ext])
             # libmudflap is replaced by asan (see release notes gcc 4.9.0)
@@ -1159,17 +1190,17 @@ class EB_GCC(ConfigureMake):
         if self.cfg['multilib']:
             # with multilib enabled, both lib and lib64 should be there
             lib_files64 = [os.path.join(libdir, x) for libdir in libdirs64 for x in lib_files]
-            lib_files32 = [tuple([os.path.join(libdir, x) for libdir in libdirs32]) for x in lib_files]
+            lib_files32 = [tuple(os.path.join(libdir, x) for libdir in libdirs32) for x in lib_files]
             lib_files = lib_files64 + lib_files32
         else:
             # lib64 on SuSE and Darwin, lib otherwise
-            lib_files = [tuple([os.path.join(libdir, x) for libdir in libdirs]) for x in lib_files]
+            lib_files = [tuple(os.path.join(libdir, x) for libdir in libdirs) for x in lib_files]
         # lib on SuSE, libexec otherwise
         libdirs = ['libexec', 'lib']
         common_infix = os.path.join('gcc', config_name_subdir, self.version)
-        libexec_files = [tuple([os.path.join(d, common_infix, x) for d in libdirs]) for x in libexec_files]
+        libexec_files = [tuple(os.path.join(d, common_infix, x) for d in libdirs) for x in libexec_files]
 
-        old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS.keys()]
+        old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS]
 
         custom_paths = {
             'files': bin_files + lib_files + libexec_files + old_cmds,
@@ -1191,19 +1222,5 @@ class EB_GCC(ConfigureMake):
         else:
             extra_modules = None
 
-        super(EB_GCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
-                                              extra_modules=extra_modules)
-
-    def make_module_req_guess(self):
-        """
-        GCC can find its own headers and libraries but the .so's need to be in LD_LIBRARY_PATH
-        """
-        guesses = super(EB_GCC, self).make_module_req_guess()
-        guesses.update({
-            'PATH': ['bin'],
-            'CPATH': [],
-            'LIBRARY_PATH': ['lib', 'lib64'] if get_cpu_family() == RISCV else [],
-            'LD_LIBRARY_PATH': ['lib', 'lib64'],
-            'MANPATH': ['man', 'share/man']
-        })
-        return guesses
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
+                                  extra_modules=extra_modules)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2025 Ghent University
+# Copyright 2015-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,7 +47,7 @@ class CrayToolchain(Bundle):
 
         kwargs['load_tc_deps_modules'] = False
 
-        super(CrayToolchain, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def make_module_dep(self):
         """

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,12 +42,13 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, which
+from easybuild.tools.filetools import change_dir, create_unused_dir, mkdir, read_file, which
 from easybuild.tools.environment import setvar
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import nub
+import easybuild.tools.toolchain as toolchain
 
 
 DEFAULT_CONFIGURE_CMD = 'cmake'
@@ -63,7 +64,8 @@ def det_cmake_version():
         regex = re.compile(r"^[cC][mM]ake version (?P<version>[0-9]\.[0-9a-zA-Z.-]+)$", re.M)
 
         cmd = "cmake --version"
-        (out, _) = run_cmd(cmd, simple=False, log_ok=False, log_all=False, trace=False)
+        cmd_res = run_shell_cmd(cmd, hidden=True, fail_on_error=False)
+        out = cmd_res.output
         res = regex.search(out)
         if res:
             cmake_version = res.group('version')
@@ -147,19 +149,30 @@ class CMakeMake(ConfigureMake):
             'build_shared_libs': [None, "Build shared library (instead of static library)"
                                         "None can be used to add no flag (usually results in static library)", CUSTOM],
             'build_type': [None, "Build type for CMake, e.g. Release."
-                                 "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
+                                 "Defaults to 'Release', 'RelWithDebInfo' or 'Debug' depending on "
+                                 "toolchainopts[debug,noopt]", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'generator': [None, "Build file generator to use. None to use CMakes default", CUSTOM],
             'install_target_subdir': [None, "Subdirectory to use as installation target", CUSTOM],
+            'install_libdir': ['lib', "Subdirectory to use for library installation files", CUSTOM],
             'runtest': [None, "Make target to test build or True to use CTest", BUILD],
             'srcdir': [None, "Source directory location to provide to cmake command", CUSTOM],
-            'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
+            'separate_build_dir': [True, "Perform build in a separate directory. "
+                                         "Can be set to a specific path to use, "
+                                         "otherwise a new, empty folder is created. "
+                                         "A relative path is relative to %(builddir)s. "
+                                         "To build in the source directory set this to 'False'.", CUSTOM],
         })
         return extra_vars
 
+    @staticmethod
+    def list_to_cmake_arg(lst):
+        """Convert iterable of strings to a value that can be passed as a CLI argument to CMake resulting in a list"""
+        return "'%s'" % ';'.join(lst)
+
     def __init__(self, *args, **kwargs):
         """Constructor for CMakeMake easyblock"""
-        super(CMakeMake, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._lib_ext = None
         self._cmake_version = None
         self.separate_build_dir = None
@@ -192,7 +205,12 @@ class CMakeMake(ConfigureMake):
         """Build type set in the EasyConfig with default determined by toolchainopts"""
         build_type = self.cfg.get('build_type')
         if build_type is None:
-            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+            if self.toolchain.options.get('noopt', None):  # also implies debug but is the closest match
+                build_type = 'Debug'
+            elif self.toolchain.options.get('debug', None):
+                build_type = 'RelWithDebInfo'
+            else:
+                build_type = 'Release'
         return build_type
 
     def prepend_config_opts(self, config_opts):
@@ -206,14 +224,31 @@ class CMakeMake(ConfigureMake):
                             if '-D%s=' % key not in cfg_configopts)
         self.cfg['configopts'] = ' '.join([new_opts, cfg_configopts])
 
-    def configure_step(self, srcdir=None, builddir=None):
-        """Configure build using cmake"""
+    def configure_step(self, srcdir=None, builddir=None, fail_on_error=True, return_full_cmd_result=False):
+        """
+        Configure build using 'cmake'
+
+        :param srcdir: custom source directory to use (if None, use 'srcdir' easyconfig parameter, or start dir)
+        :param builddir: custom build directory to use (if None, 'easybuild_obj' in build directory will be used)
+        :param fail_on_error: raise error if cmake command failed with non-zero exit code (enabled by default)
+        :param return_full_cmd_result: return full result of running cmake command (not just the output)
+        """
 
         setup_cmake_env(self.toolchain)
 
-        if builddir is None and self.cfg.get('separate_build_dir', True):
-            self.separate_build_dir = create_unused_dir(self.builddir, 'easybuild_obj')
-            builddir = self.separate_build_dir
+        if builddir is None:
+            separate_build_dir = self.cfg['separate_build_dir']
+            if separate_build_dir is not False:
+                if separate_build_dir is True:
+                    self.separate_build_dir = create_unused_dir(self.builddir, 'easybuild_obj')
+                elif isinstance(separate_build_dir, str):
+                    # Note that the join returns separate_build_dir if it is absolute
+                    self.separate_build_dir = os.path.join(self.builddir, separate_build_dir)
+                    mkdir(self.separate_build_dir, parents=True)
+                else:
+                    raise EasyBuildError('Invalid value for separate_build_dir: %s (type %s)',
+                                         separate_build_dir, type(separate_build_dir))
+                builddir = self.separate_build_dir
 
         if builddir:
             mkdir(builddir, parents=True)
@@ -235,6 +270,10 @@ class CMakeMake(ConfigureMake):
             install_target = os.path.join(install_target, install_target_subdir)
         options = {'CMAKE_INSTALL_PREFIX': install_target}
 
+        if self.cmake_version >= '3.16':
+            # Avoid some software using a lower log level than the default if this is unset
+            options['CMAKE_MESSAGE_LOG_LEVEL'] = 'STATUS'
+
         if self.installdir.startswith('/opt') or self.installdir.startswith('/usr'):
             # https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
             localstatedir = os.path.join(self.installdir, 'var')
@@ -246,12 +285,24 @@ class CMakeMake(ConfigureMake):
 
         if '-DCMAKE_BUILD_TYPE=' in self.cfg['configopts']:
             if self.cfg.get('build_type') is not None:
-                self.log.warning('CMAKE_BUILD_TYPE is set in configopts. Ignoring build_type')
+                self.log.info("CMAKE_BUILD_TYPE is set in configopts. Ignoring 'build_type' easyconfig parameter.")
         else:
             options['CMAKE_BUILD_TYPE'] = self.build_type
 
+        # Set installation directory for libraries
+        # any CMAKE_INSTALL_DIR[:PATH] setting defined in 'configopts' has precedence over 'install_libdir'
+        if self.cfg['install_libdir'] is not None:
+            cmake_install_dir_pattern = re.compile(r"-DCMAKE_INSTALL_LIBDIR(:PATH)?=[^\s]")
+            if cmake_install_dir_pattern.search(self.cfg['configopts']):
+                self.log.info(
+                    "CMAKE_INSTALL_LIBDIR is set in configopts. Ignoring 'install_libdir' easyconfig parameter."
+                )
+            else:
+                # set CMAKE_INSTALL_LIBDIR including its type to PATH, otherwise CMake can silently ignore it
+                options['CMAKE_INSTALL_LIBDIR:PATH'] = self.cfg['install_libdir']
+
         # Add -fPIC flag if necessary
-        if self.toolchain.options['pic']:
+        if self.toolchain.options.get('pic', False):
             options['CMAKE_POSITION_INDEPENDENT_CODE'] = 'ON'
 
         if self.cfg['generator']:
@@ -277,12 +328,12 @@ class CMakeMake(ConfigureMake):
             # Usually you want to remove -DBUILD_SHARED_LIBS from configopts and set build_shared_libs to True or False
             # If you need it in configopts don't set build_shared_libs (or explicitely set it to `None` (Default))
             if '-DBUILD_SHARED_LIBS=' in self.cfg['configopts']:
-                print_warning('Ignoring BUILD_SHARED_LIBS is set in configopts because build_shared_libs is set')
+                print_warning('Ignoring BUILD_SHARED_LIBS setting in configopts because build_shared_libs is set')
             self.cfg.update('configopts', '-DBUILD_SHARED_LIBS=%s' % ('ON' if build_shared_libs else 'OFF'))
 
         # If the cache does not exist CMake reads the environment variables
         cache_exists = os.path.exists('CMakeCache.txt')
-        env_to_options = dict()
+        env_to_options = {}
 
         # Setting compilers is not required unless we want absolute paths
         if self.cfg.get('abs_path_compilers', False) or cache_exists:
@@ -335,7 +386,7 @@ class CMakeMake(ConfigureMake):
             options['CMAKE_CUDA_COMPILER'] = which('nvcc')
             cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
             if cuda_cc:
-                options['CMAKE_CUDA_ARCHITECTURES'] = '"%s"' % ';'.join([cc.replace('.', '') for cc in cuda_cc])
+                options['CMAKE_CUDA_ARCHITECTURES'] = self.list_to_cmake_arg(cc.replace('.', '') for cc in cuda_cc)
             else:
                 raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
                                      'cuda_compute_capabilities easyconfig parameter or via '
@@ -375,9 +426,69 @@ class CMakeMake(ConfigureMake):
                 self.cfg.get('configure_cmd'),
                 self.cfg['configopts']])
 
-        (out, _) = run_cmd(command, log_all=True, simple=False)
+        res = run_shell_cmd(command, fail_on_error=fail_on_error)
+        self.check_python_paths()
 
-        return out
+        return res if return_full_cmd_result else res.output
+
+    def check_python_paths(self):
+        """Check that there are no detected Python paths outside the Python dependency provided by EasyBuild"""
+        cache_file_path = os.path.join(os.getcwd(), 'CMakeCache.txt')
+        if not os.path.exists(cache_file_path):
+            self.log.warning(f"{cache_file_path} not found. Python paths checks skipped.")
+            return
+        cmake_cache = read_file(cache_file_path)
+        if not cmake_cache:
+            self.log.warning(f"CMake Cache ({cache_file_path}) could not be read. Python paths checks skipped.")
+            return
+
+        self.log.info(f"Checking Python paths found by CMake in {cache_file_path}")
+
+        python_paths = {
+            "executable": [],
+            "include_dir": [],
+            "library": [],
+        }
+        python_regex = re.compile(r"_?(Python|PYTHON)\d?_"
+                                  r"(?P<type>EXECUTABLE|INCLUDE_DIR|LIBRARY)\w*(:\w+)?\s*=(?P<value>.*)")
+        cmake_false_expressions = {'', '0', 'OFF', 'NO', 'FALSE', 'N', 'IGNORE', 'NOTFOUND'}
+        for line in cmake_cache.splitlines():
+            match = python_regex.match(line)
+            if match:
+                self.log.debug("Python related CMake cache line found: " + line)
+                path_type = match['type'].lower()
+                path = match['value'].strip()
+                if path.endswith('-NOTFOUND') or path.upper() in cmake_false_expressions:
+                    continue
+                self.log.info("Python %s path: %s", path_type, path)
+                python_paths[path_type].append(path)
+
+        ebrootpython_path = get_software_root("Python")
+        if not ebrootpython_path:
+            if any(python_paths.values()) and self.toolchain.comp_family() != toolchain.SYSTEM:
+                self.log.warning("Found Python paths in CMake cache but Python is not a dependency")
+            # Can't do the check
+            return
+        ebrootpython_path = os.path.realpath(ebrootpython_path)
+
+        errors = []
+        for path_type, paths in python_paths.items():
+            for path in paths:
+                if not os.path.exists(path):
+                    errors.append("Python %s path does not exist: %s" % (path_type, path))
+                elif not os.path.realpath(path).startswith(ebrootpython_path):
+                    errors.append("Python %s path '%s' is outside EBROOTPYTHON (%s)" %
+                                  (path_type, path, ebrootpython_path))
+
+        if errors:
+            # Combine all errors into a single message
+            error_message = "\n".join(errors)
+            raise EasyBuildError("CMake configure of {self.name} picked up (likely) wrong Python paths:\n"
+                                 f"{error_message}\n"
+                                 "Verify that Python is a dependency. "
+                                 "Otherwise, the sources might need patching "
+                                 "to pick up the Python provided by EasyBuild.")
+        self.log.info("Check for Python paths in CMake cache successful")
 
     def test_step(self):
         """CMake specific test setup"""
@@ -391,4 +502,4 @@ class CMakeMake(ConfigureMake):
             self.log.debug("`runtest = True` found, using '%s' as test_cmd", test_cmd)
             self.cfg['test_cmd'] = test_cmd
 
-        super(CMakeMake, self).test_step()
+        super().test_step()
