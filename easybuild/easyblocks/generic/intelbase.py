@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -93,7 +93,7 @@ class IntelBase(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Constructor, adds extra config options"""
-        super(IntelBase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.license_file = 'UNKNOWN'
         self.license_env_var = 'UNKNOWN'
@@ -250,7 +250,7 @@ class IntelBase(EasyBlock):
         """Custom prepare step for IntelBase. Set up the license"""
         requires_runtime_license = kwargs.pop('requires_runtime_license', True)
 
-        super(IntelBase, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # Decide if we need a license or not (default is True because of defaults of individual Booleans)
         self.requires_runtime_license = self.cfg['requires_runtime_license'] and requires_runtime_license
@@ -477,7 +477,7 @@ class IntelBase(EasyBlock):
 
     def make_module_extra(self, *args, **kwargs):
         """Custom variable definitions in module file."""
-        txt = super(IntelBase, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
 
         if self.requires_runtime_license:
             txt += self.module_generator.prepend_paths(self.license_env_var, [self.license_file],
@@ -493,6 +493,6 @@ class IntelBase(EasyBlock):
         """
         self.clean_home_subdir()
 
-        super(IntelBase, self).cleanup_step()
+        super().cleanup_step()
 
     # no default sanity check, needs to be implemented by derived class

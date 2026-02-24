@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,7 +44,7 @@ class EB_XCrySDen(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for XCrySDen"""
-        super(EB_XCrySDen, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.tclroot = self.tclver = self.tkroot = self.tkver = 'UNKNOWN'
 
     def configure_step(self):
@@ -142,11 +142,11 @@ class EB_XCrySDen(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_XCrySDen, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set extra environment variables in module file."""
-        txt = super(EB_XCrySDen, self).make_module_extra()
+        txt = super().make_module_extra()
 
         tclpath = os.path.join(self.tclroot, 'lib', "tcl%s" % self.tclver)
         txt += self.module_generator.set_environment('TCL_LIBRARY', tclpath)

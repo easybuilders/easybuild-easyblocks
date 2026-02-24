@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,7 +43,7 @@ class EB_optiSLang(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Initialize optiSLang-specific variables."""
-        super(EB_optiSLang, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # custom extra module file entries for ANSYS optiSLang
         bin_dirs = [
@@ -95,4 +95,4 @@ class EB_optiSLang(PackedBinary):
         }
         custom_commands = ['optislang --help']
 
-        super(EB_optiSLang, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

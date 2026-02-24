@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,7 +32,9 @@ EasyBuild support for installing the Intel MPI library, implemented as an easybl
 @author: Jens Timmerman (Ghent University)
 @author: Damian Alvarez (Forschungszentrum Juelich GmbH)
 @author: Alex Domingo (Vrije Universiteit Brussel)
+@author: Jan Andre Reuter (Forschungszentrum Juelich GmbH)
 """
+import glob
 import os
 import tempfile
 from easybuild.tools import LooseVersion
@@ -42,7 +44,8 @@ from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, extract_file
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_files, extract_file
+from easybuild.tools.filetools import mkdir, remove, get_cwd
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
@@ -64,12 +67,14 @@ class EB_impi(IntelBase):
             'set_mpi_wrapper_aliases_gcc': [False, 'Set compiler for mpigcc/mpigxx via aliases', CUSTOM],
             'set_mpi_wrapper_aliases_intel': [False, 'Set compiler for mpiicc/mpiicpc/mpiifort via aliases', CUSTOM],
             'set_mpi_wrappers_all': [False, 'Set (default) compiler for all MPI wrapper commands', CUSTOM],
+            'rebuild_f08_bindings': [False, 'Rebuild and replace the Fortran 2008 bindings.'
+                                            'Not built by default due to backwards compatibility.', CUSTOM],
         }
         return IntelBase.extra_options(extra_vars)
 
     def prepare_step(self, *args, **kwargs):
         kwargs['requires_runtime_license'] = False
-        super(EB_impi, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def install_step(self):
         """
@@ -85,13 +90,13 @@ class EB_impi(IntelBase):
             )
 
         if impiver >= LooseVersion('2021'):
-            super(EB_impi, self).install_step()
+            super().install_step()
         else:
             # impi starting from version 4.0.1.x uses standard installation procedure.
             silent_cfg_names_map = {}
-            super(EB_impi, self).install_step(silent_cfg_names_map=silent_cfg_names_map)
+            super().install_step(silent_cfg_names_map=silent_cfg_names_map)
             # since v5.0.1 installers create impi/<version> subdir, so stuff needs to be moved afterwards
-            super(EB_impi, self).move_after_install()
+            super().move_after_install()
 
         # recompile libfabric (if requested)
         # some Intel MPI versions (like 2019 update 6) no longer ship libfabric sources
@@ -122,9 +127,49 @@ class EB_impi(IntelBase):
             else:
                 raise EasyBuildError("Rebuild of libfabric is requested, but ofi_internal is set to False.")
 
+    def rebuild_f08_bindings(self):
+        """
+        Rebuild Fortran 2008 bindings
+        """
+        # For more information, see:
+        # https://community.intel.com/t5/Intel-MPI-Library/MPI-f08-with-polymorphic-argument-CLASS/m-p/1590421
+        # Check if the binding tarball exists within the installation
+        bindings_path = os.path.join(self.installdir, 'mpi', 'latest', 'opt', 'mpi', 'binding')
+        bindings_tarball = os.path.join(bindings_path, 'intel-mpi-binding-kit.tar.gz')
+        if not os.path.exists(bindings_tarball):
+            raise EasyBuildError(
+                f"Requested to rebuild Fortran 2008 bindings, but the bindings tarball in {bindings_tarball} "
+                f"does not exist.")
+        self.log.info(f"Found bindings tarball at {bindings_tarball}. Rebuilding Fortran 2008 bindings.")
+        # Determine compilers to build with
+        if self.toolchain.is_system_toolchain():
+            f90_compiler = 'gfortran'
+        else:
+            f90_compiler = self.toolchain.COMPILER_F90
+        # Extract the tarball
+        build_dir = tempfile.mkdtemp(prefix='rebuild-bindings-', dir=self.builddir)
+        run_shell_cmd(f"tar -xzf {bindings_tarball} -C {build_dir}")
+        # Build the bindings
+        change_dir(os.path.join(build_dir, 'f08'))
+        mpi_latest_dir = os.path.join(self.installdir, 'mpi', 'latest')
+        run_shell_cmd(f"make MPI_INST={mpi_latest_dir} F90={f90_compiler} NAME={f90_compiler}")
+        change_dir(os.path.join(get_cwd(), 'include', f'{f90_compiler}'))
+        include_mpi_dir = os.path.join(mpi_latest_dir, 'include', 'mpi')
+        initial_module_files = glob.glob(os.path.join(include_mpi_dir, '*.mod'))
+        written_module_files = glob.glob("*.mod")
+        # Preserve the original module files for people to use
+        include_mpi_originals_dir = os.path.join(include_mpi_dir, 'originals')
+        mkdir(include_mpi_originals_dir, parents=True)
+        copy_files(initial_module_files, include_mpi_originals_dir)
+        # Copy the new module files
+        copy_files(written_module_files, include_mpi_dir)
+        # Cleanup
+        remove(build_dir)
+        change_dir(self.installdir)
+
     def post_processing_step(self):
         """Custom post install step for IMPI, fix broken env scripts after moving installed files."""
-        super(EB_impi, self).post_processing_step()
+        super().post_processing_step()
 
         impiver = LooseVersion(self.version)
 
@@ -148,6 +193,9 @@ class EB_impi(IntelBase):
                     wrapper_path = os.path.join(self.installdir, script_dir, wrapper)
                     if os.path.exists(wrapper_path):
                         apply_regex_substitutions(wrapper_path, regex_subs)
+
+        if self.cfg['rebuild_f08_bindings']:
+            self.rebuild_f08_bindings()
 
     def sanity_check_step(self):
         """Custom sanity check paths for IMPI."""
@@ -225,7 +273,7 @@ class EB_impi(IntelBase):
                 mpi_cmd_tmpl % params,  # run test program
             ])
 
-        super(EB_impi, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_step(self, *args, **kwargs):
         """
@@ -303,7 +351,7 @@ class EB_impi(IntelBase):
         else:
             mpiroot = self.installdir
 
-        txt = super(EB_impi, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
         txt += self.module_generator.set_environment('I_MPI_ROOT', mpiroot)
         if self.cfg['set_mpi_wrappers_compiler'] or self.cfg['set_mpi_wrappers_all']:
             for var in ['CC', 'CXX', 'F77', 'F90', 'FC']:

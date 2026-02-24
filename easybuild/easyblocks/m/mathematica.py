@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,7 +51,7 @@ class EB_Mathematica(Binary):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_Mathematica, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # custom paths in module load environment
         self.module_load_environment.PATH = ['bin', 'Executables']
@@ -76,6 +76,8 @@ class EB_Mathematica(Binary):
         # Starting at V13, Mathematica have renamed their install file...
         if LooseVersion(self.version) >= LooseVersion("13"):
             install_script_glob = '%s_%s_*LINUX*.sh' % (self.name, self.version)
+        if LooseVersion(self.version) >= LooseVersion("14.1"):
+            install_script_glob = 'Wolfram_%s_LIN.sh' % (self.version)
 
         matches = glob.glob(install_script_glob)
         if len(matches) == 1:
@@ -83,6 +85,9 @@ class EB_Mathematica(Binary):
             cmd = self.cfg['preinstallopts'] + './' + install_script
             shortver = '.'.join(self.version.split('.')[:2])
             qa_install_path = os.path.join('/usr', 'local', 'Wolfram', self.name, shortver)
+            if LooseVersion(self.version) >= LooseVersion("14.1"):
+                qa_install_path = os.path.join('/usr', 'local', 'Wolfram', 'Wolfram', shortver)
+
             qa = [
                 (r"Enter the installation directory, or press ENTER to select[\s\n]*%s:[\s\n]*>" % qa_install_path,
                  self.installdir),
@@ -133,12 +138,12 @@ class EB_Mathematica(Binary):
         else:
             self.log.info("No activation key provided, so skipping activation of the installation.")
 
-        super(EB_Mathematica, self).post_processing_step()
+        super().post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Mathematica."""
         custom_paths = {
-            'files': ['bin/mathematica'],
+            'files': ['bin/math'],
             'dirs': ['AddOns', 'Configuration', 'Documentation', 'Executables', 'SystemFiles'],
         }
         if LooseVersion(self.version) >= LooseVersion("11.3.0"):
@@ -146,6 +151,9 @@ class EB_Mathematica(Binary):
         elif LooseVersion(self.version) >= LooseVersion("11.0.0"):
             custom_paths['files'].append('bin/wolframscript')
 
-        custom_commands = ['mathematica --version']
+        if LooseVersion(self.version) < LooseVersion("14.1"):
+            custom_commands = ['mathematica --version']
+        else:
+            custom_commands = ['wolframnb --version']
 
-        super(EB_Mathematica, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

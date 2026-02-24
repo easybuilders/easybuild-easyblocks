@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,7 +44,7 @@ class EB_ANSYS(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Initialize ANSYS-specific variables."""
-        super(EB_ANSYS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.ansysver = None
 
         # custom extra module environment entries for ANSYS
@@ -107,7 +107,7 @@ class EB_ANSYS(PackedBinary):
         if self.ansysver is None:
             self.set_ansysver()
 
-        txt = super(EB_ANSYS, self).make_module_extra()
+        txt = super().make_module_extra()
         icem_acn = os.path.join(self.installdir, self.ansysver, 'icemcfd', 'linux64_amd')
         txt += self.module_generator.set_environment('ICEM_ACN', icem_acn)
         return txt
@@ -122,4 +122,4 @@ class EB_ANSYS(PackedBinary):
             'files': [os.path.join(self.ansysver, 'fluent', 'bin', 'fluent%s' % x) for x in ['', '_arch', '_sysinfo']],
             'dirs': [os.path.join(self.ansysver, x) for x in ['ansys', 'aisol', 'CFD-Post', 'CFX']]
         }
-        super(EB_ANSYS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

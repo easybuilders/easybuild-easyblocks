@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,7 +51,7 @@ class EB_sympy(PythonPackage):
         msg += "to avoid failing tests due to the temporary directory being a symlinked path..."
         self.log.info(msg)
 
-        super(EB_sympy, self).test_step(self)
+        super().test_step(self)
 
         # restore original temporary directory
         tempfile.tempdir = original_tmpdir
@@ -69,4 +69,4 @@ class EB_sympy(PythonPackage):
 
         custom_commands = ["isympy --help"]
 
-        return super(EB_sympy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -31,32 +31,12 @@ EasyBuild support for JAR files, implemented as an easyblock
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 """
-import shutil
-
 from easybuild.easyblocks.generic.binary import Binary
 
 
 class JAR(Binary):
     """Support for installing JAR files."""
-
-    def install_step_xxx(self):
-        """Custom installation for JAR files: just copy them to install path."""
-
-        for srcfile in self.src:
-            shutil.copy(srcfile['path'], self.installdir)
-
-    def make_module_extra(self):
-        """Extra module entries for JAR files: CLASSPATH."""
-
-        txt = super(JAR, self).make_module_extra()
-
-        for srcfile in self.src:
-            srcname = srcfile['name']
-
-            self.log.debug('Checking %s...' % srcname)
-
-            if srcname.endswith('.jar'):
-                self.log.debug('Adding %s to classpath' % srcname)
-                txt += self.module_generator.prepend_paths('CLASSPATH', [srcname])
-
-        return txt
+    def __init__(self, *args, **kwargs):
+        """Initialize."""
+        super().__init__(*args, **kwargs)
+        self.log.deprecated("The JAR easyblock is deprecated. Use the Binary easyblock instead.", '6.0')

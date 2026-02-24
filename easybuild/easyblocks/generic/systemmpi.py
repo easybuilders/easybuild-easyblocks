@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2025 Ghent University
+# Copyright 2015-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -82,7 +82,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
     def __init__(self, *args, **kwargs):
         """Extra initialization: keep track of values that may change due to modifications to the version."""
-        super(SystemMPI, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # Keep track of original values of vars that are subject to change, for restoring later.
         # The version is determined/matched from the installation and the installdir is determined from the system
@@ -139,7 +139,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
 
             # Extract any OpenMPI environment variables in the current environment and ensure they are added to the
             # final module
-            self.mpi_env_vars = dict((key, value) for key, value in os.environ.items() if key.startswith('OMPI_'))
+            self.mpi_env_vars = {key: value for key, value in os.environ.items() if key.startswith('OMPI_')}
 
             # Extract the C compiler used underneath the MPI implementation, check for the definition of OMPI_MPICC
             self.mpi_c_compiler = self.extract_ompi_setting("C compiler", output_of_ompi_info)
@@ -288,7 +288,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
         self.cfg['version'] = self.orig_version
 
         # Retrieve module path extensions
-        res = super(SystemMPI, self).make_module_extend_modpath()
+        res = super().make_module_extend_modpath()
 
         # Reset to actual MPI version (e.g., "2.0.2")
         self.cfg['version'] = self.mpi_version
@@ -308,7 +308,7 @@ class SystemMPI(Bundle, ConfigureMake, EB_impi):
                 extras += self.module_generator.set_environment(key, val)
             self.log.debug("make_module_extra added this: %s" % extras)
         else:
-            extras = super(SystemMPI, self).make_module_extra(*args, **kwargs)
+            extras = super().make_module_extra(*args, **kwargs)
         return extras
 
     def cleanup_step(self):

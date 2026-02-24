@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,4 +42,4 @@ class EB_DB(ConfigureMake):
             os.chdir('build_unix')
         except OSError as err:
             raise EasyBuildError("Failed to move to build dir: %s", err)
-        super(EB_DB, self).configure_step(cmd_prefix='../dist/')
+        super().configure_step(cmd_prefix='../dist/')

@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2025 Ghent University
+# Copyright 2015-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -137,7 +137,7 @@ class ModuleOnlyTest(TestCase):
 
     def setUp(self):
         """Setup test."""
-        super(ModuleOnlyTest, self).setUp()
+        super().setUp()
 
         self.log = fancylogger.getLogger("EasyblocksModuleOnlyTest", fname=False)
         fd, self.eb_file = tempfile.mkstemp(prefix='easyblocks_module_only_test_', suffix='.eb')
@@ -147,7 +147,7 @@ class ModuleOnlyTest(TestCase):
 
     def tearDown(self):
         """Clean up after running test."""
-        super(ModuleOnlyTest, self).tearDown()
+        super().tearDown()
 
         os.environ = self.orig_environ
 
@@ -205,8 +205,8 @@ class ModuleOnlyTest(TestCase):
             (r'^prepend.path.*\WLD_LIBRARY_PATH\W.*lib"?\W*$', True),
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib"?\W*$', True),
             (r'^prepend.path.*\WPATH\W.*bin"?\W*$', True),
-            (r'^prepend.path.*\WPKG_CONFIG_PATH\W.*lib64/pkgconfig"?\W*$', True),
-            (r'^prepend.path.*\WPYTHONPATH\W.*lib/python[23]\.[0-9]+/site-packages"?\W*$', True),
+            (r'^prepend.path.*\WPKG_CONFIG_PATH\W.*lib64.*pkgconfig"?\W*$', True),
+            (r'^prepend.path.*\WPYTHONPATH\W.*lib.*python[23]\.[0-9]+.*site-packages"?\W*$', True),
             # lib64 doesn't contain any library files, so these are *not* included in $LD_LIBRARY_PATH or $LIBRARY_PATH
             (r'^prepend.path.*\WLD_LIBRARY_PATH\W.*lib64', False),
             (r'^prepend.path.*\WLIBRARY_PATH\W.*lib64', False),
@@ -233,12 +233,20 @@ class ModuleOnlyTest(TestCase):
         tmpdir = tempfile.mkdtemp()
         for cmd in ('python2', 'python2.6'):
             install_fake_command(cmd, "#!/bin/bash\n echo 2.6.4", tmpdir)
-        self.assertTrue(pick_python_cmd() is not None)
-        self.assertTrue(pick_python_cmd(3) is not None)
-        self.assertTrue(pick_python_cmd(3, 6) is not None)
-        self.assertTrue(pick_python_cmd(123, 456) is None)
-        self.assertTrue(pick_python_cmd(3, 6, 123, 456) is not None)
-        self.assertTrue(pick_python_cmd(2, 6, 1, 1) is None)
+        self.assertIsNotNone(pick_python_cmd())
+        self.assertIsNotNone(pick_python_cmd(3))
+        self.assertIsNotNone(pick_python_cmd(3, 6))
+        self.assertIsNone(pick_python_cmd(123, 456))
+        self.assertIsNotNone(pick_python_cmd(2, 6, 123, 456))
+        self.assertIsNotNone(pick_python_cmd(2, 6, 2))
+        self.assertIsNone(pick_python_cmd(2, 6, 1, 1))
+        maj_ver, min_ver = sys.version_info[0:2]
+        self.assertIsNotNone(pick_python_cmd(maj_ver, min_ver))
+        self.assertIsNotNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver))
+        self.assertIsNotNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver, max_py_minver=min_ver))
+        self.assertIsNotNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver, max_py_minver=min_ver + 1))
+        self.assertIsNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver - 1))
+        self.assertIsNone(pick_python_cmd(maj_ver, min_ver, max_py_majver=maj_ver, max_py_minver=min_ver - 1))
 
 
 def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt='', tmpdir=None):
@@ -404,7 +412,7 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
         self.assertTrue(False, "Class found in easyblock %s" % easyblock)
 
 
-def suite():
+def suite(loader):
     """Return all easyblock --module-only tests."""
     def make_inner_test(easyblock, **kwargs):
         def innertest(self):
@@ -416,6 +424,7 @@ def suite():
     eb_go = eboptions.parse_options(args=['--prefix=%s' % TMPDIR])
     config.init(eb_go.options, eb_go.get_options_by_section('config'))
     build_options = {
+        'accept_eula_for': ['.*'],
         'external_modules_metadata': {},
         # enable --force --module-only
         'force': True,
@@ -468,7 +477,7 @@ def suite():
             extra_txt = 'dependencies = [("foo", "1.2.3.4.5")]'
             innertest = make_inner_test(easyblock, name='foo', version='1.2.3.4', extra_txt=extra_txt)
         elif eb_fn in ['advisor.py', 'icc.py', 'iccifort.py', 'ifort.py', 'imkl.py', 'imkl_fftw.py',
-                       'inspector.py', 'itac.py', 'tbb.py', 'vtune.py']:
+                       'inspector.py', 'ipp.py', 'itac.py', 'tbb.py', 'vtune.py']:
             # family of IntelBase easyblocks have a minimum version support based on currently supported toolchains
             innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], version='9999.9')
         elif eb_fn == 'aocc.py':
@@ -477,6 +486,13 @@ def suite():
         elif eb_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif eb_fn == 'kokkos.py':
+            # custom easyblock for kokkos required v4.1.00 or newer
+            innertest = make_inner_test(easyblock, name='kokkos', version='4.1.00')
+        elif eb_fn in ['nvidia_compilers.py', 'nvhpc.py', 'nvidiabase.py']:
+            # NvidiaBase easyblocks need a CUDA version
+            extra_txt = 'default_cuda_version = "99.9"'
+            innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], extra_txt=extra_txt)
         elif eb_fn == 'openssl_wrapper.py':
             # easyblock to create OpenSSL wrapper expects an OpenSSL version
             innertest = make_inner_test(easyblock, name='OpenSSL-wrapper', version='1.1')
@@ -506,10 +522,10 @@ def suite():
         innertest.__name__ = "test_easyblock_%s" % '_'.join(easyblock.replace('.py', '').split('/'))
         setattr(ModuleOnlyTest, innertest.__name__, innertest)
 
-    return TestLoader().loadTestsFromTestCase(ModuleOnlyTest)
+    return loader.loadTestsFromTestCase(ModuleOnlyTest)
 
 
 if __name__ == '__main__':
-    res = TextTestRunner(verbosity=1).run(suite())
+    res = TextTestRunner(verbosity=1).run(suite(TestLoader()))
     remove_dir(TMPDIR)
     sys.exit(len(res.failures))

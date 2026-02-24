@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,7 +47,7 @@ from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir
 from easybuild.tools.filetools import patch_perl_script_autoflush, read_file, which
 from easybuild.tools.filetools import remove_file, symlink
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -69,7 +69,7 @@ class EB_WRF(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to WRF."""
-        super(EB_WRF, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.build_in_installdir = True
         self.comp_fam = None
@@ -101,6 +101,14 @@ class EB_WRF(EasyBlock):
 
         # define $NETCDF* for netCDF dependency (used when creating WRF module file)
         set_netcdf_env_vars(self.log)
+
+        if LooseVersion(self.version) >= '4.5.2':
+            # Prior to 4.5.2 we required patches for separate netCDF
+            # on newer versions it has a separate variable for C-netCDF
+            netcdf = get_software_root('netCDF')
+            netcdff = get_software_root('netCDF-Fortran')
+            env.setvar('NETCDF_C', netcdf)
+            env.setvar('NETCDF', netcdff)
 
         # HDF5 (optional) dependency
         hdf5 = get_software_root('HDF5')
@@ -150,7 +158,11 @@ class EB_WRF(EasyBlock):
         self.comp_fam = self.toolchain.comp_family()
         if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('3.7'):
-                build_type_option = r"INTEL\ \(ifort\/icc\)"
+                if (get_software_root('intel-compilers') and
+                        LooseVersion(get_software_version('intel-compilers')) >= '2024'):
+                    build_type_option = r"INTEL \(ifx\/icx\)"
+                else:
+                    build_type_option = r"INTEL\ \(ifort\/icc\)"
             else:
                 build_type_option = "Linux x86_64 i486 i586 i686, ifort compiler with icc"
 
@@ -212,11 +224,11 @@ class EB_WRF(EasyBlock):
 
         # make sure correct compilers are being used
         comps = {
-            'SCC': os.getenv('CC'),
-            'SFC': os.getenv('F90'),
-            'CCOMP': os.getenv('CC'),
-            'DM_FC': os.getenv('MPIF90'),
-            'DM_CC': "%s -DMPI2_SUPPORT" % os.getenv('MPICC'),
+            'SCC': os.environ['CC'],
+            'SFC': os.environ['F90'],
+            'CCOMP': os.environ['CC'],
+            'DM_FC': os.environ['MPIF90'],
+            'DM_CC': "%s -DMPI2_SUPPORT" % os.environ['MPICC'],
         }
         regex_subs = [(r"^(%s\s*=\s*).*$" % k, r"\1 %s" % v) for (k, v) in comps.items()]
         # fix hardcoded preprocessor
@@ -235,16 +247,20 @@ class EB_WRF(EasyBlock):
             if self.comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
 
                 # -O3 -heap-arrays is required to resolve compilation error
-                for envvar in ['CFLAGS', 'FFLAGS']:
-                    val = os.getenv(envvar)
+                envars = ['FFLAGS']
+                if comps['SCC'] != 'icx':  # -heap-arrays not supported by LLVM-based icx
+                    envars.append('CFLAGS')
+                for envvar in envars:
+                    val = os.environ[envvar]
                     if '-O3' in val:
-                        env.setvar(envvar, '%s -heap-arrays' % val)
-                        self.log.info("Updated %s to '%s'" % (envvar, os.getenv(envvar)))
+                        val += ' -heap-arrays'
+                        env.setvar(envvar, val)
+                        self.log.info("Updated %s to '%s'" % (envvar, val))
 
             # replace -O3 with desired optimization options
             regex_subs = [
-                (r"^(FCOPTIM.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.getenv('FFLAGS')),
-                (r"^(CFLAGS_LOCAL.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.getenv('CFLAGS')),
+                (r"^(FCOPTIM.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.environ['FFLAGS']),
+                (r"^(CFLAGS_LOCAL.*)(\s-O3)(\s.*)$", r"\1 %s \3" % os.environ['CFLAGS']),
             ]
             apply_regex_substitutions(cfgfile, regex_subs)
 
@@ -330,11 +346,14 @@ class EB_WRF(EasyBlock):
             # prepare run command
 
             # stack limit needs to be set to unlimited for WRF to work well
+            test_cmd = "ulimit -s unlimited "
+            pretestopts = self.cfg['pretestopts']
             if self.cfg['buildtype'] in self.parallel_build_types:
-                test_cmd = "ulimit -s unlimited && %s && %s" % (self.toolchain.mpi_cmd_for("./ideal.exe", 1),
-                                                                self.toolchain.mpi_cmd_for("./wrf.exe", n_mpi_ranks))
+                test_cmd += f' && {pretestopts} {self.toolchain.mpi_cmd_for("./ideal.exe", 1)}'
+                test_cmd += f' && {pretestopts} {self.toolchain.mpi_cmd_for("./wrf.exe", n_mpi_ranks)}'
             else:
-                test_cmd = "ulimit -s unlimited && ./ideal.exe && ./wrf.exe >rsl.error.0000 2>&1"
+                test_cmd += f' && {pretestopts} ./ideal.exe'
+                test_cmd += f' && {pretestopts} ./wrf.exe >rsl.error.0000 2>&1'
 
             # regex to check for successful test run
             re_success = re.compile("SUCCESS COMPLETE WRF")
@@ -430,12 +449,13 @@ class EB_WRF(EasyBlock):
             'dirs': [os.path.join(self.wrfsubdir, d) for d in ['main', 'run']],
         }
 
-        super(EB_WRF, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Add netCDF environment variables to module file."""
-        txt = super(EB_WRF, self).make_module_extra()
-        for netcdf_var in ['NETCDF', 'NETCDFF']:
-            if os.getenv(netcdf_var) is not None:
-                txt += self.module_generator.set_environment(netcdf_var, os.getenv(netcdf_var))
+        txt = super().make_module_extra()
+        for netcdf_var in ['NETCDF', 'NETCDF_C', 'NETCDFF']:
+            val = os.getenv(netcdf_var)
+            if val is not None:
+                txt += self.module_generator.set_environment(netcdf_var, val)
         return txt

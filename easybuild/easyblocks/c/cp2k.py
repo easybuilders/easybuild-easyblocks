@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -67,7 +67,7 @@ class EB_CP2K(EasyBlock):
     """
 
     def __init__(self, *args, **kwargs):
-        super(EB_CP2K, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.typearch = None
 
@@ -926,12 +926,12 @@ class EB_CP2K(EasyBlock):
             custom_paths['files'].append(os.path.join('lib', 'libcp2k.a'))
             custom_paths['files'].append(os.path.join('include', 'libcp2k.h'))
             custom_paths['files'].append(os.path.join('include', 'libcp2k.mod'))
-        super(EB_CP2K, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set up a CP2K_DATA_DIR environment variable to find CP2K provided basis sets"""
 
-        txt = super(EB_CP2K, self).make_module_extra()
+        txt = super().make_module_extra()
 
         # also define $CP2K_DATA_DIR in module,
         # even though CP2K was already configured to pick up 'data' from install dir

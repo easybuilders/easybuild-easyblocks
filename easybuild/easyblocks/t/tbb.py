@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -84,7 +84,7 @@ class EB_tbb(IntelBase, ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for tbb"""
-        super(EB_tbb, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('2020'):
             raise EasyBuildError(
@@ -117,7 +117,7 @@ class EB_tbb(IntelBase, ConfigureMake):
         if not self.toolchain.is_system_toolchain():
             # strip off 'tbb-<version>' subdirectory
             self.cfg['unpack_options'] = "--strip-components=1"
-        super(EB_tbb, self).extract_step()
+        super().extract_step()
 
     def configure_step(self):
         """Configure TBB build/installation."""
@@ -222,11 +222,11 @@ class EB_tbb(IntelBase, ConfigureMake):
             custom_paths['dirs'].append(os.path.join(self.tbb_subdir, 'python'))
             custom_commands.extend(['python -c "import tbb"'])
 
-        super(EB_tbb, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Add correct path to lib to LD_LIBRARY_PATH. and intel license file"""
-        txt = super(EB_tbb, self).make_module_extra()
+        txt = super().make_module_extra()
 
         if self.toolchain.is_system_toolchain():
             txt += self.module_generator.prepend_paths('CPATH', [os.path.join(self.tbb_subdir, 'include')])

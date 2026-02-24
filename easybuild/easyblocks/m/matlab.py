@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,7 +51,7 @@ class EB_MATLAB(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to MATLAB."""
-        super(EB_MATLAB, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.comp_fam = None
         self.configfile = os.path.join(self.builddir, 'my_installer_input.txt')
         self.outputfile = os.path.join(self.builddir, 'my_installer_output.txt')
@@ -214,11 +214,11 @@ class EB_MATLAB(PackedBinary):
             'files': ["bin/matlab", "bin/glnxa64/MATLAB", "toolbox/local/classpath.txt"],
             'dirs': ["java/jar"],
         }
-        super(EB_MATLAB, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Extend PATH and set proper _JAVA_OPTIONS (e.g., -Xmx)."""
-        txt = super(EB_MATLAB, self).make_module_extra()
+        txt = super().make_module_extra()
 
         if self.cfg['java_options']:
             txt += self.module_generator.set_environment('_JAVA_OPTIONS', self.cfg['java_options'])

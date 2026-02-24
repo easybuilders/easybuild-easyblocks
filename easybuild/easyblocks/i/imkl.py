@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -72,7 +72,7 @@ class EB_imkl(IntelBase):
 
     def __init__(self, *args, **kwargs):
         """Constructor for imkl easyblock."""
-        super(EB_imkl, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         if LooseVersion(self.version) < LooseVersion('2020'):
             raise EasyBuildError(
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2020.0."
@@ -108,7 +108,7 @@ class EB_imkl(IntelBase):
         """Prepare build environment."""
 
         kwargs['requires_runtime_license'] = False
-        super(EB_imkl, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # build the mkl interfaces, if desired
         if self.cfg['interfaces']:
@@ -150,7 +150,7 @@ class EB_imkl(IntelBase):
             silent_cfg_extras = {
                 'COMPONENTS': 'ALL',
             }
-        super(EB_imkl, self).install_step(silent_cfg_extras=silent_cfg_extras)
+        super().install_step(silent_cfg_extras=silent_cfg_extras)
 
     def build_mkl_fftw_interfaces(self, libdir):
         """Build the Intel MKL FFTW interfaces."""
@@ -328,7 +328,7 @@ class EB_imkl(IntelBase):
         """
         Install group libraries and interfaces (if desired).
         """
-        super(EB_imkl, self).post_processing_step()
+        super().post_processing_step()
 
         # extract examples
         examples_subdir = os.path.join(self.installdir, self.mkl_basedir, self.examples_subdir)
@@ -431,8 +431,7 @@ class EB_imkl(IntelBase):
             'files': mklfiles,
             'dirs': mkldirs,
         }
-
-        super(EB_imkl, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_step(self, *args, **kwargs):
         """
@@ -486,7 +485,7 @@ class EB_imkl(IntelBase):
                 'MKL_EXAMPLES': os.path.join(self.installdir, self.mkl_basedir, self.examples_subdir),
             })
 
-        txt = super(EB_imkl, self).make_module_extra()
+        txt = super().make_module_extra()
 
         mklroot = os.path.join(self.installdir, self.mkl_basedir)
         txt += self.module_generator.set_environment('MKLROOT', mklroot)

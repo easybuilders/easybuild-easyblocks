@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2025 Ghent University
+# Copyright 2018-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -77,4 +77,4 @@ class EB_Nim(EasyBlock):
             'files': ['bin/nim', 'bin/nimble', 'bin/nimgrep', 'bin/nimsuggest'],
             'dirs': ['config', 'doc', 'lib'],
         }
-        super(EB_Nim, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

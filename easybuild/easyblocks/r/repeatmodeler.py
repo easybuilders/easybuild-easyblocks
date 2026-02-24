@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -61,14 +61,14 @@ class EB_RepeatModeler(Tarball):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_RepeatModeler, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # custom path-like environment variables for RepeatModelerConfig
         self.module_load_environment.PATH = ['']
 
     def install_step(self):
         """Custom install procedure for RepeatModeler."""
-        super(EB_RepeatModeler, self).install_step()
+        super().install_step()
 
         # Required dependencies, and bin path relative to software root
         required_deps = {
@@ -187,7 +187,7 @@ class EB_RepeatModeler(Tarball):
 
         custom_commands = [("RepeatModeler -help 2>&1 | grep 'RepeatModeler - Model repetitive DNA'", '')]
 
-        super(EB_RepeatModeler, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
     def make_module_step(self, *args, **kwargs):
         """Additional path-like environment variables that depend on installation files"""

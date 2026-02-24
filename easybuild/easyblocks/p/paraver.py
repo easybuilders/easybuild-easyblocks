@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2025 Ghent University
+# Copyright 2015-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,7 +43,7 @@ class EB_Paraver(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Constructor for custom easyblock for Paraver."""
-        super(EB_Paraver, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion('4.7'):
             raise EasyBuildError("Custom easyblock for Paraver only supports Paraver versions >= 4.7")
@@ -87,7 +87,7 @@ class EB_Paraver(ConfigureMake):
         if wxpropgrid:
             self.cfg.update('configopts', '--with-wxpropgrid=%s' % wxpropgrid)
 
-        super(EB_Paraver, self).configure_step()
+        super().configure_step()
 
     def build_step(self):
         """No build ('make') required for recent versions."""
@@ -99,4 +99,4 @@ class EB_Paraver(ConfigureMake):
             'files': ['bin/wxparaver', 'include/paraverconfig.h', 'lib/paraver-kernel/libparaver-kernel.a'],
             'dirs': [],
         }
-        super(EB_Paraver, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

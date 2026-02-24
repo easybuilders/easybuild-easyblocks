@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -161,13 +161,17 @@ class EB_MUMPS(ConfigureMake):
 
     def sanity_check_step(self):
         """Custom sanity check for MUMPS."""
+        list_of_headers = ["mumps_c", "mumps_struc"]
+        if LooseVersion(self.version) < LooseVersion('5.8.0'):
+            list_of_headers.append("mumps_root")
+
         custom_paths = {
             'files': [os.path.join("include", "%s%s.h" % (x, y)) for x in ["c", "d", "s", "z"]
-                      for y in ["mumps_c", "mumps_root", "mumps_struc"]] +
+                      for y in list_of_headers] +
             [os.path.join("include", "mumps_compat.h"), os.path.join("include", "mumps_c_types.h")] +
             [os.path.join("lib", "lib%smumps.a" % x) for x in ["c", "d", "s", "z"]] +
             [os.path.join("lib", "libmumps_common.a"), os.path.join("lib", "libpord.a")],
             'dirs': [],
         }
 
-        super(EB_MUMPS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

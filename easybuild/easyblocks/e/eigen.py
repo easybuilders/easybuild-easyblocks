@@ -1,7 +1,7 @@
 ##
 # This file is an EasyBuild reciPY as per https://github.com/easybuilders/easybuild
 #
-# Copyright:: Copyright 2012-2025 Uni.Lu/LCSB, NTUA
+# Copyright:: Copyright 2012-2026 Uni.Lu/LCSB, NTUA
 # Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis@cern.ch>, Kenneth Hoste
 # License::   MIT/GPL
 # $Id$
@@ -97,4 +97,4 @@ class EB_Eigen(CMakeMake):
             custom_commands.append("! grep -q -r '${PACKAGE_PREFIX_DIR}/${PACKAGE_PREFIX_DIR}' %s"
                                    % os.path.join(self.installdir, cmake_config_dir))
 
-        super(EB_Eigen, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

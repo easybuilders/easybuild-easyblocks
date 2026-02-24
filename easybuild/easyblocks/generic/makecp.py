@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 the Cyprus Institute
+# Copyright 2013-2026 the Cyprus Institute
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -60,7 +60,7 @@ class MakeCp(ConfigureMake):
         Configure build if required
         """
         if self.cfg.get('with_configure', False):
-            return super(MakeCp, self).configure_step(cmd_prefix=cmd_prefix)
+            return super().configure_step(cmd_prefix=cmd_prefix)
 
     def install_step(self):
         """Install by copying specified files and directories."""

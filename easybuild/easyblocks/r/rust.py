@@ -1,5 +1,5 @@
 ##
-# Copyright 2023-2025 Ghent University
+# Copyright 2023-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,6 +32,7 @@ import os
 import re
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
@@ -39,15 +40,25 @@ from easybuild.tools.filetools import is_binary, read_file
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
+DEFAULT_CHANNEL = 'stable'
+
 RUNPATH_PATTERN = re.compile(r"\(RUNPATH\)\s+Library runpath")
 
 
 class EB_Rust(ConfigureMake):
     """Support for building/installing Rust."""
 
+    @staticmethod
+    def extra_options():
+        """Add extra config options specific to Python."""
+        extra_vars = {
+            'channel': [DEFAULT_CHANNEL, "Channel to use in configuration of Rust compiler", CUSTOM],
+        }
+        return ConfigureMake.extra_options(extra_vars)
+
     def __init__(self, *args, **kwargs):
         """Custom easyblock constructor for Rust."""
-        super(EB_Rust, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # see https://rustc-dev-guide.rust-lang.org/building/how-to-build-and-run.html#what-is-xpy
         # note: ConfigureMake.build_step automatically adds '-j <parallel>'
@@ -97,17 +108,26 @@ class EB_Rust(ConfigureMake):
 
         self.cfg.update('configopts', "--sysconfdir=%s" % os.path.join(self.installdir, 'etc'))
 
+        # documentation is very large and everyone will only look it up online anyway
+        self.cfg.update('configopts', "--disable-docs")
+
         # old llvm builds from CI get deleted after a certain time
         self.cfg.update('configopts', "--set=llvm.download-ci-llvm=false")
+
+        # set channel to "stable", otherwise Rust will be built with nightly channel,
+        # see also https://rust-lang.github.io/rustup/concepts/channels.html;
+        # for recent version of Rust, this would also result in using rust-lld instead of the default linker,
+        # see https://blog.rust-lang.org/2024/05/17/enabling-rust-lld-on-linux.html
+        self.cfg.update('configopts', "--set=rust.channel=" + self.cfg.get('channel', DEFAULT_CHANNEL))
 
         # don't use Ninja if it is not listed as a build dependency;
         # may be because Ninja requires Python, and Rust is a build dependency for cryptography
         # which may be included as an extension with Python
-        build_dep_names = set(dep['name'] for dep in self.cfg.dependencies(build_only=True))
+        build_dep_names = self.cfg.dependency_names(build_only=True)
         if 'Ninja' not in build_dep_names:
             self.cfg.update('configopts', "--set=llvm.ninja=false")
 
-        super(EB_Rust, self).configure_step()
+        super().configure_step()
 
         # avoid failure when home directory is an NFS mount,
         # see https://github.com/rust-lang/cargo/issues/6652
@@ -117,7 +137,7 @@ class EB_Rust(ConfigureMake):
 
     def install_step(self):
         """Custom install step for Rust"""
-        super(EB_Rust, self).install_step()
+        super().install_step()
 
         if build_option('rpath'):
             self._convert_runpaths_to_rpaths()
@@ -134,4 +154,4 @@ class EB_Rust(ConfigureMake):
             "cargo --version",
             "rustc --version",
         ]
-        return super(EB_Rust, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -65,7 +65,7 @@ class EB_Clang_minus_AOMP(Bundle):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor."""
-        super(EB_Clang_minus_AOMP, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # List of LLVM target architectures to build for, extended in the 'prepare_step'
         self.target_archs = ['AMDGPU']
@@ -100,7 +100,7 @@ class EB_Clang_minus_AOMP(Bundle):
         """
         Prepare build environment
         """
-        super(EB_Clang_minus_AOMP, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # Detect CPU architecture and setup build targets for LLVM
         cpu_arch = get_cpu_architecture()
@@ -134,7 +134,7 @@ class EB_Clang_minus_AOMP(Bundle):
         """
         Go through each component and setup configuration for the later Bundle install step
         """
-        super(EB_Clang_minus_AOMP, self).configure_step()
+        super().configure_step()
 
         # Ensure necessary libraries are downloaded and can be found
         device_lib_dir_pattern = os.path.join(self.builddir, 'ROCm-Device-Libs-*')

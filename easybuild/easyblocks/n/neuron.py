@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -58,14 +58,14 @@ class EB_NEURON(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for NEURON."""
-        super(EB_NEURON, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.python_root = None
         self.pylibdir = 'UNKNOWN'
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step with python detection"""
-        super(EB_NEURON, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         self.python_root = get_software_root('Python')
 
@@ -177,7 +177,7 @@ class EB_NEURON(CMakeMake):
         if self.python_root:
             custom_commands.append("python -c 'import neuron; neuron.test()'")
 
-        super(EB_NEURON, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_step(self, *args, **kwargs):
         """
@@ -190,12 +190,12 @@ class EB_NEURON(CMakeMake):
             else:
                 self.module_load_environment.PYTHONPATH = [os.path.join('lib', 'python')]
 
-        return super(EB_NEURON, self).make_module_step(*args, **kwargs)
+        return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Define extra module entries required."""
 
-        txt = super(EB_NEURON, self).make_module_extra()
+        txt = super().make_module_extra()
 
         # we need to make sure the correct compiler is set in the environment,
         # since NEURON features compilation at runtime

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -66,7 +66,7 @@ class EB_g2clib(ConfigureMake):
         ])
         self.cfg.update('buildopts', buildopts)
 
-        super(EB_g2clib, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """Install by copying library and header files to install directory."""
@@ -107,4 +107,4 @@ class EB_g2clib(ConfigureMake):
             'dirs': ["include"]
         }
 
-        super(EB_g2clib, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

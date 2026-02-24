@@ -1,5 +1,5 @@
 ##
-# Copyright 2016-2025 Ghent University
+# Copyright 2016-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,7 +41,7 @@ class EB_ADF(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for ADF."""
-        super(EB_ADF, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.build_in_installdir = True
 
@@ -49,7 +49,7 @@ class EB_ADF(EasyBlock):
         """Extract sources."""
         # strip off 'adf<version>' part to avoid having everything in a subdirectory
         self.cfg['unpack_options'] = "--strip-components=1"
-        super(EB_ADF, self).extract_step()
+        super().extract_step()
 
     def configure_step(self):
         """Custom configuration procedure for ADF."""
@@ -89,11 +89,11 @@ class EB_ADF(EasyBlock):
             'files': ['bin/adf'],
             'dirs': ['atomicdata', 'examples'],
         }
-        super(EB_ADF, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom extra module file entries for ADF."""
-        txt = super(EB_ADF, self).make_module_extra()
+        txt = super().make_module_extra()
 
         txt += self.module_generator.set_environment('ADFHOME', self.installdir)
         txt += self.module_generator.set_environment('ADFBIN', os.path.join(self.installdir, 'bin'))

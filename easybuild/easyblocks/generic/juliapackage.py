@@ -1,5 +1,5 @@
 ##
-# Copyright 2022-2025 Vrije Universiteit Brussel
+# Copyright 2022-2026 Vrije Universiteit Brussel
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -258,7 +258,7 @@ class JuliaPackage(ExtensionEasyBlock):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for Julia package installation."""
-        super(JuliaPackage, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         if get_software_root('Julia') is None:
             raise EasyBuildError("Julia not included as dependency!")
@@ -317,7 +317,7 @@ class JuliaPackage(ExtensionEasyBlock):
         allowing user to add custom Julia packages while having packages in this installation available.
         See issue easybuilders/easybuild-easyconfigs#17455
         """
-        mod = super(JuliaPackage, self).make_module_extra()
+        mod = super().make_module_extra()
         if self.module_generator.SYNTAX:
             mod += JULIA_PATHS_SOFT_INIT[self.module_generator.SYNTAX]
         mod += self.module_generator.append_paths('JULIA_DEPOT_PATH', [''])
