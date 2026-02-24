@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2025 Ghent University
+# Copyright 2019-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -536,7 +536,7 @@ class EasyBlockSpecificTest(TestCase):
             python.run_pip_check(python_cmd=sys.executable, unversioned_packages=('zero', ))
 
         with self.mocked_stdout_stderr():
-            python.run_pip_check(python_cmd=sys.executable, unversioned_packages=set(['zero']))
+            python.run_pip_check(python_cmd=sys.executable, unversioned_packages={'zero'})
 
         # inject all possible errors
         def mocked_run_shell_cmd_pip(cmd, **kwargs):

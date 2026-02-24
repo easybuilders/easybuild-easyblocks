@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2025 Ghent University
+# Copyright 2021-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -69,7 +69,7 @@ class EB_FlexiBLAS(CMakeMake):
         """Easyblock constructor."""
         super().__init__(*args, **kwargs)
 
-        dep_names = [dep['name'] for dep in self.cfg.dependencies()]
+        dep_names = self.cfg.dependency_names()
         if self.cfg['backends']:
             self.blas_libs = self.cfg['backends'][:]
             # make sure that all listed backends except imkl are (build)dependencies
@@ -88,7 +88,7 @@ class EB_FlexiBLAS(CMakeMake):
                 raise EasyBuildError("One or more backends not listed as (build)dependencies: %s",
                                      ', '.join(backends_nodep))
         else:
-            build_dep_names = set(dep['name'] for dep in self.cfg.dependencies(build_only=True))
+            build_dep_names = self.cfg.dependency_names(build_only=True)
             self.blas_libs = [x for x in dep_names if x not in build_dep_names]
 
         self.obj_builddir = os.path.join(self.builddir, 'easybuild_obj')

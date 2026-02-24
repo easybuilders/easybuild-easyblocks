@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -494,8 +494,8 @@ class EB_GAMESS_minus_US(EasyBlock):
 
             # verify output of tests
             failed_regex = re.compile(r"^.*!!FAILED\.$", re.M)
-            failed_tests = set([exam[0:6] for exam in failed_regex.findall(res.output)])
-            done_tests = set([exam[0] for exam in target_tests])
+            failed_tests = {exam[0:6] for exam in failed_regex.findall(res.output)}
+            done_tests = {exam[0] for exam in target_tests}
             if done_tests - failed_tests == done_tests:
                 info_msg = "All target tests ran successfully!"
                 if self.cfg['ddi_comm'] == 'mpi':
