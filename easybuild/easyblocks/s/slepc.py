@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -106,8 +106,8 @@ class EB_SLEPc(ConfigureMake):
         self.cfg.update('buildopts', "PETSC_DIR='%s'" % petsc_dir)  # Env variable is set by module
 
         # optional dependencies
-        dep_filter = [d['name'] for d in self.cfg.builddependencies()] + ['PETSc', 'Python']
-        deps = [dep['name'] for dep in self.cfg.dependencies() if dep['name'] not in dep_filter]
+        dep_filter = ['PETSc', 'Python']
+        deps = [name for name in self.cfg.dependency_names(runtime_only=True) if name not in dep_filter]
         for dep in deps:
             deproot = get_software_root(dep)
             if deproot:

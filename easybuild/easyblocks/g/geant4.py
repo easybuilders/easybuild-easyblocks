@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -57,8 +57,6 @@ class EB_Geant4(CMakeMake):
             'PhotonEvaporationVersion': [None, "PhotonEvaporation version", CUSTOM],
             'G4RadioactiveDecayVersion': [None, "G4RadioactiveDecay version", CUSTOM],
         })
-        # Requires out-of-source build
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def make_module_extra(self):
