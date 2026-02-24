@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -41,12 +41,6 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 
 class EB_CGAL(CMakeMake):
     """Support for building CGAL."""
-
-    @staticmethod
-    def extra_options():
-        extra_vars = CMakeMake.extra_options()
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
 
     def configure_step(self):
         """Set some extra environment variables before configuring."""
