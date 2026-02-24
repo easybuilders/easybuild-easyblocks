@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2025 Ghent University
-# Copyright 2015-2025 Stanford University
+# Copyright 2009-2026 Ghent University
+# Copyright 2015-2026 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,9 +40,10 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.filetools import remove_dir, which
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_Amber(CMakeMake):
@@ -164,11 +165,24 @@ class EB_Amber(CMakeMake):
 
         pythonroot = get_software_root('Python')
         if pythonroot:
+            version = get_software_version('Python')
+            shlib_ext = get_shared_lib_ext()
             self.cfg.update('configopts', '-DDOWNLOAD_MINICONDA=FALSE')
 
             self.pylibdir = det_pylibdir()
             pythonpath = os.environ.get('PYTHONPATH', '')
             env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
+
+            # AmberTools uses the deprecated FindPythonLibs. Ensure we use the correct library and include dir
+            version_maj_min = '.'.join(version.split('.')[:2])
+            python_library = os.path.join(pythonroot, 'lib', f'libpython{version_maj_min}.{shlib_ext}')
+            python_incdir = os.path.join(pythonroot, 'include', 'python%s' % version_maj_min)
+            if not os.path.isfile(python_library):
+                raise EasyBuildError("Cannot find Python library '%s'!" % python_library)
+            if not os.path.isdir(python_incdir):
+                raise EasyBuildError("Cannot find Python include directory '%s'!" % python_incdir)
+            self.cfg.update('configopts', f'-DPYTHON_LIBRARY={python_library}')
+            self.cfg.update('configopts', f'-DPYTHON_INCLUDE_DIR={python_incdir}')
 
         if get_software_root('FFTW'):
             external_libs_list.append('fftw')
@@ -342,7 +356,10 @@ class EB_Amber(CMakeMake):
                 testdir = self.builddir
                 testname_cs = 'test.cuda_serial'
                 testname_cp = 'test.cuda_parallel'
-            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, testdir)
+            pretestcommands = ' && '.join([
+                'export OMP_NUM_THREADS=1',  # avoid having as many threads as cores
+                'source %s/amber.sh && cd %s' % (self.installdir, testdir)
+            ])
 
             # serial tests
             if LooseVersion(self.version) >= LooseVersion('24'):

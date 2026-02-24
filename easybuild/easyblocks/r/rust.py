@@ -1,5 +1,5 @@
 ##
-# Copyright 2023-2025 Ghent University
+# Copyright 2023-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -123,7 +123,7 @@ class EB_Rust(ConfigureMake):
         # don't use Ninja if it is not listed as a build dependency;
         # may be because Ninja requires Python, and Rust is a build dependency for cryptography
         # which may be included as an extension with Python
-        build_dep_names = set(dep['name'] for dep in self.cfg.dependencies(build_only=True))
+        build_dep_names = self.cfg.dependency_names(build_only=True)
         if 'Ninja' not in build_dep_names:
             self.cfg.update('configopts', "--set=llvm.ninja=false")
 

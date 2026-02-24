@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -258,7 +258,7 @@ class ConfigureMake(EasyBlock):
                               "EasyBuild attempts to download a recent config.guess but seems to have failed!")
             else:
                 self.check_config_guess()
-                res = run_shell_cmd(self.config_guess)
+                res = run_shell_cmd(self.config_guess, split_stderr=True)
                 system_type = res.output.strip()
                 self.log.info("%s returned a system type '%s'", self.config_guess, system_type)
 

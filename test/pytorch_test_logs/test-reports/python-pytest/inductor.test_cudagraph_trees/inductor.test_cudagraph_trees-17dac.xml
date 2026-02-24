@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<testsuites>
+  <!-- Same test failed and then errored (e.g. during teardown) got counted only once -->
+  <testsuite name="pytest" errors="1" failures="1" skipped="0" tests="1" time="4.2">
+    <testcase classname="CudaGraphTreeTests" name="test_workspace_allocation_error" time="4.2" file="inductor/test_cudagraph_trees.py">
+      <rerun message="...">[snip]</rerun>
+      <rerun message="...">[snip]</rerun>
+      <failure message="...">[snip]</failure>
+    </testcase>
+    <testcase classname="CudaGraphTreeTests" name="test_workspace_allocation_error" time="4.2" file="inductor/test_cudagraph_trees.py">
+      <error message="...">[snip]</error>
+    </testcase>
+  </testsuite>
+</testsuites>

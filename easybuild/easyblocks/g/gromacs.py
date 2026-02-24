@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -71,6 +71,8 @@ class EB_GROMACS(CMakeMake):
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
+            'python_pkg': [None, "Build gmxapi Python package. None (default) is auto-detect." +
+                           "True or False forces behaviour.", CUSTOM],
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
             'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
                        "True or False forces behaviour.", CUSTOM],
@@ -310,7 +312,11 @@ class EB_GROMACS(CMakeMake):
                 if mpiexec:
                     mpiexec_path = which(mpiexec)
                     if mpiexec_path:
-                        self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec_path)
+                        cmake_version = get_software_version("CMake")
+                        if cmake_version >= '3.10':
+                            self.cfg.update('configopts', "-DMPIEXEC_EXECUTABLE=%s" % mpiexec_path)
+                        else:
+                            self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec_path)
                         self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" %
                                         self.cfg.get('mpiexec_numproc_flag'))
                         self.cfg.update('configopts', "-DNUMPROC=%s" % mpi_numprocs)
@@ -330,7 +336,14 @@ class EB_GROMACS(CMakeMake):
                 if gromacs_version >= '2020':
                     # build Python bindings if Python is loaded as a dependency
                     python_root = get_software_root('Python')
-                    if python_root:
+                    if self.cfg['python_pkg'] and not python_root:
+                        msg = "Building Python gmxapi has been requested but Python is not listed as a dependency."
+                        raise EasyBuildError(msg)
+                    elif python_root and self.cfg['python_pkg'] is False:
+                        msg = "Python was found, but compilation without Python gmxapi has been requested."
+                        self.log.info(msg)
+                        self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=OFF")
+                    elif python_root:
                         self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=ON")
 
             # Now patch GROMACS for PLUMED before cmake
@@ -373,7 +386,7 @@ class EB_GROMACS(CMakeMake):
 
             # set regression test path
             prefix = 'regressiontests'
-            if any([src['name'].startswith(prefix) for src in self.src]):
+            if any(src['name'].startswith(prefix) for src in self.src):
                 self.cfg.update('configopts', "-DREGRESSIONTEST_PATH='%%(builddir)s/%s-%%(version)s' " % prefix)
 
             # enable OpenMP support if desired
@@ -382,8 +395,8 @@ class EB_GROMACS(CMakeMake):
             else:
                 self.cfg.update('configopts', "-DGMX_OPENMP=OFF")
 
-            imkl_root = get_software_root('imkl')
-            if imkl_root:
+            imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
+            if imkl_direct:
                 # using MKL for FFT, so it will also be used for BLAS/LAPACK
                 imkl_include = os.path.join(os.getenv('MKLROOT'), 'mkl', 'include')
                 self.cfg.update('configopts', '-DGMX_FFT_LIBRARY=mkl -DMKL_INCLUDE_DIR="%s" ' % imkl_include)

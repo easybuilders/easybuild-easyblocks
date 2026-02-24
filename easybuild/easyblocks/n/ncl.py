@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,6 +30,7 @@ EasyBuild support for building and installing NCL, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Pavel Tomanek (Inuits)
 """
 
 import fileinput
@@ -51,8 +52,7 @@ class EB_NCL(EasyBlock):
         - create Makefile.ini using make and run ymake script to create config file
         - patch config file with correct settings, and add missing config entries
         - create config/Site.local file to avoid interactive install
-        - generate Makefile using config/ymkmf sciprt
-        -
+        - generate Makefile using config/ymkmf script
         """
 
         try:
@@ -76,25 +76,39 @@ class EB_NCL(EasyBlock):
         # adjust config file as needed
         ctof_libs = ''
         ifort = get_software_root('ifort')
-        if ifort:
-            if os.path.exists('%s/lib/intel64/' % ifort) and os.access('%s/lib/intel64/' % ifort, os.R_OK):
-                ctof_libs += '-lm -L%s/lib/intel64/ -lifcore -lifport' % ifort
+        intel_compilers = get_software_root('intel-compilers')
+
+        # use new intel compilers icx/icpx/ifx if available
+        if intel_compilers:
+            res = run_shell_cmd("ifx --print-file-name=libifcore.so", fail_on_error=False, hidden=True)
+            if res.exit_code == 0:
+                libfile = res.output.strip()
+                libdir = os.path.dirname(libfile)
+                if os.path.exists(libdir) and os.access(libdir, os.R_OK):
+                    ifortran_libdir = libdir
+                    ctof_libs = '-lm -L%s -lifcore -lifport' % ifortran_libdir
+                else:
+                    self.log.warning("Detected libifcore at %s but directory not readable", libdir)
+                    ifortran_libdir = None
+            # use old intel compilers
+            elif ifort:
+                ifortran_libdir = '%s/lib/intel64/' % ifort
+                ctof_libs += '-lm -L%s -lifcore -lifport' % ifortran_libdir
             else:
-                self.log.warning(
-                    "Can't find a libdir for ifortran libraries -lifcore -lifport: "
-                    "%s/lib/intel64 doesn't exist or is not accessible." % ifort
-                )
-        elif get_software_root('GCC'):
+                raise EasyBuildError("intel-compilers detected but not ifx nor ifort.")
+        # use GCC
+        else:
+            ifortran_libdir = None
             ctof_libs = '-lgfortran -lm'
 
         macrodict = {
             'CCompiler': os.getenv('CC'),
             'CxxCompiler': os.getenv('CXX'),
             'FCompiler': os.getenv('F90'),
-            'CcOptions': '-ansi %s' % os.getenv('CFLAGS'),
+            'CcOptions': os.getenv('CFLAGS'),
             'FcOptions': os.getenv('FFLAGS'),
-            'COptimizeFlag': os.getenv('CFLAGS'),
-            'FOptimizeFlag': os.getenv('FFLAGS'),
+            'COptimizeFlag': os.getenv('COPTS', ''),
+            'FOptimizeFlag': os.getenv('FOPTS', ''),
             'ExtraSysLibraries': os.getenv('LDFLAGS'),
             'CtoFLibraries': ctof_libs,
         }
@@ -174,6 +188,7 @@ class EB_NCL(EasyBlock):
 
                 if os.path.exists('%s/include' % root) and os.access('%s/include' % root, os.R_OK):
                     includes += ' -I%s/include ' % root
+                else:
                     self.log.warning(
                         "Can't find an include dir for dependency %s: %s/include doesn't exist." % (dep, root)
                     )
@@ -214,6 +229,7 @@ class EB_NCL(EasyBlock):
         f.close()
 
         # generate Makefile
+        # https://www.ncl.ucar.edu/Download/build_from_src.shtml#ymake
         cmd = "./config/ymkmf"
         run_shell_cmd(cmd)
 
