@@ -45,7 +45,7 @@ class EB_OpenBLAS(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """ Ensure iterative build if also building with 64-bit integer support """
-        super(EB_OpenBLAS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.cfg['enable_ilp64']:
             if not isinstance(self.cfg['buildopts'], list):
@@ -86,12 +86,12 @@ class EB_OpenBLAS(ConfigureMake):
         if self.cfg['enable_ilp64']:
             if self.iter_idx > 0:
                 # reset to original build/test/install options
-                for key in self.orig_opts.keys():
-                    self.cfg[key] = self.orig_opts[key]
+                for key, opt_val in self.orig_opts.items():
+                    self.cfg[key] = opt_val
             else:
                 # store original options
-                for key in self.orig_opts.keys():
-                    self.orig_opts[key] = self.cfg[key]
+                for key, opt_val in self.orig_opts.items():
+                    self.orig_opts[key] = opt_val
 
         if '%s=' % TARGET in self.cfg['buildopts']:
             # Add any TARGET in buildopts to default_opts, so it is passed to testopts and installopts
@@ -168,7 +168,7 @@ class EB_OpenBLAS(ConfigureMake):
 
     def install_step(self):
         """Fix libsuffix in openblas64.pc if it exists"""
-        super(EB_OpenBLAS, self).install_step()
+        super().install_step()
         if self.iter_idx > 0 and self.cfg['enable_ilp64'] and self.cfg['ilp64_lib_suffix']:
             filepath = os.path.join(self.installdir, 'lib', 'pkgconfig', 'openblas64.pc')
             if os.path.exists(filepath):
@@ -222,12 +222,22 @@ class EB_OpenBLAS(ConfigureMake):
         if self.cfg['runtest']:
             run_tests += [self.cfg['runtest']]
 
+        test_opts, pre_test_opts = self.cfg['testopts'], self.cfg['pretestopts']
+        # Try to limit parallelism for the tests. If OMP_NUM_THREADS or OPENBLAS_NUM_THREADS is already set,
+        # use the existing value. If not, we'll set OMP_NUM_THREADS for OpenBLAS built with OpenMP, and
+        # OPENBLAS_NUM_THREADS if built with threads.
+        parallelism_env = ''
+        if re.search(r'USE_OPENMP=["\']?1', test_opts) and 'OMP_NUM_THREADS' not in pre_test_opts:
+            parallelism_env += f'export OMP_NUM_THREADS={self.cfg.parallel} && '
+        if re.search(r'USE_THREAD=["\']?1', test_opts) and 'OPENBLAS_NUM_THREADS' not in pre_test_opts:
+            parallelism_env += f'export OPENBLAS_NUM_THREADS={self.cfg.parallel} && '
+
         for runtest in run_tests:
-            cmd = f"{self.cfg['pretestopts']} make {runtest} {self.cfg['testopts']}"
+            cmd = f"{parallelism_env} {pre_test_opts} make {runtest} {test_opts}"
             res = run_shell_cmd(cmd)
 
             # Raise an error if any test failed
-            regex = re.compile("FATAL ERROR", re.M)
+            regex = re.compile("^((?!printf).)*FATAL ERROR", re.M)
             errors = regex.findall(res.output)
             if errors:
                 raise EasyBuildError("Found %d fatal errors in test output!", len(errors))

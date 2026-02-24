@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -49,11 +49,17 @@ class EB_Extrae(ConfigureMake):
         # Instead, --with-xml is used
         if LooseVersion(self.version) >= LooseVersion('4.1.0'):
             deps = {
-                'binutils': ('', '--with-binutils=%s', ''),
                 'Boost': ('', '--with-boost=%s', ''),
+                'CUDA': ('', '--with-cuda=%s', '--without-cuda'),
+                'Dyninst': ('', '--with-dyninst=%s', '--without-dyninst'),
+                'Java': ('', '--with-java-jdk=%s', '--without-java-jdk'),
+                'SIONlib': ('', '--with-sionlib=%s', ''),
+                'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
+                'binutils': ('', '--with-binutils=%s', ''),
+                'elfutils': ('', '--with-elfutils=%s', '--without-elfutils'),
                 'libunwind': ('', '--with-unwind=%s', '--without-unwind'),
                 'libxml2': ('--enable-merge-in-trace', '--with-xml=%s', ''),
-                'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
+                'tbb': ('', '--with-tbb=%s', '--without-tbb'),
                 'zlib': ('', '--with-libz=%s', ''),
             }
         else:
@@ -64,6 +70,7 @@ class EB_Extrae(ConfigureMake):
                 'libunwind': ('', '--with-unwind=%s', '--without-unwind'),
                 'libxml2': (' --enable-xml --enable-merge-in-trace', '', ''),
                 'PAPI': ('--enable-sampling', '--with-papi=%s', '--without-papi'),
+                'Dyninst': ('', '--with-dyninst=%s', '--without-dyninst'),
             }
 
         for (dep_name, (with_opts, with_root_opt, without_opt)) in deps.items():
@@ -76,9 +83,6 @@ class EB_Extrae(ConfigureMake):
             else:
                 if without_opt:
                     self.cfg.update('configopts', without_opt)
-
-        # TODO: make this optional dependencies
-        self.cfg.update('configopts', "--without-dyninst")
 
         # Needed to build in RISC-V architectures
         if get_cpu_architecture() == RISCV64:

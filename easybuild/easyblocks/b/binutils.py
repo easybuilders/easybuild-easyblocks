@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import apply_regex_substitutions, copy_file, symlink
+from easybuild.tools.filetools import apply_regex_substitutions, copy_file, move_file, remove_dir, symlink
 from easybuild.tools.modules import get_software_libdir, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, get_cpu_family, get_gcc_version, get_shared_lib_ext
@@ -130,6 +130,10 @@ class EB_binutils(ConfigureMake):
             ldflags = [p for p in ldflags if not p.startswith('-L' + binutilsroot)]
             env.setvar('LDFLAGS', ' '.join(ldflags))
 
+        build_deps = self.cfg.dependency_names(build_only=True)
+        # Substitutions to apply to Makefiles
+        makefile_regex_subs = []
+
         # configure using `--with-system-zlib` if zlib is a (build) dependency
         zlibroot = get_software_root('zlib')
         if zlibroot:
@@ -137,31 +141,45 @@ class EB_binutils(ConfigureMake):
 
             # statically link to zlib only if it is a build dependency
             # see https://github.com/easybuilders/easybuild-easyblocks/issues/1350
-            build_deps = self.cfg.dependencies(build_only=True)
-            if any(dep['name'] == 'zlib' for dep in build_deps):
+            if 'zlib' in build_deps:
                 libz_path = os.path.join(zlibroot, get_software_libdir('zlib'), 'libz.a')
 
                 # for recent binutils versions, we need to override ZLIB in Makefile.in of components
                 if version >= '2.26':
-                    regex_subs = [
+                    makefile_regex_subs.extend([
                         (r"^(ZLIB\s*=\s*).*$", r"\1%s" % libz_path),
                         (r"^(ZLIBINC\s*=\s*).*$", r"\1-I%s" % os.path.join(zlibroot, 'include')),
-                    ]
-                    for makefile in glob.glob(os.path.join(self.cfg['start_dir'], '*', 'Makefile.in')):
-                        apply_regex_substitutions(makefile, regex_subs)
-
+                    ])
                 # for older versions, injecting the path to the static libz library into $LIBS works
                 else:
                     libs.append(libz_path)
 
-        msgpackroot = get_software_root('msgpack-c')
+        dependencies = self.cfg.dependency_names()
+
+        has_msgpack = 'msgpack-c' in dependencies
         if version >= '2.39':
-            if msgpackroot:
+            if has_msgpack:
                 self.cfg.update('configopts', '--with-msgpack')
             else:
                 self.cfg.update('configopts', '--without-msgpack')
-        elif msgpackroot:
+        elif has_msgpack:
             raise EasyBuildError('msgpack is only supported since binutils 2.39. Remove the dependency!')
+
+        has_zstd = 'zstd' in dependencies
+        if version >= '2.40':
+            if has_zstd:
+                self.cfg.update('configopts', '--with-zstd')
+                if 'zstd' in build_deps:
+                    libzstd_path = os.path.join(zlibroot, get_software_libdir('zstd'), 'libzstd.a')
+                    makefile_regex_subs.append((r"^(ZSTD_LIBS\s*=\s*).*$", r"\1%s" % libzstd_path))
+            else:
+                self.cfg.update('configopts', '--without-zstd')
+        elif has_zstd:
+            raise EasyBuildError('zstd is only supported since binutils 2.40. Remove the dependency!')
+
+        if makefile_regex_subs:
+            for makefile in glob.glob(os.path.join(self.start_dir, '*', 'Makefile.in')):
+                apply_regex_substitutions(makefile, makefile_regex_subs)
 
         env.setvar('LIBS', ' '.join(libs))
 
@@ -222,8 +240,22 @@ class EB_binutils(ConfigureMake):
                         os.path.join(self.installdir, 'include', includefile))
 
             if not os.path.exists(os.path.join(self.installdir, 'info', 'libiberty.texi')):
-                copy_file(os.path.join(self.cfg['start_dir'], 'libiberty', 'libiberty.texi'),
+                copy_file(os.path.join(self.start_dir, 'libiberty', 'libiberty.texi'),
                           os.path.join(self.installdir, 'info', 'libiberty.texi'))
+
+            # if only libiberty.a is installed in 'lib64' subdirectory,
+            # move it to 'lib' subdirectory and remove empty 'lib64' subdirectory,
+            # so 'lib64' will be symlinked to 'lib' (by EasyBlock.post_processing_step)
+            lib64_path = os.path.join(self.installdir, 'lib64')
+            libiberty_static_lib = 'libiberty.a'
+            if os.path.exists(lib64_path) and os.listdir(lib64_path) == [libiberty_static_lib]:
+                lib_path = os.path.join(self.installdir, 'lib')
+                self.log.info(f"Found only {libiberty_static_lib} in {lib64_path}, moving it to {lib_path}")
+                src_path = os.path.join(lib64_path, libiberty_static_lib)
+                target_path = os.path.join(lib_path, libiberty_static_lib)
+                move_file(src_path, target_path)
+                self.log.info(f"Removing (now empty) {lib64_path} directory")
+                remove_dir(lib64_path)
 
     def sanity_check_step(self):
         """Custom sanity check for binutils."""

@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2025 Alexander Grund
+# Copyright 2020-2026 Alexander Grund
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -105,7 +105,7 @@ class EB_CMake(ConfigureMake):
         cmake_include_path = []
 
         available_system_options = ['BZIP2', 'CURL', 'EXPAT', 'LIBARCHIVE', 'ZLIB']
-        for dep in self.cfg.dependencies():
+        for dep in self.cfg.dependencies(runtime_only=True):
             dep_name = dep['name']
             dep_root = get_software_root(dep_name)
             if not dep_root:

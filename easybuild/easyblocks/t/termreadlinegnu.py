@@ -40,5 +40,5 @@ class EB_Term_colon__colon_ReadLine_colon__colon_Gnu(PerlModule):
         super().__init__(*args, **kwargs)
         # Use the custom --prefix option to pass the installation prefixes of all direct dependencies
         # to avoid it picking up system libraries.
-        prefix = ':'.join(get_software_root(dep['name']) for dep in self.cfg.dependencies())
+        prefix = ':'.join(get_software_root(dep['name']) for dep in self.cfg.dependencies(runtime_only=True))
         self.cfg.update('configopts', f"--prefix='{prefix}'")

@@ -1,6 +1,6 @@
 ##
-# Copyright 2013-2025 Dmitri Gribenko
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Dmitri Gribenko
+# Copyright 2013-2026 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -120,6 +120,14 @@ class EB_Clang(CMakeMake):
         """Initialize custom class variables for Clang."""
 
         super().__init__(*args, **kwargs)
+
+        if LooseVersion(self.version) >= LooseVersion('18.1.6'):
+            raise EasyBuildError(
+                "The Clang EasyBlock has been deprecated and does not support LLVM versions >= 18.1.6. "
+                "Please use the 'LLVM' EasyBlock instead, which supports building Clang as well "
+                "as other LLVM projects."
+            )
+
         self.llvm_src_dir = None
         self.llvm_obj_dir_stage1 = None
         self.llvm_obj_dir_stage2 = None
@@ -254,7 +262,7 @@ class EB_Clang(CMakeMake):
                                      glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
-        if any([x['name'].startswith('llvm-project') for x in self.src]):
+        if any(x['name'].startswith('llvm-project') for x in self.src):
             # if sources contain 'llvm-project*', we use the full tarball
             find_source_dir("../llvm-project-*", os.path.join(self.llvm_src_dir, "llvm-project-%s" % self.version))
             self.cfg.update('configopts', '-DLLVM_ENABLE_PROJECTS="%s"' % ';'.join(self.cfg['llvm_projects']))

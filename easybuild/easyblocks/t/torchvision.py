@@ -1,5 +1,5 @@
 ##
-# Copyright 2021-2025 Ghent University
+# Copyright 2021-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -44,7 +44,7 @@ class EB_torchvision(PythonPackage):
         """Initialize torchvision easyblock."""
         super().__init__(*args, **kwargs)
 
-        dep_names = set(dep['name'] for dep in self.cfg.dependencies())
+        dep_names = self.cfg.dependency_names()
 
         # require that PyTorch is listed as dependency
         if 'PyTorch' not in dep_names:
@@ -71,9 +71,13 @@ class EB_torchvision(PythonPackage):
             if cuda_cc:
                 env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
 
-        libjpeg_root = get_software_root('libjpeg-turbo')
-        if libjpeg_root and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
-            env.setvar('TORCHVISION_INCLUDE', os.path.join(libjpeg_root, 'include'))
+        includes = []
+        for lib in ['libjpeg-turbo', 'libwebp']:
+            libroot = get_software_root(lib)
+            if libroot and 'TORCHVISION_INCLUDE' not in self.cfg['preinstallopts']:
+                includes.append(os.path.join(libroot, 'include'))
+        if includes:
+            env.setvar('TORCHVISION_INCLUDE', os.path.pathsep.join(includes))
 
         super().configure_step()
 
