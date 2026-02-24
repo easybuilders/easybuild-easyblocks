@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University, University of Luxembourg
+# Copyright 2009-2026 Ghent University, University of Luxembourg
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,7 +46,6 @@ class EB_SuperLU(CMakeMake):
     def extra_options():
         extra_vars = CMakeMake.extra_options()
         extra_vars['build_shared_libs'][0] = False
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
@@ -118,6 +117,19 @@ class EB_SuperLU(CMakeMake):
             # This BLAS library is not supported yet
             raise EasyBuildError("BLAS library '%s' is not supported yet", toolchain_blas)
 
+        parmetis_root = get_software_root('ParMETIS')
+        if parmetis_root:
+            self.cfg.update('configopts', '-DTPL_ENABLE_PARMETISLIB=ON')
+            parmetis_include = os.path.join(parmetis_root, 'include')
+            self.cfg.update('configopts', '-DTPL_PARMETIS_INCLUDE_DIRS=%s' % parmetis_include)
+            parmetis_libs = ';'.join([
+                os.path.join(parmetis_root, 'lib', 'libparmetis.a'),
+                os.path.join(parmetis_root, 'lib', 'libmetis.a'),
+            ])
+            self.cfg.update('configopts', "-DTPL_PARMETIS_LIBRARIES='%s'" % parmetis_libs)
+        else:
+            self.cfg.update('configopts', '-DTPL_ENABLE_PARMETISLIB=OFF')
+
         super().configure_step()
 
     def test_step(self):
@@ -126,6 +138,17 @@ class EB_SuperLU(CMakeMake):
         """
         if self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'test'
+
+        # allow oversubscription of number of processes over number of available cores with OpenMPI 3.0 & newer,
+        # to avoid that some tests fail if only a handful of cores are available
+        ompi_ver = get_software_version('OpenMPI')
+        if LooseVersion(ompi_ver) >= LooseVersion('5.0'):
+            if 'PRTE_MCA_rmaps_default_mapping_policy' not in self.cfg['pretestopts']:
+                self.cfg.update('pretestopts', "export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe && ")
+        elif LooseVersion(ompi_ver) >= LooseVersion('3.0'):
+            if 'OMPI_MCA_rmaps_base_oversubscribe' not in self.cfg['pretestopts']:
+                self.cfg.update('pretestopts', "export OMPI_MCA_rmaps_base_oversubscribe=true && ")
+
         super().test_step()
 
     def install_step(self):

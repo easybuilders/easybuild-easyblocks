@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -49,11 +49,11 @@ class EB_netCDF_minus_Fortran(ConfigureMake):
         if self.toolchain.options['pic']:
             self.cfg.update('configopts', "--with-pic")
 
-        self.cfg.update('configopts', 'FCFLAGS="%s" FC="%s"' % (os.getenv('FFLAGS'), os.getenv('F90')))
+        self.cfg.update('configopts', 'FCFLAGS="%s" FC="%s"' % (os.getenv('FFLAGS', ''), os.getenv('F90', '')))
 
         # add -DgFortran to CPPFLAGS when building with GCC
         if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
-            env.setvar('CPPFLAGS', "%s -DgFortran" % os.getenv('CPPFLAGS'))
+            env.setvar('CPPFLAGS', "%s -DgFortran" % os.getenv('CPPFLAGS', ''))
 
         super().configure_step()
 

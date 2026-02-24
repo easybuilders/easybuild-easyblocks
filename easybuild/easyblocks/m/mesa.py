@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,21 +43,11 @@ class EB_Mesa(MesonNinja):
     """Custom easyblock for building and installing Mesa."""
 
     def __init__(self, *args, **kwargs):
-        """Constructor for custom Mesa easyblock: figure out which values to pass to swr-arches configuration option."""
+        """Constructor for custom Mesa easyblock: figure out some config options."""
 
         super().__init__(*args, **kwargs)
 
         self.gallium_configopts = []
-
-        # Mesa fails to build with libunwind on aarch64
-        # See https://github.com/easybuilders/easybuild-easyblocks/issues/2150
-        if get_cpu_architecture() == AARCH64:
-            given_config_opts = self.cfg.get('configopts')
-            if "-Dlibunwind=true" in given_config_opts:
-                self.log.warning('libunwind not supported on aarch64, stripping from configopts!')
-                configopts_libunwind_stripped = given_config_opts.replace('-Dlibunwind=true', '-Dlibunwind=false')
-                self.cfg.set_keys({'configopts': configopts_libunwind_stripped})
-                self.log.warning('New configopts after stripping: ' + self.cfg.get('configopts'))
 
         # Check user-defined Gallium drivers
         gallium_drivers = self.get_configopt_value('gallium-drivers')
@@ -65,12 +55,18 @@ class EB_Mesa(MesonNinja):
         if not gallium_drivers:
             # Add appropriate Gallium drivers for current architecture
             arch = get_cpu_architecture()
+            if LooseVersion(self.version) >= LooseVersion('25'):
+                default_renderer = 'llvmpipe'
+            else:
+                default_renderer = 'swrast'
+
             arch_gallium_drivers = {
-                X86_64: ['swrast'],
-                POWER: ['swrast'],
-                AARCH64: ['swrast'],
-                RISCV64: ['swrast'],
+                X86_64: [default_renderer],
+                POWER: [default_renderer],
+                AARCH64: [default_renderer],
+                RISCV64: [default_renderer],
             }
+
             if LooseVersion(self.version) < LooseVersion('22'):
                 # swr driver support removed in Mesa 22.0
                 arch_gallium_drivers[X86_64].append('swr')
@@ -160,8 +156,9 @@ class EB_Mesa(MesonNinja):
                 header_files.extend([os.path.join('include', 'EGL', 'eglext_angle.h')])
             else:
                 header_files.extend([os.path.join('include', 'EGL', 'eglextchromium.h')])
+            if LooseVersion(self.version) < LooseVersion('25.1'):
+                header_files.extend([os.path.join('include', 'GL', 'osmesa.h')])
             header_files.extend([
-                os.path.join('include', 'GL', 'osmesa.h'),
                 os.path.join('include', 'GL', 'internal', 'dri_interface.h'),
             ])
         else:
@@ -170,8 +167,13 @@ class EB_Mesa(MesonNinja):
             header_files = [os.path.join('include', 'GL', x) for x in gl_inc_files]
             header_files.extend([os.path.join('include', x, y) for (x, y) in gles_inc_files])
 
+        if LooseVersion(self.version) >= LooseVersion('25.1'):
+            file_list = header_files
+        else:
+            file_list = [os.path.join('lib', 'libOSMesa.%s' % shlib_ext)] + header_files
+
         custom_paths = {
-            'files': [os.path.join('lib', 'libOSMesa.%s' % shlib_ext)] + header_files,
+            'files': file_list,
             'dirs': [os.path.join('include', 'GL', 'internal')],
         }
 

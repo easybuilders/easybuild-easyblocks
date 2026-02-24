@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -131,7 +131,7 @@ class EB_TINKER(EasyBlock):
                 # salt and dialinine takes too long
                 skip_tests.extend(['salt', 'dialanine'])
 
-            tests = [t for t in tests if not any([t.endswith('%s.run' % x) for x in skip_tests])]
+            tests = [t for t in tests if not any(t.endswith(f'{x}.run') for x in skip_tests)]
 
             for test in tests:
                 run_shell_cmd(test)
