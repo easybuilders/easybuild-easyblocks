@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -89,7 +89,7 @@ class EB_Hypre(ConfigureMake):
         """Custom sanity check for Hypre."""
 
         # Add static and shared libs depending on configopts
-        hypre_libs = list()
+        hypre_libs = []
         if self.config_shared:
             shlib_ext = get_shared_lib_ext()
             hypre_libs.append(os.path.join('lib', 'libHYPRE.%s' % shlib_ext))
