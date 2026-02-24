@@ -1,9 +1,5 @@
 ##
-# Copyright 2015-2025 Bart Oldeman
-# Copyright 2016-2025 Forschungszentrum Juelich
-#
-# This file is triple-licensed under GPLv2 (see below), MIT, and
-# BSD three-clause licenses.
+# Copyright 2024-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -27,280 +23,41 @@
 # along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for installing NVIDIA HPC SDK compilers, based on the easyblock for PGI compilers
+EasyBuild support for installing NVIDIA HPC SDK as a full toolchain
 
-@author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
-@author: Damian Alvarez (Forschungszentrum Juelich)
-@author: Andreas Herten (Forschungszentrum Juelich)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
-import os
-import fileinput
-import re
-import stat
-import sys
-import tempfile
-import platform
-
-from easybuild.tools import LooseVersion
-from easybuild.easyblocks.generic.packedbinary import PackedBinary
-from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.filetools import adjust_permissions, write_file
-from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
-from easybuild.tools.config import build_option
-from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.easyblocks.generic.nvidiabase import NvidiaBase
+from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.modules import get_software_version
 
 
-# contents for siterc file to make PGI/NVHPC pick up $LIBRARY_PATH
-# cfr. https://www.pgroup.com/support/link.htm#lib_path_ldflags
-SITERC_LIBRARY_PATH = """
-# get the value of the environment variable LIBRARY_PATH
-variable LIBRARY_PATH is environment(LIBRARY_PATH);
-
-# split this value at colons, separate by -L, prepend 1st one by -L
-variable library_path is
-default($if($LIBRARY_PATH,-L$replace($LIBRARY_PATH,":", -L)));
-
-# add the -L arguments to the link line
-append LDLIBARGS=$library_path;
-
-# also include the location where libm & co live on Debian-based systems
-# cfr. https://github.com/easybuilders/easybuild-easyblocks/pull/919
-append LDLIBARGS=-L/usr/lib/x86_64-linux-gnu;
-"""
-
-# contents for minimal example compiled in sanity check, used to catch issue
-# seen in: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
-NVHPC_MINIMAL_EXAMPLE = """
-#include <ranges>
-
-int main(){ return 0; }
-"""
-
-
-class EB_NVHPC(PackedBinary):
+class EB_NVHPC(NvidiaBase):
     """
-    Support for installing the NVIDIA HPC SDK (NVHPC) compilers
+    Support for installing the NVIDIA HPC SDK (NVHPC)
+    Including compilers, MPI and math libraries
     """
 
-    @staticmethod
-    def extra_options():
-        extra_vars = {
-            'default_cuda_version':      [None, "CUDA Version to be used as default (10.2 or 11.0 or ...)", CUSTOM],
-            'module_add_cuda':           [False, "Add NVHPC's CUDA to module", CUSTOM],
-            'module_add_math_libs':      [False, "Add NVHPC's math libraries to module", CUSTOM],
-            'module_add_nccl':           [False, "Add NVHPC's NCCL library to module", CUSTOM],
-            'module_add_nvshmem':        [False, "Add NVHPC's NVSHMEM library to module", CUSTOM],
-            'module_add_profilers':      [False, "Add NVHPC's NVIDIA Profilers to module", CUSTOM],
-            'module_byo_compilers':      [False, "BYO Compilers: Remove compilers from module", CUSTOM],
-            'module_nvhpc_own_mpi':      [False, "Add NVHPC's packaged OpenMPI to module", CUSTOM]
-        }
-        return PackedBinary.extra_options(extra_vars)
+    def prepare_step(self, *args, **kwargs):
+        """Prepare environment for installation."""
+        super().prepare_step(*args, **kwargs)
 
-    def __init__(self, *args, **kwargs):
-        """Easyblock constructor, define custom class variables specific to NVHPC."""
-        super().__init__(*args, **kwargs)
+        # Mandatory options for NVHPC with nvidia-compilers
+        nvcomp_dependency_version = get_software_version('nvidia-compilers')
+        if nvcomp_dependency_version:
+            if nvcomp_dependency_version != self.version:
+                error_msg = "Version of NVHPC does not match version of nvidia-compilers in dependency list"
+                raise EasyBuildError(error_msg)
 
-        # Ideally we should be using something like `easybuild.tools.systemtools.get_cpu_architecture` here, however,
-        # on `ppc64le` systems this function returns `POWER` instead of `ppc64le`. Since this path needs to reflect
-        # `arch` (https://easybuild.readthedocs.io/en/latest/version-specific/easyconfig_templates.html) the same
-        # procedure from `templates.py` was reused here:
-        architecture = f'Linux_{platform.uname()[4]}'
-        self.install_subdir = os.path.join(architecture, self.version)
+            nvhpc_options = [
+                'module_nvhpc_own_mpi',
+                'module_add_nccl',
+                'module_add_nvshmem',
+                'module_add_math_libs',
+            ]
+            for opt in nvhpc_options:
+                if not self.cfg[opt]:
+                    self.log.debug(f"Option '{opt}' forced enabled in {self.name}-{self.version} with nvidia-compilers")
+                self.cfg[opt] = True
 
-        # Set search paths for environment defined in module file
-        self.module_load_environment.PATH = os.path.join(self.install_subdir, 'compilers', 'bin')
-        self.module_load_environment.LD_LIBRARY_PATH = os.path.join(self.install_subdir, 'compilers', 'lib')
-        self.module_load_environment.LIBRARY_PATH = os.path.join(self.install_subdir, 'compilers', 'lib')
-        self.module_load_environment.CMAKE_PREFIX_PATH = os.path.join(self.install_subdir, 'compilers')
-        self.module_load_environment.CMAKE_MODULE_PATH = os.path.join(self.install_subdir, 'cmake')
-        self.module_load_environment.MANPATH = os.path.join(self.install_subdir, 'compilers', 'man')
-        self.module_load_environment.XDG_DATA_DIRS = os.path.join(self.install_subdir, 'compilers', 'share')
-        # compilers can find their own headers, unset $CPATH (and equivalents)
-        self.module_load_environment.set_alias_vars(MODULE_LOAD_ENV_HEADERS, [])
-        # BYO Compilers: remove NVHPC compilers from path, use NVHPC's libraries and tools with external compilers
-        if self.cfg['module_byo_compilers']:
-            self.module_load_environment.PATH.remove(os.path.join(self.install_subdir, 'compilers', 'bin'))
-        # Own MPI: enable OpenMPI bundled in NVHPC
-        if self.cfg['module_nvhpc_own_mpi']:
-            mpi_basedir = os.path.join(self.install_subdir, "comm_libs", "mpi")
-            self.module_load_environment.PATH.append(os.path.join(mpi_basedir, 'bin'))
-            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(mpi_basedir, 'lib'))
-            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
-                cpp_header.append(os.path.join(mpi_basedir, 'include'))
-        # Math Libraries: enable math libraries bundled in NVHPC
-        if self.cfg['module_add_math_libs']:
-            math_basedir = os.path.join(self.install_subdir, "math_libs")
-            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(math_basedir, 'lib64'))
-            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
-                cpp_header.append(os.path.join(math_basedir, 'include'))
-        # GPU Profilers: enable NVIDIA's GPU profilers (Nsight Compute/Nsight Systems)
-        if self.cfg['module_add_profilers']:
-            profilers_basedir = os.path.join(self.install_subdir, "profilers")
-            self.module_load_environment.PATH.extend([
-                os.path.join(profilers_basedir, 'Nsight_Compute'),
-                os.path.join(profilers_basedir, 'Nsight_Systems', 'bin'),
-            ])
-        # NCCL: enable NCCL bundled in NVHPC
-        if self.cfg['module_add_nccl']:
-            nccl_basedir = os.path.join(self.install_subdir, "comm_libs", "nccl")
-            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(nccl_basedir, 'lib'))
-            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
-                cpp_header.append(os.path.join(nccl_basedir, 'include'))
-        # NVSHMEM: enable NVSHMEM bundled in NVHPC
-        if self.cfg['module_add_nvshmem']:
-            nvshmem_basedir = os.path.join(self.install_subdir, "comm_libs", "nvshmem")
-            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(nvshmem_basedir, 'lib'))
-            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
-                cpp_header.append(os.path.join(nvshmem_basedir, 'include'))
-        # CUDA: enable CUDA bundled in NVHPC
-        if self.cfg['module_add_cuda']:
-            cuda_basedir = os.path.join(self.install_subdir, "cuda")
-            self.module_load_environment.PATH.append(os.path.join(cuda_basedir, 'bin'))
-            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(cuda_basedir, 'lib64'))
-            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
-                cpp_header.append(os.path.join(cuda_basedir, 'include'))
-
-    def install_step(self):
-        """Install by running install command."""
-
-        # EULA for NVHPC must be accepted via --accept-eula-for EasyBuild configuration option,
-        # or via 'accept_eula = True' in easyconfig file
-        self.check_accepted_eula(more_info='https://docs.nvidia.com/hpc-sdk/eula/index.html')
-
-        default_cuda_version = self.cfg['default_cuda_version']
-        if default_cuda_version is None and get_software_root('CUDA'):
-            # Determine the CUDA version by parsing the output of nvcc. We cannot rely on the
-            # module name because sites can customize these version numbers (e.g. omit the minor
-            # and patch version, or choose something like 'default').
-            # The search string "Cuda compilation tools" exists since at least CUDA v10.0:
-            # Examples:
-            # "Cuda compilation tools, release 11.4, V11.4.152"
-            # "Cuda compilation tools, release 13.0, V13.0.48"
-            nvcc_cuda_version_regex = re.compile(r'Cuda.*release\s([0-9]+\.[0-9]+),', re.M)
-            nvcc_version_cmd = run_shell_cmd("$EBROOTCUDA/bin/nvcc --version")
-            nvcc_cuda_version = nvcc_cuda_version_regex.search(nvcc_version_cmd.output)
-            if nvcc_cuda_version is None:
-                raise EasyBuildError("Could not extract CUDA version from nvcc: %s", nvcc_version_cmd.output)
-            default_cuda_version = nvcc_cuda_version.group(1)
-
-        if default_cuda_version is None:
-            error_msg = "A default CUDA version is needed for installation of NVHPC. "
-            error_msg += "It can not be determined automatically and needs to be added manually. "
-            error_msg += "You can edit the easyconfig file, "
-            error_msg += "or use 'eb --try-amend=default_cuda_version=<version>'."
-            raise EasyBuildError(error_msg)
-
-        # Only use major.minor version as default CUDA version
-        default_cuda_version = '.'.join(default_cuda_version.split('.')[:2])
-        self.log.debug(f"Default CUDA version: {default_cuda_version}")
-
-        # Parse default_compute_capability from different sources (CLI has priority)
-        ec_default_compute_capability = self.cfg['cuda_compute_capabilities']
-        cfg_default_compute_capability = build_option('cuda_compute_capabilities')
-        if cfg_default_compute_capability is not None:
-            default_compute_capability = cfg_default_compute_capability
-        elif ec_default_compute_capability and ec_default_compute_capability is not None:
-            default_compute_capability = ec_default_compute_capability
-        else:
-            error_msg = "A default Compute Capability is needed for installation of NVHPC."
-            error_msg += "Please provide it either in the easyconfig file like 'cuda_compute_capabilities=\"7.0\"',"
-            error_msg += "or use 'eb --cuda-compute-capabilities=7.0' from the command line."
-            raise EasyBuildError(error_msg)
-
-        # Extract first element of default_compute_capability list, if it is a list
-        if isinstance(default_compute_capability, list):
-            _before_default_compute_capability = default_compute_capability
-            default_compute_capability = _before_default_compute_capability[0]
-            if len(_before_default_compute_capability) > 1:
-                warning_msg = "Replaced list of compute capabilities {} ".format(_before_default_compute_capability)
-                warning_msg += "with first element of list: {}".format(default_compute_capability)
-                print_warning(warning_msg)
-
-        # Remove dot-divider for CC; error out if it is not a string
-        if isinstance(default_compute_capability, str):
-            default_compute_capability = default_compute_capability.replace('.', '')
-        else:
-            raise EasyBuildError("Unexpected non-string value encountered for compute capability: %s",
-                                 default_compute_capability)
-
-        nvhpc_env_vars = {
-            'NVHPC_INSTALL_DIR': self.installdir,
-            'NVHPC_SILENT': 'true',
-            'NVHPC_DEFAULT_CUDA': str(default_cuda_version),  # 10.2, 11.0
-            'NVHPC_STDPAR_CUDACC': str(default_compute_capability),  # 70, 80; single value, no list!
-            }
-        cmd = "%s ./install" % ' '.join(['%s=%s' % x for x in sorted(nvhpc_env_vars.items())])
-        run_shell_cmd(cmd)
-
-        # make sure localrc uses GCC in PATH, not always the system GCC, and does not use a system g77 but gfortran
-        install_abs_subdir = os.path.join(self.installdir, self.install_subdir)
-        compilers_subdir = os.path.join(install_abs_subdir, "compilers")
-        makelocalrc_filename = os.path.join(compilers_subdir, "bin", "makelocalrc")
-        for line in fileinput.input(makelocalrc_filename, inplace='1', backup='.orig'):
-            line = re.sub(r"^PATH=/", r"#PATH=/", line)
-            sys.stdout.write(line)
-
-        if LooseVersion(self.version) >= LooseVersion('22.9'):
-            bin_subdir = os.path.join(compilers_subdir, "bin")
-            cmd = "%s -x %s" % (makelocalrc_filename, bin_subdir)
-        else:
-            cmd = "%s -x %s -g77 /" % (makelocalrc_filename, compilers_subdir)
-        run_shell_cmd(cmd)
-
-        # If an OS libnuma is NOT found, makelocalrc creates symbolic links to libpgnuma.so
-        # If we use the EB libnuma, delete those symbolic links to ensure they are not used
-        if get_software_root("numactl"):
-            for filename in ["libnuma.so", "libnuma.so.1"]:
-                path = os.path.join(compilers_subdir, "lib", filename)
-                if os.path.islink(path):
-                    os.remove(path)
-
-        if LooseVersion(self.version) < LooseVersion('21.3'):
-            # install (or update) siterc file to make NVHPC consider $LIBRARY_PATH
-            siterc_path = os.path.join(compilers_subdir, 'bin', 'siterc')
-            write_file(siterc_path, SITERC_LIBRARY_PATH, append=True)
-            self.log.info("Appended instructions to pick up $LIBRARY_PATH to siterc file at %s: %s",
-                          siterc_path, SITERC_LIBRARY_PATH)
-
-        # The cuda nvvp tar file has broken permissions
-        adjust_permissions(self.installdir, stat.S_IWUSR, add=True, onlydirs=True)
-
-    def sanity_check_step(self):
-        """Custom sanity check for NVHPC"""
-        prefix = self.install_subdir
-        compiler_names = ['nvc', 'nvc++', 'nvfortran']
-
-        files = [os.path.join(prefix, 'compilers', 'bin', x) for x in compiler_names]
-        if LooseVersion(self.version) < LooseVersion('21.3'):
-            files.append(os.path.join(prefix, 'compilers', 'bin', 'siterc'))
-
-        custom_paths = {
-            'files': files,
-            'dirs': [os.path.join(prefix, 'compilers', 'bin'), os.path.join(prefix, 'compilers', 'lib'),
-                     os.path.join(prefix, 'compilers', 'include'), os.path.join(prefix, 'compilers', 'man')]
-        }
-
-        custom_commands = []
-        if not self.cfg['module_byo_compilers']:
-            custom_commands = [f"{compiler} -v" for compiler in compiler_names]
-            if LooseVersion(self.version) >= LooseVersion('21'):
-                # compile minimal example using -std=c++20 to catch issue where it picks up the wrong GCC
-                # (as long as system gcc is < 9.0)
-                # see: https://github.com/easybuilders/easybuild-easyblocks/pull/3240
-                tmpdir = tempfile.mkdtemp()
-                write_file(os.path.join(tmpdir, 'minimal.cpp'), NVHPC_MINIMAL_EXAMPLE)
-                minimal_compiler_cmd = f"cd {tmpdir} && nvc++ -std=c++20 minimal.cpp -o minimal"
-                custom_commands.append(minimal_compiler_cmd)
-
-        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_extra(self):
-        """Add environment variable for NVHPC location"""
-        txt = super().make_module_extra()
-        txt += self.module_generator.set_environment('NVHPC', self.installdir)
-        if LooseVersion(self.version) >= LooseVersion('22.7'):
-            # NVHPC 22.7+ requires the variable NVHPC_CUDA_HOME for external CUDA. CUDA_HOME has been deprecated.
-            if not self.cfg['module_add_cuda'] and get_software_root('CUDA'):
-                txt += self.module_generator.set_environment('NVHPC_CUDA_HOME', os.getenv('CUDA_HOME'))
-        return txt
+        self._update_nvhpc_environment()

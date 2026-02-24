@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2025 Ghent University
+# Copyright 2018-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -116,7 +116,7 @@ class PythonBundle(Bundle):
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
         # if this Python package was installed for multiple Python versions, or if we prefer it
         use_ebpythonprefixes = False
-        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+        runtime_deps = self.cfg.dependency_names(runtime_only=True)
 
         if 'Python' in runtime_deps:
             self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
@@ -224,3 +224,24 @@ class PythonBundle(Bundle):
 
         if sanity_pip_check:
             run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
+
+    def make_module_footer(self):
+        """
+        Extend module footer with statements to set up shell completion for Click-based Python tools.
+        """
+        footer = super().make_module_footer()
+
+        click_autocomplete_bins = []
+        for ext in self.cfg['exts_list']:
+            if isinstance(ext, tuple) and len(ext) == 3 and isinstance(ext[2], dict):
+                click_autocomplete_bins += ext[2].get('click_autocomplete_bins') or []
+
+        extra_footer = []
+        for click_bin in click_autocomplete_bins:
+            extra_footer += PythonPackage._make_click_module_footer(self, click_bin)
+
+        if extra_footer:
+            extra_footer = '\n'.join(extra_footer)
+            footer += '\n' + extra_footer + '\n'
+
+        return footer

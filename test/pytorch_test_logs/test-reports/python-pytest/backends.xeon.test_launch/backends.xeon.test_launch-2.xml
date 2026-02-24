@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="0" skipped="0" tests="2" time="4.2">
+    <!-- Now success -->
+    <testcase classname="TestTorchrun" name="test_cpu_info" time="4.2" file="backends/xeon/test_launch.py"/>
+    <testcase classname="TestTorchrun" name="test_multi_threads" time="4.2" file="backends/xeon/test_launch.py"/>
+  </testsuite>
+</testsuites>

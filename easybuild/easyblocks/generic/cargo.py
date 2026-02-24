@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,19 +37,24 @@ import shutil
 import tempfile
 from glob import glob
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
+import easybuild.tools.tomllib as tomllib
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, extract_file, mkdir
+from easybuild.tools.filetools import CHECKSUM_TYPE_SHA256, compute_checksum, copy_dir, dump_toml, extract_file, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, write_file, which
+from easybuild.tools.modules import get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 CRATESIO_SOURCE = "https://crates.io/api/v1/crates"
+CRATES_REGISTRY_URL = 'registry+https://github.com/rust-lang/crates.io-index'
 
 CONFIG_TOML_SOURCE_VENDOR = """
 [source.vendored-sources]
@@ -75,62 +80,65 @@ branch = "{branch}"
 replace-with = "vendored-sources"
 """
 
+CONFIG_LOCK_SOURCE = """
+[[package]]
+name = "{name}"
+version = "{version}"
+source = "{source}"
+# checksum intentionally not set
+"""
+
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
 
 
-def get_workspace_members(crate_dir: Path):
-    """Find all members of a cargo workspace in crate_dir.
+def _get_workspace_members(cargo_toml: Dict[str, Any]) -> Optional[List[str]]:
+    """Find all members of a cargo workspace in the parsed the Cargo.toml file.
 
-    (Minimally) parse the Cargo.toml file.
-
-    Return a tuple: (has_package, workspace-members).
-    has_package determines if it is a virtual workspace ([workspace] and no [package])
-    workspace-members are all members (subfolder names) if it is a workspace, otherwise None
+    Returns all members (subfolder names) if it is a workspace, otherwise None
     """
-    cargo_toml = crate_dir / 'Cargo.toml'
-    lines = [line.strip() for line in read_file(cargo_toml).splitlines()]
-    # A virtual (workspace) manifest has no [package], but only a [workspace] section.
-    has_package = '[package]' in lines
-
-    # We are looking for this:
-    # [workspace]
-    # members = [
-    # "reqwest-middleware",
-    # "reqwest-tracing",
-    # "reqwest-retry",
-    # ]
-
     try:
-        start_idx = lines.index('[workspace]')
-    except ValueError:
-        return has_package, None
-    # Find "members = [" and concatenate the value, stop at end of section or file
-    member_str = None
-    for line in lines[start_idx + 1:]:
-        if line.startswith('#'):
-            continue  # Skip comments
-        if re.match(r'\[\w+\]', line):
-            break  # New section
-        if member_str is None:
-            m = re.match(r'members\s+=\s+\[', line)
-            if m:
-                member_str = line[m.end():]
-        else:
-            member_str += line
-        # Stop if we reach the end of the list
-        if member_str is not None and member_str.endswith(']'):
-            member_str = member_str[:-1]
-            break
-    if member_str is None:
+        workspace = cargo_toml['workspace']
+    except KeyError:
+        return None
+    try:
+        return workspace['members']
+    except KeyError:
         raise EasyBuildError('Failed to find members in %s', cargo_toml)
-    # Split at commas after removing possibly trailing ones and remove the quotes
-    members = [member.strip().strip('"') for member in member_str.rstrip(',').split(',')]
-    # Sanity check that we didn't pick up anything unexpected
-    invalid_members = [member for member in members if not re.match(r'(\w|-)+', member)]
-    if invalid_members:
-        raise EasyBuildError('Failed to parse %s: Found seemingly invalid members: %s',
-                             cargo_toml, ', '.join(invalid_members))
-    return has_package, members
+
+
+def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, Any]):
+    """Resolve workspace references in the Cargo.toml file"""
+    # Lines such as 'authors.workspace = true' must be replaced by 'authors = <value from workspace.package>'
+    content: str = read_file(cargo_toml_path)
+    cargo_toml = tomllib.loads(content)
+    workspace = workspace_toml['workspace']
+
+    def do_merge(parent, child):
+        if isinstance(parent, dict):
+            return {**parent, **child}  # Merge dictionaries, overwrite with child values
+        return parent
+
+    def do_replacement(section_name, workspace_section_name=None):
+        try:
+            section: Dict[str, Any] = cargo_toml[section_name]
+            workspace_section: Dict[str, Any] = workspace[workspace_section_name or section_name]
+        except KeyError:
+            return
+        if section.pop('workspace', False):
+            section = do_merge(workspace_section, section)
+            cargo_toml[section_name] = section
+
+        for key, value in section.items():
+            if isinstance(value, dict) and value.pop('workspace', False):
+                section[key] = do_merge(workspace_section[key], value)
+
+    do_replacement('package')
+    do_replacement('dependencies')
+    do_replacement('build-dependencies', 'dependencies')
+    do_replacement('dev-dependencies', 'dependencies')
+    do_replacement('lints')
+
+    write_file(cargo_toml_path, dump_toml(cargo_toml))
 
 
 def get_checksum(src, log):
@@ -163,7 +171,7 @@ class Cargo(ExtensionEasyBlock):
 
     @staticmethod
     def src_parameter_names():
-        return super().src_parameter_names() + ['crates']
+        return ExtensionEasyBlock.src_parameter_names() + ['crates']
 
     @staticmethod
     def crate_src_filename(pkg_name, pkg_version, _url=None, rev=None):
@@ -217,30 +225,38 @@ class Cargo(ExtensionEasyBlock):
         self.cargo_home = os.path.join(self.builddir, '.cargo')
         self.set_cargo_vars()
 
-        # Populate sources from "crates" list of tuples
-        sources = []
-        for crate_info in self.crates:
-            if len(crate_info) == 2:
-                sources.append({
-                    'download_filename': self.crate_download_filename(*crate_info),
-                    'filename': self.crate_src_filename(*crate_info),
-                    'source_urls': [CRATESIO_SOURCE],
-                    'alt_location': 'crates.io',
-                })
-            else:
-                crate, version, repo, rev = crate_info
-                url, repo_name = repo.rsplit('/', maxsplit=1)
-                if repo_name.endswith('.git'):
-                    repo_name = repo_name[:-4]
-                sources.append({
-                    'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
-                    'filename': self.crate_src_filename(crate, version, rev=rev),
-                })
-
         # copy EasyConfig instance before we make changes to it
         self.cfg = self.cfg.copy()
 
-        self.cfg.update('sources', sources)
+        if self.is_extension:
+            self.cfg['crates'] = self.options.get('crates', [])  # Don't inherit crates from parent
+            # The (regular) extract step for extensions is not run so our handling of crates as (multiple) sources
+            # cannot be used for extensions.
+            if self.crates:
+                raise EasyBuildError(f"Extension '{self.name}' cannot have crates. "
+                                     "You can add them to the top-level config parameters when using e.g."
+                                     "the Cargo or CargoPythonBundle easyblock.")
+        else:
+            # Populate sources from "crates" list of tuples
+            sources = []
+            for crate_info in self.crates:
+                if len(crate_info) == 2:
+                    sources.append({
+                        'download_filename': self.crate_download_filename(*crate_info),
+                        'filename': self.crate_src_filename(*crate_info),
+                        'source_urls': [CRATESIO_SOURCE],
+                        'alt_location': 'crates.io',
+                    })
+                else:
+                    crate, version, repo, rev = crate_info
+                    url, repo_name = repo.rsplit('/', maxsplit=1)
+                    if repo_name.endswith('.git'):
+                        repo_name = repo_name[:-4]
+                    sources.append({
+                        'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
+                        'filename': self.crate_src_filename(crate, version, rev=rev),
+                    })
+            self.cfg.update('sources', sources)
 
     def set_cargo_vars(self):
         """Set environment variables for Rust compilation and Cargo"""
@@ -322,21 +338,23 @@ class Cargo(ExtensionEasyBlock):
             extraction_dir = self.vendor_dir if is_vendor_crate else self.builddir
 
             self.log.info("Unpacking source of %s", src['name'])
-            existing_dirs = set(os.listdir(extraction_dir))
+            existing_files = set(os.listdir(extraction_dir))
             extract_file(src['path'], extraction_dir, cmd=src['cmd'],
                          extra_options=self.cfg['unpack_options'], change_into_dir=False, trace=False)
-            new_extracted_dirs = set(os.listdir(extraction_dir)) - existing_dirs
+            new_extracted_files = set(os.listdir(extraction_dir)) - existing_files
+            new_extracted_dirs = sorted(x for x in new_extracted_files
+                                        if os.path.isdir(os.path.join(extraction_dir, x)))
+            self.log.info(f"New directories found after extracting {src['name']}: {new_extracted_dirs}")
 
             if len(new_extracted_dirs) == 0:
                 # Extraction went wrong
                 raise EasyBuildError("Unpacking sources of '%s' failed", src['name'])
-            # There can be multiple folders but we just use the first new one as the finalpath
-            if len(new_extracted_dirs) > 1:
-                self.log.warning(f"Found multiple folders when extracting {src['name']}: "
-                                 f"{', '.join(new_extracted_dirs)}.")
-            src_dir = os.path.join(extraction_dir, new_extracted_dirs.pop())
+            elif len(new_extracted_dirs) == 1:
+                src_dir = os.path.join(extraction_dir, new_extracted_dirs[0])
+            else:
+                # if there are multiple subdirectories, we use parent directory as finalpath
+                src_dir = extraction_dir
             self.log.debug("Unpacked sources of %s into: %s", src['name'], src_dir)
-
             src['finalpath'] = src_dir
 
         if self.cfg['offline']:
@@ -354,7 +372,8 @@ class Cargo(ExtensionEasyBlock):
         tmp_dir = Path(tempfile.mkdtemp(dir=self.builddir, prefix='tmp_crate_'))
         # Add checksum file for each crate such that it is recognized by cargo.
         # Glob to catch multiple folders in a source archive.
-        for crate_dir in (p.parent for p in Path(self.vendor_dir).glob('*/Cargo.toml')):
+        for cargo_toml in Path(self.vendor_dir).glob('*/Cargo.toml'):
+            crate_dir = cargo_toml.parent
             src = path_to_source.get(str(crate_dir))
             if src:
                 try:
@@ -372,11 +391,12 @@ class Cargo(ExtensionEasyBlock):
             # otherwise (Only "[workspace]" section and no "[package]" section)
             # we have to remove the top-level folder or cargo fails with:
             # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
-            has_package, members = get_workspace_members(crate_dir)
+            parsed_toml = tomllib.loads(read_file(cargo_toml))
+            members = _get_workspace_members(parsed_toml)
             if members:
                 self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(members))
                 if not any((crate_dir / crate).is_dir() for crate in members):
-                    if not has_package:
+                    if 'package' not in parsed_toml:
                         raise EasyBuildError(f'Virtual manifest found in {crate_dir} but none of the member folders '
                                              'exist. This cannot be handled by the build.')
                     # Packages from crates.io contain only a single crate even if the Cargo.toml file lists multiple
@@ -397,7 +417,9 @@ class Cargo(ExtensionEasyBlock):
                         # Use copy_dir to resolve symlinks that might point to the parent folder
                         copy_dir(tmp_crate_dir / member, target_path, symlinks=False)
                         cargo_pkg_dirs.append(target_path)
-                    if has_package:
+                        self.log.info(f'Resolving workspace values for crate {member}')
+                        _merge_sub_crate(target_path / 'Cargo.toml', parsed_toml)
+                    if 'package' in parsed_toml:
                         # Remove the copied crate folders
                         for member in members:
                             remove_dir(tmp_crate_dir / member)
@@ -470,12 +492,52 @@ class Cargo(ExtensionEasyBlock):
         self.set_cargo_vars()
 
     def configure_step(self):
-        """Empty configuration step."""
-        pass
+        """Create lockfile if it doesn't exist"""
+        cargo_lock = 'Cargo.lock'
+        # Crates should be specified in the main easyconfig for extensions
+        if self.is_extension:
+            crates = self.master.crates
+        else:
+            crates = self.crates
+        if crates and os.path.exists('Cargo.toml') and not os.path.exists(cargo_lock):
+            locate_project_output = run_shell_cmd('cargo -q locate-project --message-format=plain --workspace').output
+            # Usually it is the only line, but there might be some prior messages like warnings
+            # Find path right path by going backwards through each line
+            try:
+                root_toml = next(p for p in locate_project_output.splitlines()[::-1] if os.path.exists(p))
+            except StopIteration:
+                self.log.warning("Failed to find project Cargo.toml. Skipping lockfile check & creation.")
+            else:
+                cargo_lock_path = os.path.join(os.path.dirname(root_toml), cargo_lock)
+                if not os.path.exists(cargo_lock_path):
+                    rust_version = LooseVersion(get_software_version('Rust'))
+                    # File format version, the latest supported is used for forward compatibility
+                    # Versions 1 and 2 were internal only, 2 being autodetected
+                    # 1.47 introduced the version marker as version 3
+                    # 1.78 marked version 4 as stable
+                    if rust_version < '1.47':
+                        version = None
+                    elif rust_version < '1.78':
+                        version = 3
+                    else:
+                        version = 4
+                    # Use vendored crates to ensure those versions are used
+                    self.log.info(f"No {cargo_lock} file found, creating one at {cargo_lock_path}")
+                    content = f'version = {version}\n' if version is not None else ''
+                    for crate_info in crates:
+                        if len(crate_info) == 2:
+                            name, version = crate_info
+                            source = CRATES_REGISTRY_URL
+                        else:
+                            name, version, repo, rev = crate_info
+                            source = f'git+{repo}?rev={rev}#{rev}'
+
+                        content += CONFIG_LOCK_SOURCE.format(name=name, version=version, source=source)
+                    write_file(cargo_lock_path, content)
 
     @property
     def profile(self):
-        return 'debug' if self.toolchain.options.get('debug', None) else 'release'
+        return 'debug' if self.toolchain.options.get('debug') else 'release'
 
     def build_step(self):
         """Build with cargo"""
@@ -561,7 +623,7 @@ def generate_crate_list(sourcedir):
         if name == app_name:
             app_in_cratesio = True  # exclude app itself, needs to be first in crates list or taken from pypi
         else:
-            if source_url == 'registry+https://github.com/rust-lang/crates.io-index':
+            if source_url == CRATES_REGISTRY_URL:
                 crates.append((name, version))
             else:
                 # Lock file has revision and branch in the url
