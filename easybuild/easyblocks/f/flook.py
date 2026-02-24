@@ -1,5 +1,5 @@
 ##
-# Copyright 2023-2025 Utrecht University
+# Copyright 2023-2026 Utrecht University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),

@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2025 Ghent University
+# Copyright 2018-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,6 +35,7 @@ from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibd
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import search_file
 
 
 class PythonBundle(Bundle):
@@ -115,13 +116,27 @@ class PythonBundle(Bundle):
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
         # if this Python package was installed for multiple Python versions, or if we prefer it
         use_ebpythonprefixes = False
-        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+        runtime_deps = self.cfg.dependency_names(runtime_only=True)
 
         if 'Python' in runtime_deps:
             self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
             if build_option('prefer_python_search_path') == EBPYTHONPREFIXES:
                 self.log.info("Preferred Python search path is $EBPYTHONPREFIXES, so using that")
                 use_ebpythonprefixes = True
+
+        # Check if the installdir or sources contain any .pth files. For them to work correctly,
+        # Python needs these files to be in the sitedir path. While this typically works system-wide
+        # or in a venv, having Python modules in separate directories is unusual, and only having
+        # $PYTHONPATH will ignore these files.
+        # Our sitecustomize.py adds paths in $EBPYTHONPREFIXES to the sitedir path though, allowing
+        # these .pth files to work as expected. See: https://docs.python.org/3/library/site.html#module-site
+        # .pth files always should be in the site folder, so most of the path is fixed.
+        # Try the installation directory first
+        _, path_configuration_files = search_file([self.installdir], r".*\.pth", silent=True)
+        if self.installdir and path_configuration_files:
+            self.log.info(f"Found path configuration file in installation directory '{self.installdir}'. "
+                          "Enabling $EBPYTHONPREFIXES...")
+            use_ebpythonprefixes = True
 
         if self.multi_python or use_ebpythonprefixes:
             path = ''  # EBPYTHONPREFIXES are relative to the install dir
@@ -209,3 +224,24 @@ class PythonBundle(Bundle):
 
         if sanity_pip_check:
             run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
+
+    def make_module_footer(self):
+        """
+        Extend module footer with statements to set up shell completion for Click-based Python tools.
+        """
+        footer = super().make_module_footer()
+
+        click_autocomplete_bins = []
+        for ext in self.cfg['exts_list']:
+            if isinstance(ext, tuple) and len(ext) == 3 and isinstance(ext[2], dict):
+                click_autocomplete_bins += ext[2].get('click_autocomplete_bins') or []
+
+        extra_footer = []
+        for click_bin in click_autocomplete_bins:
+            extra_footer += PythonPackage._make_click_module_footer(self, click_bin)
+
+        if extra_footer:
+            extra_footer = '\n'.join(extra_footer)
+            footer += '\n' + extra_footer + '\n'
+
+        return footer

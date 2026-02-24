@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,7 +40,8 @@ from datetime import datetime
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
+from easybuild.framework.easyconfig.default import get_easyconfig_parameter_default
+from easybuild.framework.easyconfig.default import is_easyconfig_parameter_default_value
 from easybuild.framework.easyconfig.easyconfig import get_easyblock_class
 from easybuild.tools.build_log import EasyBuildError, print_msg
 from easybuild.tools.config import build_option
@@ -107,6 +108,11 @@ class Bundle(EasyBlock):
         # disable templating to avoid premature resolving of template values
         # Note that self.cfg.update also resolves templates!
         with self.cfg.disable_templating():
+            # Clear current top-level checksums (can only be of postinstall patches)
+            # to append later on to component patches
+            orig_checksums = self.cfg['checksums']
+            self.cfg['checksums'] = []
+
             # list of checksums for patches (must be included after checksums for sources)
             checksums_patches = []
 
@@ -131,24 +137,6 @@ class Bundle(EasyBlock):
                 if len(comp) == 3:
                     comp_specs = comp[2]
 
-                comp_cfg = self.cfg.copy()
-
-                comp_cfg['name'] = comp_name
-                comp_cfg['version'] = comp_version
-
-                # The copy above may include unexpected settings for common values.
-                # In particular for a Pythonbundle we have seen a component inheriting
-                #  runtest = True
-                # which is not a valid value for many easyblocks.
-                # Reset runtest to the original default, if people want the test step
-                # they can set it explicitly, in default_component_specs or by the component easyblock
-                if comp_cfg._config['runtest'] != DEFAULT_CONFIG["runtest"]:
-                    self.log.warning(
-                        "Resetting runtest to default value for component easyblock "
-                        f"(from {comp_cfg._config['runtest']})."
-                        )
-                    comp_cfg._config['runtest'] = DEFAULT_CONFIG["runtest"]
-
                 # determine easyblock to use for this component
                 # - if an easyblock is specified explicitly, that will be used
                 # - if not, a software-specific easyblock will be considered by get_easyblock_class
@@ -170,26 +158,44 @@ class Bundle(EasyBlock):
                 if easyblock == 'Bundle':
                     raise EasyBuildError("The Bundle easyblock can not be used to install components in a bundle")
 
+                comp_cfg = self.cfg.copy()
                 comp_cfg.easyblock = easyblock_class
 
                 # make sure that extra easyconfig parameters are known, so they can be set
                 extra_opts = comp_cfg.easyblock.extra_options()
                 comp_cfg.extend_params(copy.deepcopy(extra_opts))
 
-                comp_cfg.generate_template_values()
+                # The copy above may include unexpected settings for common values.
+                # In particular for a Pythonbundle we have seen a component inheriting
+                #  runtest = True
+                # which is not a valid value for many easyblocks.
+                # Reset runtest to the original default, if people want the test step
+                # they can set it explicitly, in default_component_specs or by the component easyblock
+                if not is_easyconfig_parameter_default_value('runtest', comp_cfg.get('runtest', resolve=False)):
+                    self.log.warning(
+                        "Resetting runtest to default value for component easyblock "
+                        f"(from {comp_cfg.get('runtest', resolve=False)})."
+                        )
+                    comp_cfg['runtest'] = get_easyconfig_parameter_default('runtest')
 
-                # do not inherit easyblock to use from parent
-                # (since that would result in an infinite loop in install_step)
-                comp_cfg['easyblock'] = None
+                # Reset others to their default value
+                # Inheriting easyblock would lead to an infinite loop in the install step
+                for var in ('easyblock',
+                            'sources', 'source_urls', 'checksums',
+                            'patches', 'postinstallpatches',
+                            'modextravars', 'modextrapaths'):
+                    comp_cfg[var] = copy.deepcopy(get_easyconfig_parameter_default(var))
 
-                # reset list of sources/source_urls/checksums
-                comp_cfg['sources'] = comp_cfg['source_urls'] = comp_cfg['checksums'] = comp_cfg['patches'] = []
+                comp_cfg['name'] = comp_name
+                comp_cfg['version'] = comp_version
 
                 for key in self.cfg['default_component_specs']:
                     comp_cfg[key] = self.cfg['default_component_specs'][key]
 
                 for key in comp_specs:
                     comp_cfg[key] = comp_specs[key]
+
+                comp_cfg.generate_template_values()
 
                 # Don't require that all template values can be resolved at this point but still resolve them.
                 # This is important to ensure that template values like %(name)s and %(version)s
@@ -229,12 +235,26 @@ class Bundle(EasyBlock):
 
                 with comp_cfg.allow_unresolved_templates():
                     comp_patches = comp_cfg['patches']
+                    comp_postinstall_patches = comp_cfg['postinstallpatches']
                 if comp_patches:
                     self.cfg.update('patches', comp_patches)
+                    # Patch step is skipped so adding postinstall patches of components here is harmless
+                    self.cfg.update('patches', comp_postinstall_patches)
 
-                self.comp_instances.append((comp_cfg, comp_cfg.easyblock(comp_cfg, logfile=self.logfile)))
+                # instantiate the component to transfer further information
+                comp_instance = comp_cfg.easyblock(comp_cfg, logfile=self.logfile)
 
-            self.cfg.update('checksums', checksums_patches)
+                # correct build/install dirs
+                comp_instance.builddir = self.builddir
+                comp_instance.install_subdir, comp_instance.installdir = self.install_subdir, self.installdir
+
+                # check if sanity checks are enabled for the component
+                if self.cfg['sanity_check_all_components'] or comp_cfg['name'] in self.cfg['sanity_check_components']:
+                    self.comp_cfgs_sanity_check.append(comp_instance)
+                # lastly, add it to the list of components we'll deal with later
+                self.comp_instances.append((comp_cfg, comp_instance))
+
+            self.cfg.update('checksums', checksums_patches + orig_checksums)
 
         # restore general sanity checks if using component-specific sanity checks
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
@@ -249,10 +269,19 @@ class Bundle(EasyBlock):
         """
         checksum_issues = super().check_checksums()
 
-        for comp, _ in self.comp_instances:
-            checksum_issues.extend(self.check_checksums_for(comp, sub="of component %s" % comp['name']))
+        for comp_cfg, _ in self.comp_instances:
+            checksum_issues.extend(self.check_checksums_for(comp_cfg, sub="of component %s" % comp_cfg['name']))
 
         return checksum_issues
+
+    def prepare_step(self, *args, **kwargs):
+        """
+        Pre-configure step.
+        At this point, dependencies are known. So transfer them to all components.
+        """
+        super().prepare_step(*args, **kwargs)
+        for _, comp in self.comp_instances:
+            comp.toolchain.dependencies = self.toolchain.dependencies
 
     def patch_step(self):
         """Patch step must be a no-op for bundle, since there are no top-level sources/patches."""
@@ -310,10 +339,6 @@ class Bundle(EasyBlock):
                       (comp.name, comp.version, idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", comp.name, comp.version, cfg.easyblock)
 
-            # correct build/install dirs
-            comp.builddir = self.builddir
-            comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
-
             # make sure we can build in parallel
             comp.set_parallel()
 
@@ -351,10 +376,6 @@ class Bundle(EasyBlock):
 
                 # location of first unpacked source is used to determine where to apply patch(es)
                 comp.src[-1]['finalpath'] = comp.cfg['start_dir']
-
-            # check if sanity checks are enabled for the component
-            if self.cfg['sanity_check_all_components'] or comp.name in self.cfg['sanity_check_components']:
-                self.comp_cfgs_sanity_check.append(comp)
 
             self._install_component(comp)
 
@@ -472,8 +493,23 @@ class Bundle(EasyBlock):
 
         # run sanity checks for specific components
         cnt = len(self.comp_cfgs_sanity_check)
-        for idx, comp in enumerate(self.comp_cfgs_sanity_check):
-            print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp.name, comp.version, idx + 1, cnt)
-            self.log.info("Starting sanity check step for component %s v%s", comp.name, comp.version)
+        if cnt > 0:
+            if self.sanity_check_module_loaded:
+                loaded_module = False
+            else:
+                self.sanity_check_load_module(extension=kwargs.get('extension', False),
+                                              extra_modules=kwargs.get('extra_modules', None))
+                loaded_module = self.sanity_check_module_loaded
+            for idx, comp in enumerate(self.comp_cfgs_sanity_check):
+                print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp.name, comp.version, idx + 1, cnt)
+                self.log.info("Starting sanity check step for component %s v%s", comp.name, comp.version)
 
-            comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
+                # Avoid loading the module in components again
+                comp.sanity_check_module_loaded = True
+                comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
+                comp.sanity_check_module_loaded = False
+            if loaded_module:
+                if self.fake_mod_data:
+                    self.clean_up_fake_module(self.fake_mod_data)
+                    self.fake_mod_data = None
+                self.sanity_check_module_loaded = False

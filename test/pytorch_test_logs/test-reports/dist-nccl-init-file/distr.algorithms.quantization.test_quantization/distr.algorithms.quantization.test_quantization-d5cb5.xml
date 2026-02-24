@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="4.2">
+    <testcase classname="DistQuantizationTests" name="test_all_gather_fp16" time="4.2" file="distr/algorithms/quantization/test_quantization.py"/>
+  </testsuite>
+</testsuites>
