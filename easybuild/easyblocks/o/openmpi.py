@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2025 Ghent University
+# Copyright 2019-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -80,11 +80,11 @@ class EB_OpenMPI(ConfigureMake):
         # No entry is interpreted as no option added at all
         # This is to make builds reproducible even when the system libraries are changed and avoids failures
         # due to e.g. finding only PMIx but not libevent on the system
-        unused_dep_value = dict()
+        unused_dep_value = {}
         # Known options since version 3.0 (no earlier ones checked)
         if LooseVersion(self.version) >= LooseVersion('3.0'):
             # Default to disable the option with "no"
-            unused_dep_value = {dep: 'no' for dep in known_dependencies}
+            unused_dep_value = dict.fromkeys(known_dependencies, 'no')
             # For these the default is to use an internal copy and not using any is not supported
             for dep in ('hwloc', 'libevent', 'PMIx'):
                 unused_dep_value[dep] = 'internal'
@@ -229,7 +229,7 @@ class EB_OpenMPI(ConfigureMake):
 
         # Add minimal test program to sanity checks
         # Run with correct MPI launcher
-        mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
+        mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, {}, mpi_version=self.version)
         # Limit number of ranks to 8 to avoid it failing due to hyperthreading
         ranks = min(8, self.cfg.parallel)
         for srcdir, src, compiler in (

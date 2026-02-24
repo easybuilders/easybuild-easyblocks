@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -171,7 +171,7 @@ class Cargo(ExtensionEasyBlock):
 
     @staticmethod
     def src_parameter_names():
-        return super().src_parameter_names() + ['crates']
+        return ExtensionEasyBlock.src_parameter_names() + ['crates']
 
     @staticmethod
     def crate_src_filename(pkg_name, pkg_version, _url=None, rev=None):
