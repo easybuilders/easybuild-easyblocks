@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2025 Ghent University
+# Copyright 2017-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -365,7 +365,7 @@ class EB_TensorFlow(PythonPackage):
         ignored_system_deps = []
 
         # Check direct dependencies
-        dep_names = {dep['name'] for dep in self.cfg.dependencies()}
+        dep_names = self.cfg.dependency_names()
         for dep_name, tf_name in sorted(dependency_mapping.items(), key=lambda i: i[0].lower()):
             if dep_name in dep_names:
                 if tf_name in deps_with_python_pkg:

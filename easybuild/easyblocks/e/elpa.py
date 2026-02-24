@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2025 Ghent University
-# Copyright 2019-2025 Micael Oliveira
+# Copyright 2009-2026 Ghent University
+# Copyright 2019-2026 Micael Oliveira
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,6 +37,8 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.gcc import TC_CONSTANT_GCC
 from easybuild.toolchains.compiler.inteliccifort import TC_CONSTANT_INTELCOMP
+from easybuild.toolchains.compiler.llvm_compilers import TC_CONSTANT_LLVM
+from easybuild.toolchains.compiler.nvidia_compilers import TC_CONSTANT_NVHPC
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions
@@ -85,12 +87,13 @@ class EB_ELPA(ConfigureMake):
                 raise EasyBuildError("EasyBlock attribute '%s' already exists")
             setattr(self, flag, self.cfg['use_%s' % flag])
 
+        optarch = build_option('optarch') or self.toolchain.options.get('optarch', None)
         # auto-detect CPU features that can be used and are not enabled/disabled explicitly,
         # but only if --optarch=GENERIC is not being used
         if self.cfg['auto_detect_cpu_features']:
 
             # if --optarch=GENERIC is used, we will not use no CPU feature
-            if build_option('optarch') == OPTARCH_GENERIC:
+            if optarch == OPTARCH_GENERIC:
                 cpu_features = []
             else:
                 cpu_features = ELPA_CPU_FEATURE_FLAGS
@@ -215,6 +218,8 @@ class EB_ELPA(ConfigureMake):
         cpp_dict = {
             TC_CONSTANT_GCC: 'cpp',
             TC_CONSTANT_INTELCOMP: 'cpp',
+            TC_CONSTANT_LLVM: 'clang -E',
+            TC_CONSTANT_NVHPC: 'nvc -E',
         }
         comp_fam = self.toolchain.comp_family()
         if comp_fam in cpp_dict:

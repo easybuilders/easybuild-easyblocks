@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -53,14 +53,27 @@ class EB_HPCG(ConfigureMake):
             arg = "MPI_GCC_OMP"
         else:
             arg = "../setup/Make.MPI_GCC_OMP"
-        run_shell_cmd("../configure %s" % arg, work_dir='obj')
+        work_dir = os.path.join(self.cfg['start_dir'], 'obj')
+        cmd = ' '.join([
+            self.cfg['preconfigopts'],
+            "../configure",
+            arg,
+            self.cfg['configopts'],
+        ])
+        run_shell_cmd(cmd, work_dir=work_dir)
 
     def build_step(self):
         """Run build in build subdirectory."""
         cxx = os.environ['CXX']
         cxxflags = os.environ['CXXFLAGS']
-        cmd = "make CXX='%s' CXXFLAGS='$(HPCG_DEFS) %s -DMPICH_IGNORE_CXX_SEEK'" % (cxx, cxxflags)
-        run_shell_cmd(cmd, work_dir='obj')
+        cmd = ' '.join([
+            self.cfg['prebuildopts'],
+            "make",
+            f"CXX='{cxx}'",
+            f"CXXFLAGS='$(HPCG_DEFS) {cxxflags} -DMPICH_IGNORE_CXX_SEEK'",
+            self.cfg['buildopts'],
+        ])
+        run_shell_cmd(cmd, work_dir=os.path.join(self.cfg['start_dir'], 'obj'))
 
     def test_step(self):
         """Custom built-in test procedure for HPCG."""
@@ -74,7 +87,15 @@ class EB_HPCG(ConfigureMake):
             # obtain equivalent of 'mpirun -np 2 xhpcg'
             hpcg_mpi_cmd = self.toolchain.mpi_cmd_for("xhpcg", 2)
             # 2 threads per MPI process (4 threads in total)
-            cmd = "PATH=%s:$PATH OMP_NUM_THREADS=2 %s" % (objbindir, hpcg_mpi_cmd)
+            cmd = ' '.join([
+                self.cfg['pretestopts'],
+                ' && '.join([
+                    f"export PATH={objbindir}:$PATH",
+                    "export OMP_NUM_THREADS=2",
+                    hpcg_mpi_cmd,
+                ]),
+                self.cfg['testopts'],
+            ])
             run_shell_cmd(cmd)
 
             # find log file, check for success

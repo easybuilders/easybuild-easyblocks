@@ -1,6 +1,6 @@
 ##
-# Copyright 2013-2025 Dmitri Gribenko
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Dmitri Gribenko
+# Copyright 2013-2026 Ghent University
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -262,7 +262,7 @@ class EB_Clang(CMakeMake):
                                      os.getcwd(), globpatterns, glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
-        if any([x['name'].startswith('llvm-project') for x in self.src]):
+        if any(x['name'].startswith('llvm-project') for x in self.src):
             # if sources contain 'llvm-project*', we use the full tarball
             find_source_dir("../llvm-project-*", os.path.join(self.llvm_src_dir, "llvm-project-%s" % self.version))
             self.cfg.update('configopts', '-DLLVM_ENABLE_PROJECTS="%s"' % ';'.join(self.cfg['llvm_projects']))
