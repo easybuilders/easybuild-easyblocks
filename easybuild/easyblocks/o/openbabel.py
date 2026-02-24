@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -53,6 +53,12 @@ class EB_OpenBabel(CMakeMake):
         """Initialize OpenBabel-specific variables."""
         super().__init__(*args, **kwargs)
         self.with_python = False
+
+    def prepare_step(self, *args, **kwargs):
+        """Prepare step, modified to ensure install dir is deleted before building"""
+        super().prepare_step(*args, **kwargs)
+        # Needs to delete the install dir to avoid segfaults when doing the pybind tests
+        self.make_installdir()
 
     def configure_step(self):
         """Custom configure procedure for OpenBabel."""

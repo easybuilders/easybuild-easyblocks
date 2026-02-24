@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -662,7 +662,7 @@ class EB_GCC(ConfigureMake):
                 "libc6-dev-i386",  # Debian-based
                 "gcc-c++-32bit",  # OpenSuSE, SLES
             ]
-            if not any([check_os_dependency(dep) for dep in glibc_32bit]):
+            if not any(check_os_dependency(dep) for dep in glibc_32bit):
                 raise EasyBuildError("Using multilib requires 32-bit glibc (install one of %s, depending on your OS)",
                                      ', '.join(glibc_32bit))
             self.configopts += " --enable-multilib --with-multilib-list=m32,m64"
@@ -1005,12 +1005,11 @@ class EB_GCC(ConfigureMake):
 
         # Add symlinks for cc/c++/f77/f95.
         bindir = os.path.join(self.installdir, 'bin')
-        for key in COMP_CMD_SYMLINKS:
-            src = COMP_CMD_SYMLINKS[key]
-            target = os.path.join(bindir, key)
+        for target, src in COMP_CMD_SYMLINKS.items():
+            target = os.path.join(bindir, target)
             if os.path.exists(target):
                 self.log.info("'%s' already exists in %s, not replacing it with symlink to '%s'",
-                              key, bindir, src)
+                              target, bindir, src)
             elif os.path.exists(os.path.join(bindir, src)):
                 symlink(src, target, use_abspath_source=False)
             else:
@@ -1144,7 +1143,7 @@ class EB_GCC(ConfigureMake):
         lib_files = []
         if LooseVersion(self.version) >= LooseVersion('4.2'):
             # libgomp was added in GCC 4.2.0
-            ["libgomp.%s" % sharedlib_ext, "libgomp.a"]
+            lib_files.extend(["libgomp.%s" % sharedlib_ext, "libgomp.a"])
         if os_type == 'Linux':
             lib_files.extend(["libgcc_s.%s" % sharedlib_ext])
             # libmudflap is replaced by asan (see release notes gcc 4.9.0)
@@ -1191,17 +1190,17 @@ class EB_GCC(ConfigureMake):
         if self.cfg['multilib']:
             # with multilib enabled, both lib and lib64 should be there
             lib_files64 = [os.path.join(libdir, x) for libdir in libdirs64 for x in lib_files]
-            lib_files32 = [tuple([os.path.join(libdir, x) for libdir in libdirs32]) for x in lib_files]
+            lib_files32 = [tuple(os.path.join(libdir, x) for libdir in libdirs32) for x in lib_files]
             lib_files = lib_files64 + lib_files32
         else:
             # lib64 on SuSE and Darwin, lib otherwise
-            lib_files = [tuple([os.path.join(libdir, x) for libdir in libdirs]) for x in lib_files]
+            lib_files = [tuple(os.path.join(libdir, x) for libdir in libdirs) for x in lib_files]
         # lib on SuSE, libexec otherwise
         libdirs = ['libexec', 'lib']
         common_infix = os.path.join('gcc', config_name_subdir, self.version)
-        libexec_files = [tuple([os.path.join(d, common_infix, x) for d in libdirs]) for x in libexec_files]
+        libexec_files = [tuple(os.path.join(d, common_infix, x) for d in libdirs) for x in libexec_files]
 
-        old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS.keys()]
+        old_cmds = [os.path.join('bin', x) for x in COMP_CMD_SYMLINKS]
 
         custom_paths = {
             'files': bin_files + lib_files + libexec_files + old_cmds,

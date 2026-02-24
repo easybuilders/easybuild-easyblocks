@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -114,6 +114,7 @@ class EB_QuantumESPRESSO(EasyBlock):
                 'with_gipaw': [True, 'Enable GIPAW support', CUSTOM],
                 'with_d3q': [False, 'Enable D3Q support', CUSTOM],
                 'with_qmcpack': [False, 'Enable QMCPACK support', CUSTOM],
+                'test_mpi_socket_binding': [True, 'Run tests while binding to 1 socket in OpenMPI', CUSTOM],
                 'test_suite_nprocs': [1, 'Number of processors to use for the test suite', CUSTOM],
                 'test_suite_allow_failures': [
                     [],
@@ -145,7 +146,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             """Enable toolchain options for Quantum ESPRESSO."""
             comp_fam = self.toolchain.comp_family()
 
-            allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC, toolchain.NVHPC]
+            allowed_toolchains = [toolchain.INTELCOMP, toolchain.GCC, toolchain.NVHPC, toolchain.LLVM]
             if comp_fam not in allowed_toolchains:
                 raise EasyBuildError(
                     "EasyBuild does not yet have support for QuantumESPRESSO with toolchain %s" % comp_fam
@@ -289,6 +290,8 @@ class EB_QuantumESPRESSO(EasyBlock):
 
         def _add_qmcpack(self):
             """Enable QMCPACK for Quantum ESPRESSO."""
+            if not get_software_root('HDF5'):
+                raise EasyBuildError('QMCPACK support requires HDF5')
             res = ['pw2qmcpack']
             self.check_bins += ['pw2qmcpack.x']
             return res
@@ -355,11 +358,30 @@ class EB_QuantumESPRESSO(EasyBlock):
                 self.log.info("Skipping testing of QuantumESPRESSO since MPI testing is disabled")
                 return
 
+            # Fix for https://github.com/easybuilders/easybuild-easyblocks/issues/3650
+            pretestopts = ""
+            if self.cfg.get('test_mpi_socket_binding', True):
+                mpi_fam = self.toolchain.mpi_family()
+                if mpi_fam == toolchain.OPENMPI:
+                    mpi_vers = get_software_version('OpenMPI')
+                    if LooseVersion(mpi_vers) >= '5':
+                        env_name = 'PRTE_MCA_rmaps_default_mapping_policy'
+                        env_value = 'package'
+                    else:
+                        env_name = 'OMPI_MCA_hwloc_base_bind_to_socket'
+                        env_value = '1'
+                    pretestopts += f'export {env_name}={env_value} && '
+
+            pretestopts += self.cfg.get('pretestopts', '')
             thr = self.cfg.get('test_suite_threshold', 0.97)
-            concurrent = max(1, self.cfg.parallel // self._test_nprocs)
+            # When compiled with OpenMP some tests silently requests up to 4 threads
             allow_fail = self.cfg.get('test_suite_allow_failures', [])
 
-            cmd = f'ctest -j{concurrent} --output-on-failure'
+            if self.cfg.get('with_cuda', False):
+                cmd = f'{pretestopts} ctest -j1 --output-on-failure'
+            else:
+                concurrent = max(1, self.cfg.parallel // (self._test_nprocs * 4))
+                cmd = f'{pretestopts} ctest -j{concurrent} --output-on-failure'
 
             res = run_shell_cmd(cmd, fail_on_error=False)
             out = res.output
@@ -1038,7 +1060,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             thr = self.cfg.get('test_suite_threshold', 0.9)
             stot = 0
             spass = 0
-            parallel = min(4, self.cfg.parallel)
+            parallel = min(4, self.cfg.get('parallel', 1))
             test_dir = os.path.join(self.start_dir, self.TEST_SUITE_DIR)
 
             pseudo_loc = "https://pseudopotentials.quantum-espresso.org/upf_files/"

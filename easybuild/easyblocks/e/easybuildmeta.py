@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -230,7 +230,7 @@ class EB_EasyBuildMeta(PythonPackage):
         # order matters, e.g. setuptools before distutils
         eb_dirs = OrderedDict()
         eb_dirs['setuptools'] = []
-        eb_dirs['distutils.core'] = flatten([x for x in subdirs_by_pkg.values()])
+        eb_dirs['distutils.core'] = flatten(subdirs_by_pkg.values())
 
         # determine setup tool (setuptools or distutils)
         setup_tool = None

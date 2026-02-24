@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2025 Ghent University
+# Copyright 2019-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -35,13 +35,17 @@ import sys
 import tempfile
 import textwrap
 from io import StringIO
+from pathlib import Path
 from unittest import TestLoader, TextTestRunner
 from test.easyblocks.module import cleanup
 
 import easybuild.tools.options as eboptions
+import easybuild.tools.tomllib as tomllib
 import easybuild.easyblocks.generic.pythonpackage as pythonpackage
+import easybuild.easyblocks.generic.cargo as cargo
 import easybuild.easyblocks.l.lammps as lammps
 import easybuild.easyblocks.p.python as python
+import easybuild.easyblocks.p.pytorch as pytorch
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
@@ -323,6 +327,139 @@ class EasyBlockSpecificTest(TestCase):
         res = pythonpackage.det_py_install_scheme()
         self.assertTrue(isinstance(res, str))
 
+    def test_cargo_get_workspace_members(self):
+        """Test get_workspace_members in the Cargo easyblock"""
+        # Simple crate
+        toml_text = textwrap.dedent("""
+            [package]
+            name = 'my_crate'
+            version = "0.1.0"
+            edition = "2021"
+            description = 'desc'
+            documentation = "url"
+            license = "MIT"
+        """)
+        members = cargo._get_workspace_members(tomllib.loads(toml_text))
+        self.assertIsNone(members)
+
+        # Virtual manifest
+        toml_text = textwrap.dedent("""
+            [workspace]
+            members = [
+                "reqwest-middleware",
+                "reqwest-tracing",
+                "reqwest-retry",
+            ]
+        """)
+        members = cargo._get_workspace_members(tomllib.loads(toml_text))
+        self.assertEqual(members, ["reqwest-middleware", "reqwest-tracing", "reqwest-retry"])
+
+        # Workspace (root is a package too)
+        toml_text = textwrap.dedent("""
+            [package]
+            name = "nothing-linux-ui"
+            version = "0.0.2"
+            edition = "2021"
+            authors = ["sn99"]
+
+            [workspace]
+            members = ["nothing", "src-tauri"]
+
+            [dependencies]
+            leptos = { version = "0.6", features = ["csr"] }
+        """)
+        members = cargo._get_workspace_members(tomllib.loads(toml_text))
+        self.assertEqual(members, ["nothing", "src-tauri"])
+
+    def test_cargo_merge_sub_crate(self):
+        """Test merge_sub_crate in the Cargo easyblock"""
+        crate_dir = Path(tempfile.mkdtemp())
+        cargo_toml = crate_dir / 'Cargo.toml'
+        ws_parsed = tomllib.loads("""
+            [workspace]
+            members = ["bar"]
+
+            [workspace.package]
+            version = "1.2.3"
+            authors = ["Nice Folks"]
+            description = "A short description of my package"
+            documentation = "https://example.com/bar"
+
+            [workspace.dependencies]
+            regex = { version = "1.6.0", default-features = false, features = ["std"] }
+            cc = "1.0.73"
+            rand = "0.8.5"
+
+            [workspace.lints.rust]
+            unsafe_code = "forbid"
+        """)
+        cargo_toml.write_text("""
+            [package]
+            name = "bar"
+            version.workspace = true
+            authors.workspace = true
+            description.workspace = true
+            documentation.workspace = true
+
+            # Unrelated line that looks like a workspace key
+            dummy = "Uses regex=123 and regex = 456 and not foo.workspace = true"
+
+            [dependencies]
+            foo = { version = "42" }
+            # Overwrite 'features' value
+            regex = { workspace = true, features = ["unicode"] }
+
+            [build-dependencies]
+            cc.workspace = true
+
+            [dev-dependencies]
+            rand = { workspace = true }
+
+            [lints]
+            workspace = true
+        """)
+        cargo._merge_sub_crate(cargo_toml, ws_parsed)
+        self.assertEqual(tomllib.loads(cargo_toml.read_text()), tomllib.loads("""
+            [package]
+            name = "bar"
+            version = "1.2.3"
+            authors = ["Nice Folks"]
+            description = "A short description of my package"
+            documentation = "https://example.com/bar"
+
+            dummy = "Uses regex=123 and regex = 456 and not foo.workspace = true"
+
+            [dependencies]
+            foo = { version = "42" }
+            regex = { version = "1.6.0", default-features = false, features = ["unicode"] }
+
+            [build-dependencies]
+            cc = "1.0.73"
+
+            [dev-dependencies]
+            rand = "0.8.5"
+
+            [lints.rust]
+            unsafe_code = "forbid"
+        """))
+
+        # Only dict-style workspace dependency
+        cargo_toml.write_text("""
+            [package]
+            name = "bar"
+
+            [dependencies]
+            regex = { workspace = true }
+        """)
+        cargo._merge_sub_crate(cargo_toml, ws_parsed)
+        self.assertEqual(tomllib.loads(cargo_toml.read_text()), tomllib.loads("""
+            [package]
+            name = "bar"
+
+            [dependencies]
+            regex = { version = "1.6.0", default-features = false, features = ["std"] }
+        """))
+
     def test_handle_local_py_install_scheme(self):
         """Test handle_local_py_install_scheme function provided by PythonPackage easyblock."""
 
@@ -399,7 +536,7 @@ class EasyBlockSpecificTest(TestCase):
             python.run_pip_check(python_cmd=sys.executable, unversioned_packages=('zero', ))
 
         with self.mocked_stdout_stderr():
-            python.run_pip_check(python_cmd=sys.executable, unversioned_packages=set(['zero']))
+            python.run_pip_check(python_cmd=sys.executable, unversioned_packages={'zero'})
 
         # inject all possible errors
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
@@ -490,13 +627,13 @@ class EasyBlockSpecificTest(TestCase):
         """Test translate_lammps_version function from LAMMPS easyblock"""
         lammps_versions = {
             '23Jun2022': '2022.06.23',
-            '2Aug2023_update2': '2023.08.02',
+            '2Aug2023_update2': '2023.08.02.2',
             '29Aug2024': '2024.08.29',
-            '29Aug2024_update2': '2024.08.29',
+            '29Aug2024_update2': '2024.08.29.2',
             '28Oct2024': '2024.10.28',
         }
-        for key in lammps_versions:
-            self.assertEqual(lammps.translate_lammps_version(key), lammps_versions[key])
+        for key, expected_version in lammps_versions.items():
+            self.assertEqual(lammps.translate_lammps_version(key), expected_version)
 
         version_file = os.path.join(self.tmpdir, 'src', 'version.h')
         version_txt = '\n'.join([
@@ -507,6 +644,175 @@ class EasyBlockSpecificTest(TestCase):
 
         self.assertEqual(lammps.translate_lammps_version('d3adb33f', path=self.tmpdir), '2025.04.02')
         self.assertEqual(lammps.translate_lammps_version('devel', path=self.tmpdir), '2025.04.02')
+
+        version_file = os.path.join(self.tmpdir, 'src', 'version.h')
+        version_txt = '\n'.join([
+            '#define LAMMPS_VERSION "2 Apr 2025"',
+            '#define LAMMPS_UPDATE "Update 3"',
+        ])
+        write_file(version_file, version_txt)
+
+        self.assertEqual(lammps.translate_lammps_version('d3adb33f', path=self.tmpdir), '2025.04.02.3')
+
+    def test_pytorch_test_log_parsing(self):
+        """Verify parsing of XML files produced by PyTorch tests."""
+        TestState = pytorch.TestState
+
+        test_log_dir = Path(__file__).parent.parent / 'pytorch_test_logs'
+
+        results = pytorch.get_test_results(test_log_dir / 'test-reports')
+        results2 = pytorch.get_test_results(test_log_dir)
+        self.assertEqual(results.keys(), results2.keys())
+        for name, suite in results.items():
+            self.assertEqual((name, suite.summary), (name, results2[name].summary))
+        del results2
+
+        self.assertEqual(len(results), 15)
+
+        # 2 small test suites used as a smoke test using a most features
+        self.assertIn('backends/xeon/test_launch', results)
+        suite = results['backends/xeon/test_launch']
+        self.assertEqual((suite.errors, suite.failures, suite.num_tests, suite.skipped), (1, 2, 8, 3))
+        # Failure in one file, success in the other --> Success
+        self.assertEqual(suite['TestTorchrun.test_cpu_info'].state, TestState.SUCCESS)
+        # New in 2nd file
+        self.assertEqual(suite['TestTorchrun.test_multi_threads'].state, TestState.SUCCESS)
+        self.assertEqual(suite['TestTorchrun.test_reshape_cpu_float64'].state, TestState.FAILURE)
+        self.assertEqual(suite['TestTorchrun.test_foo'].state, TestState.SKIPPED)
+        self.assertEqual(suite['TestTorchrun.test_bar'].state, TestState.ERROR)
+        self.assertEqual(suite.get_errored_tests(), ['TestTorchrun.test_bar'])
+        self.assertEqual(suite.get_failed_tests(), ['TestTorchrun.test_reshape_cpu_float64', 'TestTorchrun.test_baz'])
+        self.assertIn('test_autoload', results)
+        suite = results['test_autoload']
+        self.assertEqual((suite.errors, suite.failures, suite.num_tests, suite.skipped), (0, 0, 2, 1))
+        self.assertEqual(suite['TestBackendAutoload.test_autoload'].state, TestState.SUCCESS)
+        self.assertEqual(suite['TestBackendAutoload.test_unload'].state, TestState.SKIPPED)
+
+        # Verify summaries which should be enough to catch most issues
+        report = '\n'.join(sorted(f'{suite.name}: {suite.summary}' for suite in results.values()))
+        self.assertEqual(report, textwrap.dedent("""
+            backends/xeon/test_launch: 2 failed, 2 passed, 3 skipped, 1 errors
+            dist-gloo-init-env/distr/algorithms/quantization/test_quantization: 0 failed, 1 passed, 0 skipped, 0 errors
+            dist-gloo-init-file/distr/algorithms/quantization/test_quantization: 0 failed, 1 passed, 0 skipped, 0 errors
+            dist-nccl-init-env/distr/algorithms/quantization/test_quantization: 0 failed, 1 passed, 0 skipped, 0 errors
+            dist-nccl-init-file/distr/algorithms/quantization/test_quantization: 0 failed, 1 passed, 0 skipped, 0 errors
+            dist/foo/bar: 0 failed, 4 passed, 0 skipped, 0 errors
+            distributed/tensor/test_dtensor_ops: 0 failed, 2 passed, 2 skipped, 0 errors
+            dynamo/test_dynamic_shapes: 3 failed, 14 passed, 0 skipped, 0 errors
+            dynamo/test_misc: 1 failed, 9 passed, 0 skipped, 0 errors
+            inductor/test_aot_inductor_arrayref: 2 failed, 0 passed, 0 skipped, 0 errors
+            inductor/test_cudagraph_trees: 1 failed, 0 passed, 0 skipped, 0 errors
+            jit/test_builtins: 0 failed, 1 passed, 0 skipped, 0 errors
+            test_autoload: 0 failed, 1 passed, 1 skipped, 0 errors
+            test_nestedtensor: 3 failed, 2 passed, 3 skipped, 1 errors
+            test_quantization: 0 failed, 12 passed, 5 skipped, 0 errors
+        """).strip())
+        tests = '\n'.join(sorted(f'{test.name}: {test.state.value}'
+                                 for suite in results.values()
+                                 for test in suite.get_tests()))
+        self.assertEqual(tests, textwrap.dedent("""
+            AOTInductorTestABICompatibleCpuWithStackAllocation.test_fail_and_skip: failure
+            AOTInductorTestABICompatibleCpuWithStackAllocation.test_skip_and_fail: failure
+            CudaGraphTreeTests.test_workspace_allocation_error: failure
+            DistQuantizationTests.test_all_gather_fp16: success
+            DistQuantizationTests.test_all_gather_fp16: success
+            DistQuantizationTests.test_all_gather_fp16: success
+            DistQuantizationTests.test_all_gather_fp16: success
+            DynamicShapesCtxManagerTests.test_autograd_profiler_dynamic_shapes: success
+            DynamicShapesCtxManagerTests.test_generic_context_manager_with_graph_break_dynamic_shapes: success
+            DynamicShapesCtxManagerTests.test_generic_ctx_manager_with_graph_break_dynamic_shapes: success
+            DynamicShapesMiscTests.test_outside_linear_module_free_dynamic_shapes: failure
+            DynamicShapesMiscTests.test_packaging_version_parse_dynamic_shapes: success
+            DynamicShapesMiscTests.test_pair_dynamic_shapes: success
+            DynamicShapesMiscTests.test_param_shape_binops_dynamic_shapes: success
+            DynamicShapesMiscTests.test_parameter_free_dynamic_shapes: failure
+            DynamicShapesMiscTests.test_patched_builtin_functions_dynamic_shapes: success
+            DynamicShapesMiscTests.test_proxy_frozen_dataclass_dynamic_shapes: success
+            DynamicShapesMiscTests.test_pt2_compliant_ops_are_allowed_dynamic_shapes: success
+            DynamicShapesMiscTests.test_pt2_compliant_overload_dynamic_shapes: success
+            DynamicShapesMiscTests.test_pure_python_accumulate_dynamic_shapes: success
+            DynamicShapesMiscTests.test_py_guards_mark_dynamic_dynamic_shapes: success
+            DynamicShapesMiscTests.test_python_slice_dynamic_shapes: success
+            DynamicShapesMiscTests.test_pytree_tree_flatten_unflatten_dynamic_shapes: success
+            DynamicShapesMiscTests.test_pytree_tree_leaves_dynamic_shapes: failure
+            MiscTests.test_packaging_version_parse: success
+            MiscTests.test_pair: success
+            MiscTests.test_param_shape_binops: success
+            MiscTests.test_parameter_free: failure
+            MiscTests.test_pytree_tree_map: success
+            MiscTests.test_shape_env_no_recording: success
+            MiscTests.test_shape_env_recorded_function_fallback: success
+            MiscTests.test_yield_from_in_a_loop: success
+            TestBackendAutoload.test_autoload: success
+            TestBackendAutoload.test_unload: skipped
+            TestBuiltins.test_name: success
+            TestCustomFunction.test_autograd_function_with_matmul_folding_at_output: success
+            TestDTensorOpsCPU.test_dtensor_op_db_H_cpu_float16: success
+            TestDTensorOpsCPU.test_dtensor_op_db_H_cpu_float32: success
+            TestDTensorOpsCPU.test_dtensor_op_db_H_cpu_float64: skipped
+            TestDTensorOpsCPU.test_dtensor_op_db_H_cpu_int8: skipped
+            TestDynamicQuantizedOps.test_qrnncell: success
+            TestFakeQuantizeOps.test_backward_per_channel: skipped
+            TestFakeQuantizeOps.test_backward_per_channel_cachemask_cpu: success
+            TestFakeQuantizeOps.test_backward_per_channel_cachemask_cuda: success
+            TestName.test_bar: success
+            TestNestedTensor.test_bmm_cuda_gpu_float16: failure
+            TestNestedTensor.test_bmm_cuda_gpu_float32: failure
+            TestNestedTensor.test_bmm_cuda_gpu_float64: error
+            TestNestedTensor.test_cat: success
+            TestNestedTensor.test_copy_: success
+            TestNestedTensor.test_reshape_cpu_float16: skipped
+            TestNestedTensor.test_reshape_cpu_float32: skipped
+            TestNestedTensor.test_reshape_cpu_float64: failure
+            TestNestedTensorSubclassCPU.test_linear_backward_memory_usage_cpu_float32: skipped
+            TestNumericDebugger.test_quantize_pt2e_preserve_handle: success
+            TestNumericDebugger.test_re_export_preserve_handle: success
+            TestPadding.test_reflection_pad1d: success
+            TestQuantizedConv.test_conv_reorder_issue_onednn: success
+            TestQuantizedConv.test_conv_transpose_reorder_issue_onednn: success
+            TestQuantizedFunctionalOps.test_relu_api: success
+            TestQuantizedLinear.test_qlinear_cudnn: skipped
+            TestQuantizedLinear.test_qlinear_gelu_pt2e: success
+            TestQuantizedOps.test_adaptive_avg_pool2d_nhwc: success
+            TestQuantizedOps.test_adaptive_avg_pool: skipped
+            TestQuantizedOps.test_qadd_relu_cudnn: skipped
+            TestQuantizedOps.test_qadd_relu_cudnn_nhwc: skipped
+            TestQuantizedOps.test_qadd_relu_different_qparams: success
+            TestTorchrun.test_bar: error
+            TestTorchrun.test_baz: failure
+            TestTorchrun.test_cpu_info: success
+            TestTorchrun.test_foo2: skipped
+            TestTorchrun.test_foo3: skipped
+            TestTorchrun.test_foo: skipped
+            TestTorchrun.test_multi_threads: success
+            TestTorchrun.test_reshape_cpu_float64: failure
+            TestTracer.test_jit_save: success
+            bar.test_2.test_func3: success
+            bar.test_foo.TestBar.test_func2: success
+            bar.test_foo.TestName.test_func1: success
+        """).strip())
+
+        #  Some error cases
+        error_log_dir = test_log_dir / 'faulty-reports'
+
+        self.assertErrorRegex(ValueError, "<testsuites> or <testsuite>",
+                              pytorch.get_test_results, error_log_dir / 'root')
+        self.assertErrorRegex(ValueError, "Failed to parse",
+                              pytorch.get_test_results, error_log_dir / 'invalid_xml')
+        self.assertErrorRegex(ValueError, "multiple reported files",
+                              pytorch.get_test_results, error_log_dir / 'multi_file')
+        self.assertErrorRegex(ValueError, "Path from folder and filename should be equal",
+                              pytorch.get_test_results, error_log_dir / 'different_file_name')
+        self.assertErrorRegex(ValueError, "Unexpected file attribute",
+                              pytorch.get_test_results, error_log_dir / 'file_attribute')
+        self.assertErrorRegex(ValueError, "Invalid state",
+                              pytorch.get_test_results, error_log_dir / 'skip_and_failed')
+        self.assertErrorRegex(ValueError, "no test",
+                              pytorch.get_test_results, error_log_dir / 'no_tests')
+        self.assertErrorRegex(ValueError, "Invalid test count",
+                              pytorch.get_test_results, error_log_dir / 'consistency')
+        self.assertErrorRegex(ValueError, "Duplicate test",
+                              pytorch.get_test_results, error_log_dir / 'duplicate')
 
 
 def suite(loader):
