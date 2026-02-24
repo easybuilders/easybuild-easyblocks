@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2025 Ghent University
+# Copyright 2018-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -159,6 +159,22 @@ class EB_OpenCV(CMakeMake):
             self.cfg.update('configopts', '-DWITH_GTK_2_X=ON')
         else:
             self.cfg.update('configopts', '-DWITH_GTK=OFF')
+        flexiblas_root = get_software_root('FlexiBLAS')
+        if flexiblas_root:
+            # Fixes https://github.com/easybuilders/easybuild-easyblocks/issues/3873
+            # It should be possible to go as far back as 3.3 but than we have a mismatch in the lapack API between
+            # openCV and FlexiBLAS (was working with OpenBLAS until 0.3.20 where they adopted the same new API)
+            # See discussion and comments in https://github.com/easybuilders/easybuild-easyblocks/pull/3874
+            if LooseVersion(self.version) < '4.7':
+                msg = "Using custom LAPACK/BLAS is only supported since OpenCV 4.7. FlexiBLAS will not be used."
+                self.log.warning(msg)
+            else:
+                self.log.info("Explicitly using FlexiBLAS at %s", flexiblas_root)
+                self.cfg.update('configopts', f'-DLAPACK_LIBRARIES="{flexiblas_root}/lib/libflexiblas.so;-lm;-ldl"')
+                self.cfg.update('configopts', f'-DLAPACK_INCLUDE_DIR={flexiblas_root}/include/flexiblas')
+                self.cfg.update('configopts', '-DLAPACK_CBLAS_H=cblas.h')
+                self.cfg.update('configopts', '-DLAPACK_LAPACKE_H=lapacke.h')
+                self.cfg.update('configopts', '-DLAPACK_IMPL=flexiblas')
 
         # configure optimisation for CPU architecture
         # see https://github.com/opencv/opencv/wiki/CPU-optimizations-build-options

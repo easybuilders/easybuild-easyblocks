@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -231,6 +231,7 @@ class EB_WPS(EasyBlock):
             'DM_CC': os.getenv('MPICC'),
             'FC': os.getenv('MPIF90'),
             'CC': os.getenv('MPICC'),
+            'CPP': 'cpp -P -traditional',
         }
         if self.toolchain.options.get('openmp', None):
             comps.update({'LDFLAGS': '%s %s' % (self.toolchain.get_flag('openmp'), os.environ['LDFLAGS'])})

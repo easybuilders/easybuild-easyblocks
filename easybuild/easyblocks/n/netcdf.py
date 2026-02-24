@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -63,7 +63,7 @@ class EB_netCDF(CMakeMake):
 
             # add -DgFortran to CPPFLAGS when building with GCC
             if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
-                self.cfg.update('configopts', 'CPPFLAGS="%s -DgFortran"' % os.getenv('CPPFLAGS'))
+                self.cfg.update('configopts', 'CPPFLAGS="%s -DgFortran"' % os.getenv('CPPFLAGS', ''))
 
             ConfigureMake.configure_step(self)
 
