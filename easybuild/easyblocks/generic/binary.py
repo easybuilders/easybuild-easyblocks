@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -79,6 +79,12 @@ class Binary(EasyBlock):
             mkdir(self.installdir, parents=True)
             self.log.info("Performing staged installation via %s" % self.installdir)
 
+        prepend_to_path = self.cfg.get('prepend_to_path', PREPEND_TO_PATH_DEFAULT)
+        if isinstance(prepend_to_path, str):
+            prepend_to_path = [prepend_to_path]
+        if prepend_to_path:
+            self.module_load_environment.PATH.extend(prepend_to_path)
+
     def extract_step(self):
         """Copy all source files to the build directory"""
 
@@ -151,13 +157,3 @@ class Binary(EasyBlock):
         """Skip the rpath sanity check, this is binary software"""
         self.log.info("RPATH sanity check is skipped when using %s easyblock (derived from Binary)",
                       self.__class__.__name__)
-
-    def make_module_extra(self):
-        """Add the specified directories to the PATH."""
-
-        txt = super().make_module_extra()
-        prepend_to_path = self.cfg.get('prepend_to_path', PREPEND_TO_PATH_DEFAULT)
-        if prepend_to_path:
-            txt += self.module_generator.prepend_paths("PATH", prepend_to_path)
-        self.log.debug("make_module_extra added this: %s" % txt)
-        return txt

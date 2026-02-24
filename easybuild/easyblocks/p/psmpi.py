@@ -1,5 +1,5 @@
 ##
-# Copyright 2016-2025 Ghent University, Forschungszentrum Juelich
+# Copyright 2016-2026 Ghent University, Forschungszentrum Juelich
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -78,6 +78,7 @@ class EB_psmpi(EB_MPICH):
             toolchain.INTELCOMP: 'intel',
             toolchain.PGI: 'pgi',
             toolchain.NVHPC: 'nvhpc',
+            toolchain.LLVM: 'llvm',
         }
 
         # ParaStationMPI defines its environment through confsets. So these should be unset
