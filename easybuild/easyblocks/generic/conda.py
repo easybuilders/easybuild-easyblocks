@@ -87,13 +87,13 @@ class Conda(Binary):
 
         # Identify conda version
         cmd = "%s --version" % conda_cmd
-        (output, _) = run_cmd(cmd, log_all=True)
-
-        conda_version = output.split(' ')[1]
+        res = run_shell_cmd(cmd)
+        conda_version = res.output.split(' ')[1]
         if LooseVersion(conda_version) >= LooseVersion('24.3'):
             force = '--yes'
         else:
             force = '--force'
+
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
         cmd = f"{conda_cmd} config --add create_default_packages setuptools"
