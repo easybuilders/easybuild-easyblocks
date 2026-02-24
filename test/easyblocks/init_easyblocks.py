@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -57,6 +57,7 @@ class InitTest(TestCase):
     eb_go = eboptions.parse_options(args=[])
     config.init(eb_go.options, eb_go.get_options_by_section('config'))
     build_options = {
+        'accept_eula_for': ['.*'],
         'suffix_modules_path': GENERAL_CLASS,
         'valid_module_classes': config.module_classes(),
         'valid_stops': [x[0] for x in EasyBlock.get_steps()],
@@ -238,6 +239,9 @@ def suite(loader):
         elif easyblock_fn == 'intel_compilers.py':
             # custom easyblock for intel-compilers (oneAPI) requires v2021.x or newer
             innertest = make_inner_test(easyblock, name='intel-compilers', version='2021.1')
+        elif easyblock_fn == 'kokkos.py':
+            # custom easyblock for kokkos required v4.1.00 or newer
+            innertest = make_inner_test(easyblock, name='kokkos', version='4.1.00')
         elif easyblock_fn == 'openfoam.py':
             # custom easyblock for OpenFOAM requires non-system toolchain
             innertest = make_inner_test(easyblock, toolchain={'name': 'foss', 'version': '2021a'})
