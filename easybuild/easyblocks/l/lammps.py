@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,11 +43,11 @@ from easybuild.base import fancylogger
 from easybuild.easyblocks.python import set_py_env_vars
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
-from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file
+from easybuild.tools.config import build_option, IGNORE
+from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext, get_avail_core_count
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
@@ -183,7 +183,11 @@ _log = fancylogger.getLogger('easyblocks.lammps')
 
 
 def translate_lammps_version(version, path=None):
-    """Translate the LAMMPS version into something that can be used in a comparison"""
+    """
+    Translate the LAMMPS version into something that can be used in a comparison.
+
+    LAMMPS versions are of the form DDMMMYYYY[_updateN], e.g., 29Aug2024 or 29Aug2024_update2.
+    """
     month_map = {
        "JAN": '01',
        "FEB": '02',
@@ -198,26 +202,33 @@ def translate_lammps_version(version, path=None):
        "NOV": '11',
        "DEC": '12'
     }
-    items = [x for x in re.split('(\\d+)', version) if x]
+    items = [x for x in re.split(r'(\d+)', version) if x]
 
-    try:
-        return '.'.join([items[2], month_map[items[1].upper()], '%02d' % int(items[0])])
-    except (IndexError, KeyError):
+    if len(items) == 3:
+        return f"{items[2]}.{month_map[items[1].upper()]}.{int(items[0]):02d}"
+    elif len(items) == 5 and items[3] == '_update':
+        return f"{items[2]}.{month_map[items[1].upper()]}.{int(items[0]):02d}.{items[4]}"
+    else:
         # avoid failing miserably under --module-only --force
         if path and os.path.exists(path) and os.listdir(path):
             version_file = os.path.join(path, 'src', 'version.h')
             if os.path.exists(version_file):
                 txt = read_file(os.path.join(path, 'src', 'version.h'))
-                result = re.search(r'(?<=LAMMPS_VERSION ")\d+ \S+ \d+', txt)
+                result = re.search(r'(?<=LAMMPS_VERSION \")\d+ \S+ \d+', txt)
+                update = re.search(r'(?<=LAMMPS_UPDATE \")Update \d+', txt)
                 if result:
                     day, month, year = result.group().split(' ')
                 else:
                     raise EasyBuildError(f"Failed to parse LAMMPS version: '{txt}'")
-                return '.'.join([year, month_map[month.upper()], '%02d' % int(day)])
+                if update:
+                    update_num = update.group().split(' ')[1]
+                    return f"{year}.{month_map[month.upper()]}.{int(day):02d}.{update_num}"
+                else:
+                    return f"{year}.{month_map[month.upper()]}.{int(day):02d}"
             else:
                 raise EasyBuildError(f"Expected to find version file at {version_file}, but it doesn't exist")
         else:
-            raise ValueError("LAMMPS version {version} cannot be translated")
+            raise ValueError(f"LAMMPS version {version} cannot be translated")
 
 
 class EB_LAMMPS(CMakeMake):
@@ -270,7 +281,15 @@ class EB_LAMMPS(CMakeMake):
         # to the compiler flags, which may override the ones set by EasyBuild.
         # https://github.com/lammps/lammps/blob/stable_29Aug2024/lib/kokkos/cmake/kokkos_arch.cmake#L228-L531
         processor_arch = None
-        if build_option('optarch') == OPTARCH_GENERIC:
+        if kokkos_arch:
+            # If someone is trying a manual override for this case, let them
+            if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
+                warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
+                warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
+                warning_msg += "Still might work though."
+                print_warning(warning_msg)
+            processor_arch = kokkos_arch
+        elif build_option('optarch') == OPTARCH_GENERIC:
             # For generic Arm builds we use an existing target;
             # this ensures that KOKKOS_ARCH_ARM_NEON is enabled (Neon is required for armv8-a).
             # For other architectures we set a custom/non-existent type, which will disable all optimizations,
@@ -279,19 +298,7 @@ class EB_LAMMPS(CMakeMake):
                 processor_arch = 'ARMV80'
             else:
                 processor_arch = 'EASYBUILD_GENERIC'
-
             _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
-            if kokkos_arch:
-                msg = "The specified kokkos_arch (%s) will be ignored " % kokkos_arch
-                msg += "because a generic build was requested (via --optarch=GENERIC)"
-                print_warning(msg)
-        elif kokkos_arch:
-            if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
-                warning_msg = "Specified CPU ARCH (%s) " % kokkos_arch
-                warning_msg += "was not found in listed options [%s]." % KOKKOS_CPU_ARCH_LIST
-                warning_msg += "Still might work though."
-                print_warning(warning_msg)
-            processor_arch = kokkos_arch
 
         # If kokkos_arch was not set...
         elif LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('2Aug2023')):
@@ -360,7 +367,7 @@ class EB_LAMMPS(CMakeMake):
         # version 1.3.2 is used in the test suite to check easyblock can be initialised
         if self.version != '1.3.2':
             # take into account that build directory may not be available (in case of --module-only)
-            if os.path.exists(self.start_dir) and os.listdir(self.start_dir):
+            if self.start_dir and os.path.exists(self.start_dir) and os.listdir(self.start_dir):
                 self.cur_version = translate_lammps_version(self.version, path=self.start_dir)
             else:
                 self.cur_version = translate_lammps_version(self.version, path=self.installdir)
@@ -472,6 +479,7 @@ class EB_LAMMPS(CMakeMake):
         # https://docs.lammps.org/Build_basics.html
         # https://docs.lammps.org/Build_settings.html
         # https://docs.lammps.org/Build_package.html
+        # https://docs.lammps.org/Build_extras.html
         if self.cfg['general_packages']:
             for package in self.cfg['general_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_prefix, package))
@@ -479,22 +487,10 @@ class EB_LAMMPS(CMakeMake):
         if self.cfg['user_packages']:
             for package in self.cfg['user_packages']:
                 self.cfg.update('configopts', '-D%s%s=on' % (self.pkg_user_prefix, package))
-
-        # Optimization settings
+        # OPT package
         pkg_opt = '-D%sOPT=' % self.pkg_prefix
         if pkg_opt not in self.cfg['configopts']:
             self.cfg.update('configopts', pkg_opt + 'on')
-
-        # grab the architecture so we can check if we have Intel hardware (also used for Kokkos below)
-        processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
-
-        if processor_arch in INTEL_PACKAGE_ARCH_LIST or \
-           (processor_arch == 'NATIVE' and self.kokkos_cpu_mapping.get(get_cpu_arch()) in INTEL_PACKAGE_ARCH_LIST):
-            # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
-            pkg_user_intel = '-D%sINTEL=' % self.pkg_user_prefix
-            if pkg_user_intel not in self.cfg['configopts']:
-                if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
-                    self.cfg.update('configopts', pkg_user_intel + 'on')
 
         # MPI/OpenMP
         if self.toolchain.options.get('usempi', None):
@@ -518,11 +514,23 @@ class EB_LAMMPS(CMakeMake):
             if '-DFFT_PACK=' not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 
-        # https://lammps.sandia.gov/doc/Build_extras.html
-        # KOKKOS
+        # detect the CPU and GPU architecture (used for Intel and Kokkos packages below)
+        processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
+
+        # INTEL package
+        if processor_arch in INTEL_PACKAGE_ARCH_LIST or \
+           (processor_arch == 'NATIVE' and self.kokkos_cpu_mapping.get(get_cpu_arch()) in INTEL_PACKAGE_ARCH_LIST):
+            # USER-INTEL enables optimizations on Intel processors. GCC has also partial support for some of them.
+            pkg_user_intel = '-D%sINTEL=' % self.pkg_user_prefix
+            if pkg_user_intel not in self.cfg['configopts']:
+                if self.toolchain.comp_family() in [toolchain.GCC, toolchain.INTELCOMP]:
+                    self.cfg.update('configopts', pkg_user_intel + 'on')
+
+        # KOKKOS package
         if self.cfg['kokkos']:
             print_msg("Using Kokkos package with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sKOKKOS=on' % self.pkg_prefix)
+            self.cfg.update('configopts', '-D%s_ENABLE_SERIAL=yes' % self.kokkos_prefix)
 
             if self.toolchain.options.get('openmp', None):
                 self.cfg.update('configopts', '-D%s_ENABLE_OPENMP=yes' % self.kokkos_prefix)
@@ -558,7 +566,7 @@ class EB_LAMMPS(CMakeMake):
                     elif get_software_root("FFTW"):
                         self.cfg.update('configopts', '-DFFT_KOKKOS=FFTW3')
 
-        # CUDA only
+        # GPU package (cannot be built with KOKKOS+CUDA)
         elif self.cuda:
             print_msg("Using GPU package (not Kokkos) with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sGPU=on' % self.pkg_prefix)
@@ -569,6 +577,7 @@ class EB_LAMMPS(CMakeMake):
         # to lib64)
         self.cfg.update('configopts', '-DCMAKE_INSTALL_LIBDIR=lib')
 
+        # Python interface
         # avoid that pip (ab)uses $HOME/.cache/pip
         # cfr. https://pip.pypa.io/en/stable/reference/pip_install/#caching
         env.setvar('XDG_CACHE_HOME', tempfile.gettempdir())
@@ -602,6 +611,23 @@ class EB_LAMMPS(CMakeMake):
             self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % python_include_dir)
         else:
             raise EasyBuildError("Expected to find a Python dependency as sanity check commands rely on it!")
+
+        # Testing (PyYAML must be installed), only for version >= 29Aug2024_update2
+        if self.cfg['runtest'] is None or self.cfg['runtest']:
+            if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Aug2024_update2')):
+                # Testing of KOKKOS+CUDA builds does not work for version < 22Jul2025
+                # See: https://github.com/lammps/lammps/issues/405
+                if LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('22Jul2025')) \
+                        and self.cfg['kokkos'] and self.cuda:
+                    print_warning("Skipping tests: KOKKOS+CUDA builds have broken testing in LAMMPS < 22Jul2025.")
+                    self.cfg['runtest'] = False
+                else:
+                    self.cfg['runtest'] = True
+                    if 'PyYAML' not in (dep['name'] for dep in self.cfg.builddependencies()):
+                        raise EasyBuildError("PyYAML not included as build dependency: cannot run tests.")
+                    self.cfg.update('configopts', '-DENABLE_TESTING=on')
+            else:
+                self.cfg['runtest'] = False
 
         return super().configure_step()
 
@@ -650,6 +676,19 @@ class EB_LAMMPS(CMakeMake):
             set_py_env_vars(self.log)
             run_shell_cmd(cmd)
 
+    def test_step(self):
+        """Filter the ctests that should be run"""
+        # add flags to test_cmd to ignore some tests
+        if self.cfg.get('runtest') is True and not self.cfg.get('test_cmd'):
+            test_cmd = 'ctest'
+            if LooseVersion(self.cmake_version) >= '3.17.0':
+                test_cmd += ' --no-tests=error'
+            test_cmd += ' -LE unstable -E "TestMliapPyUnified|AtomicPairStyle:meam_spline|KSpaceStyle:scafacos.*"'
+            self.log.debug(f"Running tests using test_cmd = '{test_cmd}' as test_cmd")
+            self.cfg['test_cmd'] = test_cmd
+
+        super().test_step()
+
     def sanity_check_step(self, *args, **kwargs):
         """Run custom sanity checks for LAMMPS files, dirs and commands."""
 
@@ -657,6 +696,7 @@ class EB_LAMMPS(CMakeMake):
         if self.cur_version is None:
             self.cur_version = translate_lammps_version(self.version, path=self.installdir)
 
+        # Test some LAMMPS examples
         # Output files need to go somewhere (and has to work for --module-only as well)
         execution_dir = tempfile.mkdtemp()
 
@@ -678,15 +718,66 @@ class EB_LAMMPS(CMakeMake):
             for check_file in sanity_check_test_inputs
         ]
 
+        # check if a GPU is available for tests
+        run_gpu_tests = False
+        if self.cuda:
+            if not which('nvidia-smi', on_error=IGNORE):
+                print_warning('Could not find nvidia-smi. Assuming a system without GPUs and skipping GPU tests!')
+            elif os.environ.get('CUDA_VISIBLE_DEVICES') == '-1':
+                print_warning('GPUs explicitely disabled via CUDA_VISIBLE_DEVICES. Skipping GPU tests!')
+            else:
+                run_gpu_tests = True
+
+        # add accelerator-specific tests
+        # INTEL package - it requires mpi4py - run only for updated easyconfigs >= 29Aug2024
+        if LooseVersion(self.version) >= LooseVersion('29Aug2024'):
+            custom_commands.append(
+                'from lammps import lammps; '
+                'l=lammps(cmdargs=["-sf", "intel"]).file("%s") if "INTEL" in lammps().installed_packages else None' %
+                os.path.join(self.installdir, "examples", "msst", "in.msst")
+            )
+        if self.cfg['kokkos']:  # KOKKOS package
+            if self.cuda:
+                if run_gpu_tests:
+                    custom_commands.append(
+                        'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on", "g", "1"]); '
+                        'l.file("%s")' % os.path.join(self.installdir, "examples", "msst", "in.msst")
+                    )
+            else:  # CPU only
+                custom_commands.append(
+                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on"]); l.file("%s")' %
+                    os.path.join(self.installdir, "examples", "msst", "in.msst")
+                )
+        elif run_gpu_tests:  # GPU package
+            custom_commands.append(
+                'from lammps import lammps; l=lammps(cmdargs=["-sf", "gpu", "-pk", "gpu", "1"]); l.file("%s")' %
+                os.path.join(self.installdir, "examples", "msst", "in.msst")
+            )
+        if self.toolchain.options.get('openmp', None):  # OPENMP package
+            custom_commands.append(
+                'from lammps import lammps; l=lammps(cmdargs=["-sf", "omp", "-pk", "omp", "2"]); l.file("%s")' %
+                os.path.join(self.installdir, "examples", "msst", "in.msst")
+            )
+        # OPT package
+        custom_commands.append(
+            'from lammps import lammps; l=lammps(cmdargs=["-sf", "opt"]); l.file("%s")' %
+            os.path.join(self.installdir, "examples", "msst", "in.msst")
+        )
+
         # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
-        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Sep2021')):
-            custom_commands = [cmd + '; l.finalize()' for cmd in custom_commands]
+        # This is actually not needed if mpi4py is installed, and can cause a crash in version 2025+
+        if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('29Sep2021')) and \
+           LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('22Jul2025')):
+            custom_commands = [cmd + '; l.finalize() if l else None' for cmd in custom_commands]
 
         custom_commands = ["""python -c '%s'""" % cmd for cmd in custom_commands]
 
         # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
         if self.toolchain.options.get('usempi', None):
-            custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
+            # use up to 4 cores, to speed up tests
+            test_core_cnt = min(self.cfg.parallel, get_avail_core_count(), 4)
+            self.log.info("Using %s cores for the MPI tests" % test_core_cnt)
+            custom_commands = [self.toolchain.mpi_cmd_for(cmd, test_core_cnt) for cmd in custom_commands]
 
         custom_commands = ["cd %s && " % execution_dir + cmd for cmd in custom_commands]
 
