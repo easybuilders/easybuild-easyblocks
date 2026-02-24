@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -39,7 +39,7 @@ class EB_reticulate(RPackage):
     def install_extension(self):
         """Add extra environment variables to modulefile"""
 
-        txt = super(EB_reticulate, self).install_extension()
+        txt = super().install_extension()
         if not txt:
             txt = ""
 

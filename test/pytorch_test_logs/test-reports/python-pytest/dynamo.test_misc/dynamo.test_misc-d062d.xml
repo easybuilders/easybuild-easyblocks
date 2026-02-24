@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="4" time="4.2">
+    <testcase classname="MiscTests" name="test_packaging_version_parse" time="4.2" file="dynamo/test_misc.py">
+      <system-out>[snip]</system-out>
+    </testcase>
+    <testcase classname="MiscTests" name="test_pair" time="4.2" file="dynamo/test_misc.py">
+      <system-out>[snip]</system-out>
+    </testcase>
+    <testcase classname="MiscTests" name="test_param_shape_binops" time="4.2" file="dynamo/test_misc.py">
+      <system-out>[snip]</system-out>
+    </testcase>
+    <testcase classname="MiscTests" name="test_parameter_free" time="4.2" file="dynamo/test_misc.py">
+      <rerun message="...">[snip]</rerun>
+      <rerun message="...">[snip]</rerun>
+      <failure message="...">[snip]</failure>
+      <system-out>[snip]</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

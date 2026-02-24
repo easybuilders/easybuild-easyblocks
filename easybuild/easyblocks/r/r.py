@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2025 Ghent University
+# Copyright 2012-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,7 +52,7 @@ class EB_R(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Constructor for R easyblock."""
-        super(EB_R, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         r_lib_subdirs = [os.path.join(libdir, 'R', 'lib') for libdir in SEARCH_PATH_LIB_DIRS]
         self.module_load_environment.LD_LIBRARY_PATH.extend(r_lib_subdirs)
@@ -138,4 +138,4 @@ class EB_R(ConfigureMake):
             [(os.path.join('lib64', 'R', f), os.path.join('lib', 'R', f)) for f in libfiles],
             'dirs': [],
         }
-        super(EB_R, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

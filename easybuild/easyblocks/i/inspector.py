@@ -1,5 +1,5 @@
 # #
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -43,7 +43,7 @@ class EB_Inspector(IntelBase):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor; define class variables."""
-        super(EB_Inspector, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         loosever = LooseVersion(self.version)
         if loosever < LooseVersion('2020'):
@@ -63,10 +63,10 @@ class EB_Inspector(IntelBase):
 
     def make_installdir(self):
         """Do not create installation directory, install script handles that already."""
-        super(EB_Inspector, self).make_installdir(dontcreate=True)
+        super().make_installdir(dontcreate=True)
 
     def sanity_check_step(self):
         """Custom sanity check paths for Intel Inspector."""
         binaries = ['inspxe-cl', 'inspxe-feedback', 'inspxe-gui', 'inspxe-runmc', 'inspxe-runtc']
         custom_paths = self.get_custom_paths_tools(binaries)
-        super(EB_Inspector, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

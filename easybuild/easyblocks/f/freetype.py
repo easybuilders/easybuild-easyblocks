@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ class EB_freetype(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for freetype."""
-        super(EB_freetype, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.maj_ver = self.version.split('.')[0]
 
@@ -51,4 +51,4 @@ class EB_freetype(ConfigureMake):
                       'lib/pkgconfig/freetype%s.pc' % self.maj_ver],
             'dirs': ['include/freetype%s' % self.maj_ver],
         }
-        super(EB_freetype, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -28,6 +28,7 @@ EasyBuild support for installing Gurobi, implemented as an easyblock
 
 @author: Bob Dröge (University of Groningen)
 @author: Samuel Moors (Vrije Universiteit Brussel)
+@author: Sven Hansen (RWTH Aachen University)
 """
 import os
 
@@ -53,7 +54,7 @@ class EB_Gurobi(Tarball):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor, define custom class variables specific to Gurobi."""
-        super(EB_Gurobi, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # make sure license file is available
         self.orig_license_file = self.cfg['license_file']
@@ -67,7 +68,7 @@ class EB_Gurobi(Tarball):
 
     def install_step(self):
         """Install Gurobi and license file."""
-        super(EB_Gurobi, self).install_step()
+        super().install_step()
 
         if self.cfg['copy_license_file']:
             if self.orig_license_file is None or not os.path.exists(self.orig_license_file):
@@ -78,10 +79,19 @@ class EB_Gurobi(Tarball):
         if get_software_root('Python') and LooseVersion(self.version) < LooseVersion('11'):
             run_shell_cmd("python setup.py install --prefix=%s" % self.installdir)
 
+        # Build C++ ABI with the chosen compiler
+        libbuilddir = os.path.join(self.installdir, "src", "build")
+        run_shell_cmd("make", work_dir=libbuilddir)
+        copy_file(os.path.join(libbuilddir, "libgurobi_c++.a"), os.path.join(self.installdir, "lib"))
+        run_shell_cmd("make clean", work_dir=libbuilddir)
+
     def sanity_check_step(self):
         """Custom sanity check for Gurobi."""
+        files = ['grbprobe', 'grbtune', 'gurobi_cl']
+        if LooseVersion(self.version) < LooseVersion('13'):
+            files.append('gurobi.sh')
         custom_paths = {
-            'files': ['bin/%s' % f for f in ['grbprobe', 'grbtune', 'gurobi_cl', 'gurobi.sh']],
+            'files': ['bin/%s' % f for f in files],
             'dirs': ['matlab'],
         }
 
@@ -93,11 +103,11 @@ class EB_Gurobi(Tarball):
         if get_software_root('Python'):
             custom_commands.append("python -c 'import gurobipy'")
 
-        super(EB_Gurobi, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom extra module file entries for Gurobi."""
-        txt = super(EB_Gurobi, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('GUROBI_HOME', self.installdir)
         txt += self.module_generator.set_environment('GRB_LICENSE_FILE', self.license_file)
         txt += self.module_generator.prepend_paths('MATLABPATH', 'matlab')

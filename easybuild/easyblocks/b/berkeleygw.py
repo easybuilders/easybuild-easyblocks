@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -53,7 +53,7 @@ class EB_BerkeleyGW(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to BerkeleyGW."""
-        super(EB_BerkeleyGW, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def configure_step(self):
         """No configuration procedure for BerkeleyGW."""
@@ -166,12 +166,12 @@ class EB_BerkeleyGW(ConfigureMake):
 
         self.cfg.update('buildopts', 'MATHFLAG="%s"' % ' '.join(mathflags))
 
-        super(EB_BerkeleyGW, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """Custom install step for BerkeleyGW."""
         self.cfg.update('installopts', 'INSTDIR="%s"' % self.installdir)
-        super(EB_BerkeleyGW, self).install_step()
+        super().install_step()
 
     def test_step(self):
         """Custom test step for BerkeleyGW."""
@@ -180,7 +180,7 @@ class EB_BerkeleyGW(ConfigureMake):
             setvar('BGW_TEST_MPI_NPROCS', '2')
             setvar('OMP_NUM_THREADS', '2')
             setvar('TEMPDIRPATH', os.path.join(self.builddir, 'tmp'))
-        super(EB_BerkeleyGW, self).test_step()
+        super().test_step()
 
     def sanity_check_step(self):
         """Custom sanity check for BerkeleyGW."""
@@ -194,4 +194,4 @@ class EB_BerkeleyGW(ConfigureMake):
             'dirs': [],
         }
 
-        super(EB_BerkeleyGW, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

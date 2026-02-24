@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,7 +51,7 @@ class EB_PSI(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize class variables custom to PSI."""
-        super(EB_PSI, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.psi_srcdir = None
         self.install_psi_objdir = None
@@ -197,7 +197,7 @@ class EB_PSI(CMakeMake):
 
     def install_step(self):
         """Custom install procedure for PSI."""
-        super(EB_PSI, self).install_step()
+        super().install_step()
 
         # the obj and unpacked sources must remain available for working with plugins
         try:
@@ -223,7 +223,7 @@ class EB_PSI(CMakeMake):
                 cmd = "ctest %s %s" % (paracmd, self.cfg['runtest'])
                 run_shell_cmd(cmd)
         else:
-            super(EB_PSI, self).test_step()
+            super().test_step()
 
         try:
             shutil.rmtree(testdir)
@@ -236,11 +236,11 @@ class EB_PSI(CMakeMake):
             'files': ['bin/psi4'],
             'dirs': ['include', ('share/psi', 'share/psi4')],
         }
-        super(EB_PSI, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom variables for PSI module."""
-        txt = super(EB_PSI, self).make_module_extra()
+        txt = super().make_module_extra()
         share_dir = os.path.join(self.installdir, 'share')
         if os.path.exists(share_dir):
             psi4datadir = glob.glob(os.path.join(share_dir, 'psi*'))

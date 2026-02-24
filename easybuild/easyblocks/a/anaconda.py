@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -74,7 +74,7 @@ class EB_Anaconda(Binary):
         Custom sanity check for Anaconda and Miniconda
         """
         custom_paths = {
-            'files': [os.path.join('bin', x) for x in ['2to3', 'conda', 'pydoc', 'python', 'sqlite3']],
+            'files': [os.path.join('bin', x) for x in ['conda', 'pydoc', 'python', 'sqlite3']],
             'dirs': ['bin', 'etc', 'lib', 'pkgs'],
         }
-        super(EB_Anaconda, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

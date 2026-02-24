@@ -1,5 +1,5 @@
 ##
-# Copyright 2015-2025 Ghent University
+# Copyright 2015-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -85,13 +85,13 @@ class GeneralEasyblockTest(TestCase):
 
     def setUp(self):
         """Test setup."""
-        super(GeneralEasyblockTest, self).setUp()
+        super().setUp()
         self.tmpdir = tempfile.mkdtemp()
         self.cwd = os.getcwd()
 
     def tearDown(self):
         """Test cleanup."""
-        super(GeneralEasyblockTest, self).tearDown()
+        super().tearDown()
         os.chdir(self.cwd)
         shutil.rmtree(self.tmpdir)
 
@@ -181,11 +181,11 @@ class GeneralEasyblockTest(TestCase):
         run_shell_cmd("python -c 'from easybuild.easyblocks.r import EB_R'", hidden=True)
 
 
-def suite():
+def suite(loader):
     """Return all general easybuild-easyblocks tests."""
-    return TestLoader().loadTestsFromTestCase(GeneralEasyblockTest)
+    return loader.loadTestsFromTestCase(GeneralEasyblockTest)
 
 
 if __name__ == '__main__':
-    res = TextTestRunner(verbosity=1).run(suite())
+    res = TextTestRunner(verbosity=1).run(suite(TestLoader()))
     sys.exit(len(res.failures))

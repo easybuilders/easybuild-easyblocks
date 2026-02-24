@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -64,7 +64,7 @@ class EB_Trilinos(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Constructor of custom easyblock for Trilinos."""
-        super(EB_Trilinos, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.cfg['shared_libs'] is not None:
             self.log.deprecated("Use 'build_shared_libs' instead of 'shared_libs' easyconfig parameter", '5.0')
@@ -96,13 +96,20 @@ class EB_Trilinos(CMakeMake):
         self.cfg.update('configopts', '-DCMAKE_Fortran_FLAGS="%s"' % ' '.join(fflags))
 
         # Make sure Tpetra/Kokkos Serial mode is enabled regardless of OpenMP
-        self.cfg.update('configopts', "-DKokkos_ENABLE_Serial:BOOL=ON")
+        if LooseVersion(self.version) >= LooseVersion('16.1'):
+            self.cfg.update('configopts', "-DKokkos_ENABLE_SERIAL:BOOL=ON")
+        else:
+            self.cfg.update('configopts', "-DKokkos_ENABLE_Serial:BOOL=ON")
+
         self.cfg.update('configopts', "-DTpetra_INST_SERIAL:BOOL=ON")
 
         # OpenMP
         if self.cfg['openmp']:
             self.cfg.update('configopts', "-DTrilinos_ENABLE_OpenMP:BOOL=ON")
-            self.cfg.update('configopts', "-DKokkos_ENABLE_OpenMP:BOOL=ON")
+            if LooseVersion(self.version) >= LooseVersion('16.1'):
+                self.cfg.update('configopts', "-DKokkos_ENABLE_OPENMP:BOOL=ON")
+            else:
+                self.cfg.update('configopts', "-DKokkos_ENABLE_OpenMP:BOOL=ON")
 
         # MPI
         if self.toolchain.options.get('usempi', None):
@@ -254,21 +261,22 @@ class EB_Trilinos(CMakeMake):
         symlink(obj_dir, short_build_dir)
 
         # configure using cmake
-        super(EB_Trilinos, self).configure_step(srcdir=short_src_dir, builddir=short_build_dir)
+        super().configure_step(srcdir=short_src_dir, builddir=short_build_dir)
 
-    def build_step(self):
+    def build_step(self, *args, **kwargs):
         """Build with make (verbose logging enabled)."""
-        super(EB_Trilinos, self).build_step(verbose=True)
+        super().build_step(*args, **kwargs)
 
     def sanity_check_step(self):
         """Custom sanity check for Trilinos."""
 
         # selection of libraries
         libs = ["Amesos", "Anasazi", "AztecOO", "Belos", "Epetra", "Galeri",
-                "GlobiPack", "Ifpack", "Intrepid", "Isorropia", "Kokkos",
-                "Komplex", "LOCA", "Mesquite", "ML", "Moertel", "MOOCHO", "NOX",
-                "Pamgen", "RTOp", "Rythmos", "Sacado", "Shards", "Stratimikos",
-                "Teuchos", "Tpetra", "Triutils", "Zoltan"]
+                "GlobiPack", "Ifpack", "Isorropia", "Kokkos", "LOCA", "Mesquite",
+                "MOOCHO", "NOX", "Pamgen", "RTOp", "Sacado", "Shards",
+                "Stratimikos", "Teuchos", "Tpetra", "Triutils", "Zoltan"]
+        if LooseVersion(self.version) < LooseVersion('16.1'):
+            libs = sorted(libs + ["Intrepid", "Komplex", "ML", "Moertel", "Rythmos"])
 
         libs = [x for x in libs if x not in self.cfg['skip_exts']]
 
@@ -307,7 +315,7 @@ class EB_Trilinos(CMakeMake):
             'dirs': ['bin', 'include']
         }
 
-        super(EB_Trilinos, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def cleanup_step(self):
         """Complete cleanup by also removing custom created short build directory."""

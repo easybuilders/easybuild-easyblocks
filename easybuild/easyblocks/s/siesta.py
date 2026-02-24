@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -151,7 +151,7 @@ class EB_Siesta(ConfigureMake):
                 self.cfg.update('configopts', '--with-netcdf=-lnetcdff')
 
             # Configure is run in obj_dir, configure script is in ../Src
-            super(EB_Siesta, self).configure_step(cmd_prefix='../Src/')
+            super().configure_step(cmd_prefix='../Src/')
 
             if loose_ver > LooseVersion('4.0'):
                 regex_subs_Makefile = [
@@ -446,7 +446,7 @@ class EB_Siesta(ConfigureMake):
     def test_step(self):
         """Custom test step for Siesta."""
         change_dir(os.path.join(self.cfg['start_dir'], 'Obj', 'Tests'))
-        super(EB_Siesta, self).test_step()
+        super().test_step()
 
     def install_step(self):
         """Custom install procedure for Siesta: copy binaries."""
@@ -476,4 +476,4 @@ class EB_Siesta(ConfigureMake):
             mpi_test_cmd = mpi_test_cmd + "echo 'SystemName test' | mpirun -np 2 siesta 2>/dev/null | grep PARALLEL"
             custom_commands.append(mpi_test_cmd)
 
-        super(EB_Siesta, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

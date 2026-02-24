@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -171,4 +171,4 @@ class EB_SCOTCH(EasyBlock):
             # (for '5.1.12b_esmumps', check with 'version 5.1.12')
             custom_commands.append("acpl -V 2>&1 | grep 'version %s'" % self.version.split('_')[0].strip('ab'))
 
-        super(EB_SCOTCH, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -46,7 +46,7 @@ class EB_QScintilla(ConfigureMake):
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment for building & installing QScintilla."""
 
-        super(EB_QScintilla, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         pyqt5 = get_software_root('PyQt5')
         pyqt = get_software_root('PyQt')
@@ -94,12 +94,12 @@ class EB_QScintilla(ConfigureMake):
         # make sure that $CXXFLAGS is being passed down
         self.cfg.update('buildopts', r'CXXFLAGS="$CXXFLAGS \$(DEFINES)"')
 
-        super(EB_QScintilla, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """Custom install procedure for QScintilla."""
 
-        super(EB_QScintilla, self).install_step()
+        super().install_step()
 
         # also install Python bindings if Python is included as a dependency
         python = get_software_root('Python')
@@ -157,8 +157,8 @@ class EB_QScintilla(ConfigureMake):
 
             run_shell_cmd("python configure.py %s" % ' '.join(cfgopts))
 
-            super(EB_QScintilla, self).build_step()
-            super(EB_QScintilla, self).install_step()
+            super().build_step()
+            super().install_step()
 
             target_dir = os.path.join(self.installdir, pylibdir)
             pyqt_pylibdir = os.path.join(self.pyqt_root, pylibdir)
@@ -199,4 +199,4 @@ class EB_QScintilla(ConfigureMake):
             ])
             custom_commands.append("python -c 'import %s.Qsci'" % self.pyqt_pkg_name)
 
-        super(EB_QScintilla, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

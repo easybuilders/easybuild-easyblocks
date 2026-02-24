@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -62,7 +62,7 @@ class EB_Boost(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """Initialize Boost-specific variables."""
-        super(EB_Boost, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.pyvers = []
 
@@ -91,7 +91,7 @@ class EB_Boost(EasyBlock):
 
     def patch_step(self):
         """Patch Boost source code before building."""
-        super(EB_Boost, self).patch_step()
+        super().patch_step()
 
         # TIME_UTC is also defined in recent glibc versions, so we need to rename it for old Boost versions (<= 1.49)
         glibc_version = get_glibc_version()
@@ -111,7 +111,7 @@ class EB_Boost(EasyBlock):
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
 
-        super(EB_Boost, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # keep track of Python version(s) used during installation,
         # so we can perform a complete sanity check
@@ -139,6 +139,8 @@ class EB_Boost(EasyBlock):
                 toolset = 'intel-linux'
             elif self.toolchain.comp_family() == toolchain.GCC:
                 toolset = 'gcc'
+            elif self.toolchain.comp_family() == toolchain.LLVM:
+                toolset = 'clang'
             else:
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 
@@ -357,11 +359,11 @@ class EB_Boost(EasyBlock):
                 if self.cfg['tagged_layout']:
                     custom_paths['files'].append(os.path.join('lib', 'libboost_mpi%s.%s' % (lib_mt_suffix, shlib_ext)))
 
-        super(EB_Boost, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set up a BOOST_ROOT environment variable to e.g. ease Boost handling by cmake"""
-        txt = super(EB_Boost, self).make_module_extra()
+        txt = super().make_module_extra()
         if not self.cfg['only_python_bindings']:
             txt += self.module_generator.set_environment('BOOST_ROOT', self.installdir)
         return txt

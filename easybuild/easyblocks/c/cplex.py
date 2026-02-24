@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -52,7 +52,7 @@ class EB_CPLEX(Binary):
 
     def __init__(self, *args, **kwargs):
         """Initialize CPLEX-specific variables."""
-        super(EB_CPLEX, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.bindir = None
         self.with_python = False
@@ -63,7 +63,7 @@ class EB_CPLEX(Binary):
 
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
-        super(EB_CPLEX, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         if get_software_root('Python'):
             self.with_python = True
@@ -130,7 +130,7 @@ class EB_CPLEX(Binary):
 
     def make_module_extra(self):
         """Add bin dirs and lib dirs and set CPLEX_HOME and CPLEXDIR"""
-        txt = super(EB_CPLEX, self).make_module_extra()
+        txt = super().make_module_extra()
 
         # avoid failing miserably under --module-only --force
         if os.path.exists(self.installdir):
@@ -142,8 +142,8 @@ class EB_CPLEX(Binary):
             bins = []
             libs = []
 
-        txt += self.module_generator.prepend_paths('PATH', [path for path in bins])
-        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', [path for path in bins + libs])
+        txt += self.module_generator.prepend_paths('PATH', bins)
+        txt += self.module_generator.prepend_paths('LD_LIBRARY_PATH', bins + libs)
 
         txt += self.module_generator.set_environment('CPLEX_HOME', os.path.join(self.installdir, 'cplex'))
         txt += self.module_generator.set_environment('CPLEXDIR', os.path.join(self.installdir, 'cplex'))
@@ -171,4 +171,4 @@ class EB_CPLEX(Binary):
             custom_commands.append("python -c 'import cplex'")
             custom_commands.append("python -c 'import docplex'")
 
-        super(EB_CPLEX, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -101,7 +101,7 @@ class Rpm(Binary):
 
     def __init__(self, *args, **kwargs):
         """Initialize class variables."""
-        super(Rpm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.rebuild_rpm = False
 
@@ -126,7 +126,7 @@ class Rpm(Binary):
         """
         Extract sources if requested, retain resulting list of RPMs as new list of sources.
         """
-        super(Rpm, self).extract_step()
+        super().extract_step()
 
         if self.cfg.get('extract_sources', False):
             self.src = []

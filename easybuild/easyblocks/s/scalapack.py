@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -59,7 +59,7 @@ class EB_ScaLAPACK(CMakeMake):
 
     def __init__(self, *args, **kwargs):
         """Constructor of ScaLAPACK easyblock."""
-        super(EB_ScaLAPACK, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.loosever = LooseVersion(self.version)
 
@@ -72,7 +72,7 @@ class EB_ScaLAPACK(CMakeMake):
 
         # use CMake for recent versions, but only if CMake is listed as a build dep
         if self.use_cmake:
-            super(EB_ScaLAPACK, self).configure_step()
+            super().configure_step()
         else:
             src = os.path.join(self.cfg['start_dir'], 'SLmake.inc.example')
             dest = os.path.join(self.cfg['start_dir'], 'SLmake.inc')
@@ -196,13 +196,13 @@ class EB_ScaLAPACK(CMakeMake):
         if not self.use_cmake:
             self.build_libscalapack_make()
 
-        super(EB_ScaLAPACK, self).build_step()
+        super().build_step()
 
     def install_step(self):
         """Install by copying files to install dir."""
 
         if self.use_cmake:
-            super(EB_ScaLAPACK, self).install_step()
+            super().install_step()
         else:
             # 'manually' install ScaLAPACK by copying headers and libraries if we're not using CMake
             path_info = [
@@ -222,7 +222,7 @@ class EB_ScaLAPACK(CMakeMake):
         """
         List of shared libraries which are not allowed to be linked in any installed binary/library.
         """
-        res = super(EB_ScaLAPACK, self).banned_linked_shared_libs()
+        res = super().banned_linked_shared_libs()
 
         # register FlexiBLAS backends as banned libraries,
         # ScaLAPACK should not be linking to those directly
@@ -239,4 +239,4 @@ class EB_ScaLAPACK(CMakeMake):
             'dirs': []
         }
 
-        super(EB_ScaLAPACK, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

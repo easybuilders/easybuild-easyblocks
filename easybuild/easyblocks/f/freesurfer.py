@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -49,12 +49,12 @@ class EB_FreeSurfer(Tarball):
 
     def install_step(self):
         """Custom installation procedure for FreeSurfer, which includes installed the license file '.license'."""
-        super(EB_FreeSurfer, self).install_step()
+        super().install_step()
         write_file(os.path.join(self.installdir, '.license'), self.cfg['license_text'])
 
     def __init__(self, *args, **kwargs):
         """Custom constructor for FLUENT easyblock, initialize/define class parameters."""
-        super(EB_FreeSurfer, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.module_load_environment.PATH.extend([
             os.path.join('fsfast', 'bin'),
@@ -63,7 +63,7 @@ class EB_FreeSurfer(Tarball):
 
     def make_module_extra(self):
         """Define FreeSurfer-specific environment variable in generated module file."""
-        txt = super(EB_FreeSurfer, self).make_module_extra()
+        txt = super().make_module_extra()
 
         freesurfer_vars = {
             'FMRI_ANALYSIS_DIR': os.path.join(self.installdir, 'fsfast'),
@@ -99,4 +99,4 @@ class EB_FreeSurfer(Tarball):
         if LooseVersion(self.version) >= LooseVersion("7.2"):
             custom_commands.append('checkMCR.sh')
 
-        super(EB_FreeSurfer, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

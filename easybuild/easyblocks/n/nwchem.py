@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -50,7 +50,7 @@ class EB_NWChem(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for NWChem."""
-        super(EB_NWChem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.test_cases_dir = None
         # path for symlink to local copy of default .nwchemrc, required by NWChem at runtime
@@ -268,7 +268,7 @@ class EB_NWChem(ConfigureMake):
         cmd = "make %s nwchem_config" % self.cfg['buildopts']
         run_shell_cmd(cmd)
 
-    def build_step(self):
+    def build_step(self, *args, **kwargs):
         """Custom build procedure for NWChem."""
 
         # set FC
@@ -290,7 +290,7 @@ class EB_NWChem(ConfigureMake):
             os.unsetenv(var)
             os.environ.pop(var)
 
-        super(EB_NWChem, self).build_step(verbose=True)
+        super().build_step(*args, **kwargs)
 
         # build version info
         try:
@@ -371,12 +371,12 @@ class EB_NWChem(ConfigureMake):
             'dirs': [os.path.join('data', x) for x in ['amber_q', 'amber_s', 'amber_t', 'amber_u', 'amber_x',
                                                        'charmm_s', 'charmm_x', 'solvents', 'libraries', 'libraryps']],
         }
-        super(EB_NWChem, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Custom extra module file entries for NWChem."""
 
-        txt = super(EB_NWChem, self).make_module_extra()
+        txt = super().make_module_extra()
 
         # check whether Python module is loaded for compatibility with --module-only
         python = get_software_root('Python')

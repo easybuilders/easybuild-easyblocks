@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -60,7 +60,7 @@ class EB_ABAQUS(Binary):
 
     def __init__(self, *args, **kwargs):
         """Initialisation of custom class variables for ABAQUS."""
-        super(EB_ABAQUS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.replayfile = None
 
         if self.cfg['with_tosca'] is None and LooseVersion(self.version) >= LooseVersion('2020'):
@@ -199,6 +199,7 @@ class EB_ABAQUS(Binary):
                 (r"License Server . \(redundant\)\s*(\n.*){3}:", ''),
                 (r"License Server Configuration((?!___).*\n)*?" + nextstr, ''),
                 (r"Please choose an action:", '1'),
+                (r"Choose an action:", '1'),
             ])
 
             if LooseVersion(self.version) >= LooseVersion('2022') and installed_docs:
@@ -222,7 +223,7 @@ class EB_ABAQUS(Binary):
                 self.cfg['install_cmd'] += " -replay %s" % self.replayfile
                 if LooseVersion(self.version) < LooseVersion("6.13"):
                     self.cfg['install_cmd'] += " -nosystemcheck"
-            super(EB_ABAQUS, self).install_step()
+            super().install_step()
 
         if LooseVersion(self.version) >= LooseVersion('2016'):
             # also install hot fixes (if any)
@@ -306,6 +307,8 @@ class EB_ABAQUS(Binary):
                     qa = [
                         (r"Enter selection \(default: Next\):", ''),
                         (r"Choose the .*installation directory.*\n.*\n\n.*:", os.path.join(self.installdir, 'cae')),
+                        (r"Actions:", ''),
+                        (r"Choose an action:", '1'),
                         (r"Enter selection \(default: Install\):", ''),
                         (r"The Abaqus commands directory.*:\n.*\n+Actions:\n.*\n_+\n\nPlease.*:", '1'),
                         (r"Enter selection \(default: Close\):", ''),
@@ -357,13 +360,13 @@ class EB_ABAQUS(Binary):
         if self.cfg['with_tosca']:
             custom_commands.append("ToscaPython.sh --help")
 
-        super(EB_ABAQUS, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Add LM_LICENSE_FILE path if specified"""
-        txt = super(EB_ABAQUS, self).make_module_extra()
+        txt = super().make_module_extra()
         license_file = os.getenv('EB_ABAQUS_LICENSE_FILE', None)
         if license_file is not None:
-            txt += self.module_generator.prepend_paths('ABAQUSLM_LICENSE_FILE', [license_file], allow_abs=True)
+            txt += self.module_generator.prepend_paths('LM_LICENSE_FILE', [license_file], allow_abs=True)
 
         return txt

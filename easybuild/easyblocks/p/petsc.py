@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -75,7 +75,7 @@ class EB_PETSc(ConfigureMake):
 
     def __init__(self, *args, **kwargs):
         """Initialize PETSc specific variables."""
-        super(EB_PETSc, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if LooseVersion(self.version) < LooseVersion("3.9"):
             raise EasyBuildError(
@@ -144,11 +144,11 @@ class EB_PETSc(ConfigureMake):
     def prepare_step(self, *args, **kwargs):
         """Prepare build environment."""
 
-        super(EB_PETSc, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
         # build with Python support if Python is loaded as a non-build (runtime) dependency
-        build_deps = self.cfg.dependencies(build_only=True)
-        if get_software_root('Python') and not any(x['name'] == 'Python' for x in build_deps):
+        runtime_dep_names = self.cfg.dependency_names(runtime_only=True)
+        if get_software_root('Python') and 'Python' in runtime_dep_names:
             self.with_python = True
             self.module_load_environment.PYTHONPATH = self.bin_dir
             self.log.info("Python included as runtime dependency, so enabling Python support")
@@ -181,9 +181,9 @@ class EB_PETSc(ConfigureMake):
         # Don't build with MPI c++ bindings as this leads to a hard dependency
         # on libmpi and libmpi_cxx even for C code and non-MPI code
         cxxflags = os.getenv('CXXFLAGS') + ' ' + NO_MPI_CXX_EXT_FLAGS
-        self.cfg.update('configopts', '--CFLAGS="%s"' % os.getenv('CFLAGS'))
-        self.cfg.update('configopts', '--CXXFLAGS="%s"' % cxxflags)
-        self.cfg.update('configopts', '--FFLAGS="%s"' % os.getenv('F90FLAGS'))
+        self.cfg.update('configopts', '--COPTFLAGS="%s"' % os.getenv('CFLAGS'))
+        self.cfg.update('configopts', '--CXXOPTFLAGS="%s"' % cxxflags)
+        self.cfg.update('configopts', '--FOPTFLAGS="%s"' % os.getenv('F90FLAGS'))
 
         if not self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
             self.cfg.update('configopts', '--with-gnu-compilers=0')
@@ -251,24 +251,17 @@ class EB_PETSc(ConfigureMake):
         else:
             raise EasyBuildError("One or more environment variables for BLAS/LAPACK not defined?")
 
-        # additional dependencies
-        # filter out deps handled seperately
-        sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy',
-                    'mpi4py', 'papi', 'ScaLAPACK', 'SciPy-bundle', 'SuiteSparse']
-        # SCOTCH has to be treated separately since they add weird postfixes
-        # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
-        if (LooseVersion(self.version) >= LooseVersion("3.17")):
-            sep_deps.append('SCOTCH')
-        depfilter = [d['name'] for d in self.cfg.builddependencies()] + sep_deps
+        # additional dependencies with generic options --with-xxx and --with-xxx-dir
+        # filter out deps already handled seperately
+        sep_deps = ['BLACS', 'BLAS', 'CMake', 'FFTW', 'LAPACK', 'numpy', 'mpi4py',
+                    'papi', 'ScaLAPACK', 'SciPy-bundle', 'SCOTCH', 'SuiteSparse']
 
-        deps = [dep['name'] for dep in self.cfg.dependencies() if not dep['name'] in depfilter]
-        for dep in deps:
+        for dep in (name for name in self.cfg.dependency_names(runtime_only=True) if name not in sep_deps):
             if isinstance(dep, str):
                 dep = (dep, dep)
             deproot = get_software_root(dep[0])
-            if deproot and dep[1] == "SCOTCH":
-                withdep = "--with-pt%s" % dep[1].lower()  # --with-ptscotch
-                self.cfg.update('configopts', '%s=1 %s-dir=%s' % (withdep, withdep, deproot))
+            withdep = "--with-%s" % dep[1].lower()
+            self.cfg.update('configopts', '%s=1 %s-dir=%s' % (withdep, withdep, deproot))
 
         # SCOTCH has to be treated separately since they add weird postfixes
         # to library names from SCOTCH 7.0.1 or PETSc version 3.17.
@@ -285,8 +278,12 @@ class EB_PETSc(ConfigureMake):
             req_scotch_libs = ['libptesmumps.a', 'libptscotchparmetisv3.a', 'libptscotch.a',
                                'libptscotcherr.a', 'libesmumps.a', 'libscotch.a', 'libscotcherr.a']
             scotch_libs = [os.path.join(scotch, "lib", x) for x in req_scotch_libs]
-            lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
-            self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
+            if (LooseVersion(self.version) >= LooseVersion("3.17")):
+                lib_spec = "-lib=[%s]" % ','.join(scotch_libs)
+                self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', inc_spec, lib_spec]]))
+            else:
+                dir_spec = "-dir=%s" % scotch
+                self.cfg.update('configopts', ' '.join([withdep + spec for spec in ['=1', dir_spec]]))
 
         # SuiteSparse options
         suitesparse = get_software_root('SuiteSparse')
@@ -331,7 +328,7 @@ class EB_PETSc(ConfigureMake):
             res = run_shell_cmd(cmd)
             out = res.output
         else:
-            out = super(EB_PETSc, self).configure_step()
+            out = super().configure_step()
 
         # check for errors in configure
         error_regexp = re.compile("ERROR")
@@ -384,7 +381,7 @@ class EB_PETSc(ConfigureMake):
         Install using make install (for non-source installations)
         """
         if not self.cfg['sourceinstall']:
-            super(EB_PETSc, self).install_step()
+            super().install_step()
 
         # Remove MPI-CXX flags added during configure to prevent them from being passed to consumers of PETsc
         petsc_variables_path = os.path.join(self.petsc_root, 'lib', 'petsc', 'conf', 'petscvariables')
@@ -395,7 +392,7 @@ class EB_PETSc(ConfigureMake):
 
     def make_module_extra(self):
         """Set PETSc specific environment variables (PETSC_DIR, PETSC_ARCH)."""
-        txt = super(EB_PETSc, self).make_module_extra()
+        txt = super().make_module_extra()
 
         txt += self.module_generator.set_environment('PETSC_DIR', self.petsc_root)
         if self.cfg['sourceinstall']:
@@ -428,4 +425,4 @@ class EB_PETSc(ConfigureMake):
         if self.with_python:
             custom_commands.append("python -m PetscBinaryIO --help")
 
-        super(EB_PETSc, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

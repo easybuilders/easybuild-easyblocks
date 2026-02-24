@@ -1,5 +1,5 @@
 # #
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -65,7 +65,7 @@ class EB_icc(IntelBase):
 
     def __init__(self, *args, **kwargs):
         """Constructor, initialize class variables."""
-        super(EB_icc, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.comp_libs_subdir = ""
 
@@ -183,7 +183,7 @@ class EB_icc(IntelBase):
 
         custom_commands = ["which icc"]
 
-        super(EB_icc, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_step(self, *args, **kwargs):
         """
@@ -198,7 +198,7 @@ class EB_icc(IntelBase):
 
     def make_module_extra(self, *args, **kwargs):
         """Additional custom variables for icc: $INTEL_PYTHONHOME."""
-        txt = super(EB_icc, self).make_module_extra(*args, **kwargs)
+        txt = super().make_module_extra(*args, **kwargs)
 
         intel_pythonhome = os.path.join(self.installdir, self.debuggerpath, 'python', 'intel64')
         if os.path.isdir(intel_pythonhome):

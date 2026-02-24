@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,7 +42,7 @@ class EB_VEP(EasyBlock):
 
     def __init__(self, *args, **kwargs):
         """VEP easyblock constructor."""
-        super(EB_VEP, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.build_in_installdir = True
         self.cfg['unpack_options'] = "--strip-components=1"
@@ -145,7 +145,7 @@ class EB_VEP(EasyBlock):
 
         custom_commands = ['vep --help']
 
-        super(EB_VEP, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_step(self, *args, **kwargs):
         """Custom guesses for environment variables (PATH, ...) for VEP."""
@@ -159,4 +159,4 @@ class EB_VEP(EasyBlock):
         self.module_load_environment.PATH = ''
         setattr(self.module_load_environment, f'PERL{perl_majver}LIB', perl_libpath)
 
-        return super(EB_VEP, self).make_module_step(*args, **kwargs)
+        return super().make_module_step(*args, **kwargs)

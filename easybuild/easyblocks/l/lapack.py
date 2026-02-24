@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -159,7 +159,7 @@ class EB_LAPACK(ConfigureMake):
 
         else:
             # default make suffices (for now)
-            super(EB_LAPACK, self).build_step()
+            super().build_step()
 
     def install_step(self):
         """
@@ -196,7 +196,7 @@ class EB_LAPACK(ConfigureMake):
     def load_module(self, *args, **kwargs):
         """Don't try to load (non-existing) LAPACK module when performing a test build."""
         if not self.cfg['test_only']:
-            super(EB_LAPACK, self).load_module(*args, **kwargs)
+            super().load_module(*args, **kwargs)
 
     def test_step(self):
         """
@@ -217,7 +217,7 @@ class EB_LAPACK(ConfigureMake):
                 cmd = "make BLASLIB='%s' %s_testing" % (blaslib, lib)
                 run_shell_cmd(cmd)
         else:
-            super(EB_LAPACK, self).test_step()
+            super().test_step()
 
     # don't create a module if we're only testing
     def make_module_step(self, fake=False):
@@ -227,7 +227,7 @@ class EB_LAPACK(ConfigureMake):
         if self.cfg['test_only']:
             pass
         else:
-            return super(EB_LAPACK, self).make_module_step(fake)
+            return super().make_module_step(fake)
 
     def sanity_check_step(self):
         """
@@ -239,4 +239,4 @@ class EB_LAPACK(ConfigureMake):
                 'dirs': []
             }
 
-            super(EB_LAPACK, self).sanity_check_step(custom_paths=custom_paths)
+            super().sanity_check_step(custom_paths=custom_paths)

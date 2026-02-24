@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -95,4 +95,4 @@ class EB_CBLAS(ConfigureMake):
             'files': ['lib/libcblas.a', 'lib/libcblas.%s' % get_shared_lib_ext()],
             'dirs': ['include'],
         }
-        super(EB_CBLAS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

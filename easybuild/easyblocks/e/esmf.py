@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2025 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -131,7 +131,7 @@ class EB_ESMF(ConfigureMake):
 
     def install_step(self):
         # first, install the software
-        super(EB_ESMF, self).install_step()
+        super().install_step()
 
         python = get_software_version('Python')
         if python:
@@ -149,7 +149,7 @@ class EB_ESMF(ConfigureMake):
 
     def make_module_extra(self):
         """Set $ESMFMKFILE environment variable"""
-        txt = super(EB_ESMF, self).make_module_extra()
+        txt = super().make_module_extra()
 
         # set environment variable ESMFMKFILE
         # see section 9.9 in https://earthsystemmodeling.org/docs/release/latest/ESMF_usrdoc/node10.html
@@ -178,4 +178,4 @@ class EB_ESMF(ConfigureMake):
         if get_software_root('Python'):
             custom_commands += ["python -c 'import ESMF'"]
 
-        super(EB_ESMF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)

@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2025 Ghent University
+# Copyright 2012-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,18 +37,18 @@ Ref: https://speakerdeck.com/ajdecon/introduction-to-the-cuda-toolkit-for-buildi
 import os
 import re
 import stat
+from glob import glob
 
-from easybuild.tools import LooseVersion
-
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import IGNORE
 from easybuild.tools.filetools import adjust_permissions, change_dir, copy_dir, expand_glob_paths
 from easybuild.tools.filetools import patch_perl_script_autoflush, remove_file, symlink, which, write_file
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64, get_cpu_architecture, get_shared_lib_ext
-import easybuild.tools.environment as env
 
 # Wrapper script definition
 WRAPPER_TEMPLATE = """#!/bin/sh
@@ -87,7 +87,7 @@ class EB_CUDA(Binary):
         else:
             raise EasyBuildError("Architecture %s is not supported for CUDA on EasyBuild", myarch)
 
-        super(EB_CUDA, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.cfg.template_values['cudaarch'] = cudaarch
         self.cfg.generate_template_values()
@@ -122,7 +122,7 @@ class EB_CUDA(Binary):
             name='CUDA',
             more_info='https://docs.nvidia.com/cuda/eula/index.html'
         )
-        return super(EB_CUDA, self).fetch_step(*args, **kwargs)
+        return super().fetch_step(*args, **kwargs)
 
     def extract_step(self):
         """Extract installer to have more control, e.g. options, patching Perl scripts, etc."""
@@ -310,7 +310,20 @@ class EB_CUDA(Binary):
                 symlink(pc_file, link, use_abspath_source=False)
             change_dir(cwd)
 
-        super(EB_CUDA, self).post_processing_step()
+        # symlink CUPTI in standard location under CUDA_ROOT
+        # some software expects it there regardless of what we add in search paths
+        # see https://github.com/easybuilders/easybuild-easyconfigs/pull/22921
+        cupti_dir = os.path.join(self.installdir, 'extras', 'CUPTI')
+        if os.path.isdir(cupti_dir):
+            for cupti_subdir in ['include', 'lib64']:
+                cupti_target_dir = os.path.join(self.installdir, cupti_subdir)
+                cwd = change_dir(cupti_target_dir)
+                for cupti_file in glob(os.path.join(cupti_dir, cupti_subdir, '*')):
+                    cupti_link_src = os.path.relpath(os.path.realpath(cupti_file), os.path.realpath(cupti_target_dir))
+                    symlink(cupti_link_src, os.path.basename(cupti_file), use_abspath_source=False)
+                change_dir(cwd)
+
+        super().post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for CUDA."""
@@ -340,7 +353,7 @@ class EB_CUDA(Binary):
             pc_files = ['cublas.pc', 'cudart.pc', 'cuda.pc']
             custom_paths['files'].extend(os.path.join('pkgconfig', x) for x in pc_files)
 
-        super(EB_CUDA, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
 
     def make_module_extra(self):
         """Set the install directory as CUDA_HOME, CUDA_ROOT, CUDA_PATH."""
@@ -350,7 +363,7 @@ class EB_CUDA(Binary):
         # (like compute-sanitizer)
         self.cfg['prepend_to_path'] = False
 
-        txt = super(EB_CUDA, self).make_module_extra()
+        txt = super().make_module_extra()
         txt += self.module_generator.set_environment('CUDA_HOME', self.installdir)
         txt += self.module_generator.set_environment('CUDA_ROOT', self.installdir)
         txt += self.module_generator.set_environment('CUDA_PATH', self.installdir)

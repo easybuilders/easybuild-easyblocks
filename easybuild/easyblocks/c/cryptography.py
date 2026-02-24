@@ -1,5 +1,5 @@
 ##
-# Copyright 2017-2025 Ghent University
+# Copyright 2017-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ class EB_cryptography(PythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Initialize cryptography easyblock."""
-        super(EB_cryptography, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # cryptography compiles a library using pthreads but does not link against it
         # which causes 'undefined symbol: pthread_atfork'
@@ -53,7 +53,7 @@ class EB_cryptography(PythonPackage):
 
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check"""
-        success, fail_msg = super(EB_cryptography, self).sanity_check_step(*args, **kwargs)
+        success, fail_msg = super().sanity_check_step(*args, **kwargs)
         if success:
             # Check module added in v0.7 leading to issue #9446 (see above)
             if LooseVersion(self.version) >= LooseVersion("0.7"):

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -51,7 +51,7 @@ class OctavePackage(ExtensionEasyBlock):
         # and create a temporary tarball to use for installation
         if self.patches:
             # call out to ExtensionEasyBlock to unpack & apply patches
-            super(OctavePackage, self).install_extension(unpack_src=True)
+            super().install_extension(unpack_src=True)
 
             # create temporary tarball from unpacked & patched source
             src = os.path.join(tempfile.gettempdir(), '%s-%s-patched.tar.gz' % (self.name, self.version))

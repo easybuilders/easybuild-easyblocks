@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -47,12 +47,6 @@ from easybuild.tools.systemtools import get_shared_lib_ext
 class EB_netCDF(CMakeMake):
     """Support for building/installing netCDF"""
 
-    @staticmethod
-    def extra_options():
-        extra_vars = CMakeMake.extra_options()
-        extra_vars['separate_build_dir'][0] = True
-        return extra_vars
-
     def configure_step(self):
         """Configure build: set config options and configure"""
 
@@ -69,7 +63,7 @@ class EB_netCDF(CMakeMake):
 
             # add -DgFortran to CPPFLAGS when building with GCC
             if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
-                self.cfg.update('configopts', 'CPPFLAGS="%s -DgFortran"' % os.getenv('CPPFLAGS'))
+                self.cfg.update('configopts', 'CPPFLAGS="%s -DgFortran"' % os.getenv('CPPFLAGS', ''))
 
             ConfigureMake.configure_step(self)
 
@@ -146,7 +140,7 @@ class EB_netCDF(CMakeMake):
             "ncgen -h" if LooseVersion(self.version) > LooseVersion("4.6.1") else "ncgen -H",
         ]
 
-        super(EB_netCDF, self).sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
+        super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
 
 def set_netcdf_env_vars(log):

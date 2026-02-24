@@ -44,7 +44,7 @@ class EB_MetalWalls(MakeCp):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to `metalwalls`."""
-        super(EB_MetalWalls, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self._build_python_interface = False
         self._extra_schecks = []
@@ -78,11 +78,12 @@ class EB_MetalWalls(MakeCp):
         # https://gitlab.com/ampere2/metalwalls/-/wikis/install#plumed
         plumed = get_software_root('PLUMED')
         f90wrap = get_software_root('f90wrap')
-        f90wrap_version = get_software_version('f90wrap')
 
         if LooseVersion(self.version) <= LooseVersion('21.06.1'):
-            if LooseVersion(f90wrap_version) > LooseVersion('0.2.13'):
-                raise EasyBuildError('MetalWalls version %s requires f90wrap <= 0.2.13' % self.version)
+            if f90wrap:
+                f90wrap_version = get_software_version('f90wrap')
+                if LooseVersion(f90wrap_version) > LooseVersion('0.2.13'):
+                    raise EasyBuildError('MetalWalls version %s requires f90wrap <= 0.2.13' % self.version)
 
         tpl_rgx = 'alltests\\.append(suite_%s)'
         if plumed:
@@ -149,12 +150,12 @@ class EB_MetalWalls(MakeCp):
             self.log.info('Setting PYTHONPATH for testing to %s' % ppath)
             env.setvar('PYTHONPATH', ppath)
 
-        super(EB_MetalWalls, self).test_step()
+        super().test_step()
 
     def make_module_extra(self, extra=None):
         """Add custom entries to module."""
 
-        txt = super(EB_MetalWalls, self).make_module_extra()
+        txt = super().make_module_extra()
 
         if self._build_python_interface:
             txt += self.module_generator.prepend_paths('PYTHONPATH', 'python')
@@ -171,4 +172,4 @@ class EB_MetalWalls(MakeCp):
             'dirs': []
         }
 
-        super(EB_MetalWalls, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

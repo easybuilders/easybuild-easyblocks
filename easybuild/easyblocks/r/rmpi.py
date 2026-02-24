@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -72,7 +72,7 @@ class EB_Rmpi(RPackage):
         """
         self.prepare_rmpi_configureargs()
         # it might be needed to get the R cmd and run it with mympirun...
-        super(EB_Rmpi, self).install_extension()
+        super().install_extension()
 
     def install_extension_async(self, *args, **kwargs):
         """
@@ -80,4 +80,4 @@ class EB_Rmpi(RPackage):
         """
         self.prepare_rmpi_configureargs()
         # it might be needed to get the R cmd and run it with mympirun...
-        return super(EB_Rmpi, self).install_extension_async(*args, **kwargs)
+        return super().install_extension_async(*args, **kwargs)

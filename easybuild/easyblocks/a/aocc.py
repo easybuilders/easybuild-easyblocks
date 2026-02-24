@@ -1,5 +1,5 @@
 ##
-# Copyright 2020-2025 Forschungszentrum Juelich GmbH
+# Copyright 2020-2026 Forschungszentrum Juelich GmbH
 #
 # This file is triple-licensed under GPLv2 (see below), MIT, and
 # BSD three-clause licenses.
@@ -80,7 +80,7 @@ class EB_AOCC(PackedBinary):
 
     def __init__(self, *args, **kwargs):
         """Easyblock constructor, define custom class variables specific to AOCC."""
-        super(EB_AOCC, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.clangversion = self.cfg['clangversion']
         # AOCC is based on Clang. Try to guess the clangversion from the AOCC version
@@ -209,7 +209,7 @@ class EB_AOCC(PackedBinary):
         # or via 'accept_eula = True' in easyconfig file
         self.check_accepted_eula(more_info='http://developer.amd.com/wordpress/media/files/AOCC_EULA.pdf')
 
-        super(EB_AOCC, self).install_step()
+        super().install_step()
 
     def post_processing_step(self):
         """
@@ -245,7 +245,7 @@ class EB_AOCC(PackedBinary):
 
         self._create_compiler_config_files(compilers_to_add_config_files)
         self._create_compiler_wrappers(compilers_to_wrap)
-        super(EB_AOCC, self).post_processing_step()
+        super().post_processing_step()
 
     def sanity_check_step(self):
         """Custom sanity check for AOCC, based on sanity check for Clang."""
@@ -288,11 +288,11 @@ class EB_AOCC(PackedBinary):
         minimal_f90_compiler_cmd = "cd %s && flang minimal.f90 -o minimal_f90" % tmpdir
         custom_commands.append(minimal_f90_compiler_cmd)
 
-        super(EB_AOCC, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
     def make_module_extra(self):
         """Custom variables for AOCC module."""
-        txt = super(EB_AOCC, self).make_module_extra()
+        txt = super().make_module_extra()
         # we set the symbolizer path so that asan/tsan give meanfull output by default
         asan_symbolizer_path = os.path.join(self.installdir, 'bin', 'llvm-symbolizer')
         txt += self.module_generator.set_environment('ASAN_SYMBOLIZER_PATH', asan_symbolizer_path)
