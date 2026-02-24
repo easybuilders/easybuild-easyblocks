@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -139,6 +139,8 @@ class EB_Boost(EasyBlock):
                 toolset = 'intel-linux'
             elif self.toolchain.comp_family() == toolchain.GCC:
                 toolset = 'gcc'
+            elif self.toolchain.comp_family() == toolchain.LLVM:
+                toolset = 'clang'
             else:
                 raise EasyBuildError("Unknown compiler used, don't know what to specify to --with-toolset, aborting.")
 

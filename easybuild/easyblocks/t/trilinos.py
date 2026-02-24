@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -96,13 +96,20 @@ class EB_Trilinos(CMakeMake):
         self.cfg.update('configopts', '-DCMAKE_Fortran_FLAGS="%s"' % ' '.join(fflags))
 
         # Make sure Tpetra/Kokkos Serial mode is enabled regardless of OpenMP
-        self.cfg.update('configopts', "-DKokkos_ENABLE_Serial:BOOL=ON")
+        if LooseVersion(self.version) >= LooseVersion('16.1'):
+            self.cfg.update('configopts', "-DKokkos_ENABLE_SERIAL:BOOL=ON")
+        else:
+            self.cfg.update('configopts', "-DKokkos_ENABLE_Serial:BOOL=ON")
+
         self.cfg.update('configopts', "-DTpetra_INST_SERIAL:BOOL=ON")
 
         # OpenMP
         if self.cfg['openmp']:
             self.cfg.update('configopts', "-DTrilinos_ENABLE_OpenMP:BOOL=ON")
-            self.cfg.update('configopts', "-DKokkos_ENABLE_OpenMP:BOOL=ON")
+            if LooseVersion(self.version) >= LooseVersion('16.1'):
+                self.cfg.update('configopts', "-DKokkos_ENABLE_OPENMP:BOOL=ON")
+            else:
+                self.cfg.update('configopts', "-DKokkos_ENABLE_OpenMP:BOOL=ON")
 
         # MPI
         if self.toolchain.options.get('usempi', None):
@@ -265,10 +272,11 @@ class EB_Trilinos(CMakeMake):
 
         # selection of libraries
         libs = ["Amesos", "Anasazi", "AztecOO", "Belos", "Epetra", "Galeri",
-                "GlobiPack", "Ifpack", "Intrepid", "Isorropia", "Kokkos",
-                "Komplex", "LOCA", "Mesquite", "ML", "Moertel", "MOOCHO", "NOX",
-                "Pamgen", "RTOp", "Rythmos", "Sacado", "Shards", "Stratimikos",
-                "Teuchos", "Tpetra", "Triutils", "Zoltan"]
+                "GlobiPack", "Ifpack", "Isorropia", "Kokkos", "LOCA", "Mesquite",
+                "MOOCHO", "NOX", "Pamgen", "RTOp", "Sacado", "Shards",
+                "Stratimikos", "Teuchos", "Tpetra", "Triutils", "Zoltan"]
+        if LooseVersion(self.version) < LooseVersion('16.1'):
+            libs = sorted(libs + ["Intrepid", "Komplex", "ML", "Moertel", "Rythmos"])
 
         libs = [x for x in libs if x not in self.cfg['skip_exts']]
 
