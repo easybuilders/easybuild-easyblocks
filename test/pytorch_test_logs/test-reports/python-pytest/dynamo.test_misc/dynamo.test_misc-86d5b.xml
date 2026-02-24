@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="1" skipped="2" tests="34" time="4.2">
+    <testcase classname="MiscTests" name="test_pytree_tree_map" time="4.2" file="dynamo/test_misc.py"/>
+    <testcase classname="MiscTests" name="test_shape_env_no_recording" time="4.2" file="dynamo/test_misc.py"/>
+    <testcase classname="MiscTests" name="test_shape_env_recorded_function_fallback" time="4.2" file="dynamo/test_misc.py"/>
+    <testcase classname="MiscTests" name="test_param_shape_binops" time="4.2" file="dynamo/test_misc.py"/>
+    <testcase classname="MiscTests" name="test_yield_from_in_a_loop" time="4.2" file="dynamo/test_misc.py"/>
+    <testcase classname="MiscTests" name="test_parameter_free" time="4.2" file="dynamo/test_misc.py">
+      <rerun message="...">[snip]</rerun>
+      <failure message="...">[snip]</failure>
+    </testcase>
+    <testcase classname="TestTracer" name="test_jit_save" time="4.2" file="dynamo/test_misc.py"/>
+    <testcase classname="TestCustomFunction" name="test_autograd_function_with_matmul_folding_at_output" time="4.2" file="dynamo/test_misc.py"/>
+  </testsuite>
+</testsuites>

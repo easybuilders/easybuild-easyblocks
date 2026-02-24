@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2025 Ghent University
+# Copyright 2012-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -207,8 +207,13 @@ class EB_Java(PackedBinary):
 
     def make_module_extra(self):
         """
-        Set $JAVA_HOME to installation directory
+        Set extra environment variables on module load
         """
         txt = super().make_module_extra()
+        # set $JAVA_HOME to installation directory
         txt += self.module_generator.set_environment('JAVA_HOME', self.installdir)
+        # disable signal catching in UCX, as it conflicts with JVM triggering segfaults
+        # see https://github.com/openucx/ucx/issues/4870
+        txt += self.module_generator.set_environment('UCX_ERROR_SIGNALS', '')
+
         return txt

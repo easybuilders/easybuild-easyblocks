@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -37,7 +37,7 @@ class EB_GHC(ConfigureMake):
     Support for building and installing applications with configure/make/make install
     """
 
-    def build_step(self, verbose=False):
+    def build_step(self, *args, **kwargs):
         """
         Support for a binary 6.12.x installation. Starting there,
         later GHC versions are build from source and thus require
@@ -46,4 +46,4 @@ class EB_GHC(ConfigureMake):
         if LooseVersion(self.version) < LooseVersion("7.0"):
             pass
         else:
-            super().build_step(verbose=verbose)
+            super().build_step(*args, **kwargs)

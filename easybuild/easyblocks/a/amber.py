@@ -1,6 +1,6 @@
 ##
-# Copyright 2009-2025 Ghent University
-# Copyright 2015-2025 Stanford University
+# Copyright 2009-2026 Ghent University
+# Copyright 2015-2026 Stanford University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,9 +40,10 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.filetools import remove_dir, which
+from easybuild.tools.systemtools import get_shared_lib_ext
 
 
 class EB_Amber(CMakeMake):
@@ -88,35 +89,37 @@ class EB_Amber(CMakeMake):
     def patch_step(self, *args, **kwargs):
         """Patch Amber using 'update_amber' tool, prior to applying listed patch files (if any)."""
 
-        # figure out which Python command to use to run the update_amber script;
-        # by default it uses 'python', but this may not be available (on CentOS 8 for example);
-        # note that the dependencies are not loaded yet at this point, so we're at the mercy of the OS here...
-        python_cmd = None
-        for cand_python_cmd in ['python', 'python3', 'python2']:
-            if which(cand_python_cmd):
-                python_cmd = cand_python_cmd
-                break
+        # Use the update_amber script if patchlevels is defined - if not then the easyconfig should apply the patches
+        if self.cfg['patchlevels']:
+            # figure out which Python command to use to run the update_amber script;
+            # by default it uses 'python', but this may not be available (on CentOS 8 for example);
+            # note that the dependencies are not loaded yet at this point, so we're at the mercy of the OS here...
+            python_cmd = None
+            for cand_python_cmd in ['python', 'python3', 'python2']:
+                if which(cand_python_cmd):
+                    python_cmd = cand_python_cmd
+                    break
 
-        if python_cmd is None:
-            raise EasyBuildError("No suitable Python command found to run update_amber script!")
+            if python_cmd is None:
+                raise EasyBuildError("No suitable Python command found to run update_amber script!")
 
-        if self.cfg['patchlevels'] == "latest":
-            cmd = "%s ./update_amber --update" % python_cmd
-            # Run as many times as specified. It is the responsibility
-            # of the easyconfig author to get this right, especially if
-            # he or she selects "latest". (Note: "latest" is not
-            # recommended for this reason and others.)
-            for _ in range(self.cfg['patchruns']):
-                run_shell_cmd(cmd)
-        else:
-            for (tree, patch_level) in zip(['AmberTools', 'Amber'], self.cfg['patchlevels']):
-                if patch_level == 0:
-                    continue
-                cmd = "%s ./update_amber --update-to %s/%s" % (python_cmd, tree, patch_level)
+            if self.cfg['patchlevels'] == "latest":
+                cmd = "%s ./update_amber --update" % python_cmd
                 # Run as many times as specified. It is the responsibility
-                # of the easyconfig author to get this right.
+                # of the easyconfig author to get this right, especially if
+                # he or she selects "latest". (Note: "latest" is not
+                # recommended for this reason and others.)
                 for _ in range(self.cfg['patchruns']):
                     run_shell_cmd(cmd)
+            else:
+                for (tree, patch_level) in zip(['AmberTools', 'Amber'], self.cfg['patchlevels']):
+                    if patch_level == 0:
+                        continue
+                    cmd = "%s ./update_amber --update-to %s/%s" % (python_cmd, tree, patch_level)
+                    # Run as many times as specified. It is the responsibility
+                    # of the easyconfig author to get this right.
+                    for _ in range(self.cfg['patchruns']):
+                        run_shell_cmd(cmd)
 
         super().patch_step(*args, **kwargs)
 
@@ -162,12 +165,24 @@ class EB_Amber(CMakeMake):
 
         pythonroot = get_software_root('Python')
         if pythonroot:
+            version = get_software_version('Python')
+            shlib_ext = get_shared_lib_ext()
             self.cfg.update('configopts', '-DDOWNLOAD_MINICONDA=FALSE')
-            self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s' % os.path.join(pythonroot, 'bin', 'python'))
 
             self.pylibdir = det_pylibdir()
             pythonpath = os.environ.get('PYTHONPATH', '')
             env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
+
+            # AmberTools uses the deprecated FindPythonLibs. Ensure we use the correct library and include dir
+            version_maj_min = '.'.join(version.split('.')[:2])
+            python_library = os.path.join(pythonroot, 'lib', f'libpython{version_maj_min}.{shlib_ext}')
+            python_incdir = os.path.join(pythonroot, 'include', 'python%s' % version_maj_min)
+            if not os.path.isfile(python_library):
+                raise EasyBuildError("Cannot find Python library '%s'!" % python_library)
+            if not os.path.isdir(python_incdir):
+                raise EasyBuildError("Cannot find Python include directory '%s'!" % python_incdir)
+            self.cfg.update('configopts', f'-DPYTHON_LIBRARY={python_library}')
+            self.cfg.update('configopts', f'-DPYTHON_INCLUDE_DIR={python_incdir}')
 
         if get_software_root('FFTW'):
             external_libs_list.append('fftw')
@@ -296,7 +311,8 @@ class EB_Amber(CMakeMake):
             self.with_cuda = True
             build_targets.append(('-cuda', 'test.cuda'))
             if self.with_mpi:
-                build_targets.append(("-cuda %s" % self.mpi_option, 'test.cuda_parallel'))
+                testname = 'test.cuda_parallel' if (LooseVersion(self.version) < '24') else 'test.cuda.parallel'
+                build_targets.append(("-cuda %s" % self.mpi_option, testname))
 
         ld_lib_path = os.environ.get('LD_LIBRARY_PATH', '')
         env.setvar('LD_LIBRARY_PATH', os.pathsep.join([os.path.join(self.installdir, 'lib'), ld_lib_path]))
@@ -327,28 +343,46 @@ class EB_Amber(CMakeMake):
 
         super().install_step()
 
-        # Run the tests located in the build directory
+        # Run the tests
         if self.cfg['runtest']:
-            pretestcommands = 'source %s/amber.sh && cd %s' % (self.installdir, self.builddir)
+            if LooseVersion(self.version) >= LooseVersion('24'):
+                if self.name == 'AmberTools':
+                    testdir = os.path.join(self.builddir, 'AmberTools', 'test')
+                elif self.name == 'Amber':
+                    testdir = os.path.join(self.builddir, 'test')
+                testname_cs = 'test.cuda.serial'
+                testname_cp = 'test.cuda.parallel'
+            else:
+                testdir = self.builddir
+                testname_cs = 'test.cuda_serial'
+                testname_cp = 'test.cuda_parallel'
+            pretestcommands = ' && '.join([
+                'export OMP_NUM_THREADS=1',  # avoid having as many threads as cores
+                'source %s/amber.sh && cd %s' % (self.installdir, testdir)
+            ])
 
             # serial tests
-            run_shell_cmd("%s && make test.serial" % pretestcommands)
+            if LooseVersion(self.version) >= LooseVersion('24'):
+                run_shell_cmd("%s && make test" % pretestcommands)
+            else:
+                run_shell_cmd("%s && make test.serial" % pretestcommands)
             if self.with_cuda:
-                res = run_shell_cmd("%s && make test.cuda_serial" % pretestcommands)
+                res = run_shell_cmd(f"{pretestcommands} && make {testname_cs}")
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
+            # parallel tests
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
-                res = run_shell_cmd("%s && make test.parallel" % pretestcommands)
+                res = run_shell_cmd(f"{pretestcommands} && make test.parallel")
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
             if self.with_mpi and self.with_cuda:
                 # Hard-code CUDA parallel tests to use 2 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 2))
-                res = run_shell_cmd("%s && make test.cuda_parallel" % pretestcommands)
+                res = run_shell_cmd(f"{pretestcommands} && make {testname_cp}")
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda_parallel tests for possible failures")
 
@@ -364,11 +398,15 @@ class EB_Amber(CMakeMake):
                         binaries.append('pmemd.cuda.MPI')
                     else:
                         binaries.append('pmemd.cuda_DPFP.MPI')
+        if self.name == 'AmberTools':
+            binaries.append('gem.pmemd')
 
         if self.with_mpi:
             binaries.extend(['sander.MPI'])
             if self.name == 'Amber':
                 binaries.append('pmemd.MPI')
+            if self.name == 'AmberTools':
+                binaries.append('gem.pmemd.MPI')
 
         custom_paths = {
             'files': [os.path.join(self.installdir, 'bin', binary) for binary in binaries],
