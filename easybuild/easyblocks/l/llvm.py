@@ -615,10 +615,8 @@ class EB_LLVM(CMakeMake):
         # Then, enable runtime targets per accelerator arch
         # Supported options are 'compiler-rt', 'libc', 'openmp', 'libcxx', 'libcxxabi'
         # In LLVM 22, only OpenMP is fully supported, therefore skip remainder
-        per_target_runtimes = ['openmp']
-        for per_target_runtime in per_target_runtimes.copy():
-            if per_target_runtime not in self.final_runtimes:
-                per_target_runtimes.remove(per_target_runtime)
+        per_target_runtimes = {'openmp'}
+        per_target_runtimes &= set(self.final_runtimes)
 
         for target_arch in target_archs:
             self._cmakeopts[f'RUNTIMES_{target_arch}_LLVM_ENABLE_RUNTIMES'] = \
