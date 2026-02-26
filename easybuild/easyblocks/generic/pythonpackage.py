@@ -919,8 +919,10 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
-        # gives CMake a hint for which Python version to use
-        env.setvar("Python3_ROOT_DIR", get_software_root('Python'))
+        # gives CMake a hint for which Python version to use, if a Python dependency is used
+        python_root = get_software_root('Python')
+        if python_root:
+            env.setvar('Python3_ROOT_DIR', python_root)
 
         # creates log entries for python being used, for debugging
         cmd = "%(python)s -V; %(python)s -c 'import sys; print(sys.executable, sys.path)'"
