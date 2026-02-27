@@ -245,7 +245,7 @@ class Cargo(ExtensionEasyBlock):
                     if repo_name.endswith('.git'):
                         repo_name = repo_name[:-4]
                     sources.append({
-                        'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev},
+                        'git_config': {'url': url, 'repo_name': repo_name, 'commit': rev, 'recursive': True},
                         'filename': self.crate_src_filename(crate, version, rev=rev),
                     })
             self.cfg.update('sources', sources)
