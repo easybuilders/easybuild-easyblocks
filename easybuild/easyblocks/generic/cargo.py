@@ -72,14 +72,6 @@ rev = "{rev}"
 replace-with = "vendored-sources"
 """
 
-CONFIG_TOML_SOURCE_GIT_BRANCH = """
-[source."{url}?rev={rev}"]
-git = "{url}"
-rev = "{rev}"
-branch = "{branch}"
-replace-with = "vendored-sources"
-"""
-
 CONFIG_LOCK_SOURCE = """
 [[package]]
 name = "{name}"
@@ -444,15 +436,20 @@ class Cargo(ExtensionEasyBlock):
         # can't checkout from 'https://github.com/[...]]': you are in the offline mode (--offline)
         for (git_repo, rev), src in git_sources.items():
             crate_name = src['crate'][0]
-            git_branch = self._get_crate_git_repo_branch(crate_name)
-            template = CONFIG_TOML_SOURCE_GIT_BRANCH if git_branch else CONFIG_TOML_SOURCE_GIT
-            self.log.debug(f"Writing config.toml entry for git repo: {git_repo} branch {git_branch}, rev {rev}")
-            write_file(config_toml, template.format(url=git_repo, rev=rev, branch=git_branch), append=True)
+            git_refs = self._get_crate_git_repo_refs(crate_name)
+            branch, tag = git_refs.get('branch'), git_refs.get('tag')
+            self.log.debug(f"Writing config.toml entry for git repo {git_repo}: branch {branch}, tag {tag}, rev {rev}")
+            entry = CONFIG_TOML_SOURCE_GIT.format(url=git_repo, rev=rev)
+            if branch:
+                entry += f'\nbranch = "{branch}"'
+            if tag:
+                entry += f'\ntag = "{tag}"'
+            write_file(config_toml, entry, append=True)
 
-    def _get_crate_git_repo_branch(self, crate_name):
+    def _get_crate_git_repo_refs(self, crate_name):
         """
-        Find the dependency definition for given crate in all Cargo.toml files of sources
-        Return branch target for given crate_name if any
+        Find the dependency definitions for the given crate in all Cargo.toml files of sources
+        Return branch and tag if any
         """
         # Search all Cargo.toml files in main source and vendored crates
         cargo_toml_files = []
@@ -467,8 +464,9 @@ class Cargo(ExtensionEasyBlock):
         )
 
         git_repo_spec = re.compile(re.escape(crate_name) + r"\s*=\s*{([^}]*)}", re.M)
-        git_branch_spec = re.compile(r'branch\s*=\s*"([^"]*)"', re.M)
+        git_branch_spec = re.compile(r'(?<ref>branch|tag)\s*=\s*"(?<value>[^"]*)"', re.M)
 
+        found_specs = {}
         for cargo_toml in cargo_toml_files:
             git_repo_crate = git_repo_spec.search(read_file(cargo_toml))
             if git_repo_crate:
@@ -477,11 +475,12 @@ class Cargo(ExtensionEasyBlock):
                 git_repo_crate_contents = git_repo_crate.group(1)
                 git_branch_crate = git_branch_spec.search(git_repo_crate_contents)
                 if git_branch_crate:
-                    self.log.debug(f"Found git branch requirement for crate '{crate_name}': " +
-                                   git_branch_crate.group())
-                    return git_branch_crate.group(1)
+                    ref = git_branch_crate['ref']
+                    value = git_branch_crate['value']
+                    self.log.debug(f"Found git {ref} requirement for crate '{crate_name}': {value}")
+                    found_specs[ref] = value
 
-        return None
+        return found_specs
 
     def prepare_step(self, *args, **kwargs):
         """
