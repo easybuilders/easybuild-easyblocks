@@ -441,9 +441,9 @@ class Cargo(ExtensionEasyBlock):
             self.log.debug(f"Writing config.toml entry for git repo {git_repo}: branch {branch}, tag {tag}, rev {rev}")
             entry = CONFIG_TOML_SOURCE_GIT.format(url=git_repo, rev=rev)
             if branch:
-                entry += f'\nbranch = "{branch}"'
+                entry += f'branch = "{branch}"\n'
             if tag:
-                entry += f'\ntag = "{tag}"'
+                entry += f'tag = "{tag}"\n'
             write_file(config_toml, entry, append=True)
 
     def _get_crate_git_repo_refs(self, crate_name):
