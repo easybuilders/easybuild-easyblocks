@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -333,7 +333,7 @@ class CMakeMake(ConfigureMake):
 
         # If the cache does not exist CMake reads the environment variables
         cache_exists = os.path.exists('CMakeCache.txt')
-        env_to_options = dict()
+        env_to_options = {}
 
         # Setting compilers is not required unless we want absolute paths
         if self.cfg.get('abs_path_compilers', False) or cache_exists:

@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -662,7 +662,7 @@ class EB_GCC(ConfigureMake):
                 "libc6-dev-i386",  # Debian-based
                 "gcc-c++-32bit",  # OpenSuSE, SLES
             ]
-            if not any([check_os_dependency(dep) for dep in glibc_32bit]):
+            if not any(check_os_dependency(dep) for dep in glibc_32bit):
                 raise EasyBuildError("Using multilib requires 32-bit glibc (install one of %s, depending on your OS)",
                                      ', '.join(glibc_32bit))
             self.configopts += " --enable-multilib --with-multilib-list=m32,m64"

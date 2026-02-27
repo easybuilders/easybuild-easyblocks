@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2025 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -729,7 +729,7 @@ class PythonPackage(ExtensionEasyBlock):
         """
 
         use_ebpythonprefixes = False
-        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+        runtime_deps = self.cfg.dependency_names(runtime_only=True)
 
         if 'Python' in runtime_deps:
             self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
@@ -761,7 +761,7 @@ class PythonPackage(ExtensionEasyBlock):
 
         return self.multi_python or use_ebpythonprefixes
 
-    def compose_install_command(self, prefix, extrapath=None, installopts=None):
+    def compose_install_command(self, prefix, extrapath=None, installopts=None, install_src=None):
         """Compose full install command."""
 
         if self.using_pip_install():
@@ -791,7 +791,8 @@ class PythonPackage(ExtensionEasyBlock):
         if extrapath:
             cmd.append(extrapath)
 
-        loc = self.cfg.get('install_src')
+        loc = self.cfg.get('install_src') if install_src is None else install_src
+
         if not loc:
             if self._should_unpack_source() or not self.src:
                 # specify current directory
@@ -919,8 +920,10 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     self.log.info("No value set for $CC, so not touching $LDSHARED either")
 
-        # gives CMake a hint for which Python version to use
-        env.setvar("Python3_ROOT_DIR", get_software_root('Python'))
+        # gives CMake a hint for which Python version to use, if a Python dependency is used
+        python_root = get_software_root('Python')
+        if python_root:
+            env.setvar('Python3_ROOT_DIR', python_root)
 
         # creates log entries for python being used, for debugging
         cmd = "%(python)s -V; %(python)s -c 'import sys; print(sys.executable, sys.path)'"
@@ -1173,10 +1176,8 @@ class PythonPackage(ExtensionEasyBlock):
         # this is relevant for installations of Python packages for multiple Python versions (via multi_deps)
         # (we can not pass this via custom_paths, since then the %(pyshortver)s template value will not be resolved)
         if not self.is_extension:
-            kwargs.setdefault('custom_paths', {
-                'files': [],
-                'dirs': [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')],
-            })
+            kwargs.setdefault('custom_paths', {'files': []}) \
+                  .setdefault('dirs', [os.path.join('lib', 'python%(pyshortver)s', 'site-packages')])
 
         # make sure 'exts_filter' is defined, which is used for sanity check
         if self.multi_python:
@@ -1194,6 +1195,9 @@ class PythonPackage(ExtensionEasyBlock):
                 orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
                 exts_filter = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
                 kwargs.update({'exts_filter': exts_filter})
+
+        # inject extra '%(python)s' template value for use by sanity check commands
+        self.cfg.template_values['python'] = python_cmd
 
         sanity_pip_check = self.cfg.get('sanity_pip_check', True)
         if self.is_extension:

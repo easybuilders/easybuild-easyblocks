@@ -1,5 +1,5 @@
 ##
-# Copyright 2018-2025 Ghent University
+# Copyright 2018-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -117,7 +117,7 @@ class PythonBundle(Bundle):
         # update $EBPYTHONPREFIXES rather than $PYTHONPATH
         # if this Python package was installed for multiple Python versions, or if we prefer it
         use_ebpythonprefixes = False
-        runtime_deps = [dep['name'] for dep in self.cfg.dependencies(runtime_only=True)]
+        runtime_deps = self.cfg.dependency_names(runtime_only=True)
 
         if 'Python' in runtime_deps:
             self.log.info("Found Python runtime dependency, so considering $EBPYTHONPREFIXES...")
