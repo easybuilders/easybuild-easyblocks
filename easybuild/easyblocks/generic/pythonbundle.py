@@ -30,8 +30,9 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES, run_pip_check, set_py_env_vars
-from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd_from_ec
+from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES, find_python_cmd_from_ec
+from easybuild.easyblocks.generic.pythonpackage import get_pylibdirs, PythonPackage, run_pip_check, run_pip_list
+from easybuild.easyblocks.generic.pythonpackage import set_py_env_vars
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
@@ -206,24 +207,31 @@ class PythonBundle(Bundle):
         # The options should be set in the main EC and cannot be different between extensions.
         # For backwards compatibility and to avoid surprises enable the pip-check if it is enabled
         # in the main EC or any extension and build the union of all unversioned_packages.
-        has_sanity_pip_check_mismatch = False
         all_unversioned_packages = unversioned_packages.copy()
-        for ext in self.ext_instances:
-            if isinstance(ext, PythonPackage):
-                if ext.cfg['sanity_pip_check'] != sanity_pip_check:
-                    has_sanity_pip_check_mismatch = True
-                all_unversioned_packages.update(ext.cfg['unversioned_packages'])
+        py_exts = [x for x in self.ext_instances if isinstance(x, PythonPackage)]
 
-        if has_sanity_pip_check_mismatch:
-            self.log.deprecated("For bundles of PythonPackage extensions the sanity_pip_check parameter "
-                                "must be set at the top level, outside of exts_list", '6.0')
+        mismatched_params = set()
+
+        for ext in py_exts:
+            if ext.cfg['sanity_pip_check'] != sanity_pip_check:
+                mismatched_params.add('sanity_pip_check')
+            all_unversioned_packages.update(ext.cfg['unversioned_packages'])
+
+        if 'sanity_pip_check' in mismatched_params:
             sanity_pip_check = True  # Either the main set it or any extension enabled it
+
         if all_unversioned_packages != unversioned_packages:
-            self.log.deprecated("For bundles of PythonPackage extensions the unversioned_packages parameter "
-                                "must be set at the top level, outside of exts_list", '6.0')
+            mismatched_params.add('unversioned_packages')
+
+        for param in mismatched_params:
+            msg = (f"For bundles of PythonPackage extensions the {param} parameter "
+                   "must be set at the top level, outside of exts_list")
+            self.log.deprecated(msg, '6.0')
 
         if sanity_pip_check:
-            run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
+            run_pip_check(python_cmd=self.python_cmd)
+            pkgs = [(x.name, x.version) for x in py_exts]
+            run_pip_list(pkgs, python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
 
     def make_module_footer(self):
         """
