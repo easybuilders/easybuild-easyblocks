@@ -311,6 +311,11 @@ class EB_PyTorch(PythonPackage):
         self.module_load_environment.LD_LIBRARY_PATH = [os.path.join(py_site_glob, 'torch', 'lib')]
         # important when RPATH linking is enabled
         self.module_load_environment.LIBRARY_PATH = [os.path.join(py_site_glob, 'torch', 'lib')]
+        if 'CUDA' in self.cfg.dependency_names():
+            self.module_load_environment.TORCH_CUDA_ARCH_LIST = {
+                'contents': self.cfg.get_cuda_cc_template_value('cuda_cc_semicolon_sep'),
+                'var_type': 'STRING'
+            }
 
     def fetch_step(self, skip_checksums=False):
         """Fetch sources for installing PyTorch, including those for tests."""
@@ -495,20 +500,12 @@ class EB_PyTorch(PythonPackage):
                 options.append('USE_SYSTEM_NCCL=1')
                 options.append('NCCL_INCLUDE_DIR=' + os.path.join(nccl_root, 'include'))
 
-            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
-            if not cuda_cc:
-                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
-                                     'cuda_compute_capabilities easyconfig parameter or via '
-                                     '--cuda-compute-capabilities')
-
-            self.log.info('Compiling with specified list of CUDA compute capabilities: %s', ', '.join(cuda_cc))
+            cuda_cc = self.cfg.get_cuda_cc_template_value('cuda_cc_semicolon_sep')
+            self.log.info(f'Compiling with specified list of CUDA compute capabilities: {cuda_cc}')
             # This variable is also used at runtime (e.g. for tests) and if it is not set PyTorch will automatically
             # determine the compute capability of a GPU in the system and use that which may fail tests if
             # it is to new for the used nvcc
-            env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
+            env.setvar('TORCH_CUDA_ARCH_LIST', cuda_cc)
         else:
             # Disable CUDA
             options.append('USE_CUDA=0')
