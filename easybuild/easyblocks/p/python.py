@@ -31,6 +31,7 @@ EasyBuild support for building and installing Python, implemented as an easybloc
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
 @author: Bart Oldeman (McGill University, Calcul Quebec, Compute Canada)
+@author: Samuel Moors (Vrije Universiteit Brussel)
 """
 import difflib
 import glob
