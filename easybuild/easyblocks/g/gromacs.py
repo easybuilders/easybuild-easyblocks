@@ -345,12 +345,6 @@ class EB_GROMACS(CMakeMake):
                         self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=OFF")
                     elif python_root:
                         self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=ON")
-                        bin_python = os.path.join(python_root, 'bin', 'python')
-                        # For find_package(PythonInterp)
-                        self.cfg.update('configopts', "-DPYTHON_EXECUTABLE=%s" % bin_python)
-                        if gromacs_version >= '2021':
-                            # For find_package(Python3) - Ignore virtual envs
-                            self.cfg.update('configopts', "-DPython3_FIND_VIRTUALENV=STANDARD")
 
             # Now patch GROMACS for PLUMED before cmake
             if plumed_root:
