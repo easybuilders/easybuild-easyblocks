@@ -587,7 +587,7 @@ class EB_LAMMPS(CMakeMake):
         python_dir = get_software_root('Python')
         if python_dir:
             # Find the Python .so lib
-            cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'LDLIBRARY\'))"'
+            cmd = 'python -s -c "import sysconfig; print(sysconfig.get_config_var(\'LDLIBRARY\'))"'
             res = run_shell_cmd(cmd, hidden=True)
             if not res.output:
                 raise EasyBuildError("Failed to determine Python .so library: %s", res.output)
@@ -595,7 +595,7 @@ class EB_LAMMPS(CMakeMake):
             if not python_lib_path:
                 raise EasyBuildError("Could not find path to Python .so library: %s", res.output)
             # and the path to the Python include folder
-            cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'INCLUDEPY\'))"'
+            cmd = 'python -s -c "import sysconfig; print(sysconfig.get_config_var(\'INCLUDEPY\'))"'
             res = run_shell_cmd(cmd, hidden=True)
             if not res.output:
                 raise EasyBuildError("Failed to determine Python include dir: %s", res.output)
@@ -770,7 +770,7 @@ class EB_LAMMPS(CMakeMake):
            LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('22Jul2025')):
             custom_commands = [cmd + '; l.finalize() if l else None' for cmd in custom_commands]
 
-        custom_commands = ["""python -c '%s'""" % cmd for cmd in custom_commands]
+        custom_commands = ["""python -s -c '%s'""" % cmd for cmd in custom_commands]
 
         # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
         if self.toolchain.options.get('usempi', None):
@@ -850,7 +850,7 @@ def get_cpu_arch():
 
     :return: returns detected cpu architecture
     """
-    res = run_shell_cmd("python -c 'from archspec.cpu import host; print(host())'")
+    res = run_shell_cmd("python -s -c 'from archspec.cpu import host; print(host())'")
     if res.exit_code:
         raise EasyBuildError("Failed to determine CPU architecture: %s", res.output)
     return res.output.strip()

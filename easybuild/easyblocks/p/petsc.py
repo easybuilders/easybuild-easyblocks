@@ -216,12 +216,12 @@ class EB_PETSc(ConfigureMake):
         if self.with_python:
 
             # enable numpy support, but only if numpy is available
-            res = run_shell_cmd("python -c 'import numpy'", fail_on_error=False)
+            res = run_shell_cmd("python -s -c 'import numpy'", fail_on_error=False)
             if res.exit_code == 0:
                 self.cfg.update('configopts', '--with-numpy=1')
 
             # enable mpi4py support, but only if mpi4py is available
-            res = run_shell_cmd("python -c 'import mpi4py'", fail_on_error=False)
+            res = run_shell_cmd("python -s -c 'import mpi4py'", fail_on_error=False)
             if res.exit_code == 0:
                 with_mpi4py_opt = '--with-mpi4py'
                 if self.cfg['shared_libs'] and with_mpi4py_opt not in self.cfg['configopts']:
