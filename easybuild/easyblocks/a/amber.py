@@ -40,6 +40,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.filetools import remove_dir, which
@@ -361,13 +362,18 @@ class EB_Amber(CMakeMake):
                 'source %s/amber.sh && cd %s' % (self.installdir, testdir)
             ])
 
+            if build_option('ignore_test_failure'):
+                fail_on_error = False
+            else:
+                fail_on_error = True
+
             # serial tests
             if LooseVersion(self.version) >= LooseVersion('24'):
-                run_shell_cmd("%s && make test" % pretestcommands)
+                run_shell_cmd("%s && make test" % pretestcommands, fail_on_error=fail_on_error)
             else:
-                run_shell_cmd("%s && make test.serial" % pretestcommands)
+                run_shell_cmd("%s && make test.serial" % pretestcommands, fail_on_error=fail_on_error)
             if self.with_cuda:
-                res = run_shell_cmd(f"{pretestcommands} && make {testname_cs}")
+                res = run_shell_cmd(f"{pretestcommands} && make {testname_cs}", fail_on_error=fail_on_error)
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda tests for possible failures")
 
@@ -375,14 +381,14 @@ class EB_Amber(CMakeMake):
             if self.with_mpi:
                 # Hard-code parallel tests to use 4 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 4))
-                res = run_shell_cmd(f"{pretestcommands} && make test.parallel")
+                res = run_shell_cmd(f"{pretestcommands} && make test.parallel", fail_on_error=fail_on_error)
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber parallel tests for possible failures")
 
             if self.with_mpi and self.with_cuda:
                 # Hard-code CUDA parallel tests to use 2 threads
                 env.setvar("DO_PARALLEL", self.toolchain.mpi_cmd_for('', 2))
-                res = run_shell_cmd(f"{pretestcommands} && make {testname_cp}")
+                res = run_shell_cmd(f"{pretestcommands} && make {testname_cp}", fail_on_error=fail_on_error)
                 if res.exit_code > 0:
                     self.log.warning("Check the output of the Amber cuda_parallel tests for possible failures")
 
