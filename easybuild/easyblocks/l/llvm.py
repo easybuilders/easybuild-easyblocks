@@ -1810,7 +1810,8 @@ class EB_LLVM(CMakeMake):
 
         check_files.extend(os.path.join('bin', x) for x in check_bin_files)
         check_files.extend(os.path.join('lib', x) for x in check_lib_files)
-        check_files.extend(os.path.join(lib_dir_runtime, x) for x in check_librt_files)
+        if lib_dir_runtime is not None:
+            check_files.extend(os.path.join(lib_dir_runtime, x) for x in check_librt_files)
         check_files.extend(os.path.join('include', x) for x in check_inc_files)
 
         so_libs = [lib for lib in check_files if lib.endswith('.so')]
