@@ -464,7 +464,7 @@ class Cargo(ExtensionEasyBlock):
         )
 
         git_repo_spec = re.compile(re.escape(crate_name) + r"\s*=\s*{([^}]*)}", re.M)
-        git_branch_spec = re.compile(r'(?<ref>branch|tag)\s*=\s*"(?<value>[^"]*)"', re.M)
+        git_branch_spec = re.compile(r'(?P<ref>branch|tag)\s*=\s*"(?P<value>[^"]*)"', re.M)
 
         found_specs = {}
         for cargo_toml in cargo_toml_files:
