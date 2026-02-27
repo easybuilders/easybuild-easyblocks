@@ -34,7 +34,9 @@ import tempfile
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.modules import get_software_root
 import easybuild.tools.environment as env
+
 
 
 class EB_DeepSpeed(PythonPackage):
@@ -63,6 +65,7 @@ class EB_DeepSpeed(PythonPackage):
         if 'PyTorch' not in dep_names:
             raise EasyBuildError('PyTorch is required as a dependency')
 
+        env.setvar('DS_ENABLE_NINJA', '1' if get_software_root('Ninja') else '0')
         if 'CUDA' in dep_names:
             env.setvar('DS_ACCELERATOR', 'cuda')
             # https://github.com/microsoft/DeepSpeed/issues/3358
