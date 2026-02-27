@@ -38,7 +38,6 @@ from easybuild.tools.modules import get_software_root
 import easybuild.tools.environment as env
 
 
-
 class EB_DeepSpeed(PythonPackage):
     """Custom easyblock for DeepSpeed"""
 
