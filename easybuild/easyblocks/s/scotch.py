@@ -30,6 +30,7 @@ EasyBuild support for SCOTCH, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Thomas Hayward-Schneider (Max Planck Insitute for Plasma Physics)
 """
 import os
 from easybuild.tools import LooseVersion
@@ -61,7 +62,7 @@ class EB_SCOTCH(EasyBlock):
         comp_fam = self.toolchain.comp_family()
         if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             makefilename = 'Makefile.inc.x86-64_pc_linux2.icc'
-        elif comp_fam == toolchain.GCC:  # @UndefinedVariable
+        elif comp_fam in [toolchain.GCC, toolchain.LLVM]:  # @UndefinedVariable
             makefilename = 'Makefile.inc.x86-64_pc_linux2'
         else:
             raise EasyBuildError("Unknown compiler family used: %s", comp_fam)
@@ -97,10 +98,13 @@ class EB_SCOTCH(EasyBlock):
         ccd = os.environ['MPICC']
 
         cflags = "-fPIC -O3 -DCOMMON_FILE_COMPRESS_GZ -DCOMMON_PTHREAD -DCOMMON_RANDOM_FIXED_SEED -DSCOTCH_RENAME"
-        if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
+        comp_fam = self.toolchain.comp_family()
+        if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
+            cflags += " -restrict -DIDXSIZE64"
+        elif comp_fam in [toolchain.GCC, toolchain.LLVM]:  # @UndefinedVariable
             cflags += " -Drestrict=__restrict"
         else:
-            cflags += " -restrict -DIDXSIZE64"
+            raise EasyBuildError("Unknown compiler family used: %s", comp_fam)
 
         # USE 64 bit index
         if self.toolchain.options['i8']:
