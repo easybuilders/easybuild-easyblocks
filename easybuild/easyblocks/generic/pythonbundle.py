@@ -30,8 +30,9 @@ EasyBuild support for installing a bundle of Python packages, implemented as a g
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES, run_pip_check, set_py_env_vars
+from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_DUMMY_PACKAGES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd_from_ec
+from easybuild.easyblocks.generic.pythonpackage import run_pip_check, set_py_env_vars
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
@@ -60,6 +61,8 @@ class PythonBundle(Bundle):
 
         self.cfg['exts_defaultclass'] = 'PythonPackage'
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
+        if self.cfg.get('dummy_package', False):
+            self.cfg['exts_filter'] = EXTS_FILTER_DUMMY_PACKAGES
 
         # need to disable templating to ensure that actual value for exts_default_options is updated...
         with self.cfg.disable_templating():
@@ -70,6 +73,12 @@ class PythonBundle(Bundle):
                     self.cfg['exts_default_options'][key] = self.cfg[key]
 
             self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
+
+            # dummy packages have no sources sources
+            if self.cfg.get('dummy_package', False):
+                self.log.info(f"Disabling sources for installation of dummy packages in {self.name}-{self.version}")
+                self.cfg['exts_default_options']['nosource'] = True
+                self.cfg['exts_default_options']['source_urls'] = []
 
         self.python_cmd = None
         self.pylibdir = None
@@ -90,8 +99,8 @@ class PythonBundle(Bundle):
 
         # if 'python' is not used, we need to take that into account in the extensions filter
         # (which is also used during the sanity check)
-        if self.python_cmd != 'python':
-            orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
+        with self.cfg.disable_templating():
+            orig_exts_filter = self.cfg['exts_filter']
             self.cfg['exts_filter'] = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
 
     def prepare_step(self, *args, **kwargs):
