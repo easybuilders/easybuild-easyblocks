@@ -367,6 +367,11 @@ class NvidiaBase(PackedBinary):
             self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(cuda_basedir, 'lib64'))
             for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
                 cpp_header.append(os.path.join(cuda_basedir, 'include'))
+            # add CUPTI
+            cupti_basedir = os.path.join(cuda_basedir, str(self.active_cuda_version), 'extras', 'CUPTI')
+            self.module_load_environment.LD_LIBRARY_PATH.append(os.path.join(cupti_basedir, 'lib64'))
+            for cpp_header in self.module_load_environment.alias(MODULE_LOAD_ENV_HEADERS):
+                cpp_header.append(os.path.join(cupti_basedir, 'include'))
             # emulate environment from standalone CUDA
             cuda_home = os.path.join(self.installdir, cuda_basedir)
             self.cfg.update('modextravars', {
