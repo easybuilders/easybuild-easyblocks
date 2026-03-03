@@ -74,8 +74,10 @@ class EB_GROMACS(CMakeMake):
             'python_pkg': [None, "Build gmxapi Python package. None (default) is auto-detect." +
                            "True or False forces behaviour.", CUSTOM],
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
-            'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
-                       "True or False forces behaviour.", CUSTOM],
+            'plumed': [None, "Try to enable PLUMED support. None (default) is auto-detect. " +
+                       "'native' enables native PLUMED support for GROMACS 2025 and newer." +
+                       "'patch' (or True) applies PLUMED patches." +
+                       "False disables PLUMED support.", CUSTOM],
         })
         return extra_vars
 
@@ -217,35 +219,73 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "-DGMX_GPU=OFF")
 
         # PLUMED detection
-        # enable PLUMED support if PLUMED is listed as a dependency
-        # and PLUMED support is either explicitly enabled (plumed = True) or unspecified ('plumed' not defined)
+        # enable PLUMED support if PLUMED is listed as a dependency.
+        # plumed = 'native' will enable GROMACS' native PLUMED support ('-DGMX_USE_PLUMED=ON')
+        # for GROMACS 2025 and newer. plumed = 'patch' specifically requests PLUMED patches.
+        # In auto-detect ('plumed = None' or not defined) will prefer native support for 2026
+        # and newer. Older versions of GROMACS patches are applied to enable PLUMED support.
+        # plumed = True behaves like plumed = 'patch' for backwards compatibility.
         plumed_root = get_software_root('PLUMED')
+        plumed_patches = False
         if self.cfg['plumed'] and not plumed_root:
             msg = "PLUMED support has been requested but PLUMED is not listed as a dependency."
             raise EasyBuildError(msg)
         elif plumed_root and self.cfg['plumed'] is False:
             self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
             plumed_root = None
+        elif plumed_root and self.cfg['plumed'] == 'patch':
+            self.log.info('PLUMED was found, and PLUMED patching has been requested.')
+            plumed_patches = True
+        elif plumed_root and self.cfg['plumed'] == 'native':
+            msg = 'PLUMED was found, and native PLUMED support has been requested.'
+            if gromacs_version >= '2025':
+                msg += ' Will use native PLUMED support.'
+                plumed_patches = False
+                self.log.info(msg)
+            else:
+                msg += " Native PLUMED support is only available with GROMACS 2025 and newer."
+                raise EasyBuildError(msg)
+        elif plumed_root and self.cfg['plumed'] is True:
+            msg = 'PLUMED was found, and PLUMED support has been requested.'
+            msg += ' Will apply PLUMED patches.'
+            plumed_patches = True
+            self.log.info(msg)
+        elif plumed_root and self.cfg['plumed'] is None:
+            msg = 'PLUMED was found.'
+            if gromacs_version >= '2026':
+                # Even though native support is available since GROMACS 2025, we'll only use
+                # it as default with 2026 and newer to avoid a sudden change in behaviour.
+                msg += ' Will use native PLUMED support.'
+                plumed_patches = False
+            else:
+                msg += ' Will apply PLUMED patches.'
+                plumed_patches = True
+            self.log.info(msg)
 
         if plumed_root:
             self.log.info('PLUMED support has been enabled.')
 
-            # Need to check if PLUMED has an engine for this version
-            engine = 'gromacs-%s' % self.version
+            if gromacs_version >= '2025' and plumed_patches is False:
+                self.log.info('Native PLUMED support has been enabled.')
+                self.cfg.update('configopts', '-DGMX_USE_PLUMED=ON')
 
-            res = run_shell_cmd("plumed-patch -l")
-            if not re.search(engine, res.output):
-                plumed_ver = get_software_version('PLUMED')
-                msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version,
-                                                                                       res.output)
-                if self.cfg['ignore_plumed_version_check']:
-                    self.log.warning(msg)
-                else:
-                    raise EasyBuildError(msg)
+            else:
+                # Need to check if PLUMED has an engine for this version
+                engine = 'gromacs-%s' % self.version
 
-            # PLUMED patching must be done at different stages depending on
-            # version of GROMACS. Just prepare first part of cmd here
-            plumed_cmd = "plumed-patch -p -e %s" % engine
+                res = run_shell_cmd("plumed-patch -l")
+                if not re.search(engine, res.output):
+                    plumed_ver = get_software_version('PLUMED')
+                    msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version,
+                                                                                           res.output)
+                    if self.cfg['ignore_plumed_version_check']:
+                        self.log.warning(msg)
+                    else:
+                        raise EasyBuildError(msg)
+
+                # PLUMED patching must be done at different stages depending on
+                # version of GROMACS. Just prepare first part of cmd here
+                plumed_cmd = "plumed-patch -p -e %s" % engine
 
         # Ensure that the GROMACS log files report how the code was patched
         # during the build, so that any problems are easier to diagnose.
@@ -253,7 +293,7 @@ class EB_GROMACS(CMakeMake):
         if (gromacs_version >= '2020' and
                 '-DGMX_VERSION_STRING_OF_FORK=' not in self.cfg['configopts']):
             gromacs_version_string_suffix = 'EasyBuild-%s' % EASYBUILD_VERSION
-            if plumed_root:
+            if plumed_patches:
                 gromacs_version_string_suffix += '-PLUMED-%s' % get_software_version('PLUMED')
             self.cfg.update('configopts', '-DGMX_VERSION_STRING_OF_FORK=%s' % gromacs_version_string_suffix)
 
@@ -293,7 +333,8 @@ class EB_GROMACS(CMakeMake):
             ConfigureMake.configure_step(self)
 
             # Now patch GROMACS for PLUMED between configure and build
-            if plumed_root:
+            if plumed_root and plumed_patches:
+                self.log.info('Applying PLUMED patches to GROMACS.')
                 run_shell_cmd(plumed_cmd)
 
         else:
@@ -353,7 +394,7 @@ class EB_GROMACS(CMakeMake):
                             self.cfg.update('configopts', "-DPython3_FIND_VIRTUALENV=STANDARD")
 
             # Now patch GROMACS for PLUMED before cmake
-            if plumed_root:
+            if plumed_root and plumed_patches:
                 if gromacs_version >= '5.1':
                     # Use shared or static patch depending on
                     # setting of self.cfg['build_shared_libs']
