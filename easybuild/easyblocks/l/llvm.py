@@ -1727,7 +1727,7 @@ class EB_LLVM(CMakeMake):
             if version < '19':
                 check_bin_files += ['bbc', 'flang-new', 'flang-to-external-fc', 'f18-parse-demo', 'fir-opt', 'tco']
             else:
-                check_bin_files += ['bbc', 'flang-new', 'f18-parse-demo', 'fir-opt', 'tco']
+                check_bin_files += ['bbc', 'f18-parse-demo', 'fir-opt', 'tco']
             check_lib_files += [
                 'libFortranSemantics.a', 'libFortranLower.a', 'libFortranParser.a',
                 'libFIRCodeGen.a', 'libflangFrontend.a', 'libFortranDecimal.a',
@@ -1738,8 +1738,18 @@ class EB_LLVM(CMakeMake):
                     'libFortranRuntime.a', 'libFortranCommon.a'
                 ]
             check_dirs += ['lib/cmake/flang', 'include/flang']
-            custom_commands += ['bbc --help', 'mlir-tblgen --help', 'flang-new --help']
-            gcc_prefix_compilers += ['flang-new']
+            custom_commands += ['bbc --help', 'mlir-tblgen --help']
+
+            # Starting with LLVM 22, some implementations, e.g. AMD ROCm,
+            # omit flang-new. Therefore, adapt the check to look for flang instead.
+            if version < '22':
+                check_bin_files += ['flang-new']
+                custom_commands += ['flang-new --help']
+                gcc_prefix_compilers += ['flang-new']
+            else:
+                check_bin_files += ['flang']
+                custom_commands += ['flang --help']
+                gcc_prefix_compilers += ['flang']
 
         if 'lld' in self.final_projects:
             check_bin_files += ['ld.lld', 'lld', 'lld-link', 'wasm-ld']
