@@ -68,8 +68,8 @@ class EB_netCDF(CMakeMake):
             ConfigureMake.configure_step(self)
 
         else:
-            for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('Szip', 'sz'), ('zlib', 'z'),
-                                   ('PnetCDF', 'pnetcdf')]:
+            for (dep, libname) in [('cURL', 'curl'), ('HDF5', 'hdf5'), ('libxml2', 'xml2'), ('PnetCDF', 'pnetcdf'),
+                                   ('Szip', 'sz'), ('zlib', 'z')]:
                 dep_root = get_software_root(dep)
                 dep_libdir = get_software_libdir(dep)
 
