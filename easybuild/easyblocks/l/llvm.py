@@ -232,6 +232,8 @@ class EB_LLVM(CMakeMake):
             'test_suite_ignore_timeouts': [False, "Do not treat timedoud tests as failures", CUSTOM],
             'test_suite_include_benchmarks': [False, "Include benchmarks in the LLVM tests (default False)", CUSTOM],
             'test_suite_max_failed': [0, "Maximum number of failing tests (does not count allowed failures)", CUSTOM],
+            'test_suite_max_parallel': [1, "Maximum number LIT tasks to use for tests. "
+                                        "Limitted by the global parallel setting.", CUSTOM],
             'test_suite_timeout_single': [None, "Timeout for each individual test in the test suite", CUSTOM],
             'test_suite_timeout_total': [None, "Timeout for total running time of the testsuite", CUSTOM],
             'use_pic': [True, "Build with Position Independent Code (PIC)", CUSTOM],
@@ -644,10 +646,9 @@ class EB_LLVM(CMakeMake):
             self._cmakeopts[cmake_flag] = include_benchmarks
             self.runtimes_cmake_args[cmake_flag] = include_benchmarks
 
-        # Make sure tests are not running with more than 'parallel' tasks
-        parallel = self.cfg.parallel
-        if not build_option('mpi_tests'):
-            parallel = 1
+        # Set parallel LIT tasks. Limit by set max-parallelism and in absence of that
+        # use --mpi-tests to determine if parallelism is desired.
+        parallel = min(self.cfg.parallel, self.cfg['test_suite_max_parallel'])
         lit_args = [f'-j {parallel}']
         if self.cfg['debug_tests']:
             lit_args += ['-v']
