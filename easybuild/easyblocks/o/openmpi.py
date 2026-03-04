@@ -148,6 +148,8 @@ class EB_OpenMPI(ConfigureMake):
             # > configure: WARNING: This usually indicates an error in configure.
             # > configure: error: Cannot continue
             env.unset_env_vars([v for v in os.environ if v.startswith("PMIX_")])
+
+        self.cfg.update('buildopts', 'V=1')  # Show commands used during build
         super().configure_step()
 
     def test_step(self):
@@ -227,42 +229,45 @@ class EB_OpenMPI(ConfigureMake):
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
 
-        # Add minimal test program to sanity checks
-        # Run with correct MPI launcher
-        mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, {}, mpi_version=self.version)
-        # Limit number of ranks to 8 to avoid it failing due to hyperthreading
-        ranks = min(8, self.cfg.parallel)
-        for srcdir, src, compiler in (
-            ('examples', 'hello_c.c', 'mpicc'),
-            ('examples', 'hello_mpifh.f', 'mpifort'),
-            ('examples', 'hello_usempi.f90', 'mpif90'),
-            ('examples', 'ring_c.c', 'mpicc'),
-            ('examples', 'ring_mpifh.f', 'mpifort'),
-            ('examples', 'ring_usempi.f90', 'mpif90'),
-            ('test/simple', 'thread_init.c', 'mpicc'),
-            ('test/simple', 'intercomm1.c', 'mpicc'),
-            ('test/simple', 'mpi_barrier.c', 'mpicc'),
-        ):
-            src_path = os.path.join(self.cfg['start_dir'], srcdir, src)
-            if os.path.exists(src_path):
-                test_exe = os.path.join(self.builddir, 'mpi_test_' + os.path.splitext(src)[0])
-                self.log.info("Adding minimal MPI test program to sanity checks: %s", test_exe)
+        # Add minimal test program to sanity checks after building.
+        # During sanity-check-/module-only builds the sources are not available.
+        # TODO: Install/Keep a simple test source in the installed module for use in that case?
+        if self.start_dir:
+            # Run with correct MPI launcher
+            mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, {}, mpi_version=self.version)
+            # Limit number of ranks to 8 to avoid it failing due to hyperthreading
+            ranks = min(8, self.cfg.parallel)
+            for srcdir, src, compiler in (
+                ('examples', 'hello_c.c', 'mpicc'),
+                ('examples', 'hello_mpifh.f', 'mpifort'),
+                ('examples', 'hello_usempi.f90', 'mpif90'),
+                ('examples', 'ring_c.c', 'mpicc'),
+                ('examples', 'ring_mpifh.f', 'mpifort'),
+                ('examples', 'ring_usempi.f90', 'mpif90'),
+                ('test/simple', 'thread_init.c', 'mpicc'),
+                ('test/simple', 'intercomm1.c', 'mpicc'),
+                ('test/simple', 'mpi_barrier.c', 'mpicc'),
+            ):
+                src_path = os.path.join(self.start_dir, srcdir, src)
+                if os.path.exists(src_path):
+                    test_exe = os.path.join(self.builddir, 'mpi_test_' + os.path.splitext(src)[0])
+                    self.log.info("Adding minimal MPI test program to sanity checks: %s", test_exe)
 
-                # Build test binary
-                custom_commands.append("%s %s -o %s" % (compiler, src_path, test_exe))
+                    # Build test binary
+                    custom_commands.append("%s %s -o %s" % (compiler, src_path, test_exe))
 
-                # Run the test if chosen
-                if build_option('mpi_tests'):
-                    params.update({'nr_ranks': ranks, 'cmd': test_exe})
-                    # Allow oversubscription for this test (in case of hyperthreading)
-                    if LooseVersion(self.version) >= '5.0':
-                        extra_env = "PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe"
-                    else:
-                        extra_env = "OMPI_MCA_rmaps_base_oversubscribe=1"
-                    custom_commands.append(extra_env + " " + mpi_cmd_tmpl % params)
-                    # Run with 1 process which may trigger other bugs
-                    # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
-                    params['nr_ranks'] = 1
-                    custom_commands.append(mpi_cmd_tmpl % params)
+                    # Run the test if chosen
+                    if build_option('mpi_tests'):
+                        params.update({'nr_ranks': ranks, 'cmd': test_exe})
+                        # Allow oversubscription for this test (in case of hyperthreading)
+                        if LooseVersion(self.version) >= '5.0':
+                            extra_env = "PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe"
+                        else:
+                            extra_env = "OMPI_MCA_rmaps_base_oversubscribe=1"
+                        custom_commands.append(extra_env + " " + mpi_cmd_tmpl % params)
+                        # Run with 1 process which may trigger other bugs
+                        # See https://github.com/easybuilders/easybuild-easyconfigs/issues/12978
+                        params['nr_ranks'] = 1
+                        custom_commands.append(mpi_cmd_tmpl % params)
 
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
