@@ -57,7 +57,7 @@ from easybuild.tools.utilities import trace_msg
 import easybuild.tools.toolchain as toolchain
 
 
-EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
+EXTS_FILTER_PYTHON_PACKAGES = ('python -s -c "import %(ext_name)s"', "")
 
 # magic value for unlimited stack size
 UNLIMITED = 'unlimited'
@@ -791,7 +791,7 @@ class EB_Python(ConfigureMake):
         temp_prefix = tempfile.mkdtemp(suffix='-tmp-prefix')
         temp_site_packages_path = os.path.join(temp_prefix, self.site_packages_path)
         mkdir(temp_site_packages_path, parents=True)  # Must exist
-        res = run_shell_cmd("%s=%s python -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
+        res = run_shell_cmd("%s=%s python -s -c 'import sys; print(sys.path)'" % (EBPYTHONPREFIXES, temp_prefix))
         out = res.output.strip()
         # Output should be a list which we can evaluate directly
         if not out.startswith('[') or not out.endswith(']'):
@@ -841,7 +841,7 @@ class EB_Python(ConfigureMake):
         abiflags = ''
         if LooseVersion(self.version) >= LooseVersion("3"):
             run_shell_cmd("command -v python", hidden=True)
-            cmd = 'python -c "import sysconfig; print(sysconfig.get_config_var(\'abiflags\'));"'
+            cmd = 'python -s -c "import sysconfig; print(sysconfig.get_config_var(\'abiflags\'));"'
             res = run_shell_cmd(cmd, hidden=True)
             abiflags = res.output
             if not abiflags:
@@ -852,7 +852,7 @@ class EB_Python(ConfigureMake):
         # make sure hashlib is installed correctly, there should be no errors/output when 'import hashlib' is run
         # (python will exit with 0 regardless of whether or not errors are printed...)
         # cfr. https://github.com/easybuilders/easybuild-easyconfigs/issues/6484
-        cmd = "python -c 'import hashlib'"
+        cmd = "python -s -c 'import hashlib'"
         res = run_shell_cmd(cmd)
         out = res.output
         regex = re.compile('error', re.I)
@@ -888,9 +888,9 @@ class EB_Python(ConfigureMake):
         custom_commands = [
             "python --version",
             "python-config --help",  # make sure that symlink was created correctly
-            "python -c 'import _ctypes'",  # make sure that foreign function interface (libffi) works
-            "python -c 'import _ssl'",  # make sure SSL support is enabled one way or another
-            "python -c 'import readline'",  # make sure readline support was built correctly
+            "python -s -c 'import _ctypes'",  # make sure that foreign function interface (libffi) works
+            "python -s -c 'import _ssl'",  # make sure SSL support is enabled one way or another
+            "python -s -c 'import readline'",  # make sure readline support was built correctly
         ]
 
         if self.install_pip:
@@ -900,8 +900,8 @@ class EB_Python(ConfigureMake):
                 os.path.join('bin', pip) for pip in ('pip', 'pip' + py_maj_version, 'pip' + self.pyshortver)
             ])
             custom_commands.extend([
-                "python -c 'import pip'",
-                "python -c 'import setuptools'",
+                "python -s -c 'import pip'",
+                "python -s -c 'import setuptools'",
             ])
 
         if get_software_root('Tk'):
@@ -910,7 +910,7 @@ class EB_Python(ConfigureMake):
                 tkinter = 'tkinter'
             else:
                 tkinter = 'Tkinter'
-            custom_commands.append("python -c 'import %s'" % tkinter)
+            custom_commands.append("python -s -c 'import %s'" % tkinter)
 
             # check whether _tkinter*.so is found, exact filename doesn't matter
             tkinter_so = os.path.join(self.installdir, 'lib', pyver, 'lib-dynload', '_tkinter*.' + shlib_ext)

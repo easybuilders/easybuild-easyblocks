@@ -96,7 +96,8 @@ class EB_VMD(ConfigureMake):
         # Python locations
         pyver = get_software_version('Python')
         pymajver = pyver.split('.')[0]
-        res = run_shell_cmd("python -c 'import sysconfig; print(sysconfig.get_path(\"include\"))'", fail_on_error=False)
+        res = run_shell_cmd("python -s -c 'import sysconfig; print(sysconfig.get_path(\"include\"))'",
+                            fail_on_error=False)
         if res.exit_code:
             raise EasyBuildError("Failed to determine Python include path: %s", res.output)
         else:
@@ -114,7 +115,7 @@ class EB_VMD(ConfigureMake):
             env.setvar('PYTHON_LIBRARIES', res.output.strip())
 
         # numpy include location, easiest way to determine it is via numpy.get_include()
-        res = run_shell_cmd("python -c 'import numpy; print(numpy.get_include())'", fail_on_error=False)
+        res = run_shell_cmd("python -s -c 'import numpy; print(numpy.get_include())'", fail_on_error=False)
         if res.exit_code:
             raise EasyBuildError("Failed to determine numpy include directory: %s", res.output)
         else:
