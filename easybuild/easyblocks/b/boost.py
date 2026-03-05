@@ -353,7 +353,8 @@ class EB_Boost(EasyBlock):
 
             if self.cfg['tagged_layout']:
                 if LooseVersion(self.version) <= LooseVersion("1.88.0"):
-                    custom_paths['files'].append(os.path.join('lib', 'libboost_system%s.%s' % (lib_mt_suffix, shlib_ext)))
+                    p = os.path.join('lib', 'libboost_system%s.%s' % (lib_mt_suffix, shlib_ext))
+                    custom_paths['files'].append(p)
                 custom_paths['files'].append(os.path.join('lib', 'libboost_thread%s.%s' % (lib_mt_suffix, shlib_ext)))
 
             if self.cfg['boost_mpi']:
