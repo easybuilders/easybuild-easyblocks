@@ -1613,9 +1613,6 @@ class EB_LLVM(CMakeMake):
 
     def sanity_check_step(self, custom_paths=None, custom_commands=None, *args, **kwargs):
         """Perform sanity checks on the installed LLVM."""
-        lib_dir_runtime = None
-        if self.cfg['build_runtimes']:
-            lib_dir_runtime = self.get_runtime_lib_path(self.installdir)
         shlib_ext = '.' + get_shared_lib_ext()
 
         if not hasattr(self, 'nvptx_target_cond'):
@@ -1808,9 +1805,14 @@ class EB_LLVM(CMakeMake):
             custom_commands += ["python -c 'import clang'"]
             custom_commands += ["python -c 'import mlir'"]
 
+        lib_dir_runtime = None
+        if self.cfg['build_runtimes'] or check_librt_files:
+            lib_dir_runtime = self.get_runtime_lib_path(self.installdir)
+
         check_files.extend(os.path.join('bin', x) for x in check_bin_files)
         check_files.extend(os.path.join('lib', x) for x in check_lib_files)
-        check_files.extend(os.path.join(lib_dir_runtime, x) for x in check_librt_files)
+        if lib_dir_runtime is not None:
+            check_files.extend(os.path.join(lib_dir_runtime, x) for x in check_librt_files)
         check_files.extend(os.path.join('include', x) for x in check_inc_files)
 
         so_libs = [lib for lib in check_files if lib.endswith('.so')]
