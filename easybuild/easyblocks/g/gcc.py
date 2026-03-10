@@ -386,15 +386,14 @@ class EB_GCC(ConfigureMake):
         and extract the supported architectures and their mapping. Based on the result, determine the lowest
         architecture required to support all 'cuda_compute_capabilities' and return this value.
         """
-        cuda_cc_list = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
         architecture_mappings_file = os.path.join(self.cfg['start_dir'], 'gcc', 'config', 'nvptx', 'nvptx.opt')
         architecture_mappings_flag = "march-map="
         architecture_mappings_replacement = "misa=,"
 
         # Determine which compute capabilities are configured. If there are none, return immediately.
-        if not cuda_cc_list:
+        cuda_sm_list = self.cfg.get_cuda_cc_template_value('cuda_sm_space_sep', required=False).split()
+        if not cuda_sm_list:
             return None
-        cuda_sm_list = [f"sm_{cc.replace('.', '')}" for cc in cuda_cc_list]
 
         if not os.path.exists(architecture_mappings_file):
             warn_msg = f"Tried to parse nvptx.opt but file {architecture_mappings_file} was not found. " \
