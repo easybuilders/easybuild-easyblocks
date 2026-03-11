@@ -173,14 +173,12 @@ class EB_Amber(CMakeMake):
         if cudaroot:
             self.with_cuda = True
             self.cfg.update('configopts', '-DCUDA=TRUE')
-            # nccl_root = get_software_root('NCCL')
-            # if nccl_root:
             if get_software_root('NCCL'):
                 self.cfg.update('configopts', '-DNCCL=TRUE')
-                self.cfg.update('configopts', '-Dnccl_ENABLED=TRUE')
-                # self.cfg.update('configopts', f'-DNCCL_LIBRARY={nccl_root}/lib/libnccl.so')
-                # self.cfg.update('configopts', f'-DNCCL_INCLUDE_DIR={nccl_root}/include')
-                # external_libs_list.append('nccl')
+                if self.pmemd:
+                    self.cfg.update('configopts', '-Dnccl_ENABLED=TRUE')
+                else:
+                    external_libs_list.append('nccl')
 
         pythonroot = get_software_root('Python')
         if pythonroot:
