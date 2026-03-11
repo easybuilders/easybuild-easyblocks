@@ -79,7 +79,13 @@ class EB_torchvision(PythonPackage):
         if includes:
             env.setvar('TORCHVISION_INCLUDE', os.path.pathsep.join(includes))
 
+        # Set environment variable that skips tests that require authentication with wikimedia
+        # See https://github.com/pytorch/vision/issues/9413
+        if self.cfg['runtest']:
+            env.setvar('CIRCLECI', 'true')
+
         super().configure_step()
+
 
     def sanity_check_step(self):
         """Custom sanity check for torchvision."""
