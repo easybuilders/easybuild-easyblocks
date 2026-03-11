@@ -1186,8 +1186,8 @@ class EB_LLVM(CMakeMake):
             if self.final_runtimes or (LooseVersion(self.version) >= 19 and self.cfg['openmp']):
                 runtime_libdir = self.get_runtime_lib_path(installdir, fail_ok=True)
                 if os.path.exists(runtime_libdir):
-                    opts.append(f'-L{runtime_libdir}')
-                    opts.append(f'-Wl,-rpath={runtime_libdir}')
+                    opts.append(f'-L{installdir}/{runtime_libdir}')
+                    opts.append(f'-Wl,-rpath,{installdir}/{runtime_libdir}')
 
         for comp in self.cfg_compilers:
             write_file(os.path.join(bin_dir, f'{comp}.cfg'), ' '.join(opts))
