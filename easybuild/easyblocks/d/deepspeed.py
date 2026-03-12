@@ -33,7 +33,7 @@ import tempfile
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
 import easybuild.tools.environment as env
 
@@ -82,18 +82,11 @@ class EB_DeepSpeed(PythonPackage):
         # http://www.deepspeed.ai/tutorials/advanced-install/#pre-install-deepspeed-ops
         # > DeepSpeed will only install any ops that are compatible with your machine
         env.setvar('DS_BUILD_OPS', '1')
-
         # Some may be problematic for different reasons, these are specified in the easyconfig
-        if not any(op in self.cfg['jit_only_ops'] for op in ('TRANSFORMER', 'STOCHASTIC_TRANSFORMER')):
-            # See https://github.com/deepspeedai/DeepSpeed/issues/949
-            print_warning('The "Transformer" and "Stochastic Transformer" OPs cannot be precompiled at the same time. '
-                          'Skipping the stochastic transformer OP.')
-            self.cfg.update('jit_only_ops', 'STOCHASTIC_TRANSFORMER')
         for opt in self.cfg['jit_only_ops']:
             env.setvar('DS_BUILD_{}'.format(opt), '0')
 
-        self.cfg.update('installopts', "--config-setting='--build-option=build_ext'")
-        self.cfg.update('installopts', "--config-setting='--build-option=-j%(parallel)s'")
+        env.setvar('MAX_JOBS', str(self.cfg.parallel))
         self.set_cache_dirs()
         super().configure_step()
 
