@@ -86,7 +86,6 @@ class EB_torchvision(PythonPackage):
 
         super().configure_step()
 
-
     def sanity_check_step(self):
         """Custom sanity check for torchvision."""
 
