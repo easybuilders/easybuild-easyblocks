@@ -534,7 +534,7 @@ class EB_PyTorch(PythonPackage):
 
         build_type = self.cfg.get('build_type')
         if build_type is None:
-            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+            build_type = 'Debug' if self.toolchain.options.get('debug') else 'Release'
         else:
             for name in ('prebuildopts', 'preinstallopts', 'custom_opts'):
                 if '-DCMAKE_BUILD_TYPE=' in self.cfg[name]:
@@ -627,6 +627,7 @@ class EB_PyTorch(PythonPackage):
         env.setvar('SANDCASTLE', '1')
         # Skip this test(s) which is very flaky
         env.setvar('SKIP_TEST_BOTTLENECK', '1')
+        env.setvar('MAX_JOBS', str(self.cfg.parallel))
         if self.has_xml_test_reports:
             env.setvar(self.GENERATE_TEST_REPORT_VAR_NAME, '1')
         # Parse excluded_tests and flatten into space separated string
