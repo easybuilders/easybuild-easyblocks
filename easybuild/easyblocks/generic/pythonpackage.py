@@ -714,9 +714,10 @@ class PythonPackage(ExtensionEasyBlock):
         This requires that 'pip install --prefix' is used, since the active Python installation scheme
         doesn't matter when using 'python setup.py install --prefix'.
         """
+        if not self.using_pip_install():
+            return False
         # see also  https://github.com/easybuilders/easybuild-easyblocks/issues/2976
-        py_install_scheme = det_py_install_scheme(python_cmd=self.python_cmd)
-        return py_install_scheme == PY_INSTALL_SCHEME_POSIX_LOCAL and self.using_pip_install()
+        return det_py_install_scheme(python_cmd=self.python_cmd) == PY_INSTALL_SCHEME_POSIX_LOCAL
 
     def should_use_ebpythonprefixes(self) -> bool:
         """
@@ -1054,13 +1055,20 @@ class PythonPackage(ExtensionEasyBlock):
         abs_bindir = os.path.join(actual_installdir, 'bin')
 
         # set PYTHONPATH and PATH as expected
+
+        # When using the system Python also include /usr/local as on some systems (e.g. EL 10 with Python 3.12)
+        # the site config at /usr/lib64/python3.12/site.py only adds the /usr/local folder when NOT using
+        # $PYTHONNOUSERSITE, which we set explicitely.
+        # This then causes packages installed by admins with `pip` to not be found.
+        if self.toolchain.is_system_toolchain():
+            abs_pylibdirs.append(os.path.join('/usr/local', self.pylibdir))
+
         old_values = {}
         for name, new_values in (('PYTHONPATH', abs_pylibdirs), ('PATH', [abs_bindir])):
             old_value = os.getenv(name)
             old_values[name] = old_value
             new_value = os.pathsep.join(new_values + ([old_value] if old_value else []))
-            if new_value:
-                env.setvar(name, new_value, verbose=False)
+            env.setvar(name, new_value, verbose=False)
 
         # actually install Python package
         cmd = self.compose_install_command(self.installdir)
