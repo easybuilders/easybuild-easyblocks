@@ -58,6 +58,7 @@ import easybuild.tools.toolchain as toolchain
 
 
 EXTS_FILTER_PYTHON_PACKAGES = ('python -c "import %(ext_name)s"', "")
+EXTS_FILTER_DUMMY_PACKAGES = ("python -m pip show -q '%(ext_name)s'", "")
 
 # magic value for unlimited stack size
 UNLIMITED = 'unlimited'
