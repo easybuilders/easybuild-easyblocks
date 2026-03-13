@@ -84,8 +84,8 @@ class ROCmComponent(CMakeMake):
             if build_option('rpath'):
                 tmp_toolchain = Clang(name='Clang', version='1')
                 if self.cfg['compiler_toolchain'] == TOOLCHAIN_ROCM_LLVM:
-                    tmp_toolchain.COMPILER_CC = 'clang'
-                    tmp_toolchain.COMPILER_CXX = 'clang++'
+                    tmp_toolchain.COMPILER_CC = 'amdclang'
+                    tmp_toolchain.COMPILER_CXX = 'amdclang++'
                 elif self.cfg['compiler_toolchain'] == TOOLCHAIN_HIPCC:
                     tmp_toolchain.COMPILER_CC = 'hipcc'
                     tmp_toolchain.COMPILER_CXX = 'hipcc'
