@@ -448,6 +448,7 @@ class EB_PyTorch(PythonPackage):
         elif pytorch_version >= '1.9.0' and get_software_root('BLIS'):
             options.append('BLAS=BLIS')
             options.append('BLIS_HOME=' + get_software_root('BLIS'))
+            options.append('USE_MKLDNN=ON')
             options.append('USE_MKLDNN_CBLAS=ON')
         elif get_software_root('OpenBLAS'):
             # This is what PyTorch defaults to if no MKL is found.
@@ -462,6 +463,13 @@ class EB_PyTorch(PythonPackage):
             ])
         else:
             raise EasyBuildError("Did not find a supported BLAS in dependencies. Don't know which BLAS lib to use")
+
+        if pytorch_version >= '1.10':
+            acl_root = get_software_root('ArmComputeLibrary')
+            if acl_root:
+                options.append('USE_MKLDNN=ON')
+                options.append('USE_MKLDNN_ACL=ON')
+                env.setvar('ACL_ROOT_DIR', acl_root)
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
         dependency_names = self.cfg.dependency_names()
@@ -551,7 +559,7 @@ class EB_PyTorch(PythonPackage):
 
         unique_options = self.cfg['custom_opts']
         for option in options:
-            name = option.split('=')[0] + '='  # Include the equals sign to avoid partial matches
+            name = option.split('=', maxsplit=1)[0] + '='  # Include the equals sign to avoid partial matches
             if not any(opt.startswith(name) for opt in unique_options):
                 unique_options.append(option)
 
