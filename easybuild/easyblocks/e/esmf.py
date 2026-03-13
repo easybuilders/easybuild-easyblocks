@@ -176,6 +176,6 @@ class EB_ESMF(ConfigureMake):
 
         custom_commands = []
         if get_software_root('Python'):
-            custom_commands += ["python -c 'import ESMF'"]
+            custom_commands += ["python -s -c 'import ESMF'"]
 
         super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
