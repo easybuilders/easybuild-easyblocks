@@ -1162,31 +1162,51 @@ class EB_LLVM(CMakeMake):
         if self.full_llvm:
             self._cmakeopts.update(self.remove_gcc_dependency_opts)
 
-    def _create_compiler_config_file(self, installdir):
-        """Create a config file for the compiler to point to the correct GCC installation."""
+    def _create_compiler_config_file(self, installdir, add_lib_path=False):
+        """
+        Create a config file for the compiler to point to the correct GCC installation.
 
-        # This is only needed for LLVM >= 19, as the --gcc-install-dir option was introduced then
-        if LooseVersion(self.version) < '19':
+        :param installdir: Installation directory for the LLVM installation. Used to determine bin/ directory.
+        :param add_lib_path: Add -L and -rpath flags to lib/ directory and runtime library directory, if found.
+                             This is required, since the LLVM module filters LIBRARY_PATH otherwise. Default is
+                             False. Should be enabled for the test and final installation step.
+        """
+        if self.cfg['minimal']:
             return
 
+        opts = []
         bin_dir = os.path.join(installdir, 'bin')
-        opts = [f'--gcc-install-dir={self.gcc_prefix}']
 
-        if self.dynamic_linker:
-            opts.append(f'-Wl,-dynamic-linker={self.dynamic_linker}')
-            # The --dyld-prefix flag exists, but beside being poorly documented it is also not supported by flang
-            # https://reviews.llvm.org/D851
-            # prefix = self.sysroot.rstrip('/')
-            # opts.append(f'--dyld-prefix={prefix}')
+        # Let the compilers pick up the correct GCC via --gcc-install-dir
+        # This is only needed for LLVM >= 19, as the --gcc-install-dir option was introduced then
+        if LooseVersion(self.version) >= '19':
+            opts.append(f'--gcc-install-dir={self.gcc_prefix}')
+            if self.dynamic_linker:
+                opts.append(f'-Wl,-dynamic-linker={self.dynamic_linker}')
+                # The --dyld-prefix flag exists, but beside being poorly documented it is also not supported by flang
+                # https://reviews.llvm.org/D851
+                # prefix = self.sysroot.rstrip('/')
+                # opts.append(f'--dyld-prefix={prefix}')
 
-        # For a non `full_llvm` build, always add GCCcore with a -L in the config file
-        # This is needed even if GCCcore is in the LIBRARY_PATH as some tests will filter it out;
-        # This is needed as the runtimes tests will not add the -L option to the linker command line for GCCcore
-        # otherwise
-        if not self.full_llvm:
-            gcc_lib = self._get_gcc_libpath(strict=True)
-            self.log.info("Adding GCCcore libraries location `%s` the config files", gcc_lib)
-            opts.append(f'-L{gcc_lib}')
+            # For a non `full_llvm` build, always add GCCcore with a -L in the config file
+            # This is needed even if GCCcore is in the LIBRARY_PATH as some tests will filter it out;
+            # This is needed as the runtimes tests will not add the -L option to the linker command line for GCCcore
+            # otherwise
+            if not self.full_llvm:
+                gcc_lib = self._get_gcc_libpath(strict=True)
+                self.log.info("Adding GCCcore libraries location `%s` the config files", gcc_lib)
+                opts.append(f'-L{gcc_lib}')
+
+        if add_lib_path:
+            # Add flags to make sure LLVM picks up its own directories correctly.
+            # This ensures that LLVM finds it own stuff, even when LIBRARY_PATH is not set.
+            opts.append(f'-L{installdir}/lib')
+            opts.append(f'-Wl,-rpath={installdir}/lib')
+            if self.final_runtimes or (LooseVersion(self.version) >= 19 and self.cfg['openmp']):
+                runtime_libdir = self.get_runtime_lib_path(installdir, fail_ok=True)
+                if os.path.exists(runtime_libdir):
+                    opts.append(f'-L{installdir}/{runtime_libdir}')
+                    opts.append(f'-Wl,-rpath,{installdir}/{runtime_libdir}')
 
         for comp in self.cfg_compilers:
             write_file(os.path.join(bin_dir, f'{comp}.cfg'), ' '.join(opts))
@@ -1473,7 +1493,7 @@ class EB_LLVM(CMakeMake):
         """Run tests on final stage (unless disabled)."""
         if not self.cfg['skip_all_tests']:
             # Also runs of test suite compilers should be made aware of the GCC installation
-            self._create_compiler_config_file(self.final_dir)
+            self._create_compiler_config_file(self.final_dir, add_lib_path=True)
 
             # For nvptx64 tests, find out if 'ptxas' exists in $PATH. If not, ignore all nvptx64 test failures
             if not which('ptxas', on_error=IGNORE):
@@ -1533,7 +1553,8 @@ class EB_LLVM(CMakeMake):
 
         # For GCC aware installation create config files in order to point to the correct GCC installation
         # Required as GCC_INSTALL_PREFIX was removed (see https://github.com/llvm/llvm-project/pull/87360)
-        self._create_compiler_config_file(self.installdir)
+        # Also add the library and runtime directory, if present.
+        self._create_compiler_config_file(self.installdir, add_lib_path=True)
 
         # This is needed as some older build system will select a different naming scheme for the library leading to
         # The correct target <__config_site> and libclang_rt.builtins.a not being found
@@ -1879,9 +1900,8 @@ class EB_LLVM(CMakeMake):
             runtime_lib_path = self.get_runtime_lib_path(self.installdir)
             lib_dirs.append(runtime_lib_path)
 
-        self.log.debug(f"List of subdirectories for libraries to add to $LD_LIBRARY_PATH + $LIBRARY_PATH: {lib_dirs}")
+        self.log.debug(f"List of subdirectories for libraries to add to $LD_LIBRARY_PATH: {lib_dirs}")
         self.module_load_environment.LD_LIBRARY_PATH = lib_dirs
-        self.module_load_environment.LIBRARY_PATH = lib_dirs
         return super().make_module_step(*args, **kwargs)
 
     def make_module_extra(self):
