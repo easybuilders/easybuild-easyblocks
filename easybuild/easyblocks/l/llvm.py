@@ -438,7 +438,7 @@ class EB_LLVM(CMakeMake):
         # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
         # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
         # Similar rules apply for AMDGCN capabilities
-        cuda_cc_list = self.cfg.get_cuda_cc_template_value("cuda_cc_space_sep", required=False).split()
+        cuda_cc_list = self.cfg.get_cuda_cc_template_value("cuda_int_space_sep", required=False).split()
         cuda_toolchain = hasattr(self.toolchain, 'COMPILER_CUDA_FAMILY')
         amd_gfx_list = self.cfg.get_amdgcn_cc_template_value("amdgcn_cc_space_sep", required=False).split()
         if self.cfg['amd_gfx_list'] is not None:
@@ -523,7 +523,7 @@ class EB_LLVM(CMakeMake):
                     raise EasyBuildError(
                         f"LLVM < 20 requires 'cuda_compute_capabilities' to build with {BUILD_TARGET_NVPTX}"
                     )
-                self.cuda_cc = [cc.replace('.', '') for cc in cuda_cc_list]
+                self.cuda_cc = cuda_cc_list
                 self.offload_targets += ['cuda']
                 self.log.debug("Enabling `cuda` offload target")
             if self.amdgpu_target_cond:

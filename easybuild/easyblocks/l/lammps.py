@@ -270,7 +270,7 @@ class EB_LAMMPS(CMakeMake):
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('22Jul2025')):
             self.kokkos_cpu_mapping['zen5'] = 'ZEN5'
 
-    def get_kokkos_arch(self, cuda_cc, kokkos_arch):
+    def get_kokkos_arch(self):
         """
         Return KOKKOS ARCH in LAMMPS required format, which is 'CPU_ARCH' and 'GPU_ARCH'.
 
@@ -281,6 +281,7 @@ class EB_LAMMPS(CMakeMake):
         # to the compiler flags, which may override the ones set by EasyBuild.
         # https://github.com/lammps/lammps/blob/stable_29Aug2024/lib/kokkos/cmake/kokkos_arch.cmake#L228-L531
         processor_arch = None
+        kokkos_arch = self.cfg['kokkos_arch']
         if kokkos_arch:
             # If someone is trying a manual override for this case, let them
             if kokkos_arch not in KOKKOS_CPU_ARCH_LIST:
@@ -321,27 +322,28 @@ class EB_LAMMPS(CMakeMake):
 
         # arch names changed between some releases :(
         if LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('29Oct2020')):
-            if processor_arch in KOKKOS_LEGACY_ARCH_MAPPING.keys():
-                processor_arch = KOKKOS_LEGACY_ARCH_MAPPING[processor_arch]
+            processor_arch = KOKKOS_LEGACY_ARCH_MAPPING.get(processor_arch, processor_arch)
 
         # GPU arch
         gpu_arch = None
         if self.cuda:
+            cuda_ccs = self.cfg.get_cuda_cc_template_value('cuda_cc_space_sep').split()
             # CUDA below
-            for cc in sorted(cuda_cc, reverse=True):
-                gpu_arch = KOKKOS_GPU_ARCH_TABLE.get(str(cc))
-                if gpu_arch:
-                    print_warning(
-                        "LAMMPS will be built _only_ for the latest CUDA compute capability known to Kokkos: "
-                        "%s" % gpu_arch
-                    )
+            for cc in cuda_ccs[::-1]:
+                try:
+                    gpu_arch = KOKKOS_GPU_ARCH_TABLE[cc]
+                    if len(cuda_ccs) > 1:
+                        print_warning(
+                            "LAMMPS will be built _only_ for the latest CUDA compute capability known to Kokkos: "
+                            "%s" % gpu_arch
+                        )
                     break
-                else:
+                except KeyError:
                     warning_msg = "(%s) GPU ARCH was not found in listed options." % cc
                     print_warning(warning_msg)
 
             if not gpu_arch:
-                error_msg = "Specified GPU ARCH (%s) " % cuda_cc
+                error_msg = "Specified GPU ARCH (%s) " % cuda_ccs
                 error_msg += "was not found in listed options [%s]." % KOKKOS_GPU_ARCH_TABLE
                 raise EasyBuildError(error_msg)
 
@@ -411,15 +413,10 @@ class EB_LAMMPS(CMakeMake):
             # In "recent versions" of LAMMPS there is no distinction
             self.cfg['general_packages'] = [x for x in self.cfg['general_packages'] if x != 'SCAFACOS']
 
-        # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-        # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-        # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-        ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-        cfg_cuda_cc = build_option('cuda_compute_capabilities')
-        if cfg_cuda_cc and not isinstance(cfg_cuda_cc, list):
-            raise EasyBuildError("cuda_compute_capabilities in easyconfig should be provided as list of strings, " +
-                                 "(for example ['8.0', '7.5']). Got %s" % cfg_cuda_cc)
-        cuda_cc = check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda=self.cuda)
+        if not self.cuda and self.cfg.get_cuda_cc_template_value('cuda_compute_capabilities', required=False):
+            warning_msg = "Missing CUDA package (in dependencies), "
+            warning_msg += "but 'cuda_compute_capabilities' option was specified."
+            print_warning(warning_msg)
 
         # cmake has its own folder
         self.cfg['srcdir'] = os.path.join(self.start_dir, 'cmake')
@@ -515,7 +512,7 @@ class EB_LAMMPS(CMakeMake):
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 
         # detect the CPU and GPU architecture (used for Intel and Kokkos packages below)
-        processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
+        processor_arch, gpu_arch = self.get_kokkos_arch()
 
         # INTEL package
         if processor_arch in INTEL_PACKAGE_ARCH_LIST or \
@@ -571,7 +568,9 @@ class EB_LAMMPS(CMakeMake):
             print_msg("Using GPU package (not Kokkos) with arch: CPU - %s, GPU - %s" % (processor_arch, gpu_arch))
             self.cfg.update('configopts', '-D%sGPU=on' % self.pkg_prefix)
             self.cfg.update('configopts', '-DGPU_API=cuda')
-            self.cfg.update('configopts', '-DGPU_ARCH=%s' % get_cuda_gpu_arch(cuda_cc))
+            # Largest CUDA SM value
+            self.cfg.update('configopts',
+                            '-DGPU_ARCH=%s' % self.cfg.get_cuda_cc_template_value('cuda_sm_space_sep').split()[-1])
 
         # Make sure that all libraries end up in the same folder (python libs seem to default to lib, everything else
         # to lib64)
@@ -798,47 +797,6 @@ class EB_LAMMPS(CMakeMake):
             custom_paths['dirs'].append(pythonpath)
 
         return super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
-
-
-def get_cuda_gpu_arch(cuda_cc):
-    """Return CUDA gpu ARCH in LAMMPS required format. Example: 'sm_32' """
-    # Get largest cuda supported
-    return 'sm_%s' % str(sorted(cuda_cc, reverse=True)[0]).replace(".", "")
-
-
-def check_cuda_compute_capabilities(cfg_cuda_cc, ec_cuda_cc, cuda=None):
-    """
-    Checks if cuda-compute-capabilities is set and prints warning if it gets declared on multiple places.
-
-    :param cfg_cuda_cc: cuda-compute-capabilities from cli config
-    :param ec_cuda_cc: cuda-compute-capabilities from easyconfig
-    :param cuda: boolean to check if cuda should be enabled or not
-    :return: returns preferred cuda-compute-capabilities
-    """
-
-    if cuda is None or not isinstance(cuda, bool):
-        cuda = get_software_root('CUDA')
-
-    cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
-
-    if cuda:
-        if cfg_cuda_cc and ec_cuda_cc:
-            warning_msg = "cuda_compute_capabilities specified in easyconfig (%s)" % ec_cuda_cc
-            warning_msg += " are overruled by "
-            warning_msg += "--cuda-compute-capabilities configuration option (%s)" % cfg_cuda_cc
-            print_warning(warning_msg)
-        elif not cuda_cc:
-            error_msg = "No CUDA compute capabilities specified.\nTo build LAMMPS with Cuda you need to use"
-            error_msg += "the --cuda-compute-capabilities configuration option or the cuda_compute_capabilities "
-            error_msg += "easyconfig parameter to specify a list of CUDA compute capabilities to compile with."
-            raise EasyBuildError(error_msg)
-
-    elif cuda_cc:
-        warning_msg = "Missing CUDA package (in dependencies), "
-        warning_msg += "but 'cuda_compute_capabilities' option was specified."
-        print_warning(warning_msg)
-
-    return cuda_cc
 
 
 def get_cpu_arch():

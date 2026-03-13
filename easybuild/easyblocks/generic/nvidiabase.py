@@ -47,7 +47,6 @@ from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option
 from easybuild.tools.filetools import adjust_permissions, remove, symlink
 from easybuild.tools.filetools import write_file, apply_regex_substitutions, resolve_path
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, get_software_version
@@ -219,21 +218,15 @@ class NvidiaBase(PackedBinary):
         if nvcomp_cuda_cc:
             nvcomp_cuda_cc = nvcomp_cuda_cc.split(',')
         # CUDA compute capability defined by easyconfig/cli
-        cfg_compute_capability = self.cfg['cuda_compute_capabilities']
-        opt_compute_capability = build_option('cuda_compute_capabilities')
-        user_cuda_cc = opt_compute_capability if opt_compute_capability else cfg_compute_capability
-        if user_cuda_cc and isinstance(user_cuda_cc, str):
-            user_cuda_cc = [user_cuda_cc]  # keep compatibility with pre-nvidia-compilers NVHPC easyconfigs
+        user_cuda_cc = self.cfg.get_cuda_cc_template_value('cuda_cc_space_sep', required=False).split()
 
-        if nvcomp_cuda_cc and user_cuda_cc and nvcomp_cuda_cc != user_cuda_cc:
+        if nvcomp_cuda_cc and user_cuda_cc and set(nvcomp_cuda_cc) != set(user_cuda_cc):
             raise EasyBuildError(
                 f"Given CUDA compute capabilities {user_cuda_cc} in {self.name}-{self.version} "
                 f"do not match those set by the NVHPC toolchain {nvcomp_cuda_cc}"
             )
 
-        default_compute_capability = user_cuda_cc
-        if nvcomp_cuda_cc:
-            default_compute_capability = nvcomp_cuda_cc
+        default_compute_capability = nvcomp_cuda_cc if nvcomp_cuda_cc else user_cuda_cc
 
         if default_compute_capability:
             self.log.info(f"CUDA compute capabilities used by default in NVHPC: '{default_compute_capability}'")
