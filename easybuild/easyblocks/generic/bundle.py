@@ -55,7 +55,7 @@ COMPONENT_INSTALL_STEPS = [
     ('patching', 'patch'),
     ('configuring', 'configure'),
     ('building', 'build'),
-    ('testing', 'test'),
+    ('testing', '_test'),
     ('installing', 'install'),
 ]
 
