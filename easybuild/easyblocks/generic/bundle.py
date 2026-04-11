@@ -55,7 +55,7 @@ COMPONENT_INSTALL_STEPS = [
     ('patching', 'patch'),
     ('configuring', 'configure'),
     ('building', 'build'),
-    ('testing', 'test'),
+    ('testing', '_test'),
     ('installing', 'install'),
 ]
 
@@ -309,11 +309,14 @@ class Bundle(EasyBlock):
         """Run the installation steps for a single component"""
         # run relevant steps
         for descr, step_name in COMPONENT_INSTALL_STEPS:
+            # Remove leading _ in case of _test_step call. Can be replaced with .removeprefix() once
+            # EasyBuild has Python 3.9+ as minimum.
+            visual_step_name = step_name[1:] if step_name.startswith("_" ) else step_name
             if step_name in comp.cfg['skipsteps']:
-                comp.log.info("Skipping '%s' step for component %s v%s", step_name, comp.name, comp.version)
+                comp.log.info("Skipping '%s' step for component %s v%s", visual_step_name, comp.name, comp.version)
             elif build_option('skip_test_step') and step_name == TEST_STEP:
-                comp.log.info("Skipping %s step for component %s v%s, as requested via skip-test-step", step_name,
-                              comp.name, comp.version)
+                comp.log.info("Skipping %s step for component %s v%s, as requested via skip-test-step",
+                              visual_step_name, comp.name, comp.version)
             else:
                 msg = f'   {descr} component {comp.name}...'
                 if self.dry_run:
@@ -322,7 +325,7 @@ class Bundle(EasyBlock):
                     print_msg(msg, log=self.log, silent=self.silent)
                 start_time = datetime.now()
                 try:
-                    comp.run_step(step_name, [lambda x: getattr(x, '%s_step' % step_name)])
+                    comp.run_step(visual_step_name, [lambda x: getattr(x, '%s_step' % step_name)])
                 finally:
                     if not self.dry_run:
                         step_duration = datetime.now() - start_time
