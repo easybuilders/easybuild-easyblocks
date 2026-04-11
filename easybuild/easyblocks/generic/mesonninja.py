@@ -30,7 +30,7 @@ EasyBuild support for installing software with Meson & Ninja.
 
 from easybuild.tools import LooseVersion
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.framework.easyconfig import CUSTOM
+from easybuild.framework.easyconfig import CUSTOM, BUILD
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, create_unused_dir, which
 from easybuild.tools.modules import get_software_version
@@ -39,6 +39,7 @@ from easybuild.tools.run import run_shell_cmd
 DEFAULT_CONFIGURE_CMD = 'meson'
 DEFAULT_BUILD_CMD = 'ninja'
 DEFAULT_INSTALL_CMD = 'ninja'
+DEFAULT_TEST_CMD = 'meson'
 
 
 class MesonNinja(EasyBlock):
@@ -60,6 +61,8 @@ class MesonNinja(EasyBlock):
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
+            'test_cmd': [DEFAULT_TEST_CMD, "Test command to use ('runtest' value is appended)", CUSTOM],
+            'runtest': [None, "Meson target to test build or True to use 'meson test'", BUILD],
         })
         return extra_vars
 
@@ -149,11 +152,32 @@ class MesonNinja(EasyBlock):
 
     def test_step(self):
         """
-        Run tests using Ninja.
+        Run tests using Meson.
         """
-        if self.cfg['runtest']:
-            cmd = "%s %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
+        test_cmd = self.cfg.get('test_cmd') or DEFAULT_TEST_CMD
+        runtest = self.cfg['runtest']
+        if runtest or test_cmd != DEFAULT_TEST_CMD:
+            # Make run_test a string (empty if it is e.g. a boolean)
+            if not isinstance(runtest, str):
+                runtest = ''
+                # Run tests as recommended in https://mesonbuild.com/Unit-tests.html#testing-tool
+                if test_cmd == DEFAULT_TEST_CMD:
+                    runtest = 'test'
+
+            # Make sure Meson does not use more resources than we want.
+            # From the documentation:
+            # By default Meson uses as many concurrent processes as there are cores on the test machine.
+            if self.cfg.parallel >= 1 and 'meson' in test_cmd:
+                if 'MESON_TESTTHREADS' not in self.cfg['pretestopts']:
+                    self.cfg['pretestopts'] += f'export MESON_TESTTHREADS={self.cfg.parallel} && '
+                # Preferred way to set parallelism since Meson v1.7.0, but does not hurt to set both.
+                if 'MESON_NUM_PROCESSES' not in self.cfg['pretestopts']:
+                    self.cfg['pretestopts'] += f'export MESON_NUM_PROCESSES={self.cfg.parallel} && '
+
+            # Compose command filtering out empty values
+            cmd = ' '.join([x for x in (self.cfg['pretestopts'], test_cmd, runtest, self.cfg['testopts']) if x])
             res = run_shell_cmd(cmd)
+
             return res.output
 
     def install_step(self):
