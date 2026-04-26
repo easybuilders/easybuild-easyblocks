@@ -204,7 +204,7 @@ class RPackage(ExtensionEasyBlock):
         for config_guess_dir in (root for root, _, files in os.walk(path) if 'config.guess' in files):
             config_guess = os.path.join(config_guess_dir, 'config.guess')
             if not check_config_guess(config_guess):
-                updated_config_guess = obtain_config_guess()
+                updated_config_guess = obtain_config_guess(easyblock=self)
                 if updated_config_guess:
                     self.log.debug("Replacing outdated %s with more recent %s", config_guess, updated_config_guess)
                     copy_file(updated_config_guess, config_guess)
