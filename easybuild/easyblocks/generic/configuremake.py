@@ -62,7 +62,7 @@ CONFIG_GUESS_VERSION = '2025-07-10'
 CONFIG_GUESS_SOURCE_URLS = [
     "https://cgit.git.savannah.gnu.org/cgit/config.git/plain/config.guess?id=",
     "https://git.savannah.gnu.org/cgit/config.git/plain/config.guess?id=",
-    ("https://raw.githubusercontent.com/cgitmirror/config", "config.guess"),
+    # works, but not official: ("https://raw.githubusercontent.com/cgitmirror/config", "config.guess"),
 ]
 CONFIG_GUESS_COMMIT_ID = "a2287c3041a3f2a204eb942e09c015eab00dc7dd"
 CONFIG_GUESS_SHA256 = "50205cf3ec5c7615b17f937a0a57babf4ec5cd0aade3d7b3cccbe5f1bf91a7ef"
