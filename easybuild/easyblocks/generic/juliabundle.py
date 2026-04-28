@@ -159,25 +159,28 @@ def get_url_from_general(pkg, git_tree_sha1, max_retries=3):
 
     sleep_time = 1
 
+    last_exception = None
     while max_retries > 0:
         time.sleep(sleep_time)
         sleep_time *= 2  # exponential backoff
         try:
             package_data = requests.get(package_url).text
-        except requests.RequestException as e:
-            print(f"Error fetching package data from General registry: {e}")
+        except requests.RequestException as exc:
+            last_exception = exc
+            print(f"Error fetching package data from General registry: {exc}")
             max_retries -= 1
             continue
         else:
             try:
                 package_info = toml.loads(package_data)
                 break
-            except toml.TomlDecodeError as e:
-                print(f"Error parsing Package.toml for package {pkg} from General registry: {e}")
+            except toml.TomlDecodeError as exc:
+                last_exception = exc
+                print(f"Error parsing Package.toml for package {pkg} from General registry: {exc}")
                 max_retries -= 1
     else:
         print(f"Failed to fetch and parse package data for {pkg} from General registry after multiple attempts")
-        print(f"Last error fetching package data from General registry: {e}")
+        print(f"Last error fetching package data from General registry: {last_exception}")
         print(f"Last package data that caused the error:\n{package_data}")
         raise RuntimeError(
             f"Failed to fetch and parse package data for {pkg} from General registry after multiple attempts"
@@ -312,7 +315,7 @@ def topological_sort(nodes, graph):
     Returns:
         - sorted_list: list of package names sorted in topological order
     """
-    incoming_count = {node: 0 for node in nodes}
+    incoming_count = dict.fromkeys(nodes, 0)
     for parents in graph.values():
         for parent in parents:
             incoming_count[parent] += 1
@@ -354,12 +357,12 @@ def generate_exts_list(sourcedir, tab_depth=4):
             checksum = f"'{checksum}'"
         if isinstance(url, IsJuliaPackage):
             continue
-        exts_list.append(tab   + f"('{name}', '{version}', {{")
+        exts_list.append(tab + f"('{name}', '{version}', {{")
         exts_list.append(tab*2 + f"'source_urls': ['{url}'],")
         if sources is not None:
             exts_list.append(tab*2 + f"'sources': {sources},")
         exts_list.append(tab*2 + f"'checksums': [{checksum}],")
-        exts_list.append(tab   + '}),')
+        exts_list.append(tab + '}),')
     exts_list.append(']')
 
     return '\n'.join(exts_list)
