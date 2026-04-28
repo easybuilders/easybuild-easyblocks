@@ -305,6 +305,14 @@ class JuliaPackage(ExtensionEasyBlock):
         }
         kwargs.update({'custom_paths': custom_paths})
 
+        # load module early ourselves rather than letting parent sanity_check_step method do so,
+        # since custom actions taken below require that environment is set up properly already
+        # (especially when using --sanity-check-only)
+        if not self.sanity_check_module_loaded:
+            extension = self.is_extension or kwargs.get('extension', False)
+            extra_modules = kwargs.get('extra_modules', None)
+            self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
+
         return ExtensionEasyBlock.sanity_check_step(self, EXTS_FILTER_JULIA_PACKAGES, *args, **kwargs)
 
     def make_module_extra(self, *args, **kwargs):
