@@ -29,7 +29,6 @@ EasyBuild support for bundles of Julia packages, implemented as an easyblock
 @author: Davide Grassano (CECAM, EPFL)
 """
 import os
-import requests
 import subprocess
 import sys
 import tempfile
@@ -39,6 +38,14 @@ from collections import defaultdict
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JuliaPackage
+
+
+HAS_REQUESTS = False
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    pass
 
 
 class JuliaBundle(Bundle, JuliaPackage):
@@ -109,11 +116,42 @@ class JuliaBundle(Bundle, JuliaPackage):
 IsJuliaPackage = type('IsJuliaPackage', (), {})  # sentinel value to indicate package is part of Julia stdlib
 
 
+def get_git_exec():
+    """Get path to git executable"""
+    return subprocess.run(['which', 'git'], capture_output=True, text=True).stdout.strip()
+
+
+def get_julia_exec():
+    """Get path to Julia executable"""
+    return subprocess.run(['which', 'julia'], capture_output=True, text=True).stdout.strip()
+
+
+def check_needed_tools():
+    """Check if needed dependencies and executables are available for determining source URLs from git tree SHA1"""
+    julia_exec = get_julia_exec()
+    git_exec = get_git_exec()
+
+    if not julia_exec:
+        print("WARNING: No Julia executable found in PATH, cannot determine if packages are part of standard library")
+    else:
+        print(f"Found Julia executable at: {julia_exec}")
+
+    if not git_exec:
+        print(
+            "WARNING: No git executable found in PATH, cannot determine commit from git tree SHA1 for packages "
+            "hosted on GitLab"
+            )
+    else:
+        print(f"Found git executable at: {git_exec}")
+
+    if not HAS_REQUESTS:
+        print("WARNING: requests library not available, cannot fetch package data from General registry")
+
+
 def get_commit_from_git_tree_sha1(repo, git_tree_sha1):
     """"Determine commit corresponding to git tree SHA1 by cloning the repo and searching the git log"""
-    git_exec = subprocess.run(['which', 'git'], capture_output=True, text=True).stdout.strip()
+    git_exec = get_git_exec()
     if not git_exec:
-        print("No git executable found in PATH, cannot determine commit from git tree SHA1")
         return None
 
     commit = None
@@ -150,6 +188,9 @@ def get_commit_from_git_tree_sha1(repo, git_tree_sha1):
 
 def get_url_from_general(pkg, git_tree_sha1, max_retries=3):
     """Get the package info from the General registry"""
+    if not HAS_REQUESTS:
+        print("WARNING: requests library not available, cannot fetch package data from General registry")
+        return None, None
     if pkg.endswith('_jll'):
         base_url = "https://github.com/JuliaRegistries/General/raw/refs/heads/master/jll/{}/{}/"
     else:
@@ -214,11 +255,7 @@ def generate_package_data(sourcedir):
     packages based on available information"""
     manifest_toml = toml.load(os.path.join(sourcedir, 'Manifest.toml'))
 
-    julia_exec = subprocess.run(['which', 'julia'], capture_output=True, text=True).stdout.strip()
-    if julia_exec:
-        print(f"Found Julia executable at: {julia_exec}")
-    else:
-        print("No Julia executable found in PATH, skipping checks for standard library packages")
+    julia_exec = get_julia_exec()
 
     packages_data = {}
 
@@ -379,6 +416,7 @@ def main():
     if len(sys.argv) > 3:
         print('Ignoring extra arguments: %s' % sys.argv[3:])
 
+    check_needed_tools()
     print(generate_exts_list(sys.argv[1], tab_depth=tab_depth))
 
 
