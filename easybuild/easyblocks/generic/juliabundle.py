@@ -395,6 +395,7 @@ def generate_exts_list(sourcedir, tab_depth=4):
         if isinstance(url, IsJuliaPackage):
             continue
         exts_list.append(tab + f"('{name}', '{version}', {{")
+        exts_list.append(tab*2 + f"'easyblock': 'JuliaPackage',")
         exts_list.append(tab*2 + f"'source_urls': ['{url}'],")
         if sources is not None:
             exts_list.append(tab*2 + f"'sources': {sources},")
