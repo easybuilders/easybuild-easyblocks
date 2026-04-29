@@ -299,7 +299,9 @@ def is_system_package(pkg_name):
 def generate_package_data(sourcedir):
     """Extract package data from Manifest.toml, including determining source URLs for
     packages based on available information"""
-    manifest_toml = toml.load(os.path.join(sourcedir, 'Manifest.toml'))
+    with open(os.path.join(sourcedir, 'Manifest.toml'), 'r') as f:
+        content = f.read()
+        manifest_toml = toml.loads(content)
 
     packages_data = {}
 
@@ -358,7 +360,9 @@ def get_package_dep_graph(sourcedir):
         - nodes: set of package names
         - graph: dict mapping package name to set of packages that depend on it
     """
-    manifest_toml = toml.load(os.path.join(sourcedir, 'Manifest.toml'))
+    with open(os.path.join(sourcedir, 'Manifest.toml'), 'r') as f:
+        content = f.read()
+        manifest_toml = toml.loads(content)
 
     nodes = set()
     graph = defaultdict(set)
