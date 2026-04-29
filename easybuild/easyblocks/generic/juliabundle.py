@@ -189,7 +189,6 @@ def get_commit_from_git_tree_sha1(repo, git_tree_sha1):
 def get_url_from_general(pkg, git_tree_sha1, max_retries=3):
     """Get the package info from the General registry"""
     if not HAS_REQUESTS:
-        print("WARNING: requests library not available, cannot fetch package data from General registry")
         return None, None
     if pkg.endswith('_jll'):
         base_url = "https://github.com/JuliaRegistries/General/raw/refs/heads/master/jll/{}/{}/"
