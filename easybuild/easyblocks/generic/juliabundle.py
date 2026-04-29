@@ -126,15 +126,26 @@ class JuliaBundle(Bundle, JuliaPackage):
 
 IsJuliaPackage = type('IsJuliaPackage', (), {})  # sentinel value to indicate package is part of Julia stdlib
 
+JULIA_EXEC = None
+GIT_EXEC = None
+SYSTEM_PACKAGES = set()
+SYSTEM_PACKAGES_TESTED = set()
+
 
 def get_git_exec():
     """Get path to git executable"""
-    return subprocess.run(['which', 'git'], capture_output=True, text=True).stdout.strip()
+    global GIT_EXEC
+    if GIT_EXEC is None:
+        GIT_EXEC = subprocess.run(['which', 'git'], capture_output=True, text=True).stdout.strip()
+    return GIT_EXEC
 
 
 def get_julia_exec():
     """Get path to Julia executable"""
-    return subprocess.run(['which', 'julia'], capture_output=True, text=True).stdout.strip()
+    global JULIA_EXEC
+    if JULIA_EXEC is None:
+        JULIA_EXEC = subprocess.run(['which', 'julia'], capture_output=True, text=True).stdout.strip()
+    return JULIA_EXEC
 
 
 def check_needed_tools():
@@ -265,12 +276,31 @@ def get_url_from_general(pkg, git_tree_sha1, max_retries=3):
     return url, filename
 
 
+def is_system_package(pkg_name):
+    """Helper to determine if a package is part of the Julia standard library"""
+    if pkg_name in SYSTEM_PACKAGES_TESTED:
+        return pkg_name in SYSTEM_PACKAGES
+
+    SYSTEM_PACKAGES_TESTED.add(pkg_name)
+    julia_exec = get_julia_exec()
+    if not julia_exec:
+        return False
+
+    req = subprocess.run(
+        [julia_exec, '-e', f'import Base; println(Base.find_package("{pkg_name}"))'],
+        capture_output=True, text=True
+    )
+    path = req.stdout.strip()
+    res = bool(path and path != "nothing")
+    if res:
+        SYSTEM_PACKAGES.add(pkg_name)
+    return res
+
+
 def generate_package_data(sourcedir):
     """Extract package data from Manifest.toml, including determining source URLs for
     packages based on available information"""
     manifest_toml = toml.load(os.path.join(sourcedir, 'Manifest.toml'))
-
-    julia_exec = get_julia_exec()
 
     packages_data = {}
 
@@ -306,15 +336,9 @@ def generate_package_data(sourcedir):
             print(f"Found package {pkg_name:>30s} with git tree SHA1, determined URL from General registry: {url}")
 
         # Check if the package is part of the Julia standard library, if so we don't need a source URL
-        if url is None and julia_exec:
-            req = subprocess.run(
-                [julia_exec, '-e', f'import Base; println(Base.find_package("{pkg_name}"))'],
-                capture_output=True, text=True
-            )
-            path = req.stdout.strip()
-            if path and path != "nothing":
-                print(f"Found Package {pkg_name:>30s} is part of the Julia standard library, no source URL needed")
-                url = IsJuliaPackage()
+        if url is None and is_system_package(pkg_name):
+            print(f"Found Package {pkg_name:>30s} is part of the Julia standard library, no source URL needed")
+            url = IsJuliaPackage()
 
         if url is None:
             print(f"WARNING: Could not determine source URL for package {pkg_name} (version {version})")
@@ -387,18 +411,42 @@ def topological_sort(nodes, graph):
     return sorted_list
 
 
-def generate_exts_list(sourcedir, tab_depth=4):
+def print_dep_graph(pkg_name, graph=None, graph_inv=None, level=0, prefix='| ', hide_system=True):
+    """Helper for printing package dependency graph"""
+    if graph:
+        graph_inv = defaultdict(set)
+        for node, parents in graph.items():
+            for parent in parents:
+                graph_inv[parent].add(node)
+
+        dependent_count = {node: len(parents) for node, parents in graph.items()}
+        print("Packages sorted by number of dependents (packages that depend on them):")
+        for item in sorted((v,k) for k,v in dependent_count.items())[::-1]:
+            print(f"{item[1]:>40s}: {item[0]:>4d} dependents")
+        with_str = "with" if not hide_system else "without"
+        print(f"\nDependency graph ({with_str} system packages):")
+
+    if hide_system and is_system_package(pkg_name):
+        return
+
+    print(f"{prefix*level}{pkg_name}")
+    for dep in sorted(graph_inv.get(pkg_name, [])):
+        print_dep_graph(dep, graph_inv=graph_inv, level=level+1, prefix=prefix, hide_system=hide_system)
+
+
+def generate_exts_list(sourcedir, packages, tab_depth=4):
     """Helper for generating exts_list with Julia packages in topological order"""
-    nodes, graph = get_package_dep_graph(sourcedir)
-    sorted_packages = topological_sort(nodes, graph)
     package_data = generate_package_data(sourcedir)
 
     tab = ' ' * tab_depth
 
     exts_list = []
 
+    exts_list.append(
+        '# Order is important as all dependencies of a package must be installed before the package itself'
+    )
     exts_list.append('exts_list = [')
-    for pkg_name in sorted_packages:
+    for pkg_name in packages:
         pkg_info = package_data[pkg_name]
         name = pkg_info['name']
         version = pkg_info['version']
@@ -413,7 +461,12 @@ def generate_exts_list(sourcedir, tab_depth=4):
         exts_list.append(tab*2 + f"'easyblock': 'JuliaPackage',")
         exts_list.append(tab*2 + f"'source_urls': ['{url}'],")
         if sources is not None:
-            exts_list.append(tab*2 + f"'sources': {sources},")
+            # exts_list.append(tab*2 + f"'sources': {sources},")
+            exts_list.append(tab*2 + "'sources': [{")
+            for key, value in sources[0].items():
+                exts_list.append(tab*3 + f"'{key}': '{value}',")
+            exts_list.append(tab*2 + "}],")
+
         exts_list.append(tab*2 + f"'checksums': [{checksum}],")
         exts_list.append(tab + '}),')
     exts_list.append(']')
@@ -425,15 +478,26 @@ def main():
     if len(sys.argv) < 2:
         print('Expected path to folder containing Manifest.toml')
         sys.exit(1)
+
+    sourcedir = sys.argv[1]
+    tab_depth = 4
+    print_graph_info = False
+
     if len(sys.argv) > 2:
         tab_depth = int(sys.argv[2])
-    else:
-        tab_depth = 4
     if len(sys.argv) > 3:
+        print_graph_info = bool(sys.argv[3].lower() in ['true', '1', 'yes'])
+    if len(sys.argv) > 4:
         print('Ignoring extra arguments: %s' % sys.argv[3:])
 
     check_needed_tools()
-    print(generate_exts_list(sys.argv[1], tab_depth=tab_depth))
+
+    nodes, graph = get_package_dep_graph(sourcedir)
+    sorted_packages = topological_sort(nodes, graph)
+    if print_graph_info:
+        print_dep_graph(sorted_packages[-1], graph=graph, hide_system=True)
+
+    print(generate_exts_list(sourcedir, sorted_packages, tab_depth=tab_depth))
 
 
 if __name__ == '__main__':
