@@ -33,7 +33,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import toml
 from collections import defaultdict
 
 from easybuild.easyblocks.generic.bundle import Bundle
