@@ -420,7 +420,7 @@ def print_dep_graph(pkg_name, graph=None, graph_inv=None, level=0, prefix='| ', 
 
         dependent_count = {node: len(parents) for node, parents in graph.items()}
         print("Packages sorted by number of dependents (packages that depend on them):")
-        for item in sorted((v,k) for k,v in dependent_count.items())[::-1]:
+        for item in sorted((v, k) for k, v in dependent_count.items())[::-1]:
             print(f"{item[1]:>40s}: {item[0]:>4d} dependents")
         with_str = "with" if not hide_system else "without"
         print(f"\nDependency graph ({with_str} system packages):")
@@ -457,7 +457,7 @@ def generate_exts_list(sourcedir, packages, tab_depth=4):
         if isinstance(url, IsJuliaPackage):
             continue
         exts_list.append(tab + f"('{name}', '{version}', {{")
-        exts_list.append(tab*2 + f"'easyblock': 'JuliaPackage',")
+        exts_list.append(tab*2 + "'easyblock': 'JuliaPackage',")
         exts_list.append(tab*2 + f"'source_urls': ['{url}'],")
         if sources is not None:
             # exts_list.append(tab*2 + f"'sources': {sources},")
