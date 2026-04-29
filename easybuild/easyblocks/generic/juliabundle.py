@@ -47,6 +47,17 @@ try:
 except ImportError:
     pass
 
+HAS_TOML = False
+try:
+    import tomllib as toml
+    HAS_TOML = True
+except ImportError:
+    try:
+        import toml
+        HAS_TOML = True
+    except ImportError:
+        pass
+
 
 class JuliaBundle(Bundle, JuliaPackage):
     """
@@ -130,6 +141,11 @@ def check_needed_tools():
     """Check if needed dependencies and executables are available for determining source URLs from git tree SHA1"""
     julia_exec = get_julia_exec()
     git_exec = get_git_exec()
+
+    if not HAS_TOML:
+        print("ERROR: No TOML library available, cannot parse Manifest.toml")
+        print("Either use Python 3.11+ or install `toml`")
+        sys.exit(1)
 
     if not julia_exec:
         print("WARNING: No Julia executable found in PATH, cannot determine if packages are part of standard library")
