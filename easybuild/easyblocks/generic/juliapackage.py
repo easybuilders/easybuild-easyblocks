@@ -118,11 +118,31 @@ class JuliaPackage(ExtensionEasyBlock):
 
         return parsed_var
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._julia_version = None
+
+    @property
+    def julia_version(self) -> str:
+        """Needs to get Julia version from dependencies to allow --sanity-check-only to generate the fake module"""
+        if self._julia_version is None:
+            deps = self.cfg.dependencies(runtime_only=True)
+            for dep in deps:
+                if dep['name'] == 'Julia':
+                    self._julia_version = dep['version']
+                    break
+            else:
+                raise EasyBuildError(
+                    "Julia not included as dependency, cannot determine Julia version for installation of: %s",
+                    self.name
+                )
+        return self._julia_version
+
     def julia_env_path(self, absolute=True, base=True):
         """
         Return path to installation environment file.
         """
-        julia_version = get_software_version('Julia').split('.')
+        julia_version = self.julia_version.split('.')
         env_dir = "v{}.{}".format(*julia_version[:2])
         project_env = os.path.join("environments", env_dir, "Project.toml")
 
@@ -137,8 +157,7 @@ class JuliaPackage(ExtensionEasyBlock):
         """Enable offline mode of Julia Pkg"""
 
         if not self.cfg['download_pkg_deps']:
-            julia_version = get_software_version('Julia')
-            if LooseVersion(julia_version) >= LooseVersion('1.5'):
+            if LooseVersion(self.julia_version) >= LooseVersion('1.5'):
                 # Enable offline mode of Julia Pkg
                 # https://pkgdocs.julialang.org/v1/api/#Pkg.offline
                 env.setvar('JULIA_PKG_OFFLINE', 'true')
@@ -148,7 +167,7 @@ class JuliaPackage(ExtensionEasyBlock):
                     "Enable easyconfig option 'download_pkg_deps' to allow installation "
                     "with any extra downloaded dependencies."
                 )
-                raise EasyBuildError(errmsg, julia_version)
+                raise EasyBuildError(errmsg, self.julia_version)
 
     def prepare_julia_env(self):
         """
@@ -304,14 +323,6 @@ class JuliaPackage(ExtensionEasyBlock):
             'dirs': [pkg_dir],
         }
         kwargs.update({'custom_paths': custom_paths})
-
-        # load module early ourselves rather than letting parent sanity_check_step method do so,
-        # since custom actions taken below require that environment is set up properly already
-        # (especially when using --sanity-check-only)
-        if not self.sanity_check_module_loaded:
-            extension = self.is_extension or kwargs.get('extension', False)
-            extra_modules = kwargs.get('extra_modules', None)
-            self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
 
         return ExtensionEasyBlock.sanity_check_step(self, EXTS_FILTER_JULIA_PACKAGES, *args, **kwargs)
 
