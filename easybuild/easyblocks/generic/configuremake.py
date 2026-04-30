@@ -120,6 +120,7 @@ def obtain_config_guess(easyblock=None, download_source_path=None, search_source
     """
     Locate or download an up-to-date config.guess
 
+    :param easyblock: current EasyBlock subclass, used to specify obtain_file_raise_on_failure() method.
     :param download_source_path: Path to download config.guess to
     :param search_source_paths: Paths to search for config.guess
     :return: Path to config.guess or None
