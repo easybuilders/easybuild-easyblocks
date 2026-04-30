@@ -38,7 +38,7 @@ import easybuild.tools.environment as env
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.modules import get_software_root
 from easybuild.tools.filetools import copy_dir, mkdir
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.utilities import trace_msg
