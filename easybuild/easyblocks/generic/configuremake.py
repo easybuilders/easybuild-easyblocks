@@ -129,7 +129,7 @@ def obtain_config_guess(easyblock=None, download_source_path=None, search_source
     eb_source_paths = source_paths()
 
     if easyblock is None:
-        easyblock is EasyBlock
+        easyblock = EasyBlock
 
     if download_source_path is None:
         download_source_path = eb_source_paths[0]
@@ -160,7 +160,7 @@ def obtain_config_guess(easyblock=None, download_source_path=None, search_source
             break
 
     if not config_guess_path:
-        cand_config_guess_path = easyblock.obtain_file_raise_on_failure(
+        dl_config_guess_path = easyblock.obtain_file_raise_on_failure(
             config_guess,
             urls=CONFIG_GUESS_SOURCE_URLS,
             download_filename=CONFIG_GUESS_COMMIT_ID,
@@ -168,7 +168,7 @@ def obtain_config_guess(easyblock=None, download_source_path=None, search_source
             alt_location=sourcepath_subdir,
             warning_only=True,
         )
-        if not cand_config_guess_path:
+        if not dl_config_guess_path:
             print_warning("Failed to download recent %s to %s", config_guess, cand_config_guess_path, log=log)
         elif not check_config_guess(cand_config_guess_path):
             print_warning("Verification failed for file %s, not using it!", cand_config_guess_path, log=log)
