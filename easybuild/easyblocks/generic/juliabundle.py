@@ -212,10 +212,10 @@ def get_commit_from_git_tree_sha1(repo, git_tree_sha1):
     return commit
 
 
-def get_url_from_general(pkg, git_tree_sha1, max_retries=3):
+def get_url_from_general(pkg, version, git_tree_sha1, max_retries=3):
     """Get the package info from the General registry"""
     if not HAS_REQUESTS:
-        return None, None
+        return None, None, None
     if pkg.endswith('_jll'):
         base_url = "https://github.com/JuliaRegistries/General/raw/refs/heads/master/jll/{}/{}/"
     else:
@@ -257,9 +257,18 @@ def get_url_from_general(pkg, git_tree_sha1, max_retries=3):
     if url.endswith('.git'):
         url = url[:-4]
 
+    filename = None
+    is_default_filename = False
+    default_filename = f'v{version}.tar.gz'
+
     if 'github.com' in url:
         url = url + "/archive/"
-        filename = f'{git_tree_sha1}.tar.gz'
+        res = requests.head(url + default_filename, allow_redirects=True)
+        if res.status_code == 200:
+            is_default_filename = True
+            filename = default_filename
+        else:
+            filename = f'{git_tree_sha1}.tar.gz'
 
     if 'gitlab.com' in url:
         # https://gitlab.com/ExpandingMan/ShowCases.jl/-/archive/1ea211f349b40165a2b5fbbc80f771d6dcb725ad/ShowCases.jl-1ea211f349b40165a2b5fbbc80f771d6dcb725ad.tar.gz
@@ -272,7 +281,7 @@ def get_url_from_general(pkg, git_tree_sha1, max_retries=3):
             filename = None
             print(f"WARNING: Could not determine commit for git tree SHA1 {git_tree_sha1} in GITLAB repo {repo}")
 
-    return url, filename
+    return url, filename, is_default_filename
 
 
 def is_system_package(pkg_name):
@@ -328,12 +337,13 @@ def generate_package_data(sourcedir):
             print(f"Found package {pkg_name:>30s} with explicit repo URL: {url}")
 
         if url is None and git_tree_sha1 is not None:
-            url, download_filename = get_url_from_general(pkg_name, git_tree_sha1)
+            url, download_filename, is_default = get_url_from_general(pkg_name, version, git_tree_sha1)
             filename = f'{pkg_name}-{version}.tar.gz'
-            item['sources'] = [{
-                'download_filename': download_filename,
-                'filename': filename,
-            }]
+            if not is_default:
+                item['sources'] = [{
+                    'download_filename': download_filename,
+                    'filename': filename,
+                }]
             print(f"Found package {pkg_name:>30s} with git tree SHA1, determined URL from General registry: {url}")
 
         # Check if the package is part of the Julia standard library, if so we don't need a source URL
@@ -445,6 +455,18 @@ def generate_exts_list(sourcedir, packages, tab_depth=4):
 
     exts_list = []
 
+    exts_list.extend([
+        '',
+        '-' * 80,
+        '- Extensions list to copy in the JuliaBundle easyconfig:',
+        '# Default options for all extensions, can be overridden by individual packages if needed',
+        'exts_default_options = {',
+        tab + "# Some julia packages like LLVM and CUDA would default to the LLVM/CUDA EasyBlock respectively",
+        tab + "'easyblock': 'JuliaPackage',",
+        '}',
+        '',
+    ])
+
     exts_list.append(
         '# Order is important as all dependencies of a package must be installed before the package itself'
     )
@@ -461,7 +483,6 @@ def generate_exts_list(sourcedir, packages, tab_depth=4):
         if isinstance(url, IsJuliaPackage):
             continue
         exts_list.append(tab + f"('{name}', '{version}', {{")
-        exts_list.append(tab*2 + "'easyblock': 'JuliaPackage',")
         exts_list.append(tab*2 + f"'source_urls': ['{url}'],")
         if sources is not None:
             # exts_list.append(tab*2 + f"'sources': {sources},")
