@@ -37,6 +37,7 @@ from collections import defaultdict
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JuliaPackage
+from easybuild.tools import tomllib as toml
 
 
 HAS_REQUESTS = False
@@ -45,17 +46,6 @@ try:
     HAS_REQUESTS = True
 except ImportError:
     pass
-
-HAS_TOML = False
-try:
-    import tomllib as toml
-    HAS_TOML = True
-except ImportError:
-    try:
-        import toml
-        HAS_TOML = True
-    except ImportError:
-        pass
 
 
 class JuliaBundle(Bundle, JuliaPackage):
@@ -152,11 +142,6 @@ def check_needed_tools():
     julia_exec = get_julia_exec()
     git_exec = get_git_exec()
 
-    if not HAS_TOML:
-        print("ERROR: No TOML library available, cannot parse Manifest.toml")
-        print("Either use Python 3.11+ or install `toml`")
-        sys.exit(1)
-
     if not julia_exec:
         print("WARNING: No Julia executable found in PATH, cannot determine if packages are part of standard library")
     else:
@@ -240,7 +225,7 @@ def get_url_from_general(pkg, version, git_tree_sha1, max_retries=3):
             try:
                 package_info = toml.loads(package_data)
                 break
-            except toml.TomlDecodeError as exc:
+            except toml.TOMLDecodeError as exc:
                 last_exception = exc
                 print(f"Error parsing Package.toml for package {pkg} from General registry: {exc}")
                 max_retries -= 1
