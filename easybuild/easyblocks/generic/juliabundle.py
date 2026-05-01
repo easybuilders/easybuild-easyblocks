@@ -253,16 +253,18 @@ def get_url_from_general(pkg, version, git_tree_sha1, max_retries=3):
         )
 
     repo = package_info['repo']
-    url = repo.rstrip('/')
-    if url.endswith('.git'):
-        url = url[:-4]
+    base_url = repo.rstrip('/')
+    if base_url.endswith('.git'):
+        base_url = base_url[:-4]
 
     filename = None
     is_default_filename = False
-    default_filename = f'v{version}.tar.gz'
+    default_tag = f'v{version}'
+    default_filename = f'{default_tag}.tar.gz'
 
-    if 'github.com' in url:
-        url = url + "/archive/"
+    if 'github.com' in base_url:
+        url = base_url + "/archive/"
+        # Test if downloading based on tag works
         res = requests.head(url + default_filename, allow_redirects=True)
         if res.status_code == 200:
             is_default_filename = True
@@ -270,16 +272,25 @@ def get_url_from_general(pkg, version, git_tree_sha1, max_retries=3):
         else:
             filename = f'{git_tree_sha1}.tar.gz'
 
-    if 'gitlab.com' in url:
+    if 'gitlab.com' in base_url:
         # https://gitlab.com/ExpandingMan/ShowCases.jl/-/archive/1ea211f349b40165a2b5fbbc80f771d6dcb725ad/ShowCases.jl-1ea211f349b40165a2b5fbbc80f771d6dcb725ad.tar.gz
-        commit = get_commit_from_git_tree_sha1(repo, git_tree_sha1)
-        if commit:
-            url = url + f"/-/archive/{commit}/"
-            filename = f'{pkg}.jl-{commit[:8]}.tar.gz'
+        # https://gitlab.com/QEF/q-e/-/archive/qe-7.5/q-e-qe-7.5.tar.gz
+        url = base_url + f"/-/archive/{default_tag}/"
+        # Test if downloading based on tag works
+        res = requests.head(url + f'{pkg}.jl-' + default_filename, allow_redirects=True)
+        if res.status_code == 200:
+            # is_default_filename = True
+            url = base_url + "/-/archive/v%(version)s/"
+            filename = f'{pkg}.jl-{default_tag}.tar.gz'
         else:
-            url = None
-            filename = None
-            print(f"WARNING: Could not determine commit for git tree SHA1 {git_tree_sha1} in GITLAB repo {repo}")
+            commit = get_commit_from_git_tree_sha1(repo, git_tree_sha1)
+            if commit:
+                url = base_url + f"/-/archive/{commit}/"
+                filename = f'{pkg}.jl-{commit[:8]}.tar.gz'
+            else:
+                url = None
+                filename = None
+                print(f"WARNING: Could not determine commit for git tree SHA1 {git_tree_sha1} in GITLAB repo {repo}")
 
     return url, filename, is_default_filename
 
