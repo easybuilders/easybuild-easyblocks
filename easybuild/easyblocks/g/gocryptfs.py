@@ -30,18 +30,62 @@ EasyBuild support for gocryptfs
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import EasyConfig
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import print_warning
 from datetime import datetime
 
 
-def _raise_missing_source_error():
-    raise EasyBuildError(
-        "Please provide '%s' parameter with a '%s' entry." % ('default_component_specs', 'sources')
+def _print_missing_source_warning():
+    print_warning(
+        "Bulding gocryptfs without '%s' definition in '%s'.",
+        'sources',
+        'default_component_specs'
     )
 
 
+def _set_gocryptfs_components(ec: EasyConfig, sources):
+    ec['components'] = [
+        (ec.name, ec.version, {
+            'easyblock': 'GoPackage',
+            'sources': sources,
+            'start_dir': '%s_v%s_src-deps' % (ec.name, ec.version),
+            'installopts': '-trimpath'
+        }),
+        ('%s-xray' % ec.name, ec.version, {
+            'easyblock': 'GoPackage',
+            'sources': sources,
+            'start_dir': '%s_v%s_src-deps/gocryptfs-xray' % (ec.name, ec.version),
+            'skipsteps':  ['build'],
+            'modulename': '%(name)s',
+            'installopts': '-trimpath'
+            }),
+        ('%s-doc' % ec.name, ec.version, {
+            'sources': sources,
+            'start_dir': '%s_v%s_src-deps/Documentation' % (ec.name, ec.version),
+            'skipsteps': ['configure'],
+            'build_cmd': './MANPAGE-render.bash',
+            'maxparallel': 1,
+            'install_cmd': (
+                'install -D --mode=u=rw,g=r,o=r'
+                '    --target-directory="%(installdir)s/share/man/man1/" gocryptfs.1'
+                ' && '
+                'install -D --mode=u=rw,g=r,o=r'
+                '    --target-directory="%(installdir)s/share/man/man1/" gocryptfs-xray.1'
+            ),
+        }),
+        ('%s-license' % ec.name, ec.version, {
+            'sources': sources,
+            'start_dir': '%s_v%s_src-deps' % (ec.name, ec.version),
+            'skipsteps': ['configure', 'build'],
+            'install_cmd': (
+                'install -D --mode=u=rw,g=r,o=r'
+                '    --target-directory="%(installdir)s/share/licenses/gocryptfs" LICENSE'
+            )
+        }),
+    ]
+
+
 class EB_gocryptfs(Bundle):
-    """Builds and installs a Go package, and provides a dedicated module file."""
+    """Builds and installs a gocryptfs, and provides a dedicated module file."""
     def __init__(self, *args, **kwargs):
         self.sanity_check_all_components = True
 
@@ -51,51 +95,14 @@ class EB_gocryptfs(Bundle):
 
         default_component_specs = ec.get('default_component_specs', None)
         if default_component_specs is None:
-            _raise_missing_source_error()
+            _print_missing_source_warning()
 
         sources = default_component_specs.get('sources', None)
         if sources is None:
-            _raise_missing_source_error()
-
-        ec['components'] = [
-            (ec.name, ec.version, {
-                'easyblock': 'GoPackage',
-                'sources': sources,
-                'start_dir': '%s_v%s_src-deps' % (ec.name, ec.version),
-                'installopts': '-trimpath'
-            }),
-            ('%s-xray' % ec.name, ec.version, {
-                'easyblock': 'GoPackage',
-                'sources': sources,
-                'start_dir': '%s_v%s_src-deps/gocryptfs-xray' % (ec.name, ec.version),
-                'skipsteps':  ['build'],
-                'modulename': '%(name)s',
-                'installopts': '-trimpath'
-                }),
-            ('%s-doc' % ec.name, ec.version, {
-                'sources': sources,
-                'start_dir': '%s_v%s_src-deps/Documentation' % (ec.name, ec.version),
-                'skipsteps': ['configure'],
-                'build_cmd': './MANPAGE-render.bash',
-                'maxparallel': 1,
-                'install_cmd': (
-                    'install -D --mode=u=rw,g=r,o=r'
-                    '    --target-directory="%(installdir)s/share/man/man1/" gocryptfs.1'
-                    ' && '
-                    'install -D --mode=u=rw,g=r,o=r'
-                    '    --target-directory="%(installdir)s/share/man/man1/" gocryptfs-xray.1'
-                ),
-            }),
-            ('%s-license' % ec.name, ec.version, {
-                'sources': sources,
-                'start_dir': '%s_v%s_src-deps' % (ec.name, ec.version),
-                'skipsteps': ['configure', 'build'],
-                'install_cmd': (
-                    'install -D --mode=u=rw,g=r,o=r'
-                    '    --target-directory="%(installdir)s/share/licenses/gocryptfs" LICENSE'
-                )
-            }),
-        ]
+            # Set dummy sources for '--module-only' builds
+            _print_missing_source_warning()
+        else:
+            _set_gocryptfs_components(ec, sources)
 
         ec['sanity_check_paths'] = {
             'files': ['bin/%(name)s', 'bin/%(name)s-xray'],
