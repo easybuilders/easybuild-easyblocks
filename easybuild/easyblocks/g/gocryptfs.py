@@ -30,53 +30,64 @@ EasyBuild support for gocryptfs
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import EasyConfig
+from easybuild.tools.build_log import EasyBuildError
 from datetime import datetime
 
 
 class EB_gocryptfs(Bundle):
     """Builds and installs a Go package, and provides a dedicated module file."""
     def __init__(self, *args, **kwargs):
-        self.check_for_sources = False
         self.sanity_check_all_components = True
 
         ec: EasyConfig = args[0]
 
         ec['default_easyblock'] = 'ConfigureMake'
+        default_component_specs = ec.get('default_component_specs', None)
 
-        ec['components'] = [
-            (ec.name, ec.version, {
-                'easyblock': 'GoPackage',
-                'start_dir': '%s_v%s_src-deps' % (ec.name, ec.version),
-                'installopts': '-trimpath'
-            }),
-            ('%s-xray' % ec.name, ec.version, {
-                'easyblock': 'GoPackage',
-                'start_dir': '%s_v%s_src-deps/gocryptfs-xray' % (ec.name, ec.version),
-                'skipsteps':  ['build'],
-                'modulename': '%(name)s',
-                'installopts': '-trimpath'
+        sources = None
+        if default_component_specs:
+            sources = default_component_specs.get('sources', None)
+
+        if sources:
+            ec['components'] = [
+                (ec.name, ec.version, {
+                    'easyblock': 'GoPackage',
+                    'sources': sources,
+                    'start_dir': '%s_v%s_src-deps' % (ec.name, ec.version),
+                    'installopts': '-trimpath'
                 }),
-            ('%s-doc' % ec.name, ec.version, {
-                'start_dir': '%s_v%s_src-deps/Documentation' % (ec.name, ec.version),
-                'skipsteps': ['configure'],
-                'build_cmd': './MANPAGE-render.bash',
-                'maxparallel': 1,
-                'install_cmd':
-                (
-                    'install -D --mode=u=rw,g=r,o=r'
-                    '    --target-directory="%(installdir)s/share/man/man1/" gocryptfs.1'
-                    ' && '
-                    'install -D --mode=u=rw,g=r,o=r'
-                    '    --target-directory="%(installdir)s/share/man/man1/" gocryptfs-xray.1'
-                ),
-            }),
-            ('%s-license' % ec.name, ec.version, {
-                'start_dir': '%s_v%s_src-deps' % (ec.name, ec.version),
-                'skipsteps': ['configure', 'build'],
-                'install_cmd':
-                'install -D --mode=u=rw,g=r,o=r --target-directory="%(installdir)s/share/licenses/gocryptfs" LICENSE',
-            }),
-        ]
+                ('%s-xray' % ec.name, ec.version, {
+                    'easyblock': 'GoPackage',
+                    'sources': sources,
+                    'start_dir': '%s_v%s_src-deps/gocryptfs-xray' % (ec.name, ec.version),
+                    'skipsteps':  ['build'],
+                    'modulename': '%(name)s',
+                    'installopts': '-trimpath'
+                    }),
+                ('%s-doc' % ec.name, ec.version, {
+                    'sources': sources,
+                    'start_dir': '%s_v%s_src-deps/Documentation' % (ec.name, ec.version),
+                    'skipsteps': ['configure'],
+                    'build_cmd': './MANPAGE-render.bash',
+                    'maxparallel': 1,
+                    'install_cmd': (
+                        'install -D --mode=u=rw,g=r,o=r'
+                        '    --target-directory="%(installdir)s/share/man/man1/" gocryptfs.1'
+                        ' && '
+                        'install -D --mode=u=rw,g=r,o=r'
+                        '    --target-directory="%(installdir)s/share/man/man1/" gocryptfs-xray.1'
+                    ),
+                }),
+                ('%s-license' % ec.name, ec.version, {
+                    'sources': sources,
+                    'start_dir': '%s_v%s_src-deps' % (ec.name, ec.version),
+                    'skipsteps': ['configure', 'build'],
+                    'install_cmd': (
+                        'install -D --mode=u=rw,g=r,o=r'
+                        '    --target-directory="%(installdir)s/share/licenses/gocryptfs" LICENSE',
+                    )
+                }),
+            ]
 
         ec['sanity_check_paths'] = {
             'files': ['bin/%(name)s', 'bin/%(name)s-xray'],
