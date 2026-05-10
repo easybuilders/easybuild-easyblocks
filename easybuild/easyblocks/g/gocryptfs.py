@@ -30,19 +30,18 @@ EasyBuild support for gocryptfs
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import EasyConfig
-from easybuild.tools.build_log import print_warning
 from datetime import datetime
 
 
-def _print_missing_source_warning():
-    print_warning(
-        "Bulding gocryptfs without '%s' definition in '%s'.",
-        'sources',
-        'default_component_specs'
-    )
+def _set_gocryptfs_components(ec: EasyConfig):
+    ec['default_easyblock'] = 'ConfigureMake'
 
+    sources = ec['sources']
+    if not sources:
+        # Components should not be setup when no sources are not dfined
+        # e.g. when used with `--modules-only`
+        return
 
-def _set_gocryptfs_components(ec: EasyConfig, sources):
     ec['components'] = [
         (ec.name, ec.version, {
             'easyblock': 'GoPackage',
@@ -55,9 +54,9 @@ def _set_gocryptfs_components(ec: EasyConfig, sources):
             'sources': sources,
             'start_dir': '%s_v%s_src-deps/gocryptfs-xray' % (ec.name, ec.version),
             'skipsteps':  ['build'],
-            'modulename': '%(name)s',
+            'modulename': '%s' % ec.name,
             'installopts': '-trimpath'
-            }),
+        }),
         ('%s-doc' % ec.name, ec.version, {
             'sources': sources,
             'start_dir': '%s_v%s_src-deps/Documentation' % (ec.name, ec.version),
@@ -88,35 +87,25 @@ class EB_gocryptfs(Bundle):
     """Builds and installs a gocryptfs, and provides a dedicated module file."""
     def __init__(self, *args, **kwargs):
         self.sanity_check_all_components = True
+        self.check_for_sources = False
 
         ec: EasyConfig = args[0]
 
-        ec['default_easyblock'] = 'ConfigureMake'
+        _set_gocryptfs_components(ec)
 
-        default_component_specs = ec.get('default_component_specs', None)
-        if default_component_specs is None:
-            _print_missing_source_warning()
+        super().__init__(*args, **kwargs)
 
-        sources = default_component_specs.get('sources', None)
-        if sources is None:
-            # Set dummy sources for '--module-only' builds
-            _print_missing_source_warning()
-        else:
-            _set_gocryptfs_components(ec, sources)
-
-        ec['sanity_check_paths'] = {
+        self.cfg['sanity_check_paths'] = {
             'files': ['bin/%(name)s', 'bin/%(name)s-xray'],
             'dirs': ['share'],
         }
 
-        ec['sanity_check_commands'] = [
+        self.cfg['sanity_check_commands'] = [
             '%(name)s --help',
             '%(name)s-xray --help',
             '%(name)s --version | grep --quiet %(version)s',
             '%(name)s-xray --version | grep --quiet %(version)s',
         ]
-
-        super().__init__(*args, **kwargs)
 
     def _set_version_info(self, cfg: EasyConfig):
         installopts = cfg['installopts']
@@ -127,7 +116,7 @@ class EB_gocryptfs(Bundle):
 
         now = datetime.now()
         date = r'-X \"main.BuildDate='
-        date += now.strftime('%Y-%m-%d %H:%M:%S')
+        date += now.strftime('%Y-%m-%dT%H:%M:%S')
         date += r'\"'
 
         installopts += r' -ldflags="'
