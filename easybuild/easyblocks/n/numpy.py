@@ -99,7 +99,8 @@ class EB_numpy(FortranPythonPackage):
             # In this case we want to link to FlexiBLAS and not directly to MKL.
             imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
 
-            if self.toolchain.comp_family() == toolchain.INTELCOMP and imkl_direct and self.toolchain.options.get('oneapi_c_cxx', None):
+            if (self.toolchain.comp_family() == toolchain.INTELCOMP and imkl_direct
+                and self.toolchain.options.get('oneapi_c_cxx', None)):
                 # This is a bit of a hack, as the newer icx behaves differently from the icc compiler
                 # In order to find iomp5, and thus MKL, we simply add the Intel compiler library path.
                 # oneapi_c_cxx is set when using the newer Intel versions (i.e. icx)
