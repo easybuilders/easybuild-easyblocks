@@ -30,18 +30,21 @@ EasyBuild support for gocryptfs
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.framework.easyconfig import EasyConfig
+from easybuild.tools.build_log import EasyBuildError
 from datetime import datetime
 
 
 def _set_gocryptfs_components(ec: EasyConfig):
-    ec['default_easyblock'] = 'ConfigureMake'
-
     sources = ec['sources']
     if not sources:
         # Components should not be setup when no sources are not dfined
         # e.g. when used with `--modules-only`
         return
 
+    if ec.get('components', None) or ec.get('default_component_specs', None):
+        raise EasyBuildError("The '%s' easyblock does not accept a predefined 'components' entry'." % ec.name)
+
+    ec['default_easyblock'] = 'ConfigureMake'
     ec['components'] = [
         (ec.name, ec.version, {
             'easyblock': 'GoPackage',
@@ -90,7 +93,6 @@ class EB_gocryptfs(Bundle):
         self.check_for_sources = False
 
         ec: EasyConfig = args[0]
-
         _set_gocryptfs_components(ec)
 
         super().__init__(*args, **kwargs)
