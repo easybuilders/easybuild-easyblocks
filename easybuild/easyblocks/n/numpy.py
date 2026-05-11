@@ -95,17 +95,30 @@ class EB_numpy(FortranPythonPackage):
         else:
             self.log.info(f"Using classic procedure to configure build for numpy version {self.version}")
 
-            # see e.g. https://github.com/numpy/numpy/pull/2809/files
-            self.sitecfg = '\n'.join([
-                "[DEFAULT]",
-                "library_dirs = %(libs)s",
-                "include_dirs= %(includes)s",
-                "search_static_first=True",
-            ])
-
             # If both FlexiBLAS and MKL are found, we assume that FlexiBLAS has a dependency on MKL.
             # In this case we want to link to FlexiBLAS and not directly to MKL.
             imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
+
+            if self.toolchain.comp_family() == toolchain.INTELCOMP and imkl_direct and self.toolchain.options.get('oneapi_c_cxx', None):
+                # This is a bit of a hack, as the newer icx behaves differently from the icc compiler
+                # In order to find iomp5, and thus MKL, we simply add the Intel compiler library path.
+                # oneapi_c_cxx is set when using the newer Intel versions (i.e. icx)
+                intelroot = os.getenv("EBROOTINTELMINCOMPILERS")
+                # see e.g. https://github.com/numpy/numpy/pull/2809/files
+                self.sitecfg = '\n'.join([
+                    "[DEFAULT]",
+                    "library_dirs = %s" % os.path.join(intelroot, 'compiler', 'latest', 'lib', ':', '%(libs)s'),
+                    "include_dirs= %(includes)s",
+                    "search_static_first=True",
+                ])
+            else:
+                # see e.g. https://github.com/numpy/numpy/pull/2809/files
+                self.sitecfg = '\n'.join([
+                    "[DEFAULT]",
+                    "library_dirs = %(libs)s",
+                    "include_dirs= %(includes)s",
+                    "search_static_first=True",
+                ])
 
             if imkl_direct:
 
@@ -316,7 +329,7 @@ class EB_numpy(FortranPythonPackage):
 
         super().test_step()
 
-        # temporarily install numpy, it doesn't alow to be used straight from the source dir
+        # temporarily install numpy, it doesn't allow to be used straight from the source dir
         tmpdir = tempfile.mkdtemp()
         abs_pylibdirs = [os.path.join(tmpdir, pylibdir) for pylibdir in self.all_pylibdirs]
         for pylibdir in abs_pylibdirs:
@@ -329,7 +342,7 @@ class EB_numpy(FortranPythonPackage):
             pwd = os.getcwd()
             change_dir(tmpdir)
         except OSError as err:
-            raise EasyBuildError("Faild to change to %s: %s", tmpdir, err)
+            raise EasyBuildError("Failed to change to %s: %s", tmpdir, err)
 
         # evaluate performance of numpy.dot (3 runs, 3 loops each)
         size = 1000
