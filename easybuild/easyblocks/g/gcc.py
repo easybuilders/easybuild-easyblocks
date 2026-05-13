@@ -1015,7 +1015,7 @@ class EB_GCC(ConfigureMake):
                             raise EasyBuildError(f"python_executable should be None or non-empty string, got {py_exe}")
                             wrapper_files = list(filter(os.path.isfile, glob.glob(os.path.join(rpath_wrappers_path, '*', '*'))))
                             # replace path to Python executable with python_executable in the wrappers,
-                            # as this is the executable that runs EasyBuild and may be unavailable 
+                            # as this is the executable that runs EasyBuild and may be unavailable
                             # when using the buildenv wrappers.
                             apply_regex_substitutions(wrapper_files, [(r'^PYTHON_EXE=.*$', f'PYTHON_EXE={py_exe}')], backup=False)
                             # Make sure wrappers are readable/executable by everyone
