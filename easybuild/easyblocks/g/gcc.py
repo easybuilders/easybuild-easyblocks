@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2026 Ghent University
+# Copyright 2009-2025 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -49,13 +49,14 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import apply_regex_substitutions, adjust_permissions, change_dir, copy_file, search_file
-from easybuild.tools.filetools import mkdir, move_file, read_file, symlink, which, write_file
+from easybuild.tools.filetools import copy_dir, mkdir, move_file, read_file, symlink, which, write_file
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import RISCV, check_os_dependency, get_cpu_architecture, get_cpu_family
 from easybuild.tools.systemtools import get_gcc_version, get_shared_lib_ext, get_os_name, get_os_type
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.utilities import nub
+from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
 # Offloading stages to build
@@ -156,6 +157,7 @@ class EB_GCC(ConfigureMake):
             'withppl': [False, "Build GCC with PPL support", CUSTOM],
             'withnvptx': [False, "Build GCC with NVPTX offload support", CUSTOM],
             'withamdgcn': [False, "Build GCC with AMD GCN offload support", CUSTOM],
+            'rpath_wrappers': [False, "Generate RPATH wrappers to build on top", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -473,6 +475,9 @@ class EB_GCC(ConfigureMake):
         # Set the current build stage to the specified stage based on the iteration index
         self.current_stage = self.build_stages[self.iter_idx]
 
+        # passed to toolchain.prepare to specify location for RPATH wrapper scripts (if RPATH linkin    g is enabled)
+        self.rpath_wrappers_dir = self.builddir
+
     def configure_step(self):
         """
         Configure for GCC build:
@@ -662,7 +667,7 @@ class EB_GCC(ConfigureMake):
                 "libc6-dev-i386",  # Debian-based
                 "gcc-c++-32bit",  # OpenSuSE, SLES
             ]
-            if not any(check_os_dependency(dep) for dep in glibc_32bit):
+            if not any([check_os_dependency(dep) for dep in glibc_32bit]):
                 raise EasyBuildError("Using multilib requires 32-bit glibc (install one of %s, depending on your OS)",
                                      ', '.join(glibc_32bit))
             self.configopts += " --enable-multilib --with-multilib-list=m32,m64"
@@ -997,6 +1002,27 @@ class EB_GCC(ConfigureMake):
         else:
             super().install_step(*args, **kwargs)
 
+            # Generate the rpath wrappers (if enabled)
+            if self.cfg['rpath_wrappers']:
+                wrappers_dir = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
+                if os.path.exists(wrappers_dir):
+                    self.rpath_wrappers_dir = os.path.join(self.installdir, 'bin')
+                    rpath_wrappers_path = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
+                    copy_dir(wrappers_dir, rpath_wrappers_path)
+                    py_exe = None  # test to use the python from EB
+                    if py_exe is not None:
+                        if not isinstance(py_exe, str) or not py_exe:
+                            raise EasyBuildError(f"python_executable should be None or non-empty string, got {py_exe}")
+                            wrapper_files = list(filter(os.path.isfile, glob.glob(os.path.join(rpath_wrappers_path, '*', '*'))))
+                            # replace path to Python executable with python_executable in the wrappers,
+                            # as this is the executable that runs EasyBuild and may be unavailable 
+                            # when using the buildenv wrappers.
+                            apply_regex_substitutions(wrapper_files, [(r'^PYTHON_EXE=.*$', f'PYTHON_EXE={py_exe}')], backup=False)
+                            # Make sure wrappers are readable/executable by everyone
+                            adjust_permissions(
+                            self.rpath_wrappers_dir,
+                            stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
     def post_processing_step(self, *args, **kwargs):
         """
         Post-processing after installation: add symlinks for cc, c++, f77, f95
@@ -1224,3 +1250,17 @@ class EB_GCC(ConfigureMake):
 
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands,
                                   extra_modules=extra_modules)
+
+    def make_module_step(self, fake=False):
+        """
+        Specify correct bin directories for buildenv installation and add environment variables
+        for the toolchain build environment.
+        """
+        wrappers_dir = os.path.join(self.rpath_wrappers_dir, RPATH_WRAPPERS_SUBDIR)
+        if os.path.exists(wrappers_dir):
+            self.module_load_environment.PATH = [
+                os.path.join(wrappers_dir, d)
+                for d in os.listdir(wrappers_dir)
+                if os.path.isdir(os.path.join(wrappers_dir, d))
+            ]
+        return super().make_module_step(fake=fake)
