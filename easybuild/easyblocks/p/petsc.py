@@ -254,7 +254,11 @@ class EB_PETSc(ConfigureMake):
                     self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
 
         # FFTW, ScaLAPACK
-        deps = ["FFTW", "ScaLAPACK"]
+        if self.precision == 'single': 
+            deps=["ScaLAPACK"]
+        else:
+            deps = ["FFTW", "ScaLAPACK"]
+        
         for dep in deps:
             libdir = os.getenv('%s_LIB_DIR' % dep.upper())
             libs = os.getenv('%s_STATIC_LIBS' % dep.upper())
