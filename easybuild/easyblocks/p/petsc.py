@@ -69,7 +69,10 @@ class EB_PETSc(ConfigureMake):
             ],
             'download_deps_static': [[], "Dependencies that should be downloaded and installed static", CUSTOM],
             'download_deps_shared': [[], "Dependencies that should be downloaded and installed shared", CUSTOM],
-            'download_deps': [[], "Dependencies that should be downloaded and installed", CUSTOM]
+            'download_deps': [[], "Dependencies that should be downloaded and installed", CUSTOM],
+            'scalar_type': ['real', "PETSc scalar type", CUSTOM],
+            'precision': ['double', "PETSc precision", CUSTOM],
+            'complex_support': [False, "Enable complex PETSc", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -199,6 +202,29 @@ class EB_PETSc(ConfigureMake):
         self.cfg.update('configopts', '--with-pic=%d' % self.toolchain.options['pic'])
         self.cfg.update('configopts', '--with-x=0 --with-windows-graphics=0')
 
+        # -----------------------------
+        # PETSc scientific configuration
+        # -----------------------------
+        
+        scalar = self.cfg.get('scalar_type')
+        precision = self.cfg.get('precision')
+
+        if scalar not in ['real', 'complex']:
+            raise EasyBuildError(f"Invalid scalar_type: {scalar}")
+        
+        if precision not in ['single', 'double']:
+            raise EasyBuildError(f"Invalid precision: {precision}")
+
+        self.cfg.update(
+            'configopts',
+            f'--with-scalar-type={scalar}'
+        )
+        
+        self.cfg.update(
+            'configopts',
+            f'--with-precision={precision}'
+        ) 
+
         # PAPI support
         if self.cfg['with_papi']:
             papi_inc = self.cfg['papi_inc']
@@ -243,13 +269,32 @@ class EB_PETSc(ConfigureMake):
             else:
                 self.log.info("Missing inc/lib info, so not enabling %s support." % dep)
 
-        # BLAS, LAPACK libraries
-        bl_libdir = os.getenv('BLAS_LAPACK_LIB_DIR')
-        bl_libs = os.getenv('BLAS_LAPACK_STATIC_LIBS')
-        if bl_libdir and bl_libs:
-            self.cfg.update('configopts', '--with-blas-lapack-lib=[%s/%s]' % (bl_libdir, bl_libs))
+        # BLAS/LAPACK support
+          
+        flexiblas = get_software_root('FlexiBLAS')
+          
+        if flexiblas:
+        
+            flexiblas_lib = os.path.join(
+                flexiblas,
+                'lib',
+                'libflexiblas.so'
+            )
+        
+            self.cfg.update(
+                'configopts',
+                "--with-blas-lapack-lib={}".format(flexiblas_lib)
+            )
+        
+            self.log.info(
+                 "Using FlexiBLAS: %s",
+                 flexiblas_lib
+            )
+        
         else:
-            raise EasyBuildError("One or more environment variables for BLAS/LAPACK not defined?")
+            self.log.info(
+                "No FlexiBLAS dependency detected; letting PETSc autodetect BLAS/LAPACK"
+            )
 
         # additional dependencies with generic options --with-xxx and --with-xxx-dir
         # filter out deps already handled seperately
