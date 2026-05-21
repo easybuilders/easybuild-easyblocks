@@ -254,7 +254,7 @@ class EB_PETSc(ConfigureMake):
                     self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
 
         # FFTW, ScaLAPACK
-        if self.precision == 'single': 
+        if precision == 'single': 
             deps=["ScaLAPACK"]
         else:
             deps = ["FFTW", "ScaLAPACK"]
