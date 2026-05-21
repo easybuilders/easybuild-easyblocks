@@ -269,32 +269,13 @@ class EB_PETSc(ConfigureMake):
             else:
                 self.log.info("Missing inc/lib info, so not enabling %s support." % dep)
 
-        # BLAS/LAPACK support
-          
-        flexiblas = get_software_root('FlexiBLAS')
-          
-        if flexiblas:
-        
-            flexiblas_lib = os.path.join(
-                flexiblas,
-                'lib',
-                'libflexiblas.so'
-            )
-        
-            self.cfg.update(
-                'configopts',
-                "--with-blas-lapack-lib={}".format(flexiblas_lib)
-            )
-        
-            self.log.info(
-                 "Using FlexiBLAS: %s",
-                 flexiblas_lib
-            )
-        
+        # BLAS, LAPACK libraries
+        bl_libdir = os.getenv('BLAS_LAPACK_LIB_DIR')
+        bl_libs = os.getenv('BLAS_LAPACK_STATIC_LIBS')
+        if bl_libdir and bl_libs:
+            self.cfg.update('configopts', '--with-blas-lapack-lib=[%s/%s]' % (bl_libdir, bl_libs))
         else:
-            self.log.info(
-                "No FlexiBLAS dependency detected; letting PETSc autodetect BLAS/LAPACK"
-            )
+            raise EasyBuildError("One or more environment variables for BLAS/LAPACK not defined?")
 
         # additional dependencies with generic options --with-xxx and --with-xxx-dir
         # filter out deps already handled seperately
