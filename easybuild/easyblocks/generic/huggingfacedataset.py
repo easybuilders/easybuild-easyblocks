@@ -28,15 +28,14 @@ EasyBuild support for installing datasets
 @author: Viktor Rehnberg (Chalmers University of Technology)
 """
 import os
-import hashlib
 
 from easybuild.easyblocks.generic.dataset import Dataset
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
-from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.environment import restore_env_vars, setvar, unset_env_vars
-from easybuild.tools.filetools import change_dir, clean_dir, copy_file, expand_glob_paths, find_glob_pattern, mkdir
-from easybuild.tools.filetools import move_file, write_file
+from easybuild.tools.filetools import change_dir, clean_dir, expand_glob_paths, find_glob_pattern, mkdir, move_file
+from easybuild.tools.filetools import write_file
 from easybuild.tools.run import run_shell_cmd
+
 
 class HuggingFaceDataset(Dataset):
     '''Support for installing datasets from huggingface.co'''
@@ -59,7 +58,7 @@ class HuggingFaceDataset(Dataset):
 
     def build_step(self):
         '''Build up cache_dir with dataset'''
-        
+
         # Prepare download directory of cache_dir
         change_dir(self.builddir)
         mkdir('downloads')
@@ -68,7 +67,7 @@ class HuggingFaceDataset(Dataset):
             return run_shell_cmd(
                 f'python -c "import datasets; print(datasets.utils.file_utils.hash_url_to_filename(\'{url}\'))"'
             ).output
-            
+
         for src_spec in self.cfg['data_sources']:
             _url = f"hf://datasets/{self.cfg['hf_name']}@{self.cfg['hf_revision']}/{src_spec['filename']}"
             hash_filename = os.path.join(
@@ -80,7 +79,7 @@ class HuggingFaceDataset(Dataset):
 
         # Build actual dataset
         old_env = unset_env_vars(['HF_HOME'])
-        setvar('HF_HOME', os.path.join(self.builddir,' hf_home'))
+        setvar('HF_HOME', os.path.join(self.builddir, 'hf_home'))
         try:
             load_arg_str = ", ".join([
                 f"{key}='{val}'"
