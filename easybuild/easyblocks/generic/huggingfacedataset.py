@@ -107,7 +107,7 @@ class HuggingFaceDataset(Dataset):
         result = run_shell_cmd(f'HF_HOME={_hf_home_dir} python -c "{py_script}"')
 
         if any(
-            line.startswith(f"Downloading data:")
+            line.startswith("Downloading data:")
             for line in result.output.splitlines()
         ):
             raise EasyBuildError('Unexpected download detected when loading dataset during build.')
