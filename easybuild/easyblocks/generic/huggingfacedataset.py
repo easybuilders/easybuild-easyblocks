@@ -124,7 +124,7 @@ class HuggingFaceDataset(Dataset):
             run_shell_cmd(f'HF_HOME="{_hf_home_dir}" python -c "{py_script}"')
 
             if dir_contains_files(_hf_home_dir):
-                report_test_failure(f'HF_HOME populated on load_dataset({self._build_dataset_dir}) call')
+                self.report_test_failure(f'HF_HOME populated on load_dataset({self._build_dataset_dir}) call')
 
     def install_step(self):
         '''Move actual dataset directory to installdir'''
