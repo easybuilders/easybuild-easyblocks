@@ -79,7 +79,7 @@ class HuggingFaceDataset(Dataset):
             ).output.strip()
 
         for src_spec in self.cfg['data_sources']:
-            _url = f"hf://datasets/{self.cfg['hf_name']}@{self.cfg['hf_revision']}/{src_spec['filename']}"
+            _url = f"hf://datasets/{self.cfg['hf_name']}@{self.cfg['hf_revision']}/{src_spec['download_filename']}"
             hash_filename = os.path.join(
                 _hf_cache_download_dir,
                 _hash_url_to_filename(_url)
