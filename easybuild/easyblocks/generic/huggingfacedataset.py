@@ -33,8 +33,7 @@ from tempfile import TemporaryDirectory
 from easybuild.easyblocks.generic.dataset import Dataset
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, clean_dir, dir_contains_files, expand_glob_paths, find_glob_pattern
-from easybuild.tools.filetools import mkdir, move_file, write_file
+from easybuild.tools.filetools import change_dir, clean_dir, dir_contains_files, mkdir, move_file, write_file
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -125,7 +124,7 @@ class HuggingFaceDataset(Dataset):
             run_shell_cmd(f'HF_HOME="{_hf_home_dir}" python -c "{py_script}"')
 
             if dir_contains_files(_hf_home_dir):
-                report_test_failure(f'HF_HOME populated on load_dataset({dataset_dir}) call')
+                report_test_failure(f'HF_HOME populated on load_dataset({self._build_dataset_dir}) call')
 
     def install_step(self):
         '''Move actual dataset directory to installdir'''
@@ -137,9 +136,3 @@ class HuggingFaceDataset(Dataset):
         else:
             self.log.info("Successfully moved dataset from builddir")
         change_dir(self.installdir)
-
-    def post_processing_step(self):
-        # only for debugging
-        change_dir(self.installdir)
-        self.log.info("CWD = " + os.path.abspath(os.curdir))
-        super().post_processing_step()
