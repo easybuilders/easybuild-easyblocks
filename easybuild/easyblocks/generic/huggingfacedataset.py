@@ -33,7 +33,7 @@ from tempfile import TemporaryDirectory
 from easybuild.easyblocks.generic.dataset import Dataset
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, clean_dir, dir_contains_files, mkdir, move_file, write_file
+from easybuild.tools.filetools import change_dir, clean_dir, dir_contains_files, mkdir, move_file
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -98,7 +98,7 @@ class HuggingFaceDataset(Dataset):
             })""",
             f"ds.save_to_disk('{self._build_dataset_dir}')"
         ])
-        result = run_shell_cmd(f'HF_HOME={_hf_home_dir} python -c "{py_script}"')
+        run_shell_cmd(f'HF_HOME={_hf_home_dir} python -c "{py_script}"')
 
         self.log.info(f"Successfully built dataset into {self._build_dataset_dir}")
 
