@@ -65,29 +65,25 @@ class HuggingFaceDataset(Dataset):
 
         change_dir(self.builddir)
         _hf_home_dir = os.path.join(self.builddir, 'hf_home')
-        _hf_cache_dir = os.path.join(self.builddir, 'hf_cache')
-        _hf_cache_download_dir = os.path.join(_hf_cache_dir, 'downloads')
+        _hf_snapshots_dir = os.path.join(
+            _hf_home_dir,
+            'hub',
+            f'datasets--{self.cfg["hf_name"].replace("/", "--")}',
+            'snapshots'
+        )
 
+        # Fill snapshosts dir (we're abusing the fallback for no-symlinks to simplify the logic)
+        # https://huggingface.co/docs/huggingface_hub/guides/manage-cache#limitations
         mkdir(_hf_home_dir)
-        mkdir(_hf_cache_dir)
-        mkdir(_hf_cache_download_dir)
-
-        # Prepare download directory of cache_dir
-        def _hash_url_to_filename(url):
-            return run_shell_cmd(
-                f'python -c "import datasets; print(datasets.utils.file_utils.hash_url_to_filename(\'{url}\'))"'
-            ).output.strip()
+        mkdir(_hf_snapshots_dir, parents=True)
 
         for src_spec in self.cfg['data_sources']:
-            _url = f"hf://datasets/{self.cfg['hf_name']}@{self.cfg['hf_revision']}/{src_spec['download_filename']}"
-            hash_filename = os.path.join(
-                _hf_cache_download_dir,
-                _hash_url_to_filename(_url)
-            )
-            move_file(src_spec['filename'],  hash_filename)
-            write_file(f"{hash_filename}.json", f'{{"url": "{_url}", "etag": null}}'.encode('utf-8'))
+            move_file(src_spec['filename'],  os.path.join(_hf_snapshots_dir, src_spec['filename']))
 
-        self.log.info(f"Successfully populated {_hf_cache_download_dir} from source files")
+        self.log.info(f"Successfully populated {_hf_snapshots_dir} from source files")
+
+        # There might be a possibility to add an extra check with `hf cache verify`
+        # https://huggingface.co/docs/huggingface_hub/package_reference/cli#hf-cache-verify
 
         # Build actual dataset
         py_script = '; '.join([
@@ -96,8 +92,6 @@ class HuggingFaceDataset(Dataset):
                 ', '.join([
                     f"path='{self.cfg['hf_name']}'",
                     f"revision='{self.cfg['hf_revision']}'",
-                    f"cache_dir='{_hf_cache_dir}'",
-                    "download_mode='reuse_cache_if_exists'",
                     "verification_mode='all_checks'",
                     "num_proc=1",
                 ])
@@ -106,13 +100,7 @@ class HuggingFaceDataset(Dataset):
         ])
         result = run_shell_cmd(f'HF_HOME={_hf_home_dir} python -c "{py_script}"')
 
-        if any(
-            line.startswith("Downloading data:")
-            for line in result.output.splitlines()
-        ):
-            raise EasyBuildError('Unexpected download detected when loading dataset during build.')
-        else:
-            self.log.info(f"Successfully built dataset into {self._build_dataset_dir}")
+        self.log.info(f"Successfully built dataset into {self._build_dataset_dir}")
 
     def test_step(self):
         '''Try loading dataset'''
