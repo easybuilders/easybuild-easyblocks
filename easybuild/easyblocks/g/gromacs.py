@@ -47,7 +47,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, symlink, which
+from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
@@ -211,23 +211,6 @@ class EB_GROMACS(CMakeMake):
                     cuda_cc_semicolon_sep = self.cfg.get_cuda_cc_template_value(
                         "cuda_cc_semicolon_sep").replace('.', '')
                     self.cfg.update('configopts', '-DGMX_CUDA_TARGET_SM="%s"' % cuda_cc_semicolon_sep)
-
-                # Enable cuFFTMp or HeFFTe support for multi-GPU FFT support (added in v2023)
-                # if one of them (not both) is listed as a dependency
-                heffte_root = get_software_root('HeFFTe')
-                cufftmp_root = get_software_root('cuFFTMp')
-                if heffte_root and cufftmp_root:
-                    raise EasyBuildError("HeFFTe and cuFFTMp are both listed as dependency, but cannot be combined.")
-                if gromacs_version >= '2023' and heffte_root:
-                    self.cfg.update('configopts', '-DGMX_USE_HEFFTE=ON')
-                    self.cfg.update('configopts', '-DHeffte_ROOT=%s' % heffte_root)
-                if gromacs_version >= '2023' and cufftmp_root:
-                    self.cfg.update('configopts', '-DGMX_USE_CUFFTMP=ON')
-                    self.cfg.update('configopts', '-DcuFFTMp_ROOT=%s' % cufftmp_root)
-                    # Prevent that we pick up the cufft.h from CUDA itself instead of the one provided by cuFFTMp
-                    # by making a symlink to the latter in the GROMACS source dir (which is first in the search path)
-                    cufft_header = os.path.join(cufftmp_root, 'include', 'cufft.h')
-                    symlink(cufft_header, os.path.join(self.cfg['start_dir'], 'src', 'include', 'cufft.h'))
             else:
                 # explicitly disable GPU support if CUDA is not available,
                 # to avoid that GROMACS finds and uses a system-wide CUDA compiler
@@ -263,11 +246,6 @@ class EB_GROMACS(CMakeMake):
             # PLUMED patching must be done at different stages depending on
             # version of GROMACS. Just prepare first part of cmd here
             plumed_cmd = "plumed-patch -p -e %s" % engine
-
-        # Enable hwloc support (added in v2016) if it's listed as dependency
-        if gromacs_version >= '2016' and get_software_root('hwloc'):
-            self.cfg.update('configopts', '-DGMX_HWLOC=ON')
-            self.cfg.update('configopts', '-DHWLOC_DIR=%s' % get_software_root('hwloc'))
 
         # Ensure that the GROMACS log files report how the code was patched
         # during the build, so that any problems are easier to diagnose.
@@ -647,6 +625,9 @@ class EB_GROMACS(CMakeMake):
     def sanity_check_step(self):
         """Custom sanity check for GROMACS."""
 
+        # Load module to prepare environment for sanity check.
+        mod_data = super().sanity_check_load_module()
+
         dirs = [os.path.join('include', 'gromacs')]
 
         # in GROMACS v5.1, only 'gmx' binary is there
@@ -726,6 +707,9 @@ class EB_GROMACS(CMakeMake):
             'dirs': dirs,
         }
         super().sanity_check_step(custom_paths=custom_paths)
+
+        if mod_data:
+            self.clean_up_fake_module(mod_data)
 
     def run_all_steps(self, *args, **kwargs):
         """
