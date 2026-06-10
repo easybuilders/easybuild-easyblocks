@@ -28,6 +28,7 @@ EasyBuild support for bundles of Julia packages, implemented as an easyblock
 @author: Alex Domingo (Vrije Universiteit Brussel)
 @author: Davide Grassano (CECAM, EPFL)
 """
+import hashlib
 import os
 import subprocess
 import sys
@@ -197,6 +198,23 @@ def get_commit_from_git_tree_sha1(repo, git_tree_sha1):
     return commit
 
 
+def get_sha256_from_url(url):
+    """Helper to get SHA256 checksum from URL by downloading the file and calculating the checksum"""
+    if not HAS_REQUESTS:
+        return None
+
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+        sha256_hash = hashlib.sha256()
+        for chunk in response.iter_content(chunk_size=8192):
+            sha256_hash.update(chunk)
+        return sha256_hash.hexdigest()
+    except requests.RequestException as exc:
+        print(f"Error fetching file from URL {url} to calculate SHA256 checksum: {exc}")
+        return None
+
+
 def get_url_from_general(pkg, version, git_tree_sha1, max_retries=3):
     """Get the package info from the General registry"""
     if not HAS_REQUESTS:
@@ -352,6 +370,9 @@ def generate_package_data(sourcedir):
 
         item['url'] = url
         packages_data[pkg_name] = item
+
+        if url is not None and isinstance(url, str) and download_filename is not None:
+            item['checksum'] = get_sha256_from_url(url + download_filename)
 
     return packages_data
 
