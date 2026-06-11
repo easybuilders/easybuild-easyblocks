@@ -116,7 +116,7 @@ class EB_Rust(ConfigureMake):
 
         # Use system linker to avoid rust.ldd to bypass our rpath wrappers
         # See https://github.com/easybuilders/easybuild-easyconfigs/issues/26232 for more details
-        if build_option('rpath') and LooseVersion(self.version) >= '1.9':
+        if build_option('rpath') and LooseVersion(self.version) >= '1.90':
             self.cfg.update('configopts', "--disable-lld")
 
         # set channel to "stable", otherwise Rust will be built with nightly channel,
