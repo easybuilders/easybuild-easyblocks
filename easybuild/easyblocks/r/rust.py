@@ -114,6 +114,11 @@ class EB_Rust(ConfigureMake):
         # old llvm builds from CI get deleted after a certain time
         self.cfg.update('configopts', "--set=llvm.download-ci-llvm=false")
 
+        # Use system linker to avoid rust.ldd to bypass our rpath wrappers
+        # See https://github.com/easybuilders/easybuild-easyconfigs/issues/26232 for more details
+        if build_option('rpath') and LooseVersion(self.version) >= '1.9':
+            self.cfg.update('configopts', "--disable-lld")
+
         # set channel to "stable", otherwise Rust will be built with nightly channel,
         # see also https://rust-lang.github.io/rustup/concepts/channels.html;
         # for recent version of Rust, this would also result in using rust-lld instead of the default linker,
