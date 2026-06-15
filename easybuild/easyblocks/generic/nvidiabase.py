@@ -396,6 +396,11 @@ class NvidiaBase(PackedBinary):
         """Easyblock constructor, define custom class variables specific to NVHPC."""
         super().__init__(*args, **kwargs)
 
+        if self.cfg['requires_eula'] is None:
+            self.cfg['requires_eula'] = [
+                'NVHPC', 'https://docs.nvidia.com/hpc-sdk/eula/index.html'
+            ]
+
         host_cpu_arch = get_cpu_architecture()
         if host_cpu_arch == X86_64:
             nv_arch_tag = 'x86_64'
@@ -436,11 +441,6 @@ class NvidiaBase(PackedBinary):
 
     def install_step(self):
         """Install by running install command."""
-
-        # EULA for NVHPC must be accepted via --accept-eula-for EasyBuild configuration option,
-        # or via 'accept_eula = True' in easyconfig file
-        self.check_accepted_eula(more_info='https://docs.nvidia.com/hpc-sdk/eula/index.html', name="NVHPC")
-
         nvhpc_env_vars = {
             'NVHPC_INSTALL_DIR': self.installdir,
             'NVHPC_SILENT': 'true',

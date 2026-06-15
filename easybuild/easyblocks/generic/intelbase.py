@@ -95,6 +95,12 @@ class IntelBase(EasyBlock):
         """Constructor, adds extra config options"""
         super().__init__(*args, **kwargs)
 
+        if self.cfg['requires_eula'] is None:
+            self.cfg['requires_eula'] = [
+                'Intel-oneAPI',
+                'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
+            ]
+
         self.license_file = 'UNKNOWN'
         self.license_env_var = 'UNKNOWN'
 
@@ -404,10 +410,6 @@ class IntelBase(EasyBlock):
         """
         Actual installation for versions 2021.x onwards.
         """
-        # require that EULA is accepted
-        intel_eula_url = 'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
-        self.check_accepted_eula(name='Intel-oneAPI', more_info=intel_eula_url)
-
         # exactly one "source" file is expected: the (offline) installation script
         if len(self.src) == 1:
             install_script = self.src[0]['name']
