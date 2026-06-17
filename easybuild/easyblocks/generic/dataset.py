@@ -48,10 +48,10 @@ class Dataset(Binary):
         extra_vars.update({
             'extract_sources': [True, "Whether or not to extract data sources", CUSTOM],
             'data_install_path': [None, "Custom installation path for datasets", CUSTOM],
-            'cleanup_data_sources': [False, "Whether or not to delete the data sources after installation", CUSTOM]
+            'cleanup_data_sources': [False, "Whether or not to delete the data sources after installation", CUSTOM],
             'hardlink_object_storage': [
                 False, "Whether to use hardlinks instead of symlinks for object storage", CUSTOM
-            ]
+            ],
         })
         return extra_vars
 
