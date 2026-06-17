@@ -88,7 +88,7 @@ class Dataset(Binary):
 
         def _link_fn(objstor_file, datafile):
             '''Helper for link logic depending on hard link or symlink'''
-            if not self.cfg["hardlink_data_sources"]:
+            if not self.cfg["hardlink_object_storage"]:
                 # use relative paths for symlinks to easily relocate data installations later on if needed
                 symlink(objstor_file, datafile, use_abspath_source=False)
                 self.log.debug(f"Created symlink {datafile} to {objstor_file}")
