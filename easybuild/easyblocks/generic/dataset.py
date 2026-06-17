@@ -33,8 +33,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig.default import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import change_dir, compute_checksum, create_index, is_readable, mkdir, move_file
-from easybuild.tools.filetools import remove_file, symlink
+from easybuild.tools.filetools import change_dir, compute_checksum, create_index, hardlink, is_readable, mkdir
+from easybuild.tools.filetools import move_file, remove_file, symlink
 from easybuild.tools.utilities import trace_msg
 
 
@@ -49,6 +49,9 @@ class Dataset(Binary):
             'extract_sources': [True, "Whether or not to extract data sources", CUSTOM],
             'data_install_path': [None, "Custom installation path for datasets", CUSTOM],
             'cleanup_data_sources': [False, "Whether or not to delete the data sources after installation", CUSTOM]
+            'hardlink_object_storage': [
+                False, "Whether to use hardlinks instead of symlinks for object storage", CUSTOM
+            ]
         })
         return extra_vars
 
@@ -71,7 +74,7 @@ class Dataset(Binary):
         pass
 
     def post_processing_step(self):
-        """Add files to object_storage, remove duplicates, add symlinks"""
+        """Add files to object_storage, remove duplicates, add links"""
 
         EasyBlock.post_processing_step(self)
 
@@ -95,9 +98,13 @@ class Dataset(Binary):
                 remove_file(datafile)
             else:
                 move_file(datafile, objstor_file)
-            # use relative paths for symlinks to easily relocate data installations later on if needed
-            symlink(objstor_file, datafile, use_abspath_source=False)
-            self.log.debug(f"Created symlink {datafile} to {objstor_file}")
+            if self.cfg['hardlink_object_storage']:
+                hardlink(objstr_file, datafile)
+                self.log.debug(f"Created hardlink {datafile} to {objstor_file}")
+            else:
+                # use relative paths for symlinks to easily relocate data installations later on if needed
+                symlink(objstor_file, datafile, use_abspath_source=False)
+                self.log.debug(f"Created symlink {datafile} to {objstor_file}")
 
     def cleanup_step(self):
         """Cleanup sources after installation"""
