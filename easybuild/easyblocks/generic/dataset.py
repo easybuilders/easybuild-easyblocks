@@ -97,7 +97,7 @@ class Dataset(Binary):
                     os.link(objstor_file, datafile)
                     self.log.debug(f"Created hard link {datafile} to {objstor_file}")
                 except OSError as err:
-                    raise EasyBuildError(f"Hard linking {source_path} to {link_path} failed: {err}")
+                    raise EasyBuildError(f"Hard linking {datafile} to {objstor_file} failed: {err}")
 
         for datafile in datafiles:
             cks = compute_checksum(datafile, checksum_type='sha256')
