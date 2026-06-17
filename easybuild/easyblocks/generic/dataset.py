@@ -99,7 +99,7 @@ class Dataset(Binary):
             else:
                 move_file(datafile, objstor_file)
             if self.cfg['hardlink_object_storage']:
-                hardlink(objstr_file, datafile)
+                hardlink(objstor_file, datafile)
                 self.log.debug(f"Created hardlink {datafile} to {objstor_file}")
             else:
                 # use relative paths for symlinks to easily relocate data installations later on if needed
