@@ -154,31 +154,41 @@ class MesonNinja(EasyBlock):
         """
         Run tests using Meson.
         """
-        test_cmd = self.cfg.get('test_cmd') or DEFAULT_TEST_CMD
         runtest = self.cfg['runtest']
-        if runtest or test_cmd != DEFAULT_TEST_CMD:
-            # Make run_test a string (empty if it is e.g. a boolean)
-            if not isinstance(runtest, str):
-                runtest = ''
+
+        if runtest:
+            # Essentially runtest = True. Use the default behavior.
+            if isinstance(runtest, bool):
+                test_cmd = self.cfg.get('test_cmd') or DEFAULT_TEST_CMD
+
                 # Run tests as recommended in https://mesonbuild.com/Unit-tests.html#testing-tool
                 if test_cmd == DEFAULT_TEST_CMD:
                     runtest = 'test'
+                # User has defined the test_cmd. Adding test by default here might cause trouble, hence omit.
+                else:
+                    runtest = ''
 
-            # Make sure Meson does not use more resources than we want.
-            # From the documentation:
-            # By default Meson uses as many concurrent processes as there are cores on the test machine.
-            if self.cfg.parallel >= 1 and 'meson' in test_cmd:
-                if 'MESON_TESTTHREADS' not in self.cfg['pretestopts']:
-                    self.cfg.update('pretestopts', f" export MESON_TESTTHREADS={self.cfg.parallel} && ")
-                # Preferred way to set parallelism since Meson v1.7.0, but does not hurt to set both.
-                if 'MESON_NUM_PROCESSES' not in self.cfg['pretestopts']:
-                    self.cfg.update('pretestopts', f" export MESON_NUM_PROCESSES={self.cfg.parallel} && ")
+                # Make sure Meson does not use more resources than we want.
+                # From the documentation:
+                # By default Meson uses as many concurrent processes as there are cores on the test machine.
+                if self.cfg.parallel >= 1 and 'meson' in test_cmd:
+                    if 'MESON_TESTTHREADS' not in self.cfg['pretestopts']:
+                        self.cfg.update('pretestopts', f" export MESON_TESTTHREADS={self.cfg.parallel} && ")
+                    # Preferred way to set parallelism since Meson v1.7.0, but does not hurt to set both.
+                    if 'MESON_NUM_PROCESSES' not in self.cfg['pretestopts']:
+                        self.cfg.update('pretestopts', f" export MESON_NUM_PROCESSES={self.cfg.parallel} && ")
+            # EasyConfig defined the test command to be executed via runtest
+            else:
+                test_cmd = ''
 
             # Compose command filtering out empty values
             cmd = ' '.join([x for x in (self.cfg['pretestopts'], test_cmd, runtest, self.cfg['testopts']) if x])
             res = run_shell_cmd(cmd)
 
             return res.output
+
+        # No test executed, hence no output to return
+        return ''
 
     def install_step(self):
         """
