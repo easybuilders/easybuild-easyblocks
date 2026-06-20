@@ -30,7 +30,7 @@ EasyBuild support for installing software with Meson & Ninja.
 
 from easybuild.tools import LooseVersion
 from easybuild.framework.easyblock import EasyBlock
-from easybuild.framework.easyconfig import CUSTOM, BUILD
+from easybuild.framework.easyconfig import BUILD, CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import change_dir, create_unused_dir, which
 from easybuild.tools.modules import get_software_version
@@ -38,8 +38,8 @@ from easybuild.tools.run import run_shell_cmd
 
 DEFAULT_CONFIGURE_CMD = 'meson'
 DEFAULT_BUILD_CMD = 'ninja'
-DEFAULT_INSTALL_CMD = 'ninja'
 DEFAULT_TEST_CMD = 'meson'
+DEFAULT_INSTALL_CMD = 'ninja'
 
 
 class MesonNinja(EasyBlock):
@@ -60,9 +60,9 @@ class MesonNinja(EasyBlock):
                              "This disabled costly asserts in code, typical for production.", CUSTOM],
             'configure_cmd': [DEFAULT_CONFIGURE_CMD, "Configure command to use", CUSTOM],
             'install_cmd': [DEFAULT_INSTALL_CMD, "Install command to use", CUSTOM],
+            'runtest': [None, "Meson target to test build, or True to use 'meson test'", BUILD],
             'separate_build_dir': [True, "Perform build in a separate directory", CUSTOM],
             'test_cmd': [DEFAULT_TEST_CMD, "Test command to use ('runtest' value is appended)", CUSTOM],
-            'runtest': [None, "Meson target to test build or True to use 'meson test'", BUILD],
         })
         return extra_vars
 
