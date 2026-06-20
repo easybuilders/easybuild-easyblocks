@@ -169,10 +169,10 @@ class MesonNinja(EasyBlock):
             # By default Meson uses as many concurrent processes as there are cores on the test machine.
             if self.cfg.parallel >= 1 and 'meson' in test_cmd:
                 if 'MESON_TESTTHREADS' not in self.cfg['pretestopts']:
-                    self.cfg['pretestopts'] += f'export MESON_TESTTHREADS={self.cfg.parallel} && '
+                    self.cfg['pretestopts'] += f" export MESON_TESTTHREADS={self.cfg.parallel} && "
                 # Preferred way to set parallelism since Meson v1.7.0, but does not hurt to set both.
                 if 'MESON_NUM_PROCESSES' not in self.cfg['pretestopts']:
-                    self.cfg['pretestopts'] += f'export MESON_NUM_PROCESSES={self.cfg.parallel} && '
+                    self.cfg['pretestopts'] += f" export MESON_NUM_PROCESSES={self.cfg.parallel} && "
 
             # Compose command filtering out empty values
             cmd = ' '.join([x for x in (self.cfg['pretestopts'], test_cmd, runtest, self.cfg['testopts']) if x])
