@@ -167,22 +167,23 @@ class MesonNinja(EasyBlock):
                 # User has defined the test_cmd. Adding test by default here might cause trouble, hence omit.
                 else:
                     runtest = ''
-
-                # Make sure Meson does not use more resources than we want.
-                # From the documentation:
-                # By default Meson uses as many concurrent processes as there are cores on the test machine.
-                if self.cfg.parallel >= 1 and 'meson' in test_cmd:
-                    if 'MESON_TESTTHREADS' not in self.cfg['pretestopts']:
-                        self.cfg.update('pretestopts', f" export MESON_TESTTHREADS={self.cfg.parallel} && ")
-                    # Preferred way to set parallelism since Meson v1.7.0, but does not hurt to set both.
-                    if 'MESON_NUM_PROCESSES' not in self.cfg['pretestopts']:
-                        self.cfg.update('pretestopts', f" export MESON_NUM_PROCESSES={self.cfg.parallel} && ")
             # EasyConfig defined the test command to be executed via runtest
             else:
                 test_cmd = ''
 
+            full_test_cmd = ' '.join([x for x in (test_cmd, runtest, self.cfg['testopts']) if x])
+            # Make sure Meson does not use more resources than we want.
+            # From the documentation:
+            # By default Meson uses as many concurrent processes as there are cores on the test machine.
+            if self.cfg.parallel >= 1 and 'meson' in full_test_cmd:
+                if 'MESON_TESTTHREADS' not in self.cfg['pretestopts']:
+                    self.cfg.update('pretestopts', f" export MESON_TESTTHREADS={self.cfg.parallel} && ")
+                # Preferred way to set parallelism since Meson v1.7.0, but does not hurt to set both.
+                if 'MESON_NUM_PROCESSES' not in self.cfg['pretestopts']:
+                    self.cfg.update('pretestopts', f" export MESON_NUM_PROCESSES={self.cfg.parallel} && ")
+
             # Compose command filtering out empty values
-            cmd = ' '.join([x for x in (self.cfg['pretestopts'], test_cmd, runtest, self.cfg['testopts']) if x])
+            cmd = ' '.join([x for x in (self.cfg['pretestopts'], full_test_cmd) if x])
             res = run_shell_cmd(cmd)
 
             return res.output
