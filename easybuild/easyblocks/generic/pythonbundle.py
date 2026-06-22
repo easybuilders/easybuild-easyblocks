@@ -247,7 +247,7 @@ class PythonBundle(Bundle):
             run_pip_check(python_cmd=self.python_cmd)
             pkgs = [(x.name, x.version) for x in py_exts]
             run_pip_list(pkgs, python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages,
-                         check_names_versions=params['sanity_check_pip_list'])
+                         strict_check=params['sanity_check_pip_list'])
 
     def make_module_footer(self):
         """

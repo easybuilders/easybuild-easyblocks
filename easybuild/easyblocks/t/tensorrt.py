@@ -105,7 +105,10 @@ class EB_TensorRT(PythonPackage, Binary):
             lib_name = 'libnvinfer_static.a'
         else:
             lib_name = 'libnvinfer.a'
-        custom_paths = {'files': ['bin/trtexec', f'lib/{lib_name}']}
+        custom_paths = {
+            'files': ['bin/trtexec', f'lib/{lib_name}'],
+            'dirs': [],
+        }
 
         custom_commands = ["%(python)s -c 'import tensorrt'"]
 

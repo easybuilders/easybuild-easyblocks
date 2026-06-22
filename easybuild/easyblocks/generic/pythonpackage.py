@@ -517,8 +517,9 @@ class PythonPackage(ExtensionEasyBlock):
             'max_py_minver': [None, "Maximum minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [True, "Run 'python -m pip check' to ensure all required Python packages are "
                                        "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
-            'sanity_check_pip_list': [None, "Run 'python -m pip list' to ensure specified package names and versions "
-                                            "are correct.", CUSTOM],
+            'sanity_check_pip_list': [None, "Fail if specified package names and versions do not match "
+                                            "'python -m pip list' output. Defaults to True if --upload-test-report is "
+                                            "set. The check only runs if 'sanity_pip_check' is True.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
             'ulimit': [None, f"Set ulimit -s to specified value. Default: Limit to {ULIMIT_DEFAULT} if unlimited.",
@@ -604,7 +605,6 @@ class PythonPackage(ExtensionEasyBlock):
         self.multi_python = 'Python' in self.cfg['multi_deps']
 
         self.determine_install_command()
-        self.set_ulimit()
 
         set_py_env_vars(self.log)
 
@@ -649,7 +649,7 @@ class PythonPackage(ExtensionEasyBlock):
             print_warning(msg % (curr_ulimit_s, self.cfg['ulimit'], max_ulimit_s, max_ulimit_s))
             self.cfg['ulimit'] = max_ulimit_s
 
-        self.log.info(f"Current stack size limit is {curr_ulimit_s}, limiting stack size to {ULIMIT_DEFAULT}")
+        self.log.info(f"Current stack size limit is {curr_ulimit_s}, limiting stack size to {self.cfg['ulimit']}")
         for opt in 'prebuildopts', 'pretestopts', 'preconfigopts':
             self.cfg.update(opt, "ulimit -s %s && " % self.cfg['ulimit'])
 
@@ -715,6 +715,8 @@ class PythonPackage(ExtensionEasyBlock):
         if self.python_cmd:
             # set Python lib directories
             self.set_pylibdirs()
+
+        self.set_ulimit()
 
     def _should_unpack_source(self):
         """Determine whether we need to unpack the source(s)"""
@@ -1348,7 +1350,7 @@ class PythonPackage(ExtensionEasyBlock):
             unversioned_packages = self.cfg.get('unversioned_packages', [])
             pkgs = [(self.name, self.version)]
             run_pip_list(pkgs, python_cmd=python_cmd, unversioned_packages=unversioned_packages,
-                         check_names_versions=params['sanity_check_pip_list'])
+                         strict_check=params['sanity_check_pip_list'])
 
         # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
         # and let ExtensionEasyBlock do its job

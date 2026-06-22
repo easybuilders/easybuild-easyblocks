@@ -627,7 +627,7 @@ class EasyBlockSpecificTest(TestCase):
         with self.mocked_stdout_stderr():
             self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_list,
                                   [('wrong_name', '1.2.3'), ('wrong_version', '5.6.7')],
-                                  python_cmd=sys.executable, check_names_versions=True)
+                                  python_cmd=sys.executable, strict_check=True)
 
     def test_symlink_dist_site_packages(self):
         """Test symlink_dist_site_packages provided by PythonPackage easyblock."""

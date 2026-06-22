@@ -3,7 +3,43 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at https://docs.easybuild.io/release-notes .
 
-The latest version of easybuild-easyblocks provides 209 software-specific easyblocks and 47 generic easyblocks.
+The latest version of easybuild-easyblocks provides 210 software-specific easyblocks and 47 generic easyblocks.
+
+
+v5.3.1 (19 Jun 2026)
+--------------------
+
+update/bugfix release
+
+- new easyblocks:
+  - add custom easyblock for ESPResSo (#4066)
+- bug fixes:
+  - fix location of `object_storage` for Dataset easyblock (#4128)
+  - enhance SAMtools easyblock to specify ncursesw libraries to link to via `CURSES_LIB` (#4149)
+  - use `sanity_check_load_module` in sanity check step of custom easyblock for GROMACS (#4151)
+  - fix incorrect plugins path in ABAQUS easyblock, which fixes long startup times (#4152)
+  - make sure that RPATH section for binaries in Rust 1.90.0+ installation includes path to runtime libraries of GCC compiler (#4156)
+  - trickle down modified build directory to bundle components in custom easyblock for gnupg-bundle (#4157)
+  - fix `--sanity-check-only` for netcdf4-python (#4161)
+- enhancements:
+  - add Arm support to NAMD easyblock (#3348)
+  - enable hwloc, cuFFTMp, and HeFFTe support in GROMACS easyblock (#3531)
+  - enhance `run_pip_list` function to print warning for mismatched Python package names or versions (#4109)
+  - adapt sanity checks in OpenMPI easyblock for AMD ROCm (#4119)
+  - add `$CUDNN_HOME` and `$CUDNN_PATH` as extra environment variables to be set by cuDNN easyblock (#4130)
+  - enhance custom easyblock for OpenMPI to add ROCm support (#4132)
+  - support `postinstallcmds` for `Dataset` generic easyblock (#4138)
+  - add logging if PyTorch tests were successful (#4140)
+  - enhance `PythonPackage` easyblock to limit ulimit stack size when unlimited (#4144, #4164)
+  - allow for either Mesa or OpenGL as dependency for VMD (#4147)
+  - improve error reporting for Python package without any close matches in output of `pip list` (#4155)
+  - make custom easyblock for MRtrix aware of `configopts` easyconfig parameter (#4158)
+  - ignore compiler-rt and lldb test failure for `ptrace_scope` > 1 in LLVM easyblock (#4159)
+- updates:
+  - update `Boost` sanity checks for versions 1.89 and newer (#4088)
+  - update test command in custom easyblock for scipy easyblock for scipy >= 1.17 (#4143)
+- code cleanup:
+  - pythonpackage: fix warning message for max ulimit (#4145)
 
 
 v5.3.0 (10 Apr 2026)
@@ -66,7 +102,7 @@ v5.2.1 (20 Feb 2026)
   - allow to enable more components in Extrae (#4027)
   - add fallback architecture for zen5 to BLIS easyblock (#4034)
   - add LLVM support to ParaStationMPI easyblock (#4047)
-  - allow easier reuse of `compose_install_command` of `PythonPackage`, and add `%(python)s` template and default Python libdir in sanity check (#4050) 
+  - allow easier reuse of `compose_install_command` of `PythonPackage`, and add `%(python)s` template and default Python libdir in sanity check (#4050)
   - update ELPA easyblock to make it aware of NVHPC toolchain compiler (#4051)
   - add option to allow missing or additional detected PyTorch test suites (#4052)
   - update QuantumESPRESSO easyblock - add pretestopts + GPU test cmd (#4053)
@@ -77,7 +113,7 @@ v5.2.1 (20 Feb 2026)
   - update custom easyblock for Gurobi for version 13 (#4060)
 - other changes:
   - make `CargoPythonPackage` the default class for extensions/components of `CargoPythonBundle` (#3993)
-- code cleanup: 
+- code cleanup:
   - enable flake8-comprehension code style check and fix issues (#3989)
 
 
@@ -224,7 +260,7 @@ update/bugfix release
   - change `buildenv` easyblock: use `python3` as default path to Python executable in RPATH wrapper scripts (#3910)
   - limit parallelism of OpenBLAS tests with parallel property (#3936)
   - remove deprecated license classifier in setup.py (#3942)
-- code cleanup: 
+- code cleanup:
   - simplify use of `self.cfg.dependencies()` in `PETSc` easyblock (#3813)
   - stop setting `separate_build_dir` to `True` in various custom easyblocks (#3836, #3837, #3838, #3839, #3840, #3842, #3843, #3844, #3845, #3846, #3847)
   - remove disabling libunwind on aarch64 for Mesa (#3908)
