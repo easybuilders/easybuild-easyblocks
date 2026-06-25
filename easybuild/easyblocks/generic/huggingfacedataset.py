@@ -98,7 +98,13 @@ class HuggingFaceDataset(Dataset):
             })""",
             f"ds.save_to_disk('{self._build_dataset_dir}')"
         ])
-        run_shell_cmd(f'HF_HOME={_hf_home_dir} python -c "{py_script}"')
+
+        cmd = " ".join([
+            self.cfg['prebuildopts'],
+            f'HF_HOME={_hf_home_dir} python -c "{py_script}"',
+            self.cfg['buildopts'],
+        ])
+        run_shell_cmd(cmd)
 
         self.log.info(f"Successfully built dataset into {self._build_dataset_dir}")
 
