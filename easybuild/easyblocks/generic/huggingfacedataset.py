@@ -60,7 +60,8 @@ class HuggingFaceDataset(Dataset):
         super().__init__(*args, **kwargs)
         self.build_in_installdir = False
 
-        # The exact filename is important during build so we will use download_filename instead of possibly modified filename
+        # The exact filename is important during build when creating the snapshot directory
+        # so we will use download_filename instead of a possibly modified filename
         if any('download_filename' not in src_spec for src_spec in self.cfg['data_sources']):
             raise EasyBuildError("Expected 'download_filename' to be known for all data_sources")
 
