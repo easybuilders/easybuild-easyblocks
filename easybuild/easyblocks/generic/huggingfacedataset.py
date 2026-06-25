@@ -60,6 +60,10 @@ class HuggingFaceDataset(Dataset):
         super().__init__(*args, **kwargs)
         self.build_in_installdir = False
 
+        # The exact filename is important during build so we will use download_filename instead of possibly modified filename
+        if any('download_filename' not in src_spec for src_spec in self.cfg['data_sources']):
+            raise EasyBuildError("Expected 'download_filename' to be known for all data_sources")
+
     def build_step(self):
         '''Build up cache_dir with dataset'''
 
@@ -69,7 +73,8 @@ class HuggingFaceDataset(Dataset):
             _hf_home_dir,
             'hub',
             f'datasets--{self.cfg["hf_name"].replace("/", "--")}',
-            'snapshots'
+            'snapshots',
+            self.cfg['hf_revision'],
         )
 
         # Fill snapshosts dir (we're abusing the fallback for no-symlinks to simplify the logic)
@@ -78,7 +83,7 @@ class HuggingFaceDataset(Dataset):
         mkdir(_hf_snapshots_dir, parents=True)
 
         for src_spec in self.cfg['data_sources']:
-            move_file(src_spec['filename'],  os.path.join(_hf_snapshots_dir, src_spec['filename']))
+            move_file(src_spec['filename'],  os.path.join(_hf_snapshots_dir, src_spec['download_filename']))
 
         self.log.info(f"Successfully populated {_hf_snapshots_dir} from source files")
 
