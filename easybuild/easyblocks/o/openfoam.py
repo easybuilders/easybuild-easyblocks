@@ -209,7 +209,7 @@ class EB_OpenFOAM(EasyBlock):
 
         elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             # make sure -no-prec-div is used with Intel compilers
-            #extra_flags = '-no-prec-div'
+            # extra_flags = '-no-prec-div'
             pass
 
         for env_var in ['CFLAGS', 'CXXFLAGS']:
