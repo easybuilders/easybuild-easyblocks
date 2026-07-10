@@ -208,9 +208,9 @@ class EB_OpenFOAM(EasyBlock):
                 extra_flags += ' -fno-delete-null-pointer-checks'
 
         elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            # make sure -no-prec-div is used with Intel compilers
-            # extra_flags = '-no-prec-div'
-            pass
+            # make sure -no-prec-div is used with old Intel compilers
+            if self.wm_compiler == 'Icc':
+                extra_flags = '-no-prec-div'
 
         for env_var in ['CFLAGS', 'CXXFLAGS']:
             env.setvar(env_var, "%s %s" % (os.environ.get(env_var, ''), extra_flags))
