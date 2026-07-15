@@ -794,12 +794,12 @@ class EB_LLVM(CMakeMake):
         if get_cpu_architecture() == RISCV64:
             # This test assumes a native x86 runtime environment
             new_ignore_patterns.append('Flang :: Driver/fast-math.f90')
-            
+
             # Flang's LLVM CodeGen backend (in versions 20.1.X) does not support returning
             # complex numbers of certain precisions (like complex(16) or complex(32)) on RISC-V target.
             # This is a known limitation in current Flang/LLVM support.
             new_ignore_patterns.append('Flang :: Integration/debug-complex-1.f90')
-            
+
             # Creation of hardware watchpoints is not supported in lldb for RISC-V,
             # so we ignore all the tests that try to do it
             new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-child-wp.test')
@@ -810,7 +810,7 @@ class EB_LLVM(CMakeMake):
             new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-parent-wp.test')
             new_ignore_patterns.append('lldb-shell :: Watchpoint/SetErrorCases.test')
             new_ignore_patterns.append('lldb-shell :: Watchpoint/ExpressionLanguage.test')
-                
+
             # Use of flag -gsplit-dwarf gives the error (as the compiler does relaxation by default):
             # clang: error: -gsplit-dwarf is unsupported with RISC-V linker relaxation (-mrelax)
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/vla.cpp')
@@ -835,7 +835,7 @@ class EB_LLVM(CMakeMake):
             )
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwarf5-lazy-dwo.c')
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/debug-types-expressions.test')
-                
+
             # LLVM's JIT engine does not support relocation type 53 for the RISC-V target (as of LLVM 20.1.5)
             # This error arises specifically during execution of the 'mlir-runner' test for 'async-error.mlir',
             # which uses LLVM's JIT infrastructure (ORC/RuntimeDyld)
@@ -855,12 +855,12 @@ class EB_LLVM(CMakeMake):
                 'lldb-shell :: SymbolFile/DWARF/clang-ast-from-dwarf-unamed-and-anon-structs.cpp'
             )
             new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/clang-gmodules-type-lookup.c')
-                
+
             # All these tests use a relocation type not supported on RISC-V
             new_ignore_patterns.append('MLIR :: mlir-runner/async-error.mlir')
             new_ignore_patterns.append('MLIR :: mlir-runner/global-memref.mlir')
             new_ignore_patterns.append('MLIR :: mlir-runner/utils.mlir')
-            
+
             # All these tests crash due to incomplete JIT support for RISC-V
             new_ignore_patterns.append('MLIR :: mlir-runner/simple.mlir')
             new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/0/4')
@@ -874,10 +874,10 @@ class EB_LLVM(CMakeMake):
                 'llvm-libc++-shared.cfg.in :: '
             )
 
-            # This test can fail because the file system returns mtimes = 0 (this can happen in CernVM-FS, 
+            # This test can fail because the file system returns mtimes = 0 (this can happen in CernVM-FS,
             # some overlayfs, some NFS and reproducible builds)
             new_ignore_patterns.append('Clang :: Modules/timestamps.c')
-            
+
             # This test assumes x86 architecture
             new_ignore_patterns.append('Driver :: gcc-triple.f90')
 
