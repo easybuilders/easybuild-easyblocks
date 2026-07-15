@@ -874,36 +874,35 @@ class EB_LLVM(CMakeMake):
                 'llvm-libc++-shared.cfg.in :: '
             )
 
-            ## This test can fail because the file system returns mtimes = 0 (this can happen in CernVM-FS, 
-            ## some overlayfs, some NFS and reproducible builds)
+            # This test can fail because the file system returns mtimes = 0 (this can happen in CernVM-FS, 
+            # some overlayfs, some NFS and reproducible builds)
             new_ignore_patterns.append('Clang :: Modules/timestamps.c')
             
-            ## This test assumes x86 architecture
+            # This test assumes x86 architecture
             new_ignore_patterns.append('Driver :: gcc-triple.f90')
 
-            ## We do not care about CUDA at this stage
+            # We do not care about CUDA at this stage
             new_ignore_patterns.append('Flang :: Lower/CUDA/')
 
-            ## These tests fail due to "ptrace: operation not permited"
+            # These tests fail due to "ptrace: operation not permited"
             new_ignore_patterns.append('lldb-unit :: tools/lldb-server/tests/./LLDBServerTests/')
 
-            ## The following test failed even though it runs correctly in a "post-mortem" execution:
-            ## eessibot/easybuild/build/LLVM/23.0.0git/llvm-compilers-20.1.8-EPI-20260515/llvm.obj.3/
-            ## tools/lldb/unittests/Host$ ./HostTests --gtest_filter=HostTest.GetProcessInfo
-            ## Note: Google Test filter = HostTest.GetProcessInfo
-            ## [==========] Running 1 test from 1 test suite.
-            ## [----------] Global test environment set-up.
-            ## [----------] 1 test from HostTest
-            ## [ RUN      ] HostTest.GetProcessInfo
-            ## [       OK ] HostTest.GetProcessInfo (61 ms)
-            ## [----------] 1 test from HostTest (61 ms total)
-
-            ## [----------] Global test environment tear-down
-            ## [==========] 1 test from 1 test suite ran. (63 ms total)
-            ## [  PASSED  ] 1 test.
+            # The following test failed even though it runs correctly in a "post-mortem" execution:
+            # eessibot/easybuild/build/LLVM/23.0.0git/llvm-compilers-20.1.8-EPI-20260515/llvm.obj.3/
+            # tools/lldb/unittests/Host$ ./HostTests --gtest_filter=HostTest.GetProcessInfo
+            # Note: Google Test filter = HostTest.GetProcessInfo
+            # [==========] Running 1 test from 1 test suite.
+            # [----------] Global test environment set-up.
+            # [----------] 1 test from HostTest
+            # [ RUN      ] HostTest.GetProcessInfo
+            # [       OK ] HostTest.GetProcessInfo (61 ms)
+            # [----------] 1 test from HostTest (61 ms total)
+            # [----------] Global test environment tear-down
+            # [==========] 1 test from 1 test suite ran. (63 ms total)
+            # [  PASSED  ] 1 test.
             new_ignore_patterns.append('lldb-unit :: Host/./HostTests/0/5')
 
-            # if ptrace is disabled (due to security vulnerabilities) or lacks permissions, 
+            # if ptrace is disabled (due to security vulnerabilities) or lacks permissions,
             # many lldb tests fail
             new_ignore_patterns.append('lldb-shell :: Breakpoint/case-sensitive.test')
             new_ignore_patterns.append('lldb-shell :: Breakpoint/invalid-condition.test')
