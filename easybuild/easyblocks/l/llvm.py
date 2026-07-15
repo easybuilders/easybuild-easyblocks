@@ -733,7 +733,8 @@ class EB_LLVM(CMakeMake):
                 'haiku.c', 'hexagon-toolchain-elf.c', 'hexagon-toolchain-linux.c',
                 'mips-cs.cpp', 'mips-fsf.cpp', 'mips-img-v2.cpp', 'mips-img.cpp',
                 'riscv32-toolchain-extra.c', 'riscv64-toolchain-extra.c',
-                'rocm-detect.hip',
+                'rocm-detect.hip', 'aarch64-toolchain-extra.c', 'arm-toolchain-extra.c',
+                'sycl-offload-jit.cpp',
             ]
             known_frontend_files = [
                 'warning-poison-system-directories.c'
@@ -791,17 +792,130 @@ class EB_LLVM(CMakeMake):
 
         # Some extra tests need to be ignored for RISC-V
         if get_cpu_architecture() == RISCV64:
+            # This test assumes a native x86 runtime environment
+            new_ignore_patterns.append('Flang :: Driver/fast-math.f90')
+            
+            # Flang's LLVM CodeGen backend (in versions 20.1.X) does not support returning
+            # complex numbers of certain precisions (like complex(16) or complex(32)) on RISC-V target.
+            # This is a known limitation in current Flang/LLVM support.
+            new_ignore_patterns.append('Flang :: Integration/debug-complex-1.f90')
+            
+            # Creation of hardware watchpoints is not supported in lldb for RISC-V,
+            # so we ignore all the tests that try to do it
+            new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-child-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-parent-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/fork-follow-child-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/fork-follow-parent-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-child-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-parent-wp.test')
+            new_ignore_patterns.append('lldb-shell :: Watchpoint/SetErrorCases.test')
+            new_ignore_patterns.append('lldb-shell :: Watchpoint/ExpressionLanguage.test')
+                
+            # Use of flag -gsplit-dwarf gives the error (as the compiler does relaxation by default):
+            # clang: error: -gsplit-dwarf is unsupported with RISC-V linker relaxation (-mrelax)
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/vla.cpp')
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/split-dwarf-expression-eval-bug.cpp')
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-static-data-member-access.test')
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-relative-filename-only-binary-dir.c')
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-missing-error.test')
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-relative-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-absolute-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-relative-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-dwoname-absolute-compdir.c'
+            )
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-path-symlink-relative-compdir.c'
+            )
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwarf5-lazy-dwo.c')
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/debug-types-expressions.test')
+                
+            # LLVM's JIT engine does not support relocation type 53 for the RISC-V target (as of LLVM 20.1.5)
+            # This error arises specifically during execution of the 'mlir-runner' test for 'async-error.mlir',
+            # which uses LLVM's JIT infrastructure (ORC/RuntimeDyld)
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-error.mlir')
+
+            # Following tests fail because of missing support for RISC-V relocation type '55' in LLVM JIT
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-group.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/unranked-memref.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/async.mlir')
+
+            # Following tests produce the error "unsupported 64-bit ELF machine arch: 243"
+            # because LLDB is unable to process an ELF file because architecture ID 243 corresponds to:
+            # 'EM_RISCV (243) - RISC-V architecture'
+            # Support for RISC-V in LLDB is still incomplete upstream
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/anon_class_w_and_wo_export_symbols.ll')
+            new_ignore_patterns.append(
+                'lldb-shell :: SymbolFile/DWARF/clang-ast-from-dwarf-unamed-and-anon-structs.cpp'
+            )
+            new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/clang-gmodules-type-lookup.c')
+                
+            # All these tests use a relocation type not supported on RISC-V
+            new_ignore_patterns.append('MLIR :: mlir-runner/async-error.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/global-memref.mlir')
+            new_ignore_patterns.append('MLIR :: mlir-runner/utils.mlir')
+            
+            # All these tests crash due to incomplete JIT support for RISC-V
+            new_ignore_patterns.append('MLIR :: mlir-runner/simple.mlir')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/0/4')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/1/4')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/2/4')
+            new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/3/4')
+
+            # These tests fail due to memory allocator corruption of mismatch, likely due to incomplete or
+            # buggy support in the LLVM runtime for RISC-V under '-std=c++26'
+            new_ignore_patterns.append(
+                'llvm-libc++-shared.cfg.in :: '
+            )
+
+            ## This test can fail because the file system returns mtimes = 0 (this can happen in CernVM-FS, 
+            ## some overlayfs, some NFS and reproducible builds)
+            new_ignore_patterns.append('Clang :: Modules/timestamps.c')
+            
+            ## This test assumes x86 architecture
+            new_ignore_patterns.append('Driver :: gcc-triple.f90')
+
+            ## We do not care about CUDA at this stage
+            new_ignore_patterns.append('Flang :: Lower/CUDA/')
+
+            ## These tests fail due to "ptrace: operation not permited"
+            new_ignore_patterns.append('lldb-unit :: tools/lldb-server/tests/./LLDBServerTests/')
+
+            ## The following test failed even though it runs correctly in a "post-mortem" execution:
+            ## eessibot/easybuild/build/LLVM/23.0.0git/llvm-compilers-20.1.8-EPI-20260515/llvm.obj.3/
+            ## tools/lldb/unittests/Host$ ./HostTests --gtest_filter=HostTest.GetProcessInfo
+            ## Note: Google Test filter = HostTest.GetProcessInfo
+            ## [==========] Running 1 test from 1 test suite.
+            ## [----------] Global test environment set-up.
+            ## [----------] 1 test from HostTest
+            ## [ RUN      ] HostTest.GetProcessInfo
+            ## [       OK ] HostTest.GetProcessInfo (61 ms)
+            ## [----------] 1 test from HostTest (61 ms total)
+
+            ## [----------] Global test environment tear-down
+            ## [==========] 1 test from 1 test suite ran. (63 ms total)
+            ## [  PASSED  ] 1 test.
+            new_ignore_patterns.append('lldb-unit :: Host/./HostTests/0/5')
+
+            # if ptrace is disabled (due to security vulnerabilities) or lacks permissions, 
+            # many lldb tests fail
+            new_ignore_patterns.append('lldb-shell :: Breakpoint/case-sensitive.test')
+            new_ignore_patterns.append('lldb-shell :: Breakpoint/invalid-condition.test')
+            new_ignore_patterns.append('lldb-shell :: Commands/command-disassemble-mixed.c')
+            new_ignore_patterns.append('lldb-shell :: Commands/command-expr-diagnostics.test')
+            new_ignore_patterns.append('lldb-shell :: Commands/command-image-dump-ast.test')
+            new_ignore_patterns.append('lldb-shell :: Commands/command-list-reach-beginning-of-file.test')
+
             if LooseVersion(self.version) < '22':  # Force checking if these are resolved in newer LLVM versions
-                # This test assumes a native x86 runtime environment
-                new_ignore_patterns.append('Flang :: Driver/fast-math.f90')
 
                 # This test is for AARCH64
                 new_ignore_patterns.append('Flang :: Driver/flang-ld-aarch64.f90')
-
-                # Flang's LLVM CodeGen backend (in versions 20.1.X) does not support returning
-                # complex numbers of certain precisions (like complex(16) or complex(32)) on RISC-V target.
-                # This is a known limitation in current Flang/LLVM support.
-                new_ignore_patterns.append('Flang :: Integration/debug-complex-1.f90')
 
                 # The error message of the test itself says:
                 # "
@@ -809,40 +923,6 @@ class EB_LLVM(CMakeMake):
                 # Actual: failed  (Architecture not supported) (of type llvm::detail::ErrorHolder)
                 # "
                 new_ignore_patterns.append('LLVM-Unit :: ExecutionEngine/Orc/./OrcJITTests/4/6')
-
-                # Creation of hardware watchpoints is not supported in lldb for RISC-V,
-                # so we ignore all the tests that try to do it
-                new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-child-wp.test')
-                new_ignore_patterns.append('lldb-shell :: Subprocess/clone-follow-parent-wp.test')
-                new_ignore_patterns.append('lldb-shell :: Subprocess/fork-follow-child-wp.test')
-                new_ignore_patterns.append('lldb-shell :: Subprocess/fork-follow-parent-wp.test')
-                new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-child-wp.test')
-                new_ignore_patterns.append('lldb-shell :: Subprocess/vfork-follow-parent-wp.test')
-                new_ignore_patterns.append('lldb-shell :: Watchpoint/ExpressionLanguage.test')
-
-                # Use of flag -gsplit-dwarf gives the error (as the compiler does relaxation by default):
-                # clang: error: -gsplit-dwarf is unsupported with RISC-V linker relaxation (-mrelax)
-                new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/split-dwarf-expression-eval-bug.cpp')
-                new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-static-data-member-access.test')
-                new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-relative-filename-only-binary-dir.c')
-                new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwo-missing-error.test')
-                new_ignore_patterns.append(
-                    'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-relative-compdir.c'
-                )
-                new_ignore_patterns.append(
-                    'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-absolute-compdir.c'
-                )
-                new_ignore_patterns.append(
-                    'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-filename-only-relative-compdir.c'
-                )
-                new_ignore_patterns.append(
-                    'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-paths-dwoname-absolute-compdir.c'
-                )
-                new_ignore_patterns.append(
-                    'lldb-shell :: SymbolFile/DWARF/dwo-debug-file-search-path-symlink-relative-compdir.c'
-                )
-                new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/dwarf5-lazy-dwo.c')
-                new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/debug-types-expressions.test')
 
                 # The following tests fail because RISC-V doesn't support MemorySanitizer, and the combination
                 #  with '-fsanitize=memory,fuzzer' (used in all the following tests) leads to a backend crash.
@@ -859,42 +939,13 @@ class EB_LLVM(CMakeMake):
                 new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: msan.test')
                 new_ignore_patterns.append('libFuzzer-riscv64-static-libcxx-Linux :: sigint.test')
 
-                # LLVM's JIT engine does not support relocation type 53 for the RISC-V target (as of LLVM 20.1.5)
-                # This error arises specifically during execution of the 'mlir-runner' test for 'async-error.mlir',
-                # which uses LLVM's JIT infrastructure (ORC/RuntimeDyld)
-                new_ignore_patterns.append('MLIR :: mlir-runner/async-error.mlir')
-
-                # Following tests fail because of missing support for RISC-V relocation type '55' in LLVM JIT
-                new_ignore_patterns.append('MLIR :: mlir-runner/async-group.mlir')
-                new_ignore_patterns.append('MLIR :: mlir-runner/unranked-memref.mlir')
-                new_ignore_patterns.append('MLIR :: mlir-runner/async.mlir')
-
-                # Following tests produce the error "unsupported 64-bit ELF machine arch: 243"
-                # because LLDB is unable to process an ELF file because architecture ID 243 corresponds to:
-                # 'EM_RISCV (243) - RISC-V architecture'
-                # Support for RISC-V in LLDB is still incomplete upstream
-                new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/anon_class_w_and_wo_export_symbols.ll')
-                new_ignore_patterns.append(
-                    'lldb-shell :: SymbolFile/DWARF/clang-ast-from-dwarf-unamed-and-anon-structs.cpp'
-                )
-                new_ignore_patterns.append('lldb-shell :: SymbolFile/DWARF/clang-gmodules-type-lookup.c')
-
                 # binutils 2.40 is too old and doesn't recognize the 'zaamo' ISA extension used in the test.
                 # With binutils >= 2.41, this test would work
                 binutils_ver = get_software_version('binutils')
                 if binutils_ver is None or LooseVersion(binutils_ver) < LooseVersion('2.41'):
                     new_ignore_patterns.append("Flang :: Driver/save-mlir-temps.f90")
 
-                # All these tests use a relocation type not supported on RISC-V
-                new_ignore_patterns.append('MLIR :: mlir-runner/async-group.mlir')
-                new_ignore_patterns.append('MLIR :: mlir-runner/async-error.mlir')
-                new_ignore_patterns.append('MLIR :: mlir-runner/async.mlir')
-                new_ignore_patterns.append('MLIR :: mlir-runner/global-memref.mlir')
-                new_ignore_patterns.append('MLIR :: mlir-runner/unranked-memref.mlir')
-                new_ignore_patterns.append('MLIR :: mlir-runner/utils.mlir')
-
                 # All these tests crash due to incomplete JIT support for RISC-V
-                new_ignore_patterns.append('mlir-runner/simple.mlir')
                 new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/6/12')
                 new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/7/12')
                 new_ignore_patterns.append('MLIR-Unit :: ExecutionEngine/./MLIRExecutionEngineTests/8/12')
@@ -906,9 +957,6 @@ class EB_LLVM(CMakeMake):
                 # buggy support in the LLVM runtime for RISC-V under '-std=c++26'
                 new_ignore_patterns.append(
                     'llvm-libc++-shared.cfg.in :: std/input.output/string.streams/istringstream/istringstream.assign/'
-                )
-                new_ignore_patterns.append(
-                    'llvm-libc++-shared.cfg.in :: std/utilities/variant/variant.visit/visit_return_type.pass.cpp'
                 )
                 new_ignore_patterns.append(
                     'llvm-libc++-shared.cfg.in :: std/utilities/format/format.formatter/format.formatter.spec/'
