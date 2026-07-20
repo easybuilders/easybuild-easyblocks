@@ -273,7 +273,13 @@ def get_url_from_general(pkg, version, git_tree_sha1, max_retries=3):
             is_default_filename = True
             filename = default_filename
         else:
-            filename = f'{git_tree_sha1}.tar.gz'
+            commit = get_commit_from_git_tree_sha1(repo, git_tree_sha1)
+            if commit:
+                filename = f'{commit}.tar.gz'
+            else:
+                url = None
+                filename = None
+                print(f"WARNING: Could not determine commit for git tree SHA1 {git_tree_sha1} in GITHUB repo {repo}")
 
     if 'gitlab.com' in base_url:
         # https://gitlab.com/ExpandingMan/ShowCases.jl/-/archive/1ea211f349b40165a2b5fbbc80f771d6dcb725ad/ShowCases.jl-1ea211f349b40165a2b5fbbc80f771d6dcb725ad.tar.gz
