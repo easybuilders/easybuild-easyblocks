@@ -200,17 +200,22 @@ class EB_ELPA(ConfigureMake):
                                      'cuda_compute_capabilities easyconfig parameter or via '
                                      '--cuda-compute-capabilities')
 
-            # ELPA's --with-NVIDIA-GPU-compute-capability only accepts a single architecture
-            if len(cuda_cc) != 1:
-                raise EasyBuildError('ELPA currently only supports specifying one CUDA architecture when '
+            if LooseVersion(self.version) < LooseVersion('2025.06.002') and len(cuda_cc) != 1:
+                raise EasyBuildError('ELPA prior to 2025.06.002 only supports specifying one CUDA architecture when '
                                      'building. You specified cuda-compute-capabilities: %s', cuda_cc)
-            cuda_cc = cuda_cc[0]
-            cuda_cc_string = cuda_cc.replace('.', '')
-            self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=sm_%s' % cuda_cc_string)
+
+            cuda_cc_string = ','.join(['sm_' + x.replace('.', '') for x in cuda_cc])
+            self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=%s' % cuda_cc_string)
             self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc_string)
+
             # There is a dedicated kernel for sm80, but only from version 2021.11.001 onwards
-            # Trying to use these kernels for GPUs newer than sm80 will fail ELPA configure
-            if float(cuda_cc) == 8.0 and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
+            # Trying to use these kernels for GPUs newer than sm80 will fail ELPA configure until 2025.06.002
+            # Since 2025.06.002 the max compute capability is used to determine whether sm80 kernel may be used
+            if LooseVersion(self.version) >= LooseVersion('2025.06.002') and max(map(float, cuda_cc)) >= 8.0:
+                # The configuration option has been renamed since 2023.05.001,
+                # though the old option is accepted at least until 2025.06.002
+                self.cfg.update('configopts', '--enable-nvidia-sm80-gpu-kernels')
+            elif LooseVersion(self.version) >= LooseVersion('2021.06.002') and float(cuda_cc[0]) == 8.0:
                 self.cfg.update('configopts', '--enable-nvidia-sm80-gpu')
 
         # From v2022.05.001 onwards, the config complains if CPP is not set, resulting in non-zero exit of configure
