@@ -200,6 +200,7 @@ class EB_ELPA(ConfigureMake):
                                      'cuda_compute_capabilities easyconfig parameter or via '
                                      '--cuda-compute-capabilities')
 
+            # ELPA's --with-NVIDIA-GPU-compute-capability only accepts a single architecture until 2025.06.002
             if LooseVersion(self.version) < LooseVersion('2025.06.002') and len(cuda_cc) != 1:
                 raise EasyBuildError('ELPA prior to 2025.06.002 only supports specifying one CUDA architecture when '
                                      'building. You specified cuda-compute-capabilities: %s', cuda_cc)
@@ -208,7 +209,7 @@ class EB_ELPA(ConfigureMake):
             self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=%s' % cuda_cc_string)
             self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc_string)
 
-            # There is a dedicated kernel for sm80, but only from version 2021.11.001 onwards
+            # There are dedicated kernels for sm80, but only from version 2021.11.001 onwards
             # Trying to use these kernels for GPUs newer than sm80 will fail ELPA configure until 2025.06.002
             # Since 2025.06.002 the max compute capability is used to determine whether sm80 kernel may be used
             if LooseVersion(self.version) >= LooseVersion('2025.06.002') and max(map(float, cuda_cc)) >= 8.0:
