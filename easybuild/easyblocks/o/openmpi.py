@@ -249,11 +249,11 @@ class EB_OpenMPI(ConfigureMake):
                 "ompi_info | grep -i 'rocm'",
                 # ROCm MPI extension is built and exposed
                 "ompi_info --all | grep -E 'MPI extensions:.*rocm'",
-                # UCX PML can see the ROCm memory type
-                "ompi_info --param pml ucx --level 9 | grep -i rocm_ipc",
                 # The ROCm accelerator framework component is present
                 "ompi_info | grep -E 'MCA accelerator: rocm'",
             ])
+            if get_software_root('UCX') or get_software_root('UCX-ROCm'):
+                custom_commands.append("ompi_info --param pml ucx --level 9 | grep -i rocm_ipc")
 
         # Add minimal test program to sanity checks
         # Run with correct MPI launcher
