@@ -299,6 +299,7 @@ class EB_TensorFlow(PythonPackage):
                                   "the number of GPUs). Use None (default) to automatically determine a value", CUSTOM],
             'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
                                "Use None to not set a specific limit (uses a default value).", CUSTOM],
+            'bazel_startup_opts': [[], "List of extra startup options to pass to Bazel before the command", CUSTOM],
         }
 
         return PythonPackage.extra_options(extra_vars)
@@ -907,6 +908,8 @@ class EB_TensorFlow(PythonPackage):
         # Increase time to wait for bazel to start, available since 4.0+
         if bazel_version >= '4.0.0':
             self.bazel_opts.append('--local_startup_timeout_secs=300')  # 5min
+
+        self.bazel_opts.extend(self.cfg['bazel_startup_opts'])
 
         # Environment variables and values needed for Bazel actions.
         action_env = {}
