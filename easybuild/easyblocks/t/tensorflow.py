@@ -106,6 +106,22 @@ def get_system_libs_from_tf(source_dir):
     return result
 
 
+def tf_http_archive_has_system_build_file(source_dir, repo_name):
+    """Return whether tf_http_archive definition for repo_name has a system_build_file."""
+    workspace_paths = [
+        os.path.join(source_dir, 'tensorflow', 'workspace2.bzl'),
+        os.path.join(source_dir, 'third_party', 'xla', 'workspace2.bzl'),
+    ]
+    regex = re.compile(r'tf_http_archive\(\s*name\s*=\s*"%s",(.*?)\n\s*\)' % re.escape(repo_name), re.DOTALL)
+    for workspace_path in workspace_paths:
+        if os.path.exists(workspace_path):
+            workspace_txt = read_file(workspace_path)
+            for match in regex.finditer(workspace_txt):
+                if 'system_build_file' in match.group(1):
+                    return True
+    return False
+
+
 def get_system_libs_for_version(tf_version, as_valid_libs=False):
     """
     Determine valid values for $TF_SYSTEM_LIBS for the given TF version
@@ -245,6 +261,12 @@ class EB_TensorFlow(PythonPackage):
                                   "the number of GPUs). Use None (default) to automatically determine a value", CUSTOM],
             'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
                                "Use None to not set a specific limit (uses a default value).", CUSTOM],
+            'bazel_startup_opts': [[], "List of extra startup options to pass to Bazel before the command", CUSTOM],
+            'tf_system_libs_exclude': [
+                [],
+                "List of TensorFlow system library names to omit from $TF_SYSTEM_LIBS",
+                CUSTOM,
+            ],
         }
 
         return PythonPackage.extra_options(extra_vars)
@@ -355,6 +377,21 @@ class EB_TensorFlow(PythonPackage):
         Returns a tuple of lists: $TF_SYSTEM_LIBS names, include paths, library paths
         """
         dependency_mapping, python_mapping = get_system_libs_for_version(self.version)
+
+        tf_system_libs_exclude = self.cfg['tf_system_libs_exclude']
+        if isinstance(tf_system_libs_exclude, str):
+            tf_system_libs_exclude = [x.strip() for x in tf_system_libs_exclude.split(',') if x.strip()]
+        tf_system_libs_exclude = set(tf_system_libs_exclude)
+
+        # TensorFlow 2.21 still lists absl_py as a valid TF_SYSTEM_LIBS entry, but its
+        # tf_http_archive definition no longer has a system_build_file. Enabling it makes Bazel create an empty
+        # @absl_py repository and fail with "_tf_http_archive rule //external:absl_py must create a directory".
+        if python_mapping.get('absl') == 'absl_py' and not tf_http_archive_has_system_build_file(
+            self.start_dir, 'absl_py'
+        ):
+            self.log.info("Not using system absl_py: TensorFlow's @absl_py repository has no system_build_file")
+            del python_mapping['absl']
+
         # Some TF dependencies require both a (usually C++) dependency and a Python package
         deps_with_python_pkg = {tf_name for tf_name in dependency_mapping.values()
                                 if tf_name in python_mapping.values()}
@@ -363,6 +400,15 @@ class EB_TensorFlow(PythonPackage):
         cpaths = []
         libpaths = []
         ignored_system_deps = []
+
+        def add_system_lib(tf_name):
+            """Add a TensorFlow system library unless it was explicitly excluded."""
+            if tf_name in tf_system_libs_exclude:
+                self.log.info("Not using system %s: listed in tf_system_libs_exclude", tf_name)
+                return False
+            if tf_name not in system_libs:
+                system_libs.append(tf_name)
+            return True
 
         # Check direct dependencies
         dep_names = self.cfg.dependency_names()
@@ -374,11 +420,12 @@ class EB_TensorFlow(PythonPackage):
                     # Simply ignore. Error reporting is done in the other loop
                     if not self.python_pkg_exists(pkg_name):
                         continue
-                system_libs.append(tf_name)
+                if not add_system_lib(tf_name):
+                    continue
                 # When using cURL (which uses the system OpenSSL), we also need to use "boringssl"
                 # which essentially resolves to using OpenSSL as the API and library names are compatible
                 if dep_name == 'cURL':
-                    system_libs.append('boringssl')
+                    add_system_lib('boringssl')
                 sw_root = get_software_root(dep_name)
                 # Dependency might be filtered via --filter-deps. In that case assume globally installed version
                 if not sw_root:
@@ -407,21 +454,20 @@ class EB_TensorFlow(PythonPackage):
             if self.python_pkg_exists(pkg_name):
                 # If it is in deps_with_python_pkg we already added it
                 if tf_name not in deps_with_python_pkg:
-                    system_libs.append(tf_name)
+                    add_system_lib(tf_name)
             else:
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
         # If we use OpenSSL (potentially as a wrapper) somewhere in the chain we must tell TF to use it too
         openssl_root = get_software_root('OpenSSL')
         if openssl_root:
-            if 'boringssl' not in system_libs:
-                system_libs.append('boringssl')
-            incpath = os.path.join(openssl_root, 'include')
-            if os.path.exists(incpath):
-                cpaths.append(incpath)
-            libpath = get_software_libdir('OpenSSL')
-            if libpath:
-                libpaths.append(os.path.join(openssl_root, libpath))
+            if add_system_lib('boringssl'):
+                incpath = os.path.join(openssl_root, 'include')
+                if os.path.exists(incpath):
+                    cpaths.append(incpath)
+                libpath = get_software_libdir('OpenSSL')
+                if libpath:
+                    libpaths.append(os.path.join(openssl_root, libpath))
 
         if ignored_system_deps:
             print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. '
@@ -882,6 +928,11 @@ class EB_TensorFlow(PythonPackage):
         if bazel_version >= '4.0.0':
             self.bazel_opts.append('--local_startup_timeout_secs=300')  # 5min
 
+        bazel_startup_opts = self.cfg['bazel_startup_opts']
+        if isinstance(bazel_startup_opts, str):
+            bazel_startup_opts = bazel_startup_opts.split()
+        self.bazel_opts.extend(bazel_startup_opts)
+
         # Environment variables and values needed for Bazel actions.
         action_env = {}
         # A value of None is interpreted as using the invoking environments value
@@ -1104,6 +1155,7 @@ class EB_TensorFlow(PythonPackage):
 
             current_test_opts = test_opts[:]
             current_test_opts.append('--local_test_jobs=%s' % num_test_jobs[device])
+            current_test_opts.append("--test_env=HOME='%s'" % self.home_dir)
 
             # Add both build and test tag filters as done by the TF CI scripts
             current_test_opts.extend("--%s_tag_filters='%s'" % (step, test_tag_filters) for step in ('test', 'build'))
@@ -1242,16 +1294,19 @@ class EB_TensorFlow(PythonPackage):
         if self.python_cmd is None:
             self.prepare_python()
 
+        tensorboard_dep_root = get_software_root('tensorboard')
+        custom_paths_files = [] if tensorboard_dep_root else ['bin/tensorboard']
         custom_paths = {
-            'files': ['bin/tensorboard'],
+            'files': custom_paths_files,
             'dirs': [self.pylibdir],
         }
-
         custom_commands = [
             "%s -c 'import tensorflow'" % self.python_cmd,
             # tf_should_use importsweakref.finalize, which requires backports.weakref for Python < 3.4
             "%s -c 'from tensorflow.python.util import tf_should_use'" % self.python_cmd,
         ]
+        if tensorboard_dep_root:
+            custom_commands.append("tensorboard --help")
         res = super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
         # test installation using MNIST tutorial examples
