@@ -520,7 +520,8 @@ class PythonPackage(ExtensionEasyBlock):
                                        "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'sanity_check_pip_list': [None, "Fail if specified package names and versions do not match "
                                             "'python -m pip list' output. Defaults to True if --upload-test-report is "
-                                            "set. The check only runs if 'sanity_pip_check' is True.", CUSTOM],
+                                            "set. The check only runs if 'sanity_pip_check' is True and "
+                                            "'sanity_check_pip_list' is not False.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
             'ulimit': [None, f"Set ulimit -s to specified value. Default: Limit to {ULIMIT_DEFAULT} if unlimited.",
@@ -1351,8 +1352,14 @@ class PythonPackage(ExtensionEasyBlock):
 
             unversioned_packages = self.cfg.get('unversioned_packages', [])
             pkgs = [(self.name, self.version)]
-            run_pip_list(pkgs, python_cmd=python_cmd, unversioned_packages=unversioned_packages,
-                         strict_check=toplevel_params['sanity_check_pip_list'])
+            if toplevel_params['sanity_check_pip_list'] is False:
+                check_names_versions = False
+            else:
+                check_names_versions = True
+            run_pip_list(
+                pkgs, python_cmd=self.python_cmd, unversioned_packages=unversioned_packages,
+                check_names_versions=check_names_versions, strict_check=toplevel_params['sanity_check_pip_list']
+            )
 
         # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
         # and let ExtensionEasyBlock do its job
