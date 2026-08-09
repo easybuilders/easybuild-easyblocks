@@ -909,7 +909,11 @@ class EB_TensorFlow(PythonPackage):
         if bazel_version >= '4.0.0':
             self.bazel_opts.append('--local_startup_timeout_secs=300')  # 5min
 
-        self.bazel_opts.extend(self.cfg['bazel_startup_opts'])
+        bazel_startup_opts = self.cfg['bazel_startup_opts']
+        if bazel_version >= '7.0.0' and '--batch' not in bazel_startup_opts:
+            # Avoid Bazel server startup issues on filesystems without robust locking.
+            self.bazel_opts.append('--batch')
+        self.bazel_opts.extend(bazel_startup_opts)
 
         # Environment variables and values needed for Bazel actions.
         action_env = {}
