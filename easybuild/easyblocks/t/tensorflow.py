@@ -262,11 +262,6 @@ class EB_TensorFlow(PythonPackage):
             'jvm_max_memory': [4096, "Maximum amount of memory in MB used for the JVM running Bazel." +
                                "Use None to not set a specific limit (uses a default value).", CUSTOM],
             'bazel_startup_opts': [[], "List of extra startup options to pass to Bazel before the command", CUSTOM],
-            'tf_system_libs_exclude': [
-                [],
-                "List of TensorFlow system library names to omit from $TF_SYSTEM_LIBS",
-                CUSTOM,
-            ],
         }
 
         return PythonPackage.extra_options(extra_vars)
@@ -378,11 +373,6 @@ class EB_TensorFlow(PythonPackage):
         """
         dependency_mapping, python_mapping = get_system_libs_for_version(self.version)
 
-        tf_system_libs_exclude = self.cfg['tf_system_libs_exclude']
-        if isinstance(tf_system_libs_exclude, str):
-            tf_system_libs_exclude = [x.strip() for x in tf_system_libs_exclude.split(',') if x.strip()]
-        tf_system_libs_exclude = set(tf_system_libs_exclude)
-
         # TensorFlow 2.21 still lists absl_py as a valid TF_SYSTEM_LIBS entry, but its
         # tf_http_archive definition no longer has a system_build_file. Enabling it makes Bazel create an empty
         # @absl_py repository and fail with "_tf_http_archive rule //external:absl_py must create a directory".
@@ -402,16 +392,13 @@ class EB_TensorFlow(PythonPackage):
         ignored_system_deps = []
 
         def add_system_lib(tf_name):
-            """Add a TensorFlow system library unless it was explicitly excluded."""
-            if tf_name in tf_system_libs_exclude:
-                self.log.info("Not using system %s: listed in tf_system_libs_exclude", tf_name)
-                return False
+            """Add a TensorFlow system library if it wasn't added already."""
             if tf_name not in system_libs:
                 system_libs.append(tf_name)
-            return True
 
         # Check direct dependencies
         dep_names = self.cfg.dependency_names()
+        use_system_boringssl = False
         for dep_name, tf_name in sorted(dependency_mapping.items(), key=lambda i: i[0].lower()):
             if dep_name in dep_names:
                 if tf_name in deps_with_python_pkg:
@@ -420,12 +407,12 @@ class EB_TensorFlow(PythonPackage):
                     # Simply ignore. Error reporting is done in the other loop
                     if not self.python_pkg_exists(pkg_name):
                         continue
-                if not add_system_lib(tf_name):
-                    continue
+                add_system_lib(tf_name)
                 # When using cURL (which uses the system OpenSSL), we also need to use "boringssl"
                 # which essentially resolves to using OpenSSL as the API and library names are compatible
                 if dep_name == 'cURL':
                     add_system_lib('boringssl')
+                    use_system_boringssl = True
                 sw_root = get_software_root(dep_name)
                 # Dependency might be filtered via --filter-deps. In that case assume globally installed version
                 if not sw_root:
@@ -458,16 +445,15 @@ class EB_TensorFlow(PythonPackage):
             else:
                 ignored_system_deps.append('%s (Python package %s)' % (tf_name, pkg_name))
 
-        # If we use OpenSSL (potentially as a wrapper) somewhere in the chain we must tell TF to use it too
+        # If we use cURL, we must also use OpenSSL via TensorFlow's boringssl system stub.
         openssl_root = get_software_root('OpenSSL')
-        if openssl_root:
-            if add_system_lib('boringssl'):
-                incpath = os.path.join(openssl_root, 'include')
-                if os.path.exists(incpath):
-                    cpaths.append(incpath)
-                libpath = get_software_libdir('OpenSSL')
-                if libpath:
-                    libpaths.append(os.path.join(openssl_root, libpath))
+        if openssl_root and use_system_boringssl:
+            incpath = os.path.join(openssl_root, 'include')
+            if os.path.exists(incpath):
+                cpaths.append(incpath)
+            libpath = get_software_libdir('OpenSSL')
+            if libpath:
+                libpaths.append(os.path.join(openssl_root, libpath))
 
         if ignored_system_deps:
             print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. '
@@ -931,6 +917,9 @@ class EB_TensorFlow(PythonPackage):
         bazel_startup_opts = self.cfg['bazel_startup_opts']
         if isinstance(bazel_startup_opts, str):
             bazel_startup_opts = bazel_startup_opts.split()
+        if bazel_version >= '7.0.0' and '--batch' not in bazel_startup_opts:
+            # Avoid Bazel server startup issues on filesystems without robust locking.
+            self.bazel_opts.append('--batch')
         self.bazel_opts.extend(bazel_startup_opts)
 
         # Environment variables and values needed for Bazel actions.
@@ -1295,7 +1284,9 @@ class EB_TensorFlow(PythonPackage):
             self.prepare_python()
 
         tensorboard_dep_root = get_software_root('tensorboard')
-        custom_paths_files = [] if tensorboard_dep_root else ['bin/tensorboard']
+        custom_paths_files = []
+        if LooseVersion(self.version) < LooseVersion('2.21'):
+            custom_paths_files.append('bin/tensorboard')
         custom_paths = {
             'files': custom_paths_files,
             'dirs': [self.pylibdir],
@@ -1305,7 +1296,7 @@ class EB_TensorFlow(PythonPackage):
             # tf_should_use importsweakref.finalize, which requires backports.weakref for Python < 3.4
             "%s -c 'from tensorflow.python.util import tf_should_use'" % self.python_cmd,
         ]
-        if tensorboard_dep_root:
+        if LooseVersion(self.version) >= LooseVersion('2.21') and tensorboard_dep_root:
             custom_commands.append("tensorboard --help")
         res = super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
