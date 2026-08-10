@@ -521,7 +521,7 @@ class PythonPackage(ExtensionEasyBlock):
             'sanity_check_pip_list': [None, "Check if specified package names and versions match 'python -m pip list' "
                                             "output as part of 'sanity_pip_check'. Enabled by default. Raises an "
                                             "error on failure if explicitly set to True or if '--upload-test-report' "
-                                            "is set; otherwise, emits a waring.", CUSTOM],
+                                            "is set; otherwise, emits a warning.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
             'ulimit': [None, f"Set ulimit -s to specified value. Default: Limit to {ULIMIT_DEFAULT} if unlimited.",
