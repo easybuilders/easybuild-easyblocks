@@ -518,10 +518,10 @@ class PythonPackage(ExtensionEasyBlock):
             'max_py_minver': [None, "Maximum minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [True, "Run 'python -m pip check' to ensure all required Python packages are "
                                        "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
-            'sanity_check_pip_list': [None, "Fail if specified package names and versions do not match "
-                                            "'python -m pip list' output. Defaults to True if --upload-test-report is "
-                                            "set. The check only runs if 'sanity_pip_check' is True and "
-                                            "'sanity_check_pip_list' is not False.", CUSTOM],
+            'sanity_check_pip_list': [None, "Check if specified package names and versions match 'python -m pip list' "
+                                            "output as part of 'sanity_pip_check'. Enabled by default. Will raise an "
+                                            "error upon failure if explicitly set to True or if '--upload-test-report' "
+                                            "is set.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
             'ulimit': [None, f"Set ulimit -s to specified value. Default: Limit to {ULIMIT_DEFAULT} if unlimited.",
