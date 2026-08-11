@@ -497,8 +497,9 @@ class Bundle(EasyBlock):
             if self.sanity_check_module_loaded:
                 loaded_module = False
             else:
-                self.sanity_check_load_module(extension=kwargs.get('extension', False),
-                                              extra_modules=kwargs.get('extra_modules', None))
+                self.sanity_check_load_module(
+                    extension=kwargs.get('extension'),  # Deprecated for 6.0, let it show warning if passed
+                    extra_modules=kwargs.get('extra_modules'))
                 loaded_module = self.sanity_check_module_loaded
             for idx, comp in enumerate(self.comp_cfgs_sanity_check):
                 print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp.name, comp.version, idx + 1, cnt)

@@ -495,6 +495,20 @@ class EasyBlockSpecificTest(TestCase):
         local_test_py = os.path.join(libdir, 'python' + pyshortver, 'site-packages', 'test.py')
         self.assertTrue(os.path.exists(local_test_py))
 
+    def test_partial_normalize_pip(self):
+        """Test partial_normalize_pip function provided by EB_Python easyblock."""
+
+        self.assertEqual(python.partial_normalize_pip('friendly-bard'), 'friendly-bard')  # normalized form
+        self.assertEqual(python.partial_normalize_pip('Friendly-Bard'), 'friendly-bard')  # uppercase -> lowercase
+        self.assertEqual(python.partial_normalize_pip('friendly_bard'), 'friendly-bard')  # underscore -> hyphen
+        self.assertEqual(python.partial_normalize_pip('friendly.bard'), 'friendly.bard')  # dots are not normalized
+        # multiple consecutive hyphens are merged into a single hyphen
+        self.assertEqual(python.partial_normalize_pip('friendly--bard'), 'friendly-bard')
+        # multiple consecutive underscores are merged and converted into a single hyphen
+        self.assertEqual(python.partial_normalize_pip('friendly__bard'), 'friendly-bard')
+        # multiple consecutive underscores and hyphens are merged and converted into a single hyphen
+        self.assertEqual(python.partial_normalize_pip('FrIeNdLy--__--bArD'), 'friendly-bard')
+
     def test_run_pip_check(self):
         """Test run_pip_check function provided by EB_Python easyblock."""
 

@@ -192,8 +192,9 @@ class PythonBundle(Bundle):
             # This also ensures the exts_filter option for extensions is set correctly.
             # Load module first to get the right python command.
             if not self.sanity_check_module_loaded:
-                self.sanity_check_load_module(extension=kwargs.get('extension', False),
-                                              extra_modules=kwargs.get('extra_modules', None))
+                self.sanity_check_load_module(
+                    extension=kwargs.get('extension'),  # Deprecated for 6.0, let it show warning if passed
+                    extra_modules=kwargs.get('extra_modules'))
             self.prepare_python()
 
         # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths
@@ -211,9 +212,10 @@ class PythonBundle(Bundle):
         """Run the pip check for extensions if enabled"""
         super()._sanity_check_step_extensions()
 
-        params = {
+        toplevel_params = {
             'sanity_pip_check': self.cfg['sanity_pip_check'],
             'sanity_check_pip_list': self.cfg['sanity_check_pip_list'],
+            'exts_formatter': self.cfg['exts_formatter'],
         }
         unversioned_packages = set(self.cfg['unversioned_packages'])
 
@@ -226,14 +228,14 @@ class PythonBundle(Bundle):
         mismatched_params = set()
 
         for ext in py_exts:
-            for param, value in params.items():
+            for param, value in toplevel_params.items():
                 if ext.cfg[param] != value:
                     mismatched_params.add(param)
             all_unversioned_packages.update(ext.cfg['unversioned_packages'])
 
-        for param in params:
+        for param in toplevel_params:
             if param in mismatched_params:
-                params[param] = True  # Either the main set it or any extension enabled it
+                toplevel_params[param] = True  # Either the main set it or any extension enabled it
 
         if all_unversioned_packages != unversioned_packages:
             mismatched_params.add('unversioned_packages')
@@ -243,11 +245,11 @@ class PythonBundle(Bundle):
                    "must be set at the top level, outside of exts_list")
             self.log.deprecated(msg, '6.0')
 
-        if params['sanity_pip_check']:
+        if toplevel_params['sanity_pip_check']:
             run_pip_check(python_cmd=self.python_cmd)
             pkgs = [(x.name, x.version) for x in py_exts]
             run_pip_list(pkgs, python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages,
-                         strict_check=params['sanity_check_pip_list'])
+                         strict_check=toplevel_params['sanity_check_pip_list'])
 
     def make_module_footer(self):
         """

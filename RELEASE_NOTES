@@ -3,7 +3,39 @@ For more detailed information, please see the git log.
 
 These release notes can also be consulted at https://docs.easybuild.io/release-notes .
 
-The latest version of easybuild-easyblocks provides 210 software-specific easyblocks and 47 generic easyblocks.
+The latest version of easybuild-easyblocks provides 211 software-specific easyblocks and 48 generic easyblocks.
+
+v5.4.0 (9 Aug 2026)
+--------------------
+
+feature release
+
+- new easyblocks:
+  - custom easyblock for Bandicoot (#3380)
+  - generic `CargoMesonNinja` easyblock (#4171)
+- enhancements:
+  - add support for NVHPC to Boost easyblock (#3906)
+  - enhance GROMACS easyblock to add support for optarch "X86-64-V?" notation (#3981)
+  - enhance GROMACS easyblock to improve control over PLUMED support (native vs. patching) (#3984)
+  - add exts_formatter easyconfig parameter to PythonPackage easyblock to do formatting extension names in module files (#4125)
+  - add extra easyconfig parameter object_storage_ignore_dirs to generic Dataset easyblock (#4154)
+  - use bounded "git rev-list" for version detection (#4163)
+  - adapt `NvidiaBase` generic easyblock for removal of test examples in hpcx v2.50 (#4174)
+- bug fixes:
+  - fix sanity check step in TensorRT easyblock: `sanity_check_paths` must have both 'files' and 'dirs' key (#4169, #4170)
+  - fix `test_step` not failing in sympy easyblock (#4172)
+  - fix OpenMPI and UCX easyblocks w.r.t. ROCm support (#4173)
+  - fix indentation in sanity check of custom easyblock for AEDT (#4181)
+  - fix excessive liberal regex used to pick correct path to ELPA include path in WIEN2k easyblock (#4191)
+- updates:
+  - refactor Score-P easyblock and update for v10.0 (#4133)
+- enhancements and fixes for test suite:
+  - update actions used in CI workflows to latest versions (#4168)
+  - remove CI workflow for Hound style checker (#4185)
+- other changes:
+  - don't use `get_ref` to obtain `cmds_map` value with resolved templated in `CmdCp` easyblock (#3921)
+  - generalize Kokkos mapping in LAMMPS and Kokkos easyblock (#4107)
+  - do not pass `extension` to `sanity_check_load_module` (#4184)
 
 
 v5.3.1 (19 Jun 2026)

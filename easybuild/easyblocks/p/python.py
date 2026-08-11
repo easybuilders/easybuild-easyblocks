@@ -77,6 +77,7 @@ PY_ENV_VARS = {
 }
 
 REGEX_PIP_NORMALIZE = re.compile(r"[-_.]+")
+REGEX_PIP_PARTIAL_NORMALIZE = re.compile(r"[-_]+")
 
 # We want the following import order:
 # 1. Packages installed into VirtualEnv
@@ -231,6 +232,13 @@ def normalize_pip(name):
     https://packaging.python.org/en/latest/specifications/name-normalization/
     """
     return REGEX_PIP_NORMALIZE.sub('-', name).lower()
+
+
+def partial_normalize_pip(name):
+    """
+    Partially normalize pip package name: substitute underscores with hyphens and convert to lower case
+    """
+    return REGEX_PIP_PARTIAL_NORMALIZE.sub('-', name).lower()
 
 
 def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None, check_names_versions=True, strict_check=None):
@@ -410,6 +418,7 @@ class EB_Python(ConfigureMake):
         """Add extra config options specific to Python."""
         extra_vars = {
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
+            'exts_formatter': [partial_normalize_pip, "Function to format extension names in module file", CUSTOM],
             'fix_python_shebang_for': [['bin/*'], "List of files for which Python shebang should be fixed "
                                                   "to '#!/usr/bin/env python' (glob patterns supported) "
                                                   "(default: ['bin/*'])", CUSTOM],
