@@ -1059,6 +1059,7 @@ class EB_TensorFlow(PythonPackage):
         test_opts = self.target_opts
         test_opts.append('--test_output=errors')  # (Additionally) show logs from failed tests
         test_opts.append('--build_tests_only')  # Don't build tests which won't be executed
+        test_opts.append(f"--test_env=HOME='{self.home_dir}'")
 
         # determine number of cores/GPUs to use for tests
         max_num_test_jobs = self.cfg['test_max_parallel'] or self.cfg.parallel
