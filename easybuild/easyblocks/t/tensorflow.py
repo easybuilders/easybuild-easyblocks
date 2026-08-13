@@ -932,6 +932,9 @@ class EB_TensorFlow(PythonPackage):
 
         self.target_opts.append(f'--jobs={self.cfg.parallel}')
 
+        if LooseVersion(self.version) >= '2.21':
+            self.target_opts.append('--config=clang_local')
+
         if self.toolchain.options.get('pic'):
             self.target_opts.append('--copt="-fPIC"')
 
@@ -940,7 +943,7 @@ class EB_TensorFlow(PythonPackage):
         # this is required to make sure that Python packages included as extensions are found at build time;
         # see also https://github.com/tensorflow/tensorflow/issues/22395
         action_pythonpath = [os.path.join(self.installdir, self.pylibdir), os.getenv('PYTHONPATH')]
-        if LooseVersion(self.version) >= LooseVersion('2.14') and 'EBPYTHONPREFIXES' in os.environ:
+        if LooseVersion(self.version) >= '2.14' and 'EBPYTHONPREFIXES' in os.environ:
             # Since TF 2.14 the build uses hermetic python, which ignores sitecustomize.py from EB python;
             # explicity include our site-packages here to respect EBPYTHONPREFIXERS, if that's prefered.
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
