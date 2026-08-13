@@ -531,7 +531,7 @@ class EB_TensorFlow(PythonPackage):
             for var in ['CPATH', 'LIBRARY_PATH']:
                 path = os.getenv(var).split(os.pathsep)
                 self.log.info("$%s old value was %s" % (var, path))
-                filtered_path = os.pathsep.join([p for fil in path_filter for p in path if fil not in p])
+                filtered_path = env.join_path_var(p for fil in path_filter for p in path if fil not in p)
                 env.setvar(var, filtered_path)
 
         use_wrapper = False
@@ -561,7 +561,7 @@ class EB_TensorFlow(PythonPackage):
             self.log.debug("Derived value for MPI_HOME: %s", mpi_home)
 
         if use_wrapper:
-            env.setvar('PATH', os.pathsep.join([self.wrapper_dir, os.getenv('PATH')]))
+            env.setvar('PATH', env.join_path_var([self.wrapper_dir, os.getenv('PATH')]))
 
         self.prepare_python()
 
@@ -866,7 +866,7 @@ class EB_TensorFlow(PythonPackage):
                 regex_subs.append((os.path.join('/usr', 'bin', tool), path))
 
         # -fPIE/-pie and -fPIC are not compatible, so patch out hardcoded occurences of -fPIE/-pie if -fPIC is used
-        if self.toolchain.options.get('pic', None):
+        if self.toolchain.options.get('pic'):
             regex_subs.extend([('-fPIE', '-fPIC'), ('"-pie"', '"-fPIC"')])
 
         # patch all CROSSTOOL* scripts to fix hardcoding of locations of binutils/GCC binaries
@@ -912,7 +912,7 @@ class EB_TensorFlow(PythonPackage):
                 '--host_jvm_args=-Xmx%sm' % jvm_max_memory
             ])
 
-        if self.toolchain.options.get('debug', None):
+        if self.toolchain.options.get('debug'):
             self.target_opts.append('--strip=never')
             self.target_opts.append('--compilation_mode=dbg')
             self.target_opts.append('--copt="-Og"')
@@ -932,22 +932,21 @@ class EB_TensorFlow(PythonPackage):
 
         self.target_opts.append(f'--jobs={self.cfg.parallel}')
 
-        if self.toolchain.options.get('pic', None):
+        if self.toolchain.options.get('pic'):
             self.target_opts.append('--copt="-fPIC"')
 
         # include install location of Python packages in $PYTHONPATH,
         # and specify that value of $PYTHONPATH should be passed down into Bazel build environment;
         # this is required to make sure that Python packages included as extensions are found at build time;
         # see also https://github.com/tensorflow/tensorflow/issues/22395
-        pythonpath = os.getenv('PYTHONPATH', '')
-        action_pythonpath = [os.path.join(self.installdir, self.pylibdir), pythonpath]
+        action_pythonpath = [os.path.join(self.installdir, self.pylibdir), os.getenv('PYTHONPATH')]
         if LooseVersion(self.version) >= LooseVersion('2.14') and 'EBPYTHONPREFIXES' in os.environ:
             # Since TF 2.14 the build uses hermetic python, which ignores sitecustomize.py from EB python;
             # explicity include our site-packages here to respect EBPYTHONPREFIXERS, if that's prefered.
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
             eb_pythonpath = os.path.join(os.getenv('EBROOTPYTHON'), 'lib', 'python' + pyshortver, 'site-packages')
             action_pythonpath.append(eb_pythonpath)
-        env.setvar('PYTHONPATH', os.pathsep.join(action_pythonpath))
+        env.setvar('PYTHONPATH', env.join_path_var(action_pythonpath))
 
         # Make TF find our modules. LD_LIBRARY_PATH gets automatically added by configure.py
         cpaths, libpaths = self.system_libs_info[1:]
@@ -1271,8 +1270,8 @@ class EB_TensorFlow(PythonPackage):
 
         # test installation using MNIST tutorial examples
         if self.cfg['runtest']:
-            pythonpath = os.getenv('PYTHONPATH', '')
-            env.setvar('PYTHONPATH', os.pathsep.join([os.path.join(self.installdir, self.pylibdir), pythonpath]))
+            env.setvar('PYTHONPATH',
+                       env.join_path_var([os.path.join(self.installdir, self.pylibdir), os.getenv('PYTHONPATH')]))
 
             mnist_pys = []
 
