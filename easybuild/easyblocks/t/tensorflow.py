@@ -1265,9 +1265,12 @@ class EB_TensorFlow(PythonPackage):
             self.prepare_python()
 
         custom_paths = {
-            'files': ['bin/tensorboard'],
+            'files': [],
             'dirs': [self.pylibdir],
         }
+        # Tensorboard was removed from TensorFlow in 2.21
+        if LooseVersion(self.version) < '2.21':
+            custom_paths['files'].append('bin/tensorboard')
 
         custom_commands = [
             "%s -c 'import tensorflow'" % self.python_cmd,
