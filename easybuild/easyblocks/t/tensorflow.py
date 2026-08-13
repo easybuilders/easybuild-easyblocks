@@ -168,9 +168,9 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         """Return True if the TF version to be installed matches the version_range"""
         min_version, max_version = version_range.split(':')
         result = True
-        if min_version and tf_version < LooseVersion(min_version):
+        if min_version and tf_version < min_version:
             result = False
-        if max_version and tf_version >= LooseVersion(max_version):
+        if max_version and tf_version >= max_version:
             result = False
         return result
 
@@ -881,12 +881,13 @@ class EB_TensorFlow(PythonPackage):
         """Custom build procedure for TensorFlow."""
 
         bazel_version = get_bazel_version()
+        tf_version = LooseVersion(self.version)
 
         # pre-create target installation directory
         mkdir(os.path.join(self.installdir, self.pylibdir), parents=True)
 
         # This seems to be no longer required since at least 2.0, likely also for older versions
-        if LooseVersion(self.version) < LooseVersion('2.0'):
+        if tf_version < '2.0':
             self.patch_crosstool_files()
 
         # Options passed to the bazel command
@@ -932,7 +933,7 @@ class EB_TensorFlow(PythonPackage):
 
         self.target_opts.append(f'--jobs={self.cfg.parallel}')
 
-        if LooseVersion(self.version) >= '2.21':
+        if tf_version >= '2.21':
             self.target_opts.append('--config=clang_local')
 
         if self.toolchain.options.get('pic'):
@@ -943,7 +944,7 @@ class EB_TensorFlow(PythonPackage):
         # this is required to make sure that Python packages included as extensions are found at build time;
         # see also https://github.com/tensorflow/tensorflow/issues/22395
         action_pythonpath = [os.path.join(self.installdir, self.pylibdir), os.getenv('PYTHONPATH')]
-        if LooseVersion(self.version) >= '2.14' and 'EBPYTHONPREFIXES' in os.environ:
+        if tf_version >= '2.14' and 'EBPYTHONPREFIXES' in os.environ:
             # Since TF 2.14 the build uses hermetic python, which ignores sitecustomize.py from EB python;
             # explicity include our site-packages here to respect EBPYTHONPREFIXERS, if that's prefered.
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
@@ -967,10 +968,10 @@ class EB_TensorFlow(PythonPackage):
         action_env.update(PY_ENV_VARS)
 
         # TF 2 (final) sets this in configure
-        if (LooseVersion(self.version) < LooseVersion('2.0')) and self._with_cuda:
+        if (tf_version < '2.0') and self._with_cuda:
             self.target_opts.append('--config=cuda')
         # TF 2.18 with CUDA needs to set cuda_wheel to config
-        if (LooseVersion(self.version) >= LooseVersion('2.18')) and self._with_cuda:
+        if (tf_version >= '2.18') and self._with_cuda:
             self.target_opts.append('--config=cuda_wheel')
 
         # note: using --config=mkl results in a significantly different build, with a different
@@ -983,7 +984,7 @@ class EB_TensorFlow(PythonPackage):
         # auto-enable use of MKL-DNN/oneDNN and --config=mkl when possible if with_mkl_dnn is left unspecified;
         # only do this for TensorFlow versions older than 2.4.0, since more recent versions
         # oneDNN is used automatically for x86_64 systems (and mkl-dnn is no longer a dependency);
-        if self.cfg['with_mkl_dnn'] is None and LooseVersion(self.version) < LooseVersion('2.4.0'):
+        if self.cfg['with_mkl_dnn'] is None and tf_version < '2.4.0':
             cpu_arch = get_cpu_architecture()
             if cpu_arch == X86_64:
                 # Supported on x86 since forever
@@ -1029,16 +1030,16 @@ class EB_TensorFlow(PythonPackage):
             + self.target_opts
             + [self.cfg['buildopts']]
         )
-        if LooseVersion(self.version) < '2.16':
+        if tf_version < '2.16':
             cmd += ['//tensorflow/tools/pip_package:build_pip_package']
-        elif LooseVersion(self.version) < '2.17':  # for v2.16.x
+        elif tf_version < '2.17':  # for v2.16.x
             cmd += ['//tensorflow/tools/pip_package:v2/wheel']
         else:
             cmd += ['//tensorflow/tools/pip_package:wheel']
 
         with self.set_tmp_dir():
             run_shell_cmd(' '.join(cmd))
-            if LooseVersion(self.version) < LooseVersion('2.16'):
+            if tf_version < '2.16':
                 # run generated 'build_pip_package' script to build the .whl
                 cmd = "bazel-bin/tensorflow/tools/pip_package/build_pip_package %s" % self.builddir
                 run_shell_cmd(cmd)
