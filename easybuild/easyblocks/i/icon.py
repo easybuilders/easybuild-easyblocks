@@ -1,7 +1,7 @@
 """
 EasyBuild support for ICON, implemented as an easyblock
 
-@author: Jarne Renders (Vrije Universiteit Brussel)
+@author: Jarne Renders (Vrije Universiteit Brussel) with Sonnet 5
 """
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools import toolchain
