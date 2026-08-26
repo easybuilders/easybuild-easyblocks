@@ -159,7 +159,6 @@ def check_needed_tools():
     if not HAS_REQUESTS:
         print("WARNING: requests library not available, cannot fetch package data from General registry")
 
-
 def get_commit_from_git_tree_sha1(repo, git_tree_sha1):
     """"Determine commit corresponding to git tree SHA1 by cloning the repo and searching the git log"""
     git_exec = get_git_exec()
@@ -273,13 +272,16 @@ def get_url_from_general(pkg, version, git_tree_sha1, max_retries=3):
             is_default_filename = True
             filename = default_filename
         else:
-            commit = get_commit_from_git_tree_sha1(repo, git_tree_sha1)
-            if commit:
-                filename = f'{commit}.tar.gz'
-            else:
-                url = None
-                filename = None
-                print(f"WARNING: Could not determine commit for git tree SHA1 {git_tree_sha1} in GITHUB repo {repo}")
+            filename = f'{git_tree_sha1}.tar.gz'
+            # Tree SHAs can be associated to a subdirectory (not the root-directory) so one would need to traverse all
+            # the commits/tags and their associated root tree to find the commit that contains the given tree SHA1.
+            # commit = get_commit_from_git_tree_sha1(repo, git_tree_sha1)
+            # if commit:
+            #     filename = f'{commit}.tar.gz'
+            # else:
+            #     url = None
+            #     filename = None
+            #     print(f"WARNING: Could not determine commit for git tree SHA1 {git_tree_sha1} in GITHUB repo {repo}")
 
     if 'gitlab.com' in base_url:
         # https://gitlab.com/ExpandingMan/ShowCases.jl/-/archive/1ea211f349b40165a2b5fbbc80f771d6dcb725ad/ShowCases.jl-1ea211f349b40165a2b5fbbc80f771d6dcb725ad.tar.gz
@@ -345,6 +347,7 @@ def generate_package_data(sourcedir):
         version = pkg_data.get('version')
         git_tree_sha1 = pkg_data.get('git-tree-sha1', None)
 
+        is_default = False
         url = None
         item = {
             'name': pkg_name,
@@ -358,7 +361,7 @@ def generate_package_data(sourcedir):
 
         if url is None and git_tree_sha1 is not None:
             url, download_filename, is_default = get_url_from_general(pkg_name, version, git_tree_sha1)
-            filename = f'{pkg_name}-{version}.tar.gz'
+            filename = '%(name)s-%(version)s.tar.gz'
             if not is_default:
                 item['sources'] = [{
                     'download_filename': download_filename,
@@ -377,7 +380,8 @@ def generate_package_data(sourcedir):
         item['url'] = url
         packages_data[pkg_name] = item
 
-        if url is not None and isinstance(url, str) and download_filename is not None:
+        # Do not calculate checksum if is_default is False since tree-sha checksums are not stable
+        if url is not None and isinstance(url, str) and download_filename is not None and is_default:
             item['checksum'] = get_sha256_from_url(url + download_filename)
 
     return packages_data
