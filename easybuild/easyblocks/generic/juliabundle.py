@@ -159,6 +159,7 @@ def check_needed_tools():
     if not HAS_REQUESTS:
         print("WARNING: requests library not available, cannot fetch package data from General registry")
 
+
 def get_commit_from_git_tree_sha1(repo, git_tree_sha1):
     """"Determine commit corresponding to git tree SHA1 by cloning the repo and searching the git log"""
     git_exec = get_git_exec()
