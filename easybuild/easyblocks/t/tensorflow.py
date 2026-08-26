@@ -37,6 +37,7 @@ import stat
 import tempfile
 from contextlib import contextmanager
 from itertools import chain
+from typing import Dict, List, Set, Tuple, Union
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -53,6 +54,7 @@ from easybuild.tools.modules import get_software_root, get_software_version, get
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture, get_os_name, get_os_version
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR, Toolchain
+from easybuild.tools.utilities import nub
 
 
 CPU_DEVICE = 'cpu'
@@ -126,7 +128,7 @@ def det_binutils_bin_path():
     return binutils_bin_path
 
 
-def split_tf_libs_txt(valid_libs_txt):
+def split_tf_libs_txt(valid_libs_txt: str) -> List[str]:
     """Split the VALID_LIBS entry from the TF file into single names"""
     entries = valid_libs_txt.split(',')
     # Remove double quotes and whitespace
@@ -137,7 +139,7 @@ def split_tf_libs_txt(valid_libs_txt):
     return result
 
 
-def get_system_libs_from_tf(source_dir):
+def get_system_libs_from_tf(source_dir: str) -> List[str]:
     """Return the valid values for TF_SYSTEM_LIBS from the TensorFlow source directory"""
     syslibs_path = os.path.join(source_dir, 'third_party', 'systemlibs', 'syslibs_configure.bzl')
     result = []
@@ -150,7 +152,9 @@ def get_system_libs_from_tf(source_dir):
     return result
 
 
-def get_system_libs_for_version(tf_version, as_valid_libs=False):
+def get_system_libs_for_version(tf_version, as_valid_libs=False) -> Union[str,
+                                                                          Tuple[Dict[Tuple[str, ...], str],
+                                                                                Dict[str, str]]]:
     """
     Determine valid values for $TF_SYSTEM_LIBS for the given TF version
 
@@ -164,7 +168,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     """
     tf_version = LooseVersion(tf_version)
 
-    def is_version_ok(version_range):
+    def is_version_ok(version_range: str) -> bool:
         """Return True if the TF version to be installed matches the version_range"""
         min_version, max_version = version_range.split(':')
         result = True
@@ -179,8 +183,9 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     # if it does something "strange" (e.g. link hardcoded headers)
 
     # Software which is added as a dependency in the EC
-    available_system_libs = {
+    available_system_libs: Dict[Tuple[Union[str, Tuple[str, ...], str]], str] = {
         # Format: (<EB name>, <version range>): <TF name>
+        #         <EB name> can be a tuple of alternative names
         #         <version range> is '<min version>:<exclusive max version>'
         ('Abseil', '2.9.0:'): 'com_google_absl',
         ('cURL', '2.0.0:'): 'curl',
@@ -204,12 +209,12 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('snappy', '2.0.0:'): 'snappy',
         ('SQLite', '2.0.0:'): 'org_sqlite',
         ('SWIG', '2.0.0:2.4.0'): 'swig',
-        ('zlib', '2.0.0:2.2.0'): 'zlib_archive',
-        ('zlib', '2.2.0:'): 'zlib',
+        (('zlib', 'zlib-ng'), '2.0.0:2.2.0'): 'zlib_archive',
+        (('zlib', 'zlib-ng'), '2.2.0:'): 'zlib',
     }
     # Software recognized by TF but which is always disabled (usually because no EC is known)
     # Format: <TF name>: <version range>
-    unused_system_libs = {
+    unused_system_libs: Dict[str, str] = {
         'boringssl': '2.0.0:',  # Implied by cURL and existence of OpenSSL anywhere in the dependency chain
         'com_github_googleapis_googleapis': '2.0.0:2.5.0',
         'com_github_googlecloudplatform_google_cloud_cpp': '2.0.0:',  # Not used due to $TF_NEED_GCP=0
@@ -220,7 +225,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
     # Python packages installed as extensions or in the Python module
     # Will be checked for availabilitly
     # Format: (<package name>, <version range>): <TF name>
-    python_system_libs = {
+    python_system_libs: Dict[Tuple[str, str], str] = {
         ('absl', '2.0.0:'): 'absl_py',
         ('astor', '2.0.0:'): 'astor_archive',
         ('astunparse', '2.2.0:'): 'astunparse_archive',
@@ -241,16 +246,21 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('wrapt', '2.0.0:'): 'wrapt',
     }
 
-    dependency_mapping = {dep_name: tf_name
-                          for (dep_name, version_range), tf_name in available_system_libs.items()
-                          if is_version_ok(version_range)}
-    python_mapping = {pkg_name: tf_name
-                      for (pkg_name, version_range), tf_name in python_system_libs.items()
-                      if is_version_ok(version_range)}
+    def maybe_to_tuple(s: Union[str, Tuple[str]]) -> Tuple[str, ...]:
+        return (s,) if isinstance(s, str) else s
+
+    dependency_mapping: Dict[Tuple[str, ...], str] = {
+        maybe_to_tuple(dep_name): tf_name
+        for (dep_name, version_range), tf_name in available_system_libs.items()
+        if is_version_ok(version_range)}
+    python_mapping: Dict[str, str] = {
+        pkg_name: tf_name
+        for (pkg_name, version_range), tf_name in python_system_libs.items()
+        if is_version_ok(version_range)}
 
     if as_valid_libs:
-        tf_names = [tf_name for tf_name, version_range in unused_system_libs.items()
-                    if is_version_ok(version_range)]
+        tf_names: List[str] = [tf_name for tf_name, version_range in unused_system_libs.items()
+                               if is_version_ok(version_range)]
         tf_names.extend(dependency_mapping.values())
         tf_names.extend(python_mapping.values())
         result = '\n'.join(['    "%s",' % name for name in sorted(tf_names)])
@@ -409,9 +419,10 @@ class EB_TensorFlow(PythonPackage):
         ignored_system_deps = []
 
         # Check direct dependencies
-        dep_names = self.cfg.dependency_names()
-        for dep_name, tf_name in sorted(dependency_mapping.items(), key=lambda i: i[0].lower()):
-            if dep_name in dep_names:
+        dep_names: Set[str] = self.cfg.dependency_names()
+        for eb_dep_names, tf_name in sorted(dependency_mapping.items(), key=lambda i: [name.lower() for name in i[0]]):
+            dep_name = next((eb_dep_name for eb_dep_name in eb_dep_names if eb_dep_name in dep_names), None)
+            if dep_name:
                 if tf_name in deps_with_python_pkg:
                     pkg_name = next(cur_pkg_name for cur_pkg_name, cur_tf_name in python_mapping.items()
                                     if cur_tf_name == tf_name)
@@ -441,11 +452,11 @@ class EB_TensorFlow(PythonPackage):
                             env.setvar('INCLUDEDIR', incpath)
                         else:
                             env.setvar('PROTOBUF_INCLUDE_PATH', incpath)
-                libpath = get_software_libdir(dep_name)
+                libpath = get_software_libdir(dep_name, full_path=True)
                 if libpath:
-                    libpaths.append(os.path.join(sw_root, libpath))
+                    libpaths.append(libpath)
             else:
-                ignored_system_deps.append('%s (Dependency %s)' % (tf_name, dep_name))
+                ignored_system_deps.append('%s (Dependency %s)' % (tf_name, ' or '.join(eb_dep_names)))
 
         for pkg_name, tf_name in sorted(python_mapping.items(), key=lambda i: i[0].lower()):
             if self.python_pkg_exists(pkg_name):
@@ -458,14 +469,13 @@ class EB_TensorFlow(PythonPackage):
         # If we use OpenSSL (potentially as a wrapper) somewhere in the chain we must tell TF to use it too
         openssl_root = get_software_root('OpenSSL')
         if openssl_root:
-            if 'boringssl' not in system_libs:
-                system_libs.append('boringssl')
+            system_libs.append('boringssl')
             incpath = os.path.join(openssl_root, 'include')
             if os.path.exists(incpath):
                 cpaths.append(incpath)
-            libpath = get_software_libdir('OpenSSL')
+            libpath = get_software_libdir('OpenSSL', full_path=True)
             if libpath:
-                libpaths.append(os.path.join(openssl_root, libpath))
+                libpaths.append(libpath)
 
         if ignored_system_deps:
             print_warning('%d TensorFlow dependencies have not been resolved by EasyBuild. '
@@ -480,7 +490,7 @@ class EB_TensorFlow(PythonPackage):
         else:
             self.log.info("All known TensorFlow $TF_SYSTEM_LIBS dependencies resolved via EasyBuild!")
 
-        return system_libs, cpaths, libpaths
+        return nub(system_libs), cpaths, libpaths
 
     def setup_build_dirs(self):
         """Setup temporary build directories"""
