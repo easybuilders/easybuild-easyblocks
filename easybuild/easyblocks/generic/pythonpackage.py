@@ -1117,7 +1117,7 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     run_shell_cmd(cmd)
 
-            if self.pypkg_test_installdir:
+            if self.pypkg_test_installdir and build_option('cleanup_tmpdir'):
                 remove_dir(self.pypkg_test_installdir)
 
             if return_output_ec:
