@@ -516,6 +516,9 @@ class PythonPackage(ExtensionEasyBlock):
             'req_py_minver': [None, "Required minor Python version (only relevant when using system Python)", CUSTOM],
             'max_py_majver': [None, "Maximum major Python version (only relevant when using system Python)", CUSTOM],
             'max_py_minver': [None, "Maximum minor Python version (only relevant when using system Python)", CUSTOM],
+            'modulename': [None, "Module name of the Python package, as used in import check. "
+                                 "Setting 'False' disables the import check. "
+                                 "Defaults to lowercased package name with dashes replaced by underscores. ", CUSTOM],
             'sanity_pip_check': [True, "Run 'python -m pip check' to ensure all required Python packages are "
                                        "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
             'sanity_check_pip_list': [None, "Fail if specified package names and versions do not match "
