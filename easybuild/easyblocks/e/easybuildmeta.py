@@ -318,3 +318,13 @@ class EB_EasyBuildMeta(PythonPackage):
             self.log.debug("Restored copy of original environment")
 
         return modpath
+
+    def make_module_extra(self):
+        """Add EASYBUILD_* if exists"""
+
+        txt = super(EB_EasyBuildMeta, self).make_module_extra()
+
+	for item in filter(lambda x: re.search(r'EASYBUILD_', x), os.environ):
+	    txt += self.module_generator.set_environment(item, os.environ.get(item))
+
+        return txt
