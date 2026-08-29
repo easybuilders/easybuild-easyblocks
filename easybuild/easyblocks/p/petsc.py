@@ -69,7 +69,10 @@ class EB_PETSc(ConfigureMake):
             ],
             'download_deps_static': [[], "Dependencies that should be downloaded and installed static", CUSTOM],
             'download_deps_shared': [[], "Dependencies that should be downloaded and installed shared", CUSTOM],
-            'download_deps': [[], "Dependencies that should be downloaded and installed", CUSTOM]
+            'download_deps': [[], "Dependencies that should be downloaded and installed", CUSTOM],
+            'scalar_type': ['real', "PETSc scalar type", CUSTOM],
+            'precision': ['double', "PETSc precision", CUSTOM],
+            'complex_support': [False, "Enable complex PETSc", CUSTOM],
         }
         return ConfigureMake.extra_options(extra_vars)
 
@@ -199,6 +202,29 @@ class EB_PETSc(ConfigureMake):
         self.cfg.update('configopts', '--with-pic=%d' % self.toolchain.options['pic'])
         self.cfg.update('configopts', '--with-x=0 --with-windows-graphics=0')
 
+        # -----------------------------
+        # PETSc scientific configuration
+        # -----------------------------
+        
+        scalar = self.cfg.get('scalar_type')
+        precision = self.cfg.get('precision')
+
+        if scalar not in ['real', 'complex']:
+            raise EasyBuildError(f"Invalid scalar_type: {scalar}")
+        
+        if precision not in ['single', 'double']:
+            raise EasyBuildError(f"Invalid precision: {precision}")
+
+        self.cfg.update(
+            'configopts',
+            f'--with-scalar-type={scalar}'
+        )
+        
+        self.cfg.update(
+            'configopts',
+            f'--with-precision={precision}'
+        ) 
+
         # PAPI support
         if self.cfg['with_papi']:
             papi_inc = self.cfg['papi_inc']
@@ -228,7 +254,11 @@ class EB_PETSc(ConfigureMake):
                     self.cfg.update('configopts', '%s=1' % with_mpi4py_opt)
 
         # FFTW, ScaLAPACK
-        deps = ["FFTW", "ScaLAPACK"]
+        if precision == 'single': 
+            deps=["ScaLAPACK"]
+        else:
+            deps = ["FFTW", "ScaLAPACK"]
+        
         for dep in deps:
             libdir = os.getenv('%s_LIB_DIR' % dep.upper())
             libs = os.getenv('%s_STATIC_LIBS' % dep.upper())
