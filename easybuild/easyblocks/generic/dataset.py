@@ -49,6 +49,9 @@ class Dataset(Binary):
             'extract_sources': [True, "Whether or not to extract data sources", CUSTOM],
             'data_install_path': [None, "Custom installation path for datasets", CUSTOM],
             'cleanup_data_sources': [False, "Whether or not to delete the data sources after installation", CUSTOM],
+            'hardlink_object_storage': [
+                False, "Whether to use hardlinks instead of symlinks for object storage", CUSTOM
+            ],
             'object_storage_ignore_dirs': [[], "List of directories (relative to installdir) to be excluded from "
                                                "object storage (use '.' for full installdir)", CUSTOM],
         })
@@ -79,7 +82,7 @@ class Dataset(Binary):
         pass
 
     def post_processing_step(self):
-        """Add files to object_storage, remove duplicates, add symlinks"""
+        """Add files to object_storage, remove duplicates, add links"""
 
         EasyBlock.post_processing_step(self)
 
@@ -95,6 +98,19 @@ class Dataset(Binary):
         else:
             datafiles = create_index(os.curdir, ignore_dirs=ignore_dirs)
 
+        def _link_fn(objstor_file, datafile):
+            '''Helper for link logic depending on hard link or symlink'''
+            if not self.cfg["hardlink_object_storage"]:
+                # use relative paths for symlinks to easily relocate data installations later on if needed
+                symlink(objstor_file, datafile, use_abspath_source=False)
+                self.log.debug(f"Created symlink {datafile} to {objstor_file}")
+            else:
+                try:
+                    os.link(objstor_file, datafile)
+                    self.log.debug(f"Created hard link {datafile} to {objstor_file}")
+                except OSError as err:
+                    raise EasyBuildError(f"Hard linking {datafile} to {objstor_file} failed: {err}")
+
         for datafile in datafiles:
             cks = compute_checksum(datafile, checksum_type='sha256')
             # using puppet-style object store, for example this checksum:
@@ -107,9 +123,8 @@ class Dataset(Binary):
                 remove_file(datafile)
             else:
                 move_file(datafile, objstor_file)
-            # use relative paths for symlinks to easily relocate data installations later on if needed
-            symlink(objstor_file, datafile, use_abspath_source=False)
-            self.log.debug(f"Created symlink {datafile} to {objstor_file}")
+
+            _link_fn(objstor_file, datafile)
 
     def cleanup_step(self):
         """Cleanup sources after installation"""
