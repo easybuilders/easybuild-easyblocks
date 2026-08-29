@@ -226,6 +226,17 @@ class EB_imkl(IntelBase):
             for liball in glob.glob(os.path.join(interfacedir, '*', 'makefile')):
                 apply_regex_substitutions(liball, regex_nvc_subs)
 
+        # RPATH wrappers add -Wl,rpath arguments to all command lines, including when it is just compiling.
+        # The icx compiler by default warns about that, but the makefiles of the cdft wrappers set -Wall -Werror,
+        # which turns them into "linker input unused" errors:
+        # See https://github.com/easybuilders/easybuild-easyblocks/issues/2910
+        # Here, we patch the makefiles and add -Wno-unused-command-line-argument to avoid these warnings alltogether.
+        if get_software_root('intel-compilers') and build_option('rpath'):
+            if self.toolchain.options.get('oneapi') or self.toolchain.options.get('oneapi_c_cxx'):
+                regex_icx_subs = [('-Werror', '-Werror -Wno-unused-command-line-argument')]
+                for lib in self.cdftlibs:
+                    apply_regex_substitutions(os.path.join(interfacedir, lib, 'makefile'), regex_icx_subs)
+
         for lib in fftw2libs + fftw3libs + self.cdftlibs:
             buildopts = [compopt]
             if lib in fftw3libs:
