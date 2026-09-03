@@ -91,7 +91,7 @@ class EB_OpenBLAS(ConfigureMake):
             else:
                 # store original options
                 for key, opt_val in self.orig_opts.items():
-                    self.orig_opts[key] = opt_val
+                    self.orig_opts[key] = self.cfg[key]
 
         if '%s=' % TARGET in self.cfg['buildopts']:
             # Add any TARGET in buildopts to default_opts, so it is passed to testopts and installopts
