@@ -90,7 +90,7 @@ class EB_OpenBLAS(ConfigureMake):
                     self.cfg[key] = opt_val
             else:
                 # store original options
-                for key, opt_val in self.orig_opts.items():
+                for key in self.orig_opts.keys():
                     self.orig_opts[key] = self.cfg[key]
 
         if '%s=' % TARGET in self.cfg['buildopts']:
