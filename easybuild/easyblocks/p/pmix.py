@@ -28,7 +28,8 @@ EasyBuild support for building and installing PMIx, implemented as an easyblock
 @author: Alexander Grund (TU Dresden)
 """
 
-from typing import List, Set
+import re
+from typing import Set
 
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
@@ -62,7 +63,7 @@ class EB_PMIx(ConfigureMake):
                 if option.startswith(prefix):
                     opt_name = option[len(prefix):]
                     break
-            return any(prefix + opt_name in configopts for prefix in prefixes)
+            return re.search(rf'({"|".join(prefixes)}){opt_name}\b', configopts)
 
         if 'hwloc' not in dependencies:
             raise EasyBuildError("'hwloc' must be used as a dependency")
@@ -112,6 +113,11 @@ class EB_PMIx(ConfigureMake):
         for option in ('--enable-pmix-binaries', '--with-pic'):
             if not has_option(option):
                 configopts += f' {option}'
+
+        if not has_option('hwloc'):
+            raise EasyBuildError("Missing required dependency: hwloc")
+        if not has_option('libevent') and not has_option('libev'):
+            raise EasyBuildError("Either libevent or libev is required.")
 
         self.cfg['configopts'] = configopts
 
