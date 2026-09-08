@@ -28,18 +28,18 @@ This easyblock installs PsN without running upstream bin/setup.pl.
 It is intended to be used as the final extension in a Bundle where the
 required CPAN modules are installed as PerlModule extensions first.
 
-@author: Pavel Tomanek (Inuits/Ugent) with help of ChatGPT5.5
+@author: Pavel Tomanek (Inuits/Ugent) with help of ChatGPT6
 """
 
 import os
-import re
 import stat
 
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import adjust_permissions, copy_dir, mkdir, read_file, remove_dir, remove_file
-from easybuild.tools.filetools import symlink, which, write_file
+from easybuild.tools.config import ERROR
+from easybuild.tools.filetools import adjust_permissions, apply_regex_substitutions, copy_dir, mkdir, read_file
+from easybuild.tools.filetools import remove_dir, remove_file, symlink, which, write_file
 from easybuild.tools.modules import get_software_version
 
 PSN_UTILITIES = [
@@ -118,39 +118,6 @@ class EB_PsN(ExtensionEasyBlock):
         })
         return extra_vars
 
-    def configure_step(self):
-        """No configure step for PsN."""
-        pass
-
-    def build_step(self):
-        """No build step for PsN."""
-        pass
-
-    def install_step(self):
-        """Install PsN when this easyblock is used as a stand-alone easyblock."""
-        self._install_psn(self.start_dir)
-
-    def install_extension(self, unpack_src=True):
-        """Install PsN when used as an extension in a Bundle."""
-        super().install_extension(unpack_src=unpack_src)
-        self._install_psn(self.start_dir)
-
-    def sanity_check_step(self):
-        """Check whether PsN was installed correctly."""
-        psn_ver = self.version.replace('.', '_')
-        psndir = os.path.join(self.cfg['perllib'], 'PsN_%s' % psn_ver)
-
-        custom_paths = {
-            'files': [
-                os.path.join('bin', 'psn-%s' % self.version),
-                os.path.join('bin', 'psn'),
-                os.path.join(psndir, 'psn.conf'),
-            ],
-            'dirs': [],
-        }
-
-        return super().sanity_check_step(custom_paths=custom_paths)
-
     def _determine_nm_versions(self):
         """Derive PsN nm_versions entries from the loaded NONMEM module."""
         nonmem_version = get_software_version('NONMEM')
@@ -188,34 +155,6 @@ class EB_PsN(ExtensionEasyBlock):
             '%s=%s,%s' % (nm_alias, nmfe_cmd, psn_nm_version),
         ]
 
-    def _install_psn(self, srcdir):
-        """Install PsN Perl library, scripts, symlinks, and config file."""
-        perllib = self.cfg['perllib']
-        if not perllib:
-            raise EasyBuildError("Missing required easyconfig parameter 'perllib'")
-
-        nm_versions = self.cfg['nm_versions'] or self._determine_nm_versions()
-
-        perl = which('perl')
-        if not perl:
-            raise EasyBuildError("Could not find perl in PATH")
-
-        bindir = os.path.join(self.installdir, 'bin')
-        libbase = os.path.join(self.installdir, perllib)
-        psn_ver = self.version.replace('.', '_')
-        psndir = os.path.join(libbase, 'PsN_%s' % psn_ver)
-
-        self.log.info("Installing PsN from source directory: %s", srcdir)
-        self.log.info("Installing PsN scripts into: %s", bindir)
-        self.log.info("Installing PsN Perl library into: %s", psndir)
-
-        mkdir(bindir, parents=True)
-        mkdir(libbase, parents=True)
-
-        self._copy_psn_lib(srcdir, psndir)
-        self._install_utilities(srcdir, perl, psndir, bindir)
-        self._create_psn_conf(psndir, perl, nm_versions)
-
     def _copy_psn_lib(self, srcdir, psndir):
         """Copy upstream lib/ into the versioned PsN Perl library directory."""
         lib_src = os.path.join(srcdir, 'lib')
@@ -225,12 +164,6 @@ class EB_PsN(ExtensionEasyBlock):
 
         remove_dir(psndir)
         copy_dir(lib_src, psndir)
-
-    def _install_utilities(self, srcdir, perl, psndir, bindir):
-        """Install PsN command-line utilities."""
-
-        for util in PSN_UTILITIES:
-            self._install_utility(srcdir, util, perl, psndir, bindir)
 
     def _install_utility(self, srcdir, util, perl, psndir, bindir):
         """Install one versioned PsN utility and create an unversioned symlink."""
@@ -269,6 +202,11 @@ class EB_PsN(ExtensionEasyBlock):
         remove_file(unversioned)
         symlink(os.path.basename(versioned), unversioned, use_abspath_source=False)
 
+    def _install_utilities(self, srcdir, perl, psndir, bindir):
+        """Install PsN command-line utilities."""
+        for util in PSN_UTILITIES:
+            self._install_utility(srcdir, util, perl, psndir, bindir)
+
     def _create_psn_conf(self, psndir, perl, nm_versions):
         """Create psn.conf from psn.conf_template and inject EB-controlled values."""
         template = os.path.join(psndir, 'psn.conf_template')
@@ -276,14 +214,6 @@ class EB_PsN(ExtensionEasyBlock):
 
         if not os.path.isfile(template):
             raise EasyBuildError("Could not find PsN config template: %s", template)
-
-        txt = read_file(template)
-
-        txt = self._set_global_key(txt, 'perl', perl)
-
-        rbin = which('R')
-        if rbin:
-            txt = self._set_global_key(txt, 'R', rbin)
 
         nm_lines = []
         for entry in nm_versions:
@@ -294,31 +224,82 @@ class EB_PsN(ExtensionEasyBlock):
                 )
             nm_lines.append(entry)
 
-        txt = self._replace_section(txt, 'nm_versions', nm_lines)
+        global_config = 'perl=%s\n' % perl
+        rbin = which('R')
+        if rbin:
+            global_config += 'R=%s\n' % rbin
 
-        write_file(conf, txt)
+        nm_versions_section = '[nm_versions]\n%s\n\n' % '\n'.join(nm_lines)
+        nm_versions_pattern = r'(?s)^\[nm_versions\]\s*\n.*?(?=^\[|\Z)'
+
+        write_file(conf, global_config + read_file(template))
+        apply_regex_substitutions(
+            conf,
+            [(nm_versions_pattern, nm_versions_section)],
+            backup=False,
+            on_missing_match=ERROR,
+            single_line=False,
+        )
 
         self.log.info("Created PsN config file: %s", conf)
 
-    def _set_global_key(self, txt, key, value):
-        """Set or prepend a global Config::Tiny-style key."""
-        pattern = r'(?m)^%s\s*=.*$' % re.escape(key)
-        replacement = '%s=%s' % (key, value)
+    def _install_psn(self, srcdir):
+        """Install PsN Perl library, scripts, symlinks, and config file."""
+        perllib = self.cfg['perllib']
+        if not perllib:
+            raise EasyBuildError("Missing required easyconfig parameter 'perllib'")
 
-        if re.search(pattern, txt):
-            return re.sub(pattern, replacement, txt, count=1)
+        nm_versions = self.cfg['nm_versions'] or self._determine_nm_versions()
 
-        return replacement + '\n' + txt
+        perl = which('perl')
+        if not perl:
+            raise EasyBuildError("Could not find perl in PATH")
 
-    def _replace_section(self, txt, section, lines):
-        """Replace or append an INI-style section."""
-        replacement = '[%s]\n%s\n\n' % (section, '\n'.join(lines))
-        pattern = r'(?ms)^\[%s\]\s*\n.*?(?=^\[|\Z)' % re.escape(section)
+        bindir = os.path.join(self.installdir, 'bin')
+        libbase = os.path.join(self.installdir, perllib)
+        psn_ver = self.version.replace('.', '_')
+        psndir = os.path.join(libbase, 'PsN_%s' % psn_ver)
 
-        if re.search(pattern, txt):
-            return re.sub(pattern, replacement, txt, count=1)
+        self.log.info("Installing PsN from source directory: %s", srcdir)
+        self.log.info("Installing PsN scripts into: %s", bindir)
+        self.log.info("Installing PsN Perl library into: %s", psndir)
 
-        if not txt.endswith('\n'):
-            txt += '\n'
+        mkdir(bindir, parents=True)
+        mkdir(libbase, parents=True)
 
-        return txt + '\n' + replacement
+        self._copy_psn_lib(srcdir, psndir)
+        self._install_utilities(srcdir, perl, psndir, bindir)
+        self._create_psn_conf(psndir, perl, nm_versions)
+
+    def configure_step(self):
+        """No configure step for PsN."""
+        pass
+
+    def build_step(self):
+        """No build step for PsN."""
+        pass
+
+    def install_step(self):
+        """Install PsN when this easyblock is used as a stand-alone easyblock."""
+        self._install_psn(self.start_dir)
+
+    def install_extension(self, unpack_src=True):
+        """Install PsN when used as an extension in a Bundle."""
+        super().install_extension(unpack_src=unpack_src)
+        self._install_psn(self.start_dir)
+
+    def sanity_check_step(self):
+        """Check whether PsN was installed correctly."""
+        psn_ver = self.version.replace('.', '_')
+        psndir = os.path.join(self.cfg['perllib'], 'PsN_%s' % psn_ver)
+
+        custom_paths = {
+            'files': [
+                os.path.join('bin', 'psn-%s' % self.version),
+                os.path.join('bin', 'psn'),
+                os.path.join(psndir, 'psn.conf'),
+            ],
+            'dirs': [],
+        }
+
+        return super().sanity_check_step(custom_paths=custom_paths)
