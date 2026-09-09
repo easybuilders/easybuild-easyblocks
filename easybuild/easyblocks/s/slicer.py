@@ -38,8 +38,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import adjust_permissions, copy_file, expand_glob_paths, extract_file
 from easybuild.tools.filetools import find_glob_pattern, mkdir, open_file, remove_file, resolve_path
-from easybuild.tools.filetools import symlink, which, write_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.filetools import symlink, write_file
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.utilities import nub
 
