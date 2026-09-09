@@ -221,27 +221,6 @@ exec "$SLICER_ROOT/Slicer" --additional-module-paths "${module_paths[@]}" "$@"
         write_file(wrapper_path, wrapper)
         adjust_permissions(wrapper_path, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH, add=True)
 
-    def prepare_step(self, *args, **kwargs):
-        """Check required tools and extension files before starting the long build."""
-        super().prepare_step(*args, **kwargs)
-        if not self.cfg['separate_build_dir']:
-            raise EasyBuildError("Slicer requires a separate CMake build directory")
-        if self.dry_run:
-            return
-
-        for tool in ('cpack', 'patchelf', 'readelf'):
-            if not which(tool):
-                raise EasyBuildError("Required tool %s was not found in PATH", tool)
-
-        biomedisa_root = get_software_root('Biomedisa')
-        if not biomedisa_root:
-            raise EasyBuildError("This Slicer easyblock requires a Biomedisa dependency")
-        extension_root = os.path.join(biomedisa_root, 'biomedisa_slicer_extension', 'biomedisa_extension')
-        for module in self.BIOMEDISA_MODULES:
-            module_file = os.path.join(extension_root, module, module + '.py')
-            if not os.path.isfile(module_file):
-                raise EasyBuildError("Biomedisa Slicer module is missing: %s", module_file)
-
     def install_step(self):
         """Install the CPack runtime, complete it, and add the Biomedisa wrapper."""
         self._cpack_install()
