@@ -636,6 +636,12 @@ class EB_PyTorch(PythonPackage):
         # Skip this test(s) which is very flaky
         env.setvar('SKIP_TEST_BOTTLENECK', '1')
         env.setvar('MAX_JOBS', str(self.cfg.parallel))
+        if not os.environ.get('OMP_NUM_THREADS'):
+            # Similar to upstream .ci/pytorch/test.sh:
+            # Limit to a quarter of the CPUs (or less if parallel is set)
+            # and leave some headroom for NUM_PROCS=3 parallel tests.
+            # Use at least 4 threads to avoid numerical mismatches from changed FP reductions.
+            env.setvar('OMP_NUM_THREADS', max(4, self.parallel / 4))
         if self.has_xml_test_reports:
             env.setvar(self.GENERATE_TEST_REPORT_VAR_NAME, '1')
         # Parse excluded_tests and flatten into space separated string
