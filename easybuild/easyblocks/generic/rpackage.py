@@ -187,7 +187,7 @@ class RPackage(ExtensionEasyBlock):
         errors = re.findall(r"^ERROR:.*", output, flags=re.I | re.M)
 
         if errors:
-            self.log.info("R package %s failed with error:\n%s", self.name, '\n'.join(errors))
+            self.log.info(f"R package {self.name} failed with error:\n" + '\n'.join(errors))
             cmd = "R -q --no-save"
             stdin = """
             remove.library(%s)
@@ -195,9 +195,9 @@ class RPackage(ExtensionEasyBlock):
             # remove package if errors were detected
             # it's possible that some of the dependencies failed, but the package itself was installed
             run_shell_cmd(cmd, fail_on_error=False, stdin=stdin)
-            raise EasyBuildError("Errors detected during installation of R package %s!", self.name)
+            raise EasyBuildError(f"Errors detected during installation of R package {self.name}!")
         else:
-            self.log.debug("R package %s installed succesfully", self.name)
+            self.log.info(f"R package {self.name} installed succesfully")
 
     def update_config_guess(self, path):
         """Update any config.guess found in specified directory"""
@@ -328,11 +328,11 @@ class RPackage(ExtensionEasyBlock):
 
         :return: True if command completed, False otherwise
         """
-        done = super().async_cmd_check()
-        if done:
-            self.check_install_output(self.async_cmd_output)
+        res = super().async_cmd_check()
+        if res:
+            self.check_install_output(res.output)
 
-        return done
+        return res
 
     def sanity_check_step(self, *args, **kwargs):
         """
