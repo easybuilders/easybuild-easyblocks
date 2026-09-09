@@ -66,6 +66,12 @@ class EB_Rmpi(RPackage):
             "--with-Rmpi-type=%s" % rmpi_type,
         ]
 
+    def configure_step(self):
+        """
+        Custom configure step for stand-alone installatin of Rmpi, to prepare configure arguments
+        """
+        self.prepare_rmpi_configureargs()
+
     def install_extension(self):
         """
         Install Rmpi as extension, after seting various configure arguments.
