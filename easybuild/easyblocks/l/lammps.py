@@ -180,7 +180,6 @@ class EB_LAMMPS(CMakeMake):
             # and it should use the compiler (optimization) flags set by EasyBuild for this architecture.
             if get_cpu_architecture() == AARCH64:
                 processor_arch = 'ARMV80'
-                    
             else:
                 processor_arch = 'EASYBUILD_GENERIC'
             _log.info("Generic build requested, setting CPU ARCH to %s." % processor_arch)
@@ -430,16 +429,12 @@ class EB_LAMMPS(CMakeMake):
                 nvcc_wrapper_path = os.path.join(self.start_dir, "lib", "kokkos", "bin", "nvcc_wrapper")
                 self.cfg.update('configopts', '-D%s_ENABLE_CUDA=yes' % self.kokkos_prefix)
                 if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
+                    self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, processor_arch))
                     # Disabling ARM NEON as builds on ARM results in build errors for SIMD
                     # See https://github.com/kokkos/kokkos/issues/7483
                     cuda_root = get_software_root('CUDA')
-                    self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, processor_arch))
                     if get_cpu_architecture() == AARCH64 and LooseVersion(os.path.basename(cuda_root)) < '13.2.0':
-                        #self.cfg.update('configopts', '-D%s_ARCH_%s=no' % (self.kokkos_prefix, processor_arch))
-                        #self.cfg.update('configopts', '-D%s_ARCH_ARM81=yes' % self.kokkos_prefix)
                         self.cfg.update('configopts', '-D%s_ARCH_ARM_NEON=no' % self.kokkos_prefix)
-                    #else:
-                        #self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, processor_arch))
                     self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, gpu_arch))
                 else:
                     # Older versions of Kokkos required us to tweak the C++ compiler
