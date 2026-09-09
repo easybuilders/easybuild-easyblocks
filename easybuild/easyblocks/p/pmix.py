@@ -65,8 +65,6 @@ class EB_PMIx(ConfigureMake):
                     break
             return re.search(rf'({"|".join(prefixes)}){opt_name}\b', configopts)
 
-        if 'hwloc' not in dependencies:
-            raise EasyBuildError("'hwloc' must be used as a dependency")
         if 'libev' in dependencies and 'libevent' in dependencies:
             raise EasyBuildError("Cannot have both 'libevent' and 'libev' as dependencies")
 
@@ -115,9 +113,9 @@ class EB_PMIx(ConfigureMake):
                 configopts += f' {option}'
 
         if not has_option('hwloc'):
-            raise EasyBuildError("Missing required dependency: hwloc")
+            raise EasyBuildError("Missing required dependency: hwloc. Need to be specified with `--with-hwloc` in configopts.")
         if not has_option('libevent') and not has_option('libev'):
-            raise EasyBuildError("Either libevent or libev is required.")
+            raise EasyBuildError("Either libevent or libev is required. Need to be specified with `--with-libev[ent]` in configopts.")
 
         self.cfg['configopts'] = configopts
 
