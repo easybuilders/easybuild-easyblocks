@@ -435,6 +435,9 @@ class EB_LAMMPS(CMakeMake):
                     cuda_root = get_software_root('CUDA')
                     if get_cpu_architecture() == AARCH64 and LooseVersion(os.path.basename(cuda_root)) < '13.2.0':
                         self.cfg.update('configopts', '-D%s_ARCH_ARM_NEON=no' % self.kokkos_prefix)
+                        # For neoverse-v2 we need to also disable SVE
+                        if processor_arch == 'ARMV9_GRACE':
+                            self.cfg.update('configopts', '-D%s_ARCH_ARM_SVE=no' % self.kokkos_prefix)
                     self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, gpu_arch))
                 else:
                     # Older versions of Kokkos required us to tweak the C++ compiler
