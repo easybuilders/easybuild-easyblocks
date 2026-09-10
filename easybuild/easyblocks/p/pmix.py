@@ -43,14 +43,12 @@ class EB_PMIx(ConfigureMake):
 
     def configure_step(self):
         """Set configure options for dependencies"""
-        dependencies: Set[str] = self.cfg.dependency_names()
-
-        if 'Autotools' in dependencies:
+        if 'Autotools' in self.cfg.dependency_names(build_only=True):
             preconfigopts = self.cfg.get('preconfigopts', '')
             if 'autogen' not in preconfigopts:
                 self.cfg['preconfigopts'] = './autogen.pl && ' + preconfigopts
 
-        # Vebose build
+        # Verbose build
         self.cfg['buildopts'] = 'V=1 ' + self.cfg.get('buildopts', '')
 
         configopts: str = self.cfg['configopts']
@@ -65,7 +63,9 @@ class EB_PMIx(ConfigureMake):
                     break
             return re.search(rf'({"|".join(prefixes)}){opt_name}\b', configopts)
 
-        if 'libev' in dependencies and 'libevent' in dependencies:
+        runtime_dependencies: Set[str] = self.cfg.dependency_names(runtime_only=True)
+
+        if 'libev' in runtime_dependencies and 'libevent' in runtime_dependencies:
             raise EasyBuildError("Cannot have both 'libevent' and 'libev' as dependencies")
 
         known_dependencies = [
@@ -101,7 +101,7 @@ class EB_PMIx(ConfigureMake):
             if has_option(opt_name):
                 self.log.info('Not adding configure option for %s as it is already passed in `configopts`.', opt_name)
             else:
-                if dependency in dependencies:
+                if dependency in runtime_dependencies:
                     self.log.info('Enabling use of ' + dependency)
                     configopts += f' --with-{opt_name}="${get_software_root_env_var_name(dependency)}"'
                 else:
@@ -113,9 +113,11 @@ class EB_PMIx(ConfigureMake):
                 configopts += f' {option}'
 
         if not has_option('hwloc'):
-            raise EasyBuildError("Missing required dependency: hwloc. Need to be specified with `--with-hwloc` in configopts.")
+            raise EasyBuildError("Missing required dependency: hwloc. "
+                                 "Need to be specified with `--with-hwloc` in configopts.")
         if not has_option('libevent') and not has_option('libev'):
-            raise EasyBuildError("Either libevent or libev is required. Need to be specified with `--with-libev[ent]` in configopts.")
+            raise EasyBuildError("Either libevent or libev is required. "
+                                 "Need to be specified with `--with-libev[ent]` in configopts.")
 
         self.cfg['configopts'] = configopts
 
@@ -127,4 +129,4 @@ class EB_PMIx(ConfigureMake):
             'files': ['bin/pevent', 'bin/plookup', 'bin/pmix_info', 'bin/pps'],
             'dirs': ['etc', 'include', 'lib', 'share']
         }
-        super().sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=['pmix_info'])
