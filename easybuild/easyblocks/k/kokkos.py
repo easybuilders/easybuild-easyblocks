@@ -68,6 +68,8 @@ KOKKOS_CPU_ARCH_LIST = [
     'ARMV8_THUNDERX2',  # ARMv8 Cavium ThunderX2 CPU
     'A64FX',  # ARMv8.2 with SVE Support
     'ARMV9_GRACE',  # ARMv9 NVIDIA Grace CPU, since Kokkos 4.4.1
+    'ARMV84',  # ARMv8.4 Compatible CPU
+    'ARMV84_SVE',  # ARMv8.4 with SVE compatible CPU
     'BGQ',  # IBM Blue Gene/Q CPU
     'POWER7',  # IBM POWER7 CPU
     'POWER8',  # IBM POWER8 CPU
