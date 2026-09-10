@@ -50,7 +50,7 @@ from easybuild.tools.config import ERROR, build_option
 from easybuild.tools.filetools import apply_regex_substitutions, mkdir, symlink
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import POWER, get_cpu_architecture
+from easybuild.tools.systemtools import ARM, POWER, get_cpu_architecture, get_cpu_family
 
 if sys.version_info >= (3, 9):
     from dataclasses import dataclass
@@ -428,7 +428,7 @@ class EB_PyTorch(PythonPackage):
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']
 
-        def add_enable_option(name, enabled):
+        def add_enable_option(name, enabled=True):
             """Add `name=0` or `name=1` depending on enabled"""
             options.append('%s=%s' % (name, '1' if enabled else '0'))
 
@@ -539,6 +539,10 @@ class EB_PyTorch(PythonPackage):
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
         if pytorch_version < '2.4':  # Removed in 2.4
             options.append('USE_METAL=0')
+
+        if '2.4' <= pytorch_version < '2.10' and get_cpu_family() == ARM:
+            # PyTorch 2.4 introduced linker script optimization, enabled by default for ARM since 2.10
+            add_enable_option('USE_PRIORITIZED_TEXT_FOR_LD')
 
         build_type = self.cfg.get('build_type')
         if build_type is None:
