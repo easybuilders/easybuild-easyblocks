@@ -155,7 +155,7 @@ class EB_LAMMPS(CMakeMake):
         self.cur_version = None
 
         # check if an NVIDIA GPU is available;
-        # we need to know this because are steps are required
+        # we need to know this because extra steps are required
         # when we're crosscompiling an NVIDIA GPU build on a CPU-only system
         gpus = get_gpu_info()
         self.nvidia_gpu_found = 'NVIDIA' in gpus
