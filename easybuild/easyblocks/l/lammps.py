@@ -113,6 +113,7 @@ def translate_lammps_version(version, path=None):
 
 def get_ld_preload_value_cuda_stubs():
     """
+    Determine value for $LD_PRELOAD that includes CUDA stub libraries
     """
     ld_preload = os.getenv('LD_PRELOAD')
     ld_preload = ld_preload.split(os.pathsep) if ld_preload else []
