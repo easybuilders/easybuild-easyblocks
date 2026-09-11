@@ -1054,12 +1054,6 @@ def determine_suite_name(xml_file: Path, test_suite_xml: List[ET.Element]) -> Op
             raise ValueError("Could not infer test suite name from class names for {xml_file}.")
         # We can remove possible class names by only using the common part
         suite_name = os.path.commonpath(possible_paths)
-        # Strip of common prefix to all classes, but keep the last part for uniqueness
-        non_classname_prefix = 'test.' + os.path.dirname(suite_name).replace(os.path.sep, '.') + '.'
-        for testcase in test_cases:
-            classname = testcase.attrib["classname"]
-            if classname.startswith(non_classname_prefix):
-                testcase.attrib["classname"] = classname[len(non_classname_prefix):]
     else:
         # Pytest reports, have the name in folder and file e.g.:
         # distributed.pipeline.sync.skip.test_stash_pop/distributed.pipeline.sync.skip.test_stash_pop-052ae03efad18.xml
@@ -1068,11 +1062,32 @@ def determine_suite_name(xml_file: Path, test_suite_xml: List[ET.Element]) -> Op
         if test_file_path != suite_name:
             raise ValueError(f"Path from folder and filename should be equal. "
                              f"Got: '{test_file_path}' != '{suite_name}'")
+    # Strip of common prefix to all classes
+    non_classname_prefix = 'test.' + suite_name.replace(os.path.sep, '.') + '.'
+    for testcase in test_cases:
+        try:
+            classname = testcase.attrib["classname"]
+        except KeyError:
+            continue
+        if classname.startswith(non_classname_prefix):
+            testcase.attrib["classname"] = classname[len(non_classname_prefix):]
     # Variant might be dist-gloo, dist-mpi or similar which is the same test code ran in different configurations!
     variant = xml_file.parent.parent.name
     if variant not in ('python-unittest', 'python-pytest'):
         suite_name = os.path.join(variant, suite_name)
     return suite_name
+
+
+def handle_xfail_results(test_suite_el: ET.Element) -> None:
+    """Transform elements such that xfails are counted as success"""
+    numXFail = 0
+    for testcase in test_suite_el.iterfind("testcase"):
+        skipped = testcase.find('skipped')
+        if skipped is not None and skipped.get('type') == 'pytest.xfail':
+            numXFail += 1
+            testcase.remove(skipped)
+    if numXFail:
+        test_suite_el.attrib["skipped"] = int(test_suite_el.attrib["skipped"]) - numXFail
 
 
 def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
@@ -1106,6 +1121,7 @@ def parse_test_result_file(xml_file: Path) -> List[TestSuite]:
         test_suites: List[TestSuite] = []
 
         for test_suite in test_suite_xml:
+            handle_xfail_results(test_suite)
             # Those are based on the number of the corresponding elements in all <testcase>-elements.
             # This means e.g. that a test with multiple <skipped> will be counted as multiple skipped tests.
             errors = int(test_suite.attrib["errors"])

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="unittest.suite._ErrorHolder-20251030150550" tests="1" file="unittest/suite.py" time="4.2" failures="0" errors="1" skipped="0">
+  <testcase classname="" name="tearDownClass (__main__.TestFooCPU)" time="4.2">
+    <error type="RuntimeError" message="...">[snip]</error>
+  </testcase>
+</testsuite>
