@@ -88,7 +88,6 @@ class EB_NEURON(CMakeMake):
         if self.python_root:
             python_cfgopts = " ".join([
                 "-DNRN_ENABLE_PYTHON=ON",
-                f"-DPYTHON_EXECUTABLE={self.python_root}/bin/python",
                 "-DNRN_ENABLE_MODULE_INSTALL=ON",
                 f"-DNRN_MODULE_INSTALL_OPTIONS='--prefix={self.installdir}'",
             ])
@@ -100,7 +99,7 @@ class EB_NEURON(CMakeMake):
         self.pylibdir = det_pylibdir()
 
         # complete configuration with configure_method of parent
-        CMakeMake.configure_step(self)
+        super().configure_step()
 
     def test_step(self):
         """Custom tests for NEURON."""
