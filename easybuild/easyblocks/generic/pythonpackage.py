@@ -1117,9 +1117,6 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     run_shell_cmd(cmd)
 
-            if self.pypkg_test_installdir:
-                remove_dir(self.pypkg_test_installdir)
-
             if return_output_ec:
                 return (out, ec)
 
