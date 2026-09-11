@@ -194,20 +194,13 @@ class EB_ELPA(ConfigureMake):
             self.cfg.update('configopts', '--with-cuda-path=%s' % cuda_root)
             self.cfg.update('configopts', '--with-cuda-sdk-path=%s' % cuda_root)
 
-            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
-            if not cuda_cc:
-                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
-                                     'cuda_compute_capabilities easyconfig parameter or via '
-                                     '--cuda-compute-capabilities')
-
+            cuda_cc = self.cfg.get_cuda_cc_template_value('cuda_cc_space_sep')
             # ELPA's --with-NVIDIA-GPU-compute-capability only accepts a single architecture
-            if len(cuda_cc) != 1:
+            if len(cuda_cc.split(',')) != 1:
                 raise EasyBuildError('ELPA currently only supports specifying one CUDA architecture when '
                                      'building. You specified cuda-compute-capabilities: %s', cuda_cc)
-            cuda_cc = cuda_cc[0]
-            cuda_cc_string = cuda_cc.replace('.', '')
-            self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=sm_%s' % cuda_cc_string)
-            self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc_string)
+            self.cfg.update('configopts', '--with-NVIDIA-GPU-compute-capability=sm_%s' % cuda_cc.replace('.', ''))
+            self.log.info("Enabling nvidia GPU support for compute capability: %s", cuda_cc)
             # There is a dedicated kernel for sm80, but only from version 2021.11.001 onwards
             # Trying to use these kernels for GPUs newer than sm80 will fail ELPA configure
             if float(cuda_cc) == 8.0 and LooseVersion(self.version) >= LooseVersion('2021.11.001'):
