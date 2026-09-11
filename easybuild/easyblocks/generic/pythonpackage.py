@@ -486,10 +486,20 @@ class PythonPackage(ExtensionEasyBlock):
         if extra_vars is None:
             extra_vars = {}
         extra_vars.update({
-            'buildcmd': [None, "Command for building the package (e.g. for custom builds resulting in a whl file). "
-                               "When using setup.py this will be passed to setup.py and defaults to 'build'. "
-                               "Otherwise it will be used as-is. A value of None then skips the build step. "
-                               "The template %(python)s will be replace by the currently used Python binary.", CUSTOM],
+            'buildcmd': [None, "DEPRECATED: Use build_cmd or build_target instead."
+                               "Command for building the package (e.g. for custom builds resulting in a whl file). "
+                               "When using setup.py: This will be passed to setup.py, if set, "
+                               "else build_target is used. "
+                               "Without setup.y: It will be used as-is. A value of None then skips the build step. "
+                               "The template %(python)s will be replaced by the currently used Python binary.", CUSTOM],
+            'build_cmd': [None,
+                          "Command for building the package (e.g. for custom builds resulting in a whl file). "
+                          "When using setup.py the default will be auto-generated using the value of 'build_target'. "
+                          "Otherwise (use_pip=True), it will be used as-is and a value of None skips the build step. "
+                          "The template %(python)s will be replaced by the currently used Python binary.",
+                          CUSTOM],
+            # TODO EasyBuild 6.0: Set default to 'build' here when 'buildcmd' is removed.
+            'build_target': [None, "Option to pass to setup.py for building when use_pip=False.", CUSTOM],
             'check_ldshared': [None, 'Check Python value of $LDSHARED, correct if needed to "$CC -shared"', CUSTOM],
             'click_autocomplete_bins': [None, "List of command line tools installed by the package that use "
                                               "the 'click' package and for which autocompletion scripts "
@@ -505,7 +515,7 @@ class PythonPackage(ExtensionEasyBlock):
                                                   "(default: ['bin/*'])", CUSTOM],
             'install_src': [None, "Source path to pass to the install command (e.g. a whl file)."
                                   "Defaults to '.' for unpacked sources or the first source file specified", CUSTOM],
-            'install_target': ['install', "Option to pass to setup.py", CUSTOM],
+            'install_target': ['install', "Option to pass to setup.py for installation", CUSTOM],
             'pip_ignore_installed': [True, "Let pip ignore installed Python packages (i.e. don't remove them)", CUSTOM],
             'pip_no_build_isolation': [True, "Use --no-build-isolation with pip install", CUSTOM],
             'pip_no_index': [None, "Pass --no-index to pip to disable connecting to PyPi entirely which also disables "
@@ -1010,29 +1020,37 @@ class PythonPackage(ExtensionEasyBlock):
         run_shell_cmd(cmd % {'python': self.python_cmd}, hidden=True)
 
     def build_step(self):
-        """Build Python package using setup.py"""
+        """Build Python package using setup.py or pip"""
+
+        if get_software_root('CMake'):
+            include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
+            library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
+            env.setvar("CMAKE_INCLUDE_PATH", include_paths)
+            env.setvar("CMAKE_LIBRARY_PATH", library_paths)
 
         if self.cfg.get('dummy_package', False):
             self.log.info(f"Skipping build step for installation of dummy package {self.name}-{self.version}")
             return
 
-        # inject extra '%(python)s' template value before getting value of 'buildcmd' custom easyconfig parameter
+        # inject extra '%(python)s' template value before getting value of custom easyconfig parameters
         self.cfg.template_values['python'] = self.python_cmd
-        build_cmd = self.cfg['buildcmd']
+        buildcmd = self.cfg['buildcmd']
+        build_cmd = self.cfg['build_cmd']
+        build_target = self.cfg['build_target']
+        if buildcmd:
+            self.log.deprecated("Use 'build_target' and 'buildopts' instead of 'buildcmd' to pass arguments to "
+                                "setup.py. Use 'build_cmd' to run a command before the build.", '6.0')
+            if build_target is not None or build_cmd is not None:
+                raise EasyBuildError("Cannot specify both 'buildcmd' and 'build_target'/'build_cmd' in easyconfig")
 
-        if self.use_setup_py:
+        if self.use_setup_py and build_cmd is None:
+            if build_target is None:
+                build_target = 'build' if buildcmd is None else buildcmd
+            build_cmd = f"{self.python_cmd} setup.py {build_target}"
 
-            if get_software_root('CMake'):
-                include_paths = os.pathsep.join(self.toolchain.get_variable("CPPFLAGS", list))
-                library_paths = os.pathsep.join(self.toolchain.get_variable("LDFLAGS", list))
-                env.setvar("CMAKE_INCLUDE_PATH", include_paths)
-                env.setvar("CMAKE_LIBRARY_PATH", library_paths)
-
-            if not build_cmd:
-                build_cmd = 'build'  # Default value for setup.py
-            build_cmd = f"{self.python_cmd} setup.py {build_cmd}"
-
-        if build_cmd:
+        if not build_cmd:
+            self.log.info(f"Skipping build step for {self.name}-{self.version}: No build_cmd specified.")
+        else:
             cmd = ' '.join([self.cfg['prebuildopts'], build_cmd, self.cfg['buildopts']])
             res = run_shell_cmd(cmd)
 
