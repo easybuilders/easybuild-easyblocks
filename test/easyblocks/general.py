@@ -27,15 +27,21 @@ General unit tests for the easybuild-easyblocks repo.
 
 @author: Kenneth Hoste (Ghent University)
 """
+import itertools
 import os
+import re
 import shutil
 import sys
 import tempfile
+from pathlib import Path
 from unittest import TestLoader, TextTestRunner
+from typing import List, Set
 
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks import VERSION
+from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import read_file, write_file
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -103,7 +109,7 @@ class GeneralEasyblockTest(TestCase):
         # this is required to dance around issues with easy-install.pth files determining the actual Python search path
         # see also
         # http://blog.olgabotvinnik.com/blog/2014/03/03/2014-03-03-pythonpath-is-a-liar-site-py-and-easy-install-pth-tell/
-        import easybuild.framework
+        import easybuild.framework  # pylint: disable=import-outside-toplevel
         framework_path = up(easybuild.framework.__file__, 3)
 
         # prepend path to easybuild-easyblocks repo to $PYTHONPATH, so we're in full(?) control
@@ -116,9 +122,7 @@ class GeneralEasyblockTest(TestCase):
 
         def write_module(path, txt):
             """Write provided contents to module at given path in custom easyblocks repo."""
-            handle = open(os.path.join(custom_easyblocks_repo_path, 'easybuild', path), 'w')
-            handle.write(txt)
-            handle.close()
+            write_file(os.path.join(custom_easyblocks_repo_path, 'easybuild', path), txt)
 
         # this test should be run out of the easyblocks repository,
         # to avoid that the working directory that is prepended to the Python search path affects the test results
@@ -179,6 +183,57 @@ class GeneralEasyblockTest(TestCase):
 
         # importing EB_R class from easybuild.easyblocks.r still works fine
         run_shell_cmd("python -c 'from easybuild.easyblocks.r import EB_R'", hidden=True)
+
+    def test_imports(self):
+        """Check that for correct imports of other easyblocks
+
+        All imports should be like:
+        from easybuild.easyblocks import cmake
+        from easybuild.easyblocks.generic import pythonpackage
+        import easybuild.easyblocks.cmake
+        import easybuild.easyblocks.generic.pythonpackage
+
+        NOT using the lettered imports (breaks --include-easyblocks*): import easybuild.easyblocks.c.cmake
+        """
+        easyblocks_path = Path(get_paths_for("easyblocks")[0])
+        easyblocks: List[Path] = [eb for eb in easyblocks_path.rglob('*.py')
+                                  if eb.name != '__init__.py' and eb.parent.name != 'test']
+        easyblock_names: Set[str] = {eb.stem for eb in easyblocks}
+        generic_easyblocks: Set[str] = {eb.stem for eb in easyblocks if eb.parent.name == 'generic'}
+        failures: List[str] = []
+        for eb in easyblocks:
+            # Search for all imports of easyblocks and extract the name
+            contents: str = read_file(eb)
+            imports = itertools.chain(
+                re.finditer(r'(from easybuild\.easyblocks(\.(?P<module>[^ ]+))?) import (?P<names>.+)', contents),
+                re.finditer(r'import (easybuild\.easyblocks\.(?P<module>[^ ]+))', contents),
+            )
+            for imp in imports:
+                module = (imp['module'] or '').split('.')
+                if module and module[-1] in easyblock_names:
+                    imported_eb = module[-1]
+                    if imported_eb in generic_easyblocks:
+                        if module[:-1] != ['generic']:
+                            failures.append(f"Wrong import of generic easyblock '{imported_eb}' in {eb.name}: {imp[1]}")
+                    elif len(module) != 1:  # Should import directly, i.e. not 'easybuild.easyblocks.p.python'
+                        failures.append(f"Wrong import of custom easyblock '{imported_eb}' in {eb.name}: {imp[1]}")
+                else:
+                    try:
+                        names = imp['names']
+                    except IndexError:
+                        continue
+                    for imported_eb in re.split(', *', names or ''):
+                        imported_eb = re.sub(r' as .+', '', imported_eb)
+                        if imported_eb not in easyblock_names:
+                            continue
+                        if imported_eb in generic_easyblocks:
+                            if module != ['generic']:
+                                failures.append(f"Wrong import of generic easyblock '{imported_eb}' in {eb.name}: "
+                                                f"{imp[1]}")
+                        elif module:  # Should import directly, i.e. not 'from easybuild.easyblocks.p import python'
+                            failures.append(f"Wrong import of custom easyblock '{imported_eb}' in {eb.name}: {imp[1]}")
+        if failures:
+            self.fail('\n'.join(failures))
 
 
 def suite(loader):
