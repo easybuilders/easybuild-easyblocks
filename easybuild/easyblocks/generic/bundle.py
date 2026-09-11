@@ -244,10 +244,6 @@ class Bundle(EasyBlock):
                 # instantiate the component to transfer further information
                 comp_instance = comp_cfg.easyblock(comp_cfg, logfile=self.logfile)
 
-                # correct build/install dirs
-                comp_instance.builddir = self.builddir
-                comp_instance.install_subdir, comp_instance.installdir = self.install_subdir, self.installdir
-
                 # check if sanity checks are enabled for the component
                 if self.cfg['sanity_check_all_components'] or comp_cfg['name'] in self.cfg['sanity_check_components']:
                     self.comp_cfgs_sanity_check.append(comp_instance)
@@ -260,6 +256,13 @@ class Bundle(EasyBlock):
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
             self.cfg['sanity_check_paths'] = self.backup_sanity_paths
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
+
+    def post_init(self):
+        super().post_init()
+        for _, comp in self.comp_instances:
+            # correct build/install dirs after possibly changing them in parent post_init
+            comp.builddir = self.builddir
+            comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
 
     def check_checksums(self):
         """
