@@ -254,8 +254,8 @@ class EB_PyTorch(PythonPackage):
     GENERATE_TEST_REPORT_VAR_NAME = 'EASYBUILD_WRITE_PYTORCH_TEST_REPORTS'
 
     @staticmethod
-    def extra_options():
-        extra_vars = PythonPackage.extra_options()
+    def extra_options(extra_vars=None):
+        extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
         extra_vars.update({
             'build_type': [None, "Build type for CMake, e.g. Release."
                                  "Defaults to 'Release' or 'Debug' depending on toolchainopts[debug]", CUSTOM],
@@ -428,15 +428,17 @@ class EB_PyTorch(PythonPackage):
         # Gather default options. Will be checked against (and can be overwritten by) custom_opts
         options = ['PYTORCH_BUILD_VERSION=' + self.version, 'PYTORCH_BUILD_NUMBER=1']
 
-        def add_enable_option(name, enabled):
-            """Add `name=0` or `name=1` depending on enabled"""
-            options.append('%s=%s' % (name, '1' if enabled else '0'))
+        def add_enable_option(name, enabled=True):
+            """Add `name=OFF` or `name=ON` depending on enabled"""
+            options.append(f"{name}={'ON' if enabled else 'OFF'}")
 
         # enable verbose mode when --debug is used (to show compiler commands)
         add_enable_option('VERBOSE', build_option('debug'))
 
         # Restrict parallelism
         options.append(f'MAX_JOBS={self.cfg.parallel}')
+
+        add_enable_option('USE_CCACHE', 'ccache' in self.cfg.dependency_names())
 
         # BLAS Interface
         if get_software_root('imkl'):
@@ -448,8 +450,8 @@ class EB_PyTorch(PythonPackage):
         elif pytorch_version >= '1.9.0' and get_software_root('BLIS'):
             options.append('BLAS=BLIS')
             options.append('BLIS_HOME=' + get_software_root('BLIS'))
-            options.append('USE_MKLDNN=ON')
-            options.append('USE_MKLDNN_CBLAS=ON')
+            add_enable_option('USE_MKLDNN')
+            add_enable_option('USE_MKLDNN_CBLAS')
         elif get_software_root('OpenBLAS'):
             # This is what PyTorch defaults to if no MKL is found.
             # Make this explicit here to avoid it finding MKL from the system
@@ -457,18 +459,20 @@ class EB_PyTorch(PythonPackage):
             # Still need to set a BLAS lib to use.
             # Valid choices: mkl/open/goto/acml/atlas/accelerate/veclib/generic (+blis for 1.9+)
             options.append('WITH_BLAS=open')
-            # Make sure this option is actually passed to CMake
-            apply_regex_substitutions(os.path.join('tools', 'setup_helpers', 'cmake.py'), [
-                ("'BLAS',", "'BLAS', 'WITH_BLAS',")
-            ])
         else:
             raise EasyBuildError("Did not find a supported BLAS in dependencies. Don't know which BLAS lib to use")
 
+        # Make sure WITH_BLAS is actually passed to CMake, fixed in 1.13
+        if pytorch_version < '1.13':
+            apply_regex_substitutions(os.path.join('tools', 'setup_helpers', 'cmake.py'), [
+                ("'BLAS',", "'BLAS', 'WITH_BLAS',")
+            ])
+
         if pytorch_version >= '1.10':
             acl_root = get_software_root('ArmComputeLibrary')
+            add_enable_option('USE_MKLDNN_ACL', acl_root)
             if acl_root:
-                options.append('USE_MKLDNN=ON')
-                options.append('USE_MKLDNN_ACL=ON')
+                add_enable_option('USE_MKLDNN')
                 env.setvar('ACL_ROOT_DIR', acl_root)
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
@@ -483,24 +487,25 @@ class EB_PyTorch(PythonPackage):
                 not_used_dep_names.append(dep_name)
                 # Explicitely toggle to avoid picking up system libs, restricted to 2.7+ to avoid retesting older ECs
                 if pytorch_version >= '2.7' and enable_opt[-1] in ('0', '1'):
-                    options.append(enable_opt[:-1] + ('0' if enable_opt[-1] == '1' else '1'))
+                    add_enable_option(enable_opt[:-1], enable_opt[-1] != '1')
         self.log.info('Did not enable options for the following dependencies as they are not used in the EC: %s',
                       not_used_dep_names)
 
         # Use Infiniband by default
         # you can disable this by including 'USE_IBVERBS=0' in 'custom_opts' in the easyconfig file
-        options.append('USE_IBVERBS=1')
+        add_enable_option('USE_IBVERBS')
 
-        if get_software_root('CUDA'):
-            options.append('USE_CUDA=1')
+        use_cuda = get_software_root('CUDA')
+        add_enable_option('USE_CUDA', use_cuda)
+        if use_cuda:
             cudnn_root = get_software_root('cuDNN')
             if cudnn_root:
                 options.append('CUDNN_LIB_DIR=' + os.path.join(cudnn_root, 'lib64'))
                 options.append('CUDNN_INCLUDE_DIR=' + os.path.join(cudnn_root, 'include'))
 
             nccl_root = get_software_root('NCCL')
+            add_enable_option('USE_SYSTEM_NCCL', nccl_root)
             if nccl_root:
-                options.append('USE_SYSTEM_NCCL=1')
                 options.append('NCCL_INCLUDE_DIR=' + os.path.join(nccl_root, 'include'))
 
             # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
@@ -517,9 +522,6 @@ class EB_PyTorch(PythonPackage):
             # determine the compute capability of a GPU in the system and use that which may fail tests if
             # it is to new for the used nvcc
             env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
-        else:
-            # Disable CUDA
-            options.append('USE_CUDA=0')
 
         if pytorch_version >= '2.0':
             add_enable_option('USE_ROCM', get_software_root('ROCm'))
@@ -531,14 +533,14 @@ class EB_PyTorch(PythonPackage):
             options.extend(['USE_NNPACK=0', 'USE_QNNPACK=0', 'USE_PYTORCH_QNNPACK=0', 'USE_XNNPACK=0'])
             # Breakpad (Added in 1.10, removed in 1.12.0) doesn't support PPC
             if pytorch_version >= '1.10.0' and pytorch_version < '1.12.0':
-                options.append('USE_BREAKPAD=0')
+                add_enable_option('USE_BREAKPAD', False)
             # FBGEMM requires AVX512, so not available on PPC
             if pytorch_version >= 'v1.10.0':
-                options.append('USE_FBGEMM=0')
+                add_enable_option('USE_FBGEMM', False)
 
         # Metal only supported on IOS which likely doesn't work with EB, so disabled
         if pytorch_version < '2.4':  # Removed in 2.4
-            options.append('USE_METAL=0')
+            add_enable_option('USE_METAL', False)
 
         build_type = self.cfg.get('build_type')
         if build_type is None:
