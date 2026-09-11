@@ -68,7 +68,7 @@ class EB_Rmpi(RPackage):
 
     def configure_step(self):
         """
-        Custom configure step for stand-alone installatin of Rmpi, to prepare configure arguments
+        Custom configure step for stand-alone installation of Rmpi, to prepare configure arguments
         """
         self.prepare_rmpi_configureargs()
 
