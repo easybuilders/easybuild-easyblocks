@@ -49,7 +49,8 @@ from easybuild.tools.config import build_option, IGNORE
 from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext, get_avail_core_count
+from easybuild.tools.systemtools import AARCH64
+from easybuild.tools.systemtools import get_avail_core_count, get_cpu_architecture, get_gpu_info, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
@@ -110,6 +111,34 @@ def translate_lammps_version(version, path=None):
             raise ValueError(f"LAMMPS version {version} cannot be translated")
 
 
+def get_ld_preload_value_cuda_stubs():
+    """
+    Determine value for $LD_PRELOAD that includes CUDA stub libraries
+    """
+    ld_preload = os.getenv('LD_PRELOAD')
+    ld_preload = ld_preload.split(os.pathsep) if ld_preload else []
+
+    cuda_stub_libs = [
+            os.path.join('lib', 'stubs', 'libcuda.so'),
+            os.path.join('lib64', 'stubs', 'libcuda.so.1')
+    ]
+
+    cuda_stub_lib_paths = []
+
+    # check if CUDA stubs library is already included, to avoid doing so twice
+    if not any(x.endswith(cuda_stub_libs[0]) for x in ld_preload):
+
+        cuda_root = get_software_root('CUDA')
+        cuda_stub_lib_paths = [os.path.join(cuda_root, x) for x in cuda_stub_libs]
+
+        # make sure these paths exist before we shove them into $LD_PRELOAD
+        for path in cuda_stub_lib_paths:
+            if not os.path.exists(path):
+                raise EasyBuildError(f"CUDA stub library at {path} does not exist!")
+
+    return os.pathsep.join(cuda_stub_lib_paths + ld_preload)
+
+
 class EB_LAMMPS(CMakeMake):
     """
     Support for building and installing LAMMPS
@@ -124,6 +153,12 @@ class EB_LAMMPS(CMakeMake):
         self.cuda = cuda_dep or cuda_toolchain
 
         self.cur_version = None
+
+        # check if an NVIDIA GPU is available;
+        # we need to know this because extra steps are required
+        # when we're crosscompiling an NVIDIA GPU build on a CPU-only system
+        gpus = get_gpu_info()
+        self.nvidia_gpu_found = 'NVIDIA' in gpus
 
     def update_kokkos_cpu_mapping(self):
         """
@@ -509,6 +544,24 @@ class EB_LAMMPS(CMakeMake):
             else:
                 self.cfg['runtest'] = False
 
+        # For crosscompiling LAMMPS with CUDA:
+        # - CUDA stubs need to be explicitly added to the linker
+        # - libcuda.so needs to be added to LD_PRELOAD
+        if self.cuda and not self.nvidia_gpu_found:
+
+            # we need to make sure that the path to the CUDA stub libraries is found when linking
+            # but does not get baked into the RPATH section so they will be used at runtime,
+            # so we use -rpath-link (as opposed to -rpath)
+            if self.toolchain.use_rpath:
+                cuda_root = get_software_root('CUDA')
+                self.cfg.update('configopts', f'-DCMAKE_EXE_LINKER_FLAGS=-Wl,-rpath-link,{cuda_root}/lib/stubs')
+
+            ld_preload = get_ld_preload_value_cuda_stubs()
+            env.setvar('LD_PRELOAD', ld_preload)
+            msg = "Cross-compiling NVIDIA GPU build on CPU-only system, "
+            msg += f"so $LD_PRELOAD updated to include CUDA stub libraries: {ld_preload}"
+            self.log.info(msg)
+
         return super().configure_step()
 
     def install_step(self):
@@ -563,7 +616,11 @@ class EB_LAMMPS(CMakeMake):
             test_cmd = 'ctest'
             if LooseVersion(self.cmake_version) >= '3.17.0':
                 test_cmd += ' --no-tests=error'
-            test_cmd += ' -LE unstable -E "TestMliapPyUnified|AtomicPairStyle:meam_spline|KSpaceStyle:scafacos.*"'
+            skipped_tests = "TestMliapPyUnified|AtomicPairStyle:meam_spline|KSpaceStyle:scafacos.*"
+            if self.cuda and not self.nvidia_gpu_found:
+                # these tests require libcuda.so that is *not* a stub, so skip them
+                skipped_tests += "|LibraryOpen|LibraryProperties|LammpsClass|NeighborClass"
+            test_cmd += f' -LE unstable -E "{skipped_tests}"'
             self.log.debug(f"Running tests using test_cmd = '{test_cmd}' as test_cmd")
             self.cfg['test_cmd'] = test_cmd
 
@@ -658,6 +715,13 @@ class EB_LAMMPS(CMakeMake):
             test_core_cnt = min(self.cfg.parallel, get_avail_core_count(), 4)
             self.log.info("Using %s cores for the MPI tests" % test_core_cnt)
             custom_commands = [self.toolchain.mpi_cmd_for(cmd, test_core_cnt) for cmd in custom_commands]
+
+        # When crosscompiling LAMMPS with CUDA the build and testing require $LD_PRELOAD being set.
+        # During testing I found that $LD_PRELOAD was not picked up in the environment.
+        # It has to be explicitly set in the command.
+        if self.cuda and not self.nvidia_gpu_found:
+            ld_preload = get_ld_preload_value_cuda_stubs()
+            custom_commands = [f'LD_PRELOAD="{ld_preload}" {cmd}' for cmd in custom_commands]
 
         custom_commands = ["cd %s && " % execution_dir + cmd for cmd in custom_commands]
 
