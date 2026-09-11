@@ -57,6 +57,10 @@ class Tarball(ExtensionEasyBlock):
             'install_type': [None, "Defaults to extract tarball into clean directory. Options: 'merge' merges tarball "
                              "to existing directory, 'subdir' extracts tarball into its own sub-directory", CUSTOM],
             'preinstall_cmd': [None, "Command to execute before installation", CUSTOM],
+            'target_dir': [None, "Relative path of folder to which the contents will be copied to. "
+                           "Defaults to the lower-case software name for `install_type='subdir'`, "
+                           "and the installation path (i.e. '.') otherwise.",
+                           CUSTOM],
         })
         return extra_vars
 
@@ -98,19 +102,23 @@ class Tarball(ExtensionEasyBlock):
 
         # Copy source directory
         source_path = src or self.cfg['start_dir']
+        target_dir = self.cfg['target_dir']
+        if target_dir and target_dir != '.':
+            install_path = os.path.join(self.installdir, target_dir)
+        else:
+            install_path = self.installdir
 
         if self.cfg['install_type'] == 'subdir':
             # Wipe and install in a sub-directory with the name of the package
-            install_path = os.path.join(self.installdir, self.name.lower())
+            if target_dir is None:
+                install_path = os.path.join(self.installdir, self.name.lower())
             install_logmsg = "Copying tarball contents of %s to sub-directory %s..."
             remove_dir(install_path)
         elif self.cfg['install_type'] == 'merge':
             # Enable merging with root of existing installdir
-            install_path = self.installdir
             install_logmsg = "Merging tarball contents of %s into %s..."
         elif self.cfg['install_type'] is None:
             # Clean and copy root of installation directory (default)
-            install_path = self.installdir
             install_logmsg = "Copying tarball contents of %s into %s after cleaning it..."
             clean_dir(install_path)
         else:
