@@ -26,11 +26,10 @@
 EasyBuild support for bundles of Julia packages, implemented as an easyblock
 
 @author: Alex Domingo (Vrije Universiteit Brussel)
+@author: Davide Grassano (CECAM, EPFL)
 """
-import os
-
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JuliaPackage
+from easybuild.easyblocks.generic.juliapackage import JuliaPackage
 
 
 class JuliaBundle(Bundle, JuliaPackage):
@@ -53,7 +52,13 @@ class JuliaBundle(Bundle, JuliaPackage):
         super().__init__(*args, **kwargs)
 
         self.cfg['exts_defaultclass'] = 'JuliaPackage'
-        self.cfg['exts_filter'] = EXTS_FILTER_JULIA_PACKAGES
+        # Ensure that Julia packages such as LLVM do not try to use the EB_LLVM easyblock
+        # many packages have names that overlap with EB easyblocks, and would end up using them as default class for
+        # extensions, which is not what we want here. We force to always use JuliaPackage unless explicitly specified
+        # otherwise in the easyconfig file.
+        self.cfg['exts_default_options'] = {
+            'easyblock': 'JuliaPackage',
+        }
 
         # need to disable templating to ensure that actual value for exts_default_options is updated...
         with self.cfg.disable_templating():
@@ -74,25 +79,7 @@ class JuliaBundle(Bundle, JuliaPackage):
                     }
                 ]
 
+        # The name of the bundle can be arbitrary and not necessarily a Julia package
+        self.cfg['exts_filter'] = None
+
         self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
-
-    def prepare_step(self, *args, **kwargs):
-        """Prepare for installing bundle of Julia packages."""
-        super().prepare_step(*args, **kwargs)
-
-    def install_step(self):
-        """Prepare installation environment and dd all dependencies to project environment."""
-        self.prepare_julia_env()
-        self.include_pkg_dependencies()
-
-    def sanity_check_step(self, *args, **kwargs):
-        """Custom sanity check for bundle of Julia packages"""
-        custom_paths = {
-            'files': [],
-            'dirs': [os.path.join('packages', self.name)],
-        }
-        super().sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_extra(self, *args, **kwargs):
-        """Custom module environment from JuliaPackage"""
-        return super().make_module_extra(*args, **kwargs)
