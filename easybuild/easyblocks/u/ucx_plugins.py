@@ -62,7 +62,7 @@ class EB_UCX_Plugins(ConfigureMake):
                 if 'GDRCopy' in dep_names:
                     plugins['uct_cuda'].append('gdrcopy')
 
-            if 'ROCm' in dep_names:
+            if 'rocm-compilers' in self.toolchain.name:
                 for key in ('ucm', 'uct', 'ucx_perftest'):
                     plugins[key].append('rocm')
 
@@ -94,7 +94,7 @@ class EB_UCX_Plugins(ConfigureMake):
 
             self.makefile_dirs.extend(os.path.join(x, 'cuda') for x in ('uct', 'ucm', 'tools/perf'))
 
-        rocmroot = get_software_root('ROCm')
+        rocmroot = get_software_root('ROCm-LLVM')
         if rocmroot:
             configopts += '--with-rocm=%s ' % rocmroot
             self.makefile_dirs.extend(os.path.join(x, 'rocm') for x in ('uct', 'ucm', 'tools/perf'))

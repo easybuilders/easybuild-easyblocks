@@ -34,7 +34,6 @@ import stat
 import sys
 import tempfile
 import textwrap
-from io import StringIO
 from pathlib import Path
 from unittest import TestLoader, TextTestRunner
 from test.easyblocks.module import cleanup
@@ -81,8 +80,6 @@ class EasyBlockSpecificTest(TestCase):
         super().setUp()
         self.tmpdir = tempfile.mkdtemp()
 
-        self.orig_sys_stdout = sys.stdout
-        self.orig_sys_stderr = sys.stderr
         self.orig_environ = copy.deepcopy(os.environ)
         self.orig_pythonpackage_run_shell_cmd = pythonpackage.run_shell_cmd
 
@@ -90,26 +87,12 @@ class EasyBlockSpecificTest(TestCase):
         """Test cleanup."""
         remove_dir(self.tmpdir)
 
-        sys.stdout = self.orig_sys_stdout
-        sys.stderr = self.orig_sys_stderr
         pythonpackage.run_shell_cmd = self.orig_pythonpackage_run_shell_cmd
 
         # restore original environment
         modify_env(os.environ, self.orig_environ, verbose=False)
 
         super().tearDown()
-
-    def mock_stdout(self, enable):
-        """Enable/disable mocking stdout."""
-        sys.stdout.flush()
-        if enable:
-            sys.stdout = StringIO()
-        else:
-            sys.stdout = self.orig_sys_stdout
-
-    def get_stdout(self):
-        """Return output captured from stdout until now."""
-        return sys.stdout.getvalue()
 
     def test_toolchain_external_modules(self):
         """Test use of Toolchain easyblock with external modules."""
@@ -494,6 +477,20 @@ class EasyBlockSpecificTest(TestCase):
         self.assertTrue(os.path.exists(os.path.join(bindir, 'test')))
         local_test_py = os.path.join(libdir, 'python' + pyshortver, 'site-packages', 'test.py')
         self.assertTrue(os.path.exists(local_test_py))
+
+    def test_partial_normalize_pip(self):
+        """Test partial_normalize_pip function provided by EB_Python easyblock."""
+
+        self.assertEqual(python.partial_normalize_pip('friendly-bard'), 'friendly-bard')  # normalized form
+        self.assertEqual(python.partial_normalize_pip('Friendly-Bard'), 'friendly-bard')  # uppercase -> lowercase
+        self.assertEqual(python.partial_normalize_pip('friendly_bard'), 'friendly-bard')  # underscore -> hyphen
+        self.assertEqual(python.partial_normalize_pip('friendly.bard'), 'friendly.bard')  # dots are not normalized
+        # multiple consecutive hyphens are merged into a single hyphen
+        self.assertEqual(python.partial_normalize_pip('friendly--bard'), 'friendly-bard')
+        # multiple consecutive underscores are merged and converted into a single hyphen
+        self.assertEqual(python.partial_normalize_pip('friendly__bard'), 'friendly-bard')
+        # multiple consecutive underscores and hyphens are merged and converted into a single hyphen
+        self.assertEqual(python.partial_normalize_pip('FrIeNdLy--__--bArD'), 'friendly-bard')
 
     def test_run_pip_check(self):
         """Test run_pip_check function provided by EB_Python easyblock."""

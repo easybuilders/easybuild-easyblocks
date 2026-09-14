@@ -64,12 +64,12 @@ KOKKOS_CPU_ARCH_LIST = [
     'ZEN5',  # AMD Zen5 class CPU (AVX-512), since Kokkos 4.7
     'ARMV80',  # ARMv8.0 Compatible CPU
     'ARMV81',  # ARMv8.1 Compatible CPU
+    'ARMV84',  # ARMv8.4 Compatible CPU
+    'ARMV84_SVE',  # ARMv8.4 with SVE compatible CPU
     'ARMV8_THUNDERX',  # ARMv8 Cavium ThunderX CPU
     'ARMV8_THUNDERX2',  # ARMv8 Cavium ThunderX2 CPU
     'A64FX',  # ARMv8.2 with SVE Support
     'ARMV9_GRACE',  # ARMv9 NVIDIA Grace CPU, since Kokkos 4.4.1
-    'ARMV84',  # ARMv8.4 Compatible CPU
-    'ARMV84_SVE',  # ARMv8.4 with SVE compatible CPU
     'BGQ',  # IBM Blue Gene/Q CPU
     'POWER7',  # IBM POWER7 CPU
     'POWER8',  # IBM POWER8 CPU

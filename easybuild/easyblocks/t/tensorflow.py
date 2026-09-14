@@ -140,7 +140,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         #         <version range> is '<min version>:<exclusive max version>'
         ('Abseil', '2.9.0:'): 'com_google_absl',
         ('cURL', '2.0.0:'): 'curl',
-        ('double-conversion', '2.0.0:'): 'double_conversion',
+        ('double-conversion', '2.0.0:2.19.0'): 'double_conversion',
         ('flatbuffers', '2.0.0:'): 'flatbuffers',
         ('giflib', '2.0.0:2.1.0'): 'gif_archive',
         ('giflib', '2.1.0:'): 'gif',
@@ -153,7 +153,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False):
         ('libpng', '2.1.0:'): 'png',
         ('LMDB', '2.0.0:2.13.0'): 'lmdb',
         ('NASM', '2.0.0:'): 'nasm',
-        ('nsync', '2.0.0:'): 'nsync',
+        ('nsync', '2.0.0:2.19.0'): 'nsync',
         ('PCRE', '2.0.0:2.6.0'): 'pcre',
         ('protobuf', '2.0.0:'): 'com_google_protobuf',
         ('pybind11', '2.2.0:'): 'pybind11',
