@@ -706,6 +706,14 @@ class EB_LAMMPS(CMakeMake):
             self.log.debug(f"Running tests using test_cmd = '{test_cmd}' as test_cmd")
             self.cfg['test_cmd'] = test_cmd
 
+            # allow oversubscription of cores while running tests
+            openmpi_ver = get_software_version('OpenMPI')
+            if openmpi_ver:
+                if LooseVersion(openmpi_ver) >= '5.0':
+                    env.setvar('PRTE_MCA_rmaps_default_mapping_policy', ':oversubscribe')
+                else:
+                    env.setvar('OMPI_MCA_rmaps_base_oversubscribe', '1')
+
         super().test_step()
 
     def sanity_check_step(self, *args, **kwargs):
