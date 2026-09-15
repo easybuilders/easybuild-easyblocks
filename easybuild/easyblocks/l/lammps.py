@@ -797,7 +797,7 @@ class EB_LAMMPS(CMakeMake):
            LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('22Jul2025')):
             custom_commands = [cmd + '; l.finalize() if l else None' for cmd in custom_commands]
 
-        custom_commands = ["""python -c '%s'""" % cmd for cmd in custom_commands]
+        custom_commands = [f"python -c '{cmd}'" for cmd in custom_commands]
 
         # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
         if self.toolchain.options.get('usempi', None):
@@ -813,7 +813,16 @@ class EB_LAMMPS(CMakeMake):
             ld_preload = get_ld_preload_value_cuda_stubs()
             custom_commands = [f'LD_PRELOAD="{ld_preload}" {cmd}' for cmd in custom_commands]
 
-        custom_commands = ["cd %s && " % execution_dir + cmd for cmd in custom_commands]
+        custom_commands = [f"cd {execution_dir} && {cmd}" for cmd in custom_commands]
+
+        openmpi_ver = get_software_version('OpenMPI')
+        if openmpi_ver:
+            if LooseVersion(openmpi_ver) >= '5.0':
+                set_env_var_cmd = "export PRTE_MCA_rmaps_default_mapping_policy=':oversubscribe'"
+            else:
+                set_env_var_cmd = "export OMPI_MCA_rmaps_base_oversubscribe=1"
+
+        custom_commands = [f"{set_env_var_cmd} && {cmd}" for cmd in custom_commands]
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
