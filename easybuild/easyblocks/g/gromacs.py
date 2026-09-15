@@ -38,6 +38,7 @@ import glob
 import os
 import re
 import shutil
+from pathlib import Path
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -47,7 +48,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, symlink, which
+from easybuild.tools.filetools import apply_regex_substitutions, copy_dir, find_backup_name_candidate
+from easybuild.tools.filetools import read_file, remove_dir, symlink, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
@@ -178,7 +180,6 @@ class EB_GROMACS(CMakeMake):
 
     def configure_step(self):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
-
         gromacs_version = LooseVersion(self.version)
 
         if gromacs_version >= '4.6':
@@ -285,7 +286,6 @@ class EB_GROMACS(CMakeMake):
             if gromacs_version >= '2025' and plumed_patches is False:
                 self.log.info('Native PLUMED support has been enabled.')
                 self.cfg.update('configopts', '-DGMX_USE_PLUMED=ON')
-
             else:
                 # Need to check if PLUMED has an engine for this version
                 engine = 'gromacs-%s' % self.version
@@ -337,11 +337,11 @@ class EB_GROMACS(CMakeMake):
             # OpenMP is not supported for versions older than 4.5.
             if gromacs_version >= '4.5':
                 # enable OpenMP support if desired
-                if self.toolchain.options.get('openmp', None):
+                if self.toolchain.options.get('openmp'):
                     self.cfg.update('configopts', "--enable-threads")
                 else:
                     self.cfg.update('configopts', "--disable-threads")
-            elif self.toolchain.options.get('openmp', None):
+            elif self.toolchain.options.get('openmp'):
                 raise EasyBuildError("GROMACS version %s does not support OpenMP" % self.version)
 
             # GSL support
@@ -459,7 +459,7 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "-DREGRESSIONTEST_PATH='%%(builddir)s/%s-%%(version)s' " % prefix)
 
             # enable OpenMP support if desired
-            if self.toolchain.options.get('openmp', None):
+            if self.toolchain.options.get('openmp'):
                 self.cfg.update('configopts', "-DGMX_OPENMP=ON")
             else:
                 self.cfg.update('configopts', "-DGMX_OPENMP=OFF")
@@ -542,7 +542,6 @@ class EB_GROMACS(CMakeMake):
         Custom build step for GROMACS; Skip if CUDA is enabled and the current
         iteration is for double precision
         """
-
         if self.is_double_precision_cuda_build:
             self.log.info("skipping build step")
         else:
@@ -616,9 +615,30 @@ class EB_GROMACS(CMakeMake):
 
     def extensions_step(self, fetch=False):
         """ Custom extensions step, only handle extensions after the last iteration round"""
-        if self.iter_idx < self.variants_to_build - 1:
+        if self.iter_idx < self.num_variants_to_build - 1:
             self.log.info("skipping extension step %s", self.iter_idx)
         else:
+            version_py = Path(self.start_dir) / 'python_packaging/gmxapi/src/gmxapi/version.py'
+            pyproject_toml = Path(self.start_dir) / 'python_packaging/gmxapi/pyproject.toml'
+            if not version_py.exists():
+                run_shell_cmd('false')
+                self.log.info(f'{version_py} not found required to determine Python extension version')
+            elif not pyproject_toml.exists():
+                run_shell_cmd('false')
+                self.log.info(f'{pyproject_toml} not found. Not updating Python extension version')
+            else:
+                self.log.info(f'Updating Python extension version in {pyproject_toml} from {version_py}')
+                version_py_txt = read_file(version_py)
+                names = ['_major', '_minor', '_micro', '_suffix']
+                version_parts = [re.search(f"{name} += (+.*)", version_py_txt) for name in names]
+                if not all(version_parts):
+                    raise EasyBuildError(f"Failed to extract extension version from {version_py}")
+                version = '.'.join(part[1] for part in version_parts)
+                m_suffix = re.search("""_suffix += +["'].*?["']""", version_py_txt)
+                if m_suffix:
+                    version += m_suffix
+                self.log.info(f"Determined version '{version}' from {version_py}")
+                apply_regex_substitutions(pyproject_toml, [('^version = .*', f'version= "{version}"')])
             # Reset installopts etc for the benefit of the gmxapi extension
             self.cfg['install_cmd'] = self.orig_install_cmd
             self.cfg['build_cmd'] = self.orig_build_cmd
@@ -728,7 +748,7 @@ class EB_GROMACS(CMakeMake):
                     mpi_libnames.append('gmxpreprocess')
 
         # also check for MPI-specific binaries/libraries
-        if self.toolchain.options.get('usempi', None):
+        if self.toolchain.options.get('usempi'):
             if LooseVersion(self.version) < LooseVersion('4.6'):
                 mpisuff = self.cfg.get('mpisuffix', '_mpi')
             else:
@@ -848,11 +868,11 @@ class EB_GROMACS(CMakeMake):
         if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
             precisions.append('double')
 
-        if precisions == []:
+        if not precisions:
             raise EasyBuildError("No precision selected. At least one of single/double_precision must be unset or True")
 
         mpitypes = ['nompi']
-        if self.toolchain.options.get('usempi', None):
+        if self.toolchain.options.get('usempi'):
             mpitypes.append('mpi')
 
         # We need to count the number of variations to build.
@@ -881,13 +901,10 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', ' '.join(var_confopts + [common_config_opts]))
                 self.cfg.update('buildopts', ' '.join(var_buildopts + [common_build_opts]))
                 self.cfg.update('installopts', ' '.join(var_installopts + [common_install_opts]))
-        self.variants_to_build = len(self.cfg['configopts'])
+        self.num_variants_to_build = len(self.cfg['configopts'])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
         self.log.info("Building these variants of GROMACS: %s", ', '.join(versions_built))
-        return super().run_all_steps(*args, **kwargs)
-
-        self.cfg['install_cmd'] = self.orig_install_cmd
-        self.cfg['build_cmd'] = self.orig_build_cmd
-
         self.log.info("A full regression test suite is available from the GROMACS web site: %s", self.cfg['homepage'])
+
+        return super().run_all_steps(*args, **kwargs)
