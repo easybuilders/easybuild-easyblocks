@@ -686,10 +686,11 @@ class EasyBlockSpecificTest(TestCase):
         for cmd in binutils_cmds:
             wrapper_dir = os.path.join(wrappers_dir, '%s.wrapper' % cmd)
             os.environ['PATH'] = wrapper_dir + ':' + os.getenv('PATH')
-            wrapper = os.path.join(wrapper_dir, cmd)
-            wrapper_txt = "CMD=%s; rpath_args.py $CMD" % cmd
-            write_file(wrapper, wrapper_txt)
-            adjust_permissions(wrapper, stat.S_IXUSR)
+            fake_wrapper = os.path.join(wrapper_dir, cmd)
+            # fake contents for RPATH wrapper script, enough to fool Toolchain.is_rpath_wrapper
+            fake_wrapper_txt = '"$RPATH_ARGS_PY" "$CMD"'
+            write_file(fake_wrapper, fake_wrapper_txt)
+            adjust_permissions(fake_wrapper, stat.S_IXUSR)
 
         # if $EBROOTBINUTILS is set, binutils commands to consider is determined by contents of $EBROOTBINUTILS/bin
         binutils_root = os.path.join(self.tmpdir, 'binutils_root')
