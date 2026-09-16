@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="TEST-jit.test_builtins.TestBuiltins-1" tests="1" file=".py" time="4.2" failures="0" errors="0" skipped="0">
+  <testcase classname="TestBuiltins" name="test_name" time="4.2" file="jit/test_builtins.py" line="9"/>
+</testsuite>

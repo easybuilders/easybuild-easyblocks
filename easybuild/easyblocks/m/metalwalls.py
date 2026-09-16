@@ -34,7 +34,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 from easybuild.easyblocks.generic.makecp import MakeCp
 
@@ -44,7 +44,7 @@ class EB_MetalWalls(MakeCp):
 
     def __init__(self, *args, **kwargs):
         """Add extra config options specific to `metalwalls`."""
-        super(EB_MetalWalls, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self._build_python_interface = False
         self._extra_schecks = []
@@ -78,26 +78,26 @@ class EB_MetalWalls(MakeCp):
         # https://gitlab.com/ampere2/metalwalls/-/wikis/install#plumed
         plumed = get_software_root('PLUMED')
         f90wrap = get_software_root('f90wrap')
-        f90wrap_version = get_software_version('f90wrap')
 
         if LooseVersion(self.version) <= LooseVersion('21.06.1'):
-            if LooseVersion(f90wrap_version) > LooseVersion('0.2.13'):
-                raise EasyBuildError('MetalWalls version %s requires f90wrap <= 0.2.13' % self.version)
+            if f90wrap:
+                f90wrap_version = get_software_version('f90wrap')
+                if LooseVersion(f90wrap_version) > LooseVersion('0.2.13'):
+                    raise EasyBuildError('MetalWalls version %s requires f90wrap <= 0.2.13' % self.version)
 
         tpl_rgx = 'alltests\\.append(suite_%s)'
         if plumed:
             f90flags += ['-fallow-argument-mismatch']  # Code inside ifdef causes mismatch errors
             fppflags += ['-DMW_USE_PLUMED']
             cmd = ['touch', 'mw2.diff']
-            run_cmd(' '.join(cmd), log_all=False, log_ok=False, simple=False, regexp=False)
+            run_shell_cmd(' '.join(cmd), fail_on_error=False)
             cmd = ['plumed', 'patch', '-d mw2.diff', '--patch', '--shared', '--engine', 'mw2']
-            run_cmd(' '.join(cmd), log_all=True, simple=False)
+            run_shell_cmd(' '.join(cmd))
         else:
             self.log.info('PLUMED not found, excluding from test-suite')
             rgx = tpl_rgx % 'plumed'
-            cmd = ['sed', '-i', "'s/^\\( \\+\\)%s$/\\1pass # %s/'" % (rgx, rgx), 'tests/regression_tests.py']
             cmd = ['sed', '-i', "'s/%s/pass/'" % rgx, 'tests/regression_tests.py']
-            run_cmd(' '.join(cmd), log_all=True, simple=False)
+            run_shell_cmd(' '.join(cmd))
 
         if f90wrap:
             if not get_software_root('mpi4py'):
@@ -115,7 +115,7 @@ class EB_MetalWalls(MakeCp):
             self.log.info('f90wrap not found, excluding python interface from test-suite')
             rgx = tpl_rgx % 'python_interface'
             cmd = ['sed', '-i', "'s/%s/pass/'" % rgx, 'tests/regression_tests.py']
-            run_cmd(' '.join(cmd), log_all=True, simple=False)
+            run_shell_cmd(' '.join(cmd))
 
         # Add libraries with LAPACK support
         lapack_shared_libs = os.getenv('LAPACK_SHARED_LIBS', None)
@@ -150,12 +150,12 @@ class EB_MetalWalls(MakeCp):
             self.log.info('Setting PYTHONPATH for testing to %s' % ppath)
             env.setvar('PYTHONPATH', ppath)
 
-        super(EB_MetalWalls, self).test_step()
+        super().test_step()
 
     def make_module_extra(self, extra=None):
         """Add custom entries to module."""
 
-        txt = super(EB_MetalWalls, self).make_module_extra()
+        txt = super().make_module_extra()
 
         if self._build_python_interface:
             txt += self.module_generator.prepend_paths('PYTHONPATH', 'python')
@@ -172,4 +172,4 @@ class EB_MetalWalls(MakeCp):
             'dirs': []
         }
 
-        super(EB_MetalWalls, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)

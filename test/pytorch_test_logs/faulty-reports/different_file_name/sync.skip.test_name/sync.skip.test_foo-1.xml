@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="4.2">
+    <!-- Correct but wrong file or folder name -->
+    <testcase classname="TestName" name="test_foo" time="4.2" file="sync/skip.py"/>
+  </testsuite>
+</testsuites>

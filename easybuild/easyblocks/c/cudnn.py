@@ -1,5 +1,5 @@
 ##
-# Copyright 2012-2024 Ghent University
+# Copyright 2012-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -42,7 +42,7 @@ class EB_cuDNN(Tarball):
         """ Init the cuDNN easyblock adding a new cudnnarch template var """
 
         # Need to call super's init first, so we can use self.version
-        super(EB_cuDNN, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # Generate cudnnarch template value for this system
         cudnnarch = False
@@ -68,3 +68,22 @@ class EB_cuDNN(Tarball):
         self.cfg['keepsymlinks'] = True
         self.cfg.template_values['cudnnarch'] = cudnnarch
         self.cfg.generate_template_values()
+
+    def fetch_step(self, *args, **kwargs):
+        """Check for EULA acceptance prior to getting sources."""
+        # EULA for cuDNN must be accepted via --accept-eula-for EasyBuild configuration option,
+        # or via 'accept_eula = True' in easyconfig file
+        self.check_accepted_eula(
+            name='cuDNN',
+            more_info='https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html'
+        )
+        return super().fetch_step(*args, **kwargs)
+
+    def make_module_extra(self):
+        """Set the install directory as CUDNN_HOME, CUDNN_PATH."""
+
+        txt = super().make_module_extra()
+        txt += self.module_generator.set_environment('CUDNN_HOME', self.installdir)
+        txt += self.module_generator.set_environment('CUDNN_PATH', self.installdir)
+        self.log.debug("make_module_extra added this: %s", txt)
+        return txt

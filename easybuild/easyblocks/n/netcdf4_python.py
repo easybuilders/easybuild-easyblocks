@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -38,7 +38,7 @@ class EB_netcdf4_minus_python(PythonPackage):
 
     def __init__(self, *args, **kwargs):
         """Custom constructor for netcdf4-python."""
-        super(EB_netcdf4_minus_python, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.options['modulename'] = 'netCDF4'
 
     def configure_step(self):
@@ -65,7 +65,7 @@ class EB_netcdf4_minus_python(PythonPackage):
         if curl:
             env.setvar('CURL_DIR', curl)
 
-        super(EB_netcdf4_minus_python, self).configure_step()
+        super().configure_step()
 
     def test_step(self):
         """Run netcdf4-python tests."""
@@ -82,10 +82,13 @@ class EB_netcdf4_minus_python(PythonPackage):
         # don't run tests that require network connectivity
         env.setvar('NO_NET', '1')
 
-        super(EB_netcdf4_minus_python, self).test_step()
+        super().test_step()
 
     def sanity_check_step(self):
         """Custom sanity check for netcdf4-python"""
+        # Required to have `self.pylibdir` set in --sanity-check-only mode
+        if self.python_cmd is None:
+            self.prepare_python()
         custom_paths = {
             'files': ['bin/nc3tonc4', 'bin/nc4tonc3', 'bin/ncinfo'],
             'dirs': [self.pylibdir],
@@ -100,5 +103,4 @@ class EB_netcdf4_minus_python(PythonPackage):
         if self.toolchain.options.get('usempi', None):
             custom_commands = [self.toolchain.mpi_cmd_for(cmd, 1) for cmd in custom_commands]
 
-        return super(EB_netcdf4_minus_python, self).sanity_check_step(custom_paths=custom_paths,
-                                                                      custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

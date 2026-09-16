@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -30,6 +30,7 @@ EasyBuild support for SCOTCH, implemented as an easyblock
 @author: Kenneth Hoste (Ghent University)
 @author: Pieter De Baets (Ghent University)
 @author: Jens Timmerman (Ghent University)
+@author: Thomas Hayward-Schneider (Max Planck Insitute for Plasma Physics)
 """
 import os
 from easybuild.tools import LooseVersion
@@ -40,7 +41,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, copy_dir, copy_file
 from easybuild.tools.filetools import remove_file, write_file
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_SCOTCH(EasyBlock):
@@ -61,7 +62,7 @@ class EB_SCOTCH(EasyBlock):
         comp_fam = self.toolchain.comp_family()
         if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
             makefilename = 'Makefile.inc.x86-64_pc_linux2.icc'
-        elif comp_fam == toolchain.GCC:  # @UndefinedVariable
+        elif comp_fam in [toolchain.GCC, toolchain.LLVM]:  # @UndefinedVariable
             makefilename = 'Makefile.inc.x86-64_pc_linux2'
         else:
             raise EasyBuildError("Unknown compiler family used: %s", comp_fam)
@@ -97,21 +98,19 @@ class EB_SCOTCH(EasyBlock):
         ccd = os.environ['MPICC']
 
         cflags = "-fPIC -O3 -DCOMMON_FILE_COMPRESS_GZ -DCOMMON_PTHREAD -DCOMMON_RANDOM_FIXED_SEED -DSCOTCH_RENAME"
-        if self.toolchain.comp_family() == toolchain.GCC:  # @UndefinedVariable
+        comp_fam = self.toolchain.comp_family()
+        if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
+            cflags += " -restrict -DIDXSIZE64"
+        elif comp_fam in [toolchain.GCC, toolchain.LLVM]:  # @UndefinedVariable
             cflags += " -Drestrict=__restrict"
         else:
-            cflags += " -restrict -DIDXSIZE64"
+            raise EasyBuildError("Unknown compiler family used: %s", comp_fam)
 
         # USE 64 bit index
         if self.toolchain.options['i8']:
             cflags += " -DINTSIZE64"
 
         if self.cfg['threadedmpi']:
-            cflags += " -DSCOTCH_PTHREAD"
-
-        # For backwards compatability of v2.8.0 this is necessary but could be removed on a major version upgrade
-        mpi_family = self.toolchain.mpi_family()
-        if self.cfg['threadedmpi'] is None and mpi_family not in [toolchain.INTELMPI, toolchain.QLOGICMPI]:
             cflags += " -DSCOTCH_PTHREAD"
 
         # actually build
@@ -122,7 +121,7 @@ class EB_SCOTCH(EasyBlock):
 
         for app in apps:
             cmd = 'make CCS="%s" CCP="%s" CCD="%s" CFLAGS="%s" %s' % (ccs, ccp, ccd, cflags, app)
-            run_cmd(cmd, log_all=True, simple=True)
+            run_shell_cmd(cmd)
 
     def install_step(self):
         """Install by copying files and creating group library file."""
@@ -176,4 +175,4 @@ class EB_SCOTCH(EasyBlock):
             # (for '5.1.12b_esmumps', check with 'version 5.1.12')
             custom_commands.append("acpl -V 2>&1 | grep 'version %s'" % self.version.split('_')[0].strip('ab'))
 
-        super(EB_SCOTCH, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

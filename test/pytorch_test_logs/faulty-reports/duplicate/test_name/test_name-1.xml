@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="4.2">
+    <testcase classname="TestName" name="test2" time="4.2" file="test_name.py"/>
+    <testcase classname="TestName" name="test2" time="4.2" file="test_name.py"/>
+  </testsuite>
+</testsuites>

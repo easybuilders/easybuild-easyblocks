@@ -1,5 +1,5 @@
 ##
-# Copyright 2013-2024 Ghent University
+# Copyright 2013-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,25 +32,27 @@ EasyBuild support for building and installing GROMACS, implemented as an easyblo
 @author: Guilherme Peretti-Pezzi (CSCS)
 @author: Oliver Stueker (Compute Canada/ACENET)
 @author: Davide Vanzo (Vanderbilt University)
+@author: Alex Domingo (Vrije Universiteit Brussel)
 """
 import glob
 import os
 import re
 import shutil
-from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
-from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
+from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, which
+from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, symlink, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
-from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext, get_cpu_features
+from easybuild.tools.utilities import nub
 from easybuild.tools.version import VERBOSE_VERSION as EASYBUILD_VERSION
 
 
@@ -63,26 +65,35 @@ class EB_GROMACS(CMakeMake):
         extra_vars.update({
             'double_precision': [None, "Build with double precision enabled (-DGMX_DOUBLE=ON), " +
                                  "default is to build double precision unless CUDA is enabled", CUSTOM],
+            'single_precision': [True, "Build with single precision enabled (-DGMX_DOUBLE=OFF), " +
+                                 "default is to build single precision", CUSTOM],
             'mpisuffix': ['_mpi', "Suffix to append to MPI-enabled executables (only for GROMACS < 4.6)", CUSTOM],
             'mpiexec': ['mpirun', "MPI executable to use when running tests", CUSTOM],
             'mpiexec_numproc_flag': ['-np', "Flag to introduce the number of MPI tasks when running tests", CUSTOM],
             'mpi_numprocs': [0, "Number of MPI tasks to use when running tests", CUSTOM],
+            'python_pkg': [None, "Build gmxapi Python package. None (default) is auto-detect." +
+                           "True or False forces behaviour.", CUSTOM],
             'ignore_plumed_version_check': [False, "Ignore the version compatibility check for PLUMED", CUSTOM],
-            'plumed': [None, "Try to apply PLUMED patches. None (default) is auto-detect. " +
-                       "True or False forces behaviour.", CUSTOM],
+            'plumed': [None, "Try to enable PLUMED support. None (default) is auto-detect. " +
+                       "'native' enables native PLUMED support for GROMACS 2025 and newer." +
+                       "'patch' (or True) applies PLUMED patches." +
+                       "False disables PLUMED support.", CUSTOM],
         })
-        extra_vars['separate_build_dir'][0] = True
         return extra_vars
 
     def __init__(self, *args, **kwargs):
         """Initialize GROMACS-specific variables."""
-        super(EB_GROMACS, self).__init__(*args, **kwargs)
-        self.lib_subdir = ''
+        super().__init__(*args, **kwargs)
+
+        self._lib_subdirs = []  # list of directories with libraries
+
         self.pre_env = ''
         self.cfg['build_shared_libs'] = self.cfg.get('build_shared_libs', False)
+
         if LooseVersion(self.version) >= LooseVersion('2019'):
             # Building the gmxapi interface requires shared libraries
             self.cfg['build_shared_libs'] = True
+
         if self.cfg['build_shared_libs']:
             self.libext = get_shared_lib_ext()
         else:
@@ -110,13 +121,13 @@ class EB_GROMACS(CMakeMake):
         # http://manual.gromacs.org/documentation/2018/install-guide/index.html#simd-support
         if 'MIC-AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512_KNL'
-        elif 'AVX512' in optarch and LooseVersion(self.version) >= LooseVersion('2016'):
+        elif ('AVX512' in optarch or 'X86-64-V4' in optarch) and LooseVersion(self.version) >= LooseVersion('2016'):
             res = 'AVX_512'
-        elif 'AVX2' in optarch and LooseVersion(self.version) >= LooseVersion('5.0'):
+        elif ('AVX2' in optarch or 'X86-64-V3' in optarch) and LooseVersion(self.version) >= LooseVersion('5.0'):
             res = 'AVX2_256'
         elif 'AVX' in optarch:
             res = 'AVX_256'
-        elif 'SSE3' in optarch or 'SSE2' in optarch or 'MARCH=NOCONA' in optarch:
+        elif 'SSE3' in optarch or 'SSE2' in optarch or 'MARCH=NOCONA' in optarch or 'X86-64-V2' in optarch:
             # Gromacs doesn't have any GMX_SIMD=SSE3 but only SSE2 and SSE4.1 [1].
             # According to [2] the performance difference between SSE2 and SSE4.1 is minor on x86
             # and SSE4.1 is not supported by AMD Magny-Cours[1].
@@ -140,6 +151,7 @@ class EB_GROMACS(CMakeMake):
 
         return res
 
+    @property
     def is_double_precision_cuda_build(self):
         """Check if the current build step involves double precision and CUDA"""
         cuda = get_software_root('CUDA')
@@ -162,7 +174,7 @@ class EB_GROMACS(CMakeMake):
 
         # This must be called after enforcing the precise option otherwise the
         # change will be ignored.
-        super(EB_GROMACS, self).prepare_step(*args, **kwargs)
+        super().prepare_step(*args, **kwargs)
 
     def configure_step(self):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
@@ -201,40 +213,101 @@ class EB_GROMACS(CMakeMake):
                     cuda_cc_semicolon_sep = self.cfg.get_cuda_cc_template_value(
                         "cuda_cc_semicolon_sep").replace('.', '')
                     self.cfg.update('configopts', '-DGMX_CUDA_TARGET_SM="%s"' % cuda_cc_semicolon_sep)
+
+                # Enable cuFFTMp or HeFFTe support for multi-GPU FFT support (added in v2023)
+                # if one of them (not both) is listed as a dependency
+                heffte_root = get_software_root('HeFFTe')
+                cufftmp_root = get_software_root('cuFFTMp')
+                if heffte_root and cufftmp_root:
+                    raise EasyBuildError("HeFFTe and cuFFTMp are both listed as dependency, but cannot be combined.")
+                if gromacs_version >= '2023' and heffte_root:
+                    self.cfg.update('configopts', '-DGMX_USE_HEFFTE=ON')
+                    self.cfg.update('configopts', '-DHeffte_ROOT=%s' % heffte_root)
+                if gromacs_version >= '2023' and cufftmp_root:
+                    self.cfg.update('configopts', '-DGMX_USE_CUFFTMP=ON')
+                    self.cfg.update('configopts', '-DcuFFTMp_ROOT=%s' % cufftmp_root)
+                    # Prevent that we pick up the cufft.h from CUDA itself instead of the one provided by cuFFTMp
+                    # by making a symlink to the latter in the GROMACS source dir (which is first in the search path)
+                    cufft_header = os.path.join(cufftmp_root, 'include', 'cufft.h')
+                    symlink(cufft_header, os.path.join(self.cfg['start_dir'], 'src', 'include', 'cufft.h'))
             else:
                 # explicitly disable GPU support if CUDA is not available,
                 # to avoid that GROMACS finds and uses a system-wide CUDA compiler
                 self.cfg.update('configopts', "-DGMX_GPU=OFF")
 
         # PLUMED detection
-        # enable PLUMED support if PLUMED is listed as a dependency
-        # and PLUMED support is either explicitly enabled (plumed = True) or unspecified ('plumed' not defined)
+        # enable PLUMED support if PLUMED is listed as a dependency.
+        # plumed = 'native' will enable GROMACS' native PLUMED support ('-DGMX_USE_PLUMED=ON')
+        # for GROMACS 2025 and newer. plumed = 'patch' specifically requests PLUMED patches.
+        # In auto-detect ('plumed = None' or not defined) will prefer native support for 2026
+        # and newer. For older versions of GROMACS, patches are applied to enable PLUMED support.
+        # plumed = True behaves like plumed = 'patch' for backwards compatibility.
         plumed_root = get_software_root('PLUMED')
+        plumed_patches = False
         if self.cfg['plumed'] and not plumed_root:
             msg = "PLUMED support has been requested but PLUMED is not listed as a dependency."
             raise EasyBuildError(msg)
         elif plumed_root and self.cfg['plumed'] is False:
             self.log.info('PLUMED was found, but compilation without PLUMED has been requested.')
             plumed_root = None
+        elif plumed_root and self.cfg['plumed'] == 'patch':
+            self.log.info('PLUMED was found, and PLUMED patching has been requested.')
+            plumed_patches = True
+        elif plumed_root and self.cfg['plumed'] == 'native':
+            msg = 'PLUMED was found, and native PLUMED support has been requested.'
+            if gromacs_version >= '2025':
+                msg += ' Will use native PLUMED support.'
+                plumed_patches = False
+                self.log.info(msg)
+            else:
+                msg += " Native PLUMED support is only available with GROMACS 2025 and newer."
+                raise EasyBuildError(msg)
+        elif plumed_root and self.cfg['plumed'] is True:
+            msg = 'PLUMED was found, and PLUMED support has been requested.'
+            msg += ' Will apply PLUMED patches.'
+            plumed_patches = True
+            self.log.info(msg)
+        elif plumed_root and self.cfg['plumed'] is None:
+            msg = 'PLUMED was found.'
+            if gromacs_version >= '2026':
+                # Even though native support is available since GROMACS 2025, we'll only use
+                # it as default with 2026 and newer to avoid a sudden change in behaviour.
+                msg += ' Will use native PLUMED support.'
+                plumed_patches = False
+            else:
+                msg += ' Will apply PLUMED patches.'
+                plumed_patches = True
+            self.log.info(msg)
 
         if plumed_root:
             self.log.info('PLUMED support has been enabled.')
 
-            # Need to check if PLUMED has an engine for this version
-            engine = 'gromacs-%s' % self.version
+            if gromacs_version >= '2025' and plumed_patches is False:
+                self.log.info('Native PLUMED support has been enabled.')
+                self.cfg.update('configopts', '-DGMX_USE_PLUMED=ON')
 
-            (out, _) = run_cmd("plumed-patch -l", log_all=True, simple=False)
-            if not re.search(engine, out):
-                plumed_ver = get_software_version('PLUMED')
-                msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version, out)
-                if self.cfg['ignore_plumed_version_check']:
-                    self.log.warning(msg)
-                else:
-                    raise EasyBuildError(msg)
+            else:
+                # Need to check if PLUMED has an engine for this version
+                engine = 'gromacs-%s' % self.version
 
-            # PLUMED patching must be done at different stages depending on
-            # version of GROMACS. Just prepare first part of cmd here
-            plumed_cmd = "plumed-patch -p -e %s" % engine
+                res = run_shell_cmd("plumed-patch -l")
+                if not re.search(engine, res.output):
+                    plumed_ver = get_software_version('PLUMED')
+                    msg = "There is no support in PLUMED version %s for GROMACS %s: %s" % (plumed_ver, self.version,
+                                                                                           res.output)
+                    if self.cfg['ignore_plumed_version_check']:
+                        self.log.warning(msg)
+                    else:
+                        raise EasyBuildError(msg)
+
+                # PLUMED patching must be done at different stages depending on
+                # version of GROMACS. Just prepare first part of cmd here
+                plumed_cmd = "plumed-patch -p -e %s" % engine
+
+        # Enable hwloc support (added in v2016) if it's listed as dependency
+        if gromacs_version >= '2016' and get_software_root('hwloc'):
+            self.cfg.update('configopts', '-DGMX_HWLOC=ON')
+            self.cfg.update('configopts', '-DHWLOC_DIR=%s' % get_software_root('hwloc'))
 
         # Ensure that the GROMACS log files report how the code was patched
         # during the build, so that any problems are easier to diagnose.
@@ -242,7 +315,7 @@ class EB_GROMACS(CMakeMake):
         if (gromacs_version >= '2020' and
                 '-DGMX_VERSION_STRING_OF_FORK=' not in self.cfg['configopts']):
             gromacs_version_string_suffix = 'EasyBuild-%s' % EASYBUILD_VERSION
-            if plumed_root:
+            if plumed_patches:
                 gromacs_version_string_suffix += '-PLUMED-%s' % get_software_version('PLUMED')
             self.cfg.update('configopts', '-DGMX_VERSION_STRING_OF_FORK=%s' % gromacs_version_string_suffix)
 
@@ -282,26 +355,31 @@ class EB_GROMACS(CMakeMake):
             ConfigureMake.configure_step(self)
 
             # Now patch GROMACS for PLUMED between configure and build
-            if plumed_root:
-                run_cmd(plumed_cmd, log_all=True, simple=True)
+            if plumed_root and plumed_patches:
+                self.log.info('Applying PLUMED patches to GROMACS.')
+                run_shell_cmd(plumed_cmd)
 
         else:
             if '-DGMX_MPI=ON' in self.cfg['configopts']:
                 mpi_numprocs = self.cfg.get('mpi_numprocs', 0)
                 if mpi_numprocs == 0:
                     self.log.info("No number of test MPI tasks specified -- using default: %s",
-                                  self.cfg['parallel'])
-                    mpi_numprocs = self.cfg['parallel']
+                                  self.cfg.parallel)
+                    mpi_numprocs = self.cfg.parallel
 
-                elif mpi_numprocs > self.cfg['parallel']:
+                elif mpi_numprocs > self.cfg.parallel:
                     self.log.warning("Number of test MPI tasks (%s) is greater than value for 'parallel': %s",
-                                     mpi_numprocs, self.cfg['parallel'])
+                                     mpi_numprocs, self.cfg.parallel)
 
                 mpiexec = self.cfg.get('mpiexec')
                 if mpiexec:
                     mpiexec_path = which(mpiexec)
                     if mpiexec_path:
-                        self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec_path)
+                        cmake_version = get_software_version("CMake")
+                        if cmake_version >= '3.10':
+                            self.cfg.update('configopts', "-DMPIEXEC_EXECUTABLE=%s" % mpiexec_path)
+                        else:
+                            self.cfg.update('configopts', "-DMPIEXEC=%s" % mpiexec_path)
                         self.cfg.update('configopts', "-DMPIEXEC_NUMPROC_FLAG=%s" %
                                         self.cfg.get('mpiexec_numproc_flag'))
                         self.cfg.update('configopts', "-DNUMPROC=%s" % mpi_numprocs)
@@ -321,7 +399,14 @@ class EB_GROMACS(CMakeMake):
                 if gromacs_version >= '2020':
                     # build Python bindings if Python is loaded as a dependency
                     python_root = get_software_root('Python')
-                    if python_root:
+                    if self.cfg['python_pkg'] and not python_root:
+                        msg = "Building Python gmxapi has been requested but Python is not listed as a dependency."
+                        raise EasyBuildError(msg)
+                    elif python_root and self.cfg['python_pkg'] is False:
+                        msg = "Python was found, but compilation without Python gmxapi has been requested."
+                        self.log.info(msg)
+                        self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=OFF")
+                    elif python_root:
                         self.cfg.update('configopts', "-DGMX_PYTHON_PACKAGE=ON")
                         bin_python = os.path.join(python_root, 'bin', 'python')
                         # For find_package(PythonInterp)
@@ -331,7 +416,7 @@ class EB_GROMACS(CMakeMake):
                             self.cfg.update('configopts', "-DPython3_FIND_VIRTUALENV=STANDARD")
 
             # Now patch GROMACS for PLUMED before cmake
-            if plumed_root:
+            if plumed_root and plumed_patches:
                 if gromacs_version >= '5.1':
                     # Use shared or static patch depending on
                     # setting of self.cfg['build_shared_libs']
@@ -343,7 +428,7 @@ class EB_GROMACS(CMakeMake):
                         mode = 'static'
                     plumed_cmd = plumed_cmd + ' -m %s' % mode
 
-                run_cmd(plumed_cmd, log_all=True, simple=True)
+                run_shell_cmd(plumed_cmd)
 
             # prefer static libraries, if available
             if self.cfg['build_shared_libs']:
@@ -354,8 +439,9 @@ class EB_GROMACS(CMakeMake):
             # always specify to use external BLAS/LAPACK
             self.cfg.update('configopts', "-DGMX_EXTERNAL_BLAS=ON -DGMX_EXTERNAL_LAPACK=ON")
 
-            # disable GUI tools
-            self.cfg.update('configopts', "-DGMX_X11=OFF")
+            if gromacs_version < '2023':
+                # disable GUI tools, removed in v2023
+                self.cfg.update('configopts', "-DGMX_X11=OFF")
 
             # convince to build for an older architecture than present on the build node by setting GMX_SIMD CMake flag
             # it does not make sense for Cray, because OPTARCH is defined by the Cray Toolchain
@@ -369,7 +455,7 @@ class EB_GROMACS(CMakeMake):
 
             # set regression test path
             prefix = 'regressiontests'
-            if any([src['name'].startswith(prefix) for src in self.src]):
+            if any(src['name'].startswith(prefix) for src in self.src):
                 self.cfg.update('configopts', "-DREGRESSIONTEST_PATH='%%(builddir)s/%s-%%(version)s' " % prefix)
 
             # enable OpenMP support if desired
@@ -378,8 +464,8 @@ class EB_GROMACS(CMakeMake):
             else:
                 self.cfg.update('configopts', "-DGMX_OPENMP=OFF")
 
-            imkl_root = get_software_root('imkl')
-            if imkl_root:
+            imkl_direct = get_software_root("imkl") and not get_software_root("FlexiBLAS")
+            if imkl_direct:
                 # using MKL for FFT, so it will also be used for BLAS/LAPACK
                 imkl_include = os.path.join(os.getenv('MKLROOT'), 'mkl', 'include')
                 self.cfg.update('configopts', '-DGMX_FFT_LIBRARY=mkl -DMKL_INCLUDE_DIR="%s" ' % imkl_include)
@@ -428,7 +514,7 @@ class EB_GROMACS(CMakeMake):
                     env.setvar('LDFLAGS', "%s -L%s %s" % (ldflags, os.path.join(root, libdir), link_flag))
 
             # complete configuration with configure_method of parent
-            out = super(EB_GROMACS, self).configure_step()
+            out = super().configure_step()
 
             # for recent GROMACS versions, make very sure that a decent BLAS, LAPACK and FFT is found and used
             if gromacs_version >= '4.6.5':
@@ -457,15 +543,15 @@ class EB_GROMACS(CMakeMake):
         iteration is for double precision
         """
 
-        if self.is_double_precision_cuda_build():
+        if self.is_double_precision_cuda_build:
             self.log.info("skipping build step")
         else:
-            super(EB_GROMACS, self).build_step()
+            super().build_step()
 
     def test_step(self):
         """Run the basic tests (but not necessarily the full regression tests) using make check"""
 
-        if self.is_double_precision_cuda_build():
+        if self.is_double_precision_cuda_build:
             self.log.info("skipping test step")
         else:
             # allow to escape testing by setting runtest to False
@@ -501,8 +587,8 @@ class EB_GROMACS(CMakeMake):
 
                 # run 'make check' or whatever the easyconfig specifies
                 # in parallel since it involves more compilation
-                self.cfg.update('runtest', "-j %s" % self.cfg['parallel'])
-                super(EB_GROMACS, self).test_step()
+                self.cfg.update('runtest', f"-j {self.cfg.parallel}")
+                super().test_step()
 
                 if build_option('rpath'):
                     # clean up temporary copy of 'lib' in installation directory,
@@ -521,12 +607,12 @@ class EB_GROMACS(CMakeMake):
         Custom install step for GROMACS; figure out where libraries were installed to.
         """
         # Skipping if CUDA is enabled and the current iteration is double precision
-        if self.is_double_precision_cuda_build():
+        if self.is_double_precision_cuda_build:
             self.log.info("skipping install step")
         else:
             # run 'make install' in parallel since it involves more compilation
-            self.cfg.update('installopts', "-j %s" % self.cfg['parallel'])
-            super(EB_GROMACS, self).install_step()
+            self.cfg.update('installopts', f"-j {self.cfg.parallel}")
+            super().install_step()
 
     def extensions_step(self, fetch=False):
         """ Custom extensions step, only handle extensions after the last iteration round"""
@@ -541,54 +627,69 @@ class EB_GROMACS(CMakeMake):
             # run "check" as a command
             orig_runtest = self.cfg['runtest']
             self.cfg['runtest'] = None
-            super(EB_GROMACS, self).extensions_step(fetch)
+            super().extensions_step(fetch)
             self.cfg['runtest'] = orig_runtest
 
-    def get_lib_subdir(self):
-        # the GROMACS libraries get installed in different locations (deeper subdirectory),
-        # depending on the platform;
-        # this is determined by the GNUInstallDirs CMake module;
-        # rather than trying to replicate the logic, we just figure out where the library was placed
-
-        if LooseVersion(self.version) < LooseVersion('5.0'):
-            libname = 'libgmx*.%s' % self.libext
-        else:
-            libname = 'libgromacs*.%s' % self.libext
-        lib_subdir = None
-        for libdir in ['lib', 'lib64']:
-            if os.path.exists(os.path.join(self.installdir, libdir)):
-                for subdir in [libdir, os.path.join(libdir, '*')]:
-                    libpaths = glob.glob(os.path.join(self.installdir, subdir, libname))
-                    if libpaths:
-                        lib_subdir = os.path.dirname(libpaths[0])[len(self.installdir) + 1:]
-                        self.log.info("Found lib subdirectory that contains %s: %s", libname, lib_subdir)
-                        break
-        if not lib_subdir:
-            raise EasyBuildError("Failed to determine lib subdirectory in %s", self.installdir)
-
-        return lib_subdir
-
-    def make_module_req_guess(self):
-        """Custom library subdirectories for GROMACS."""
-        guesses = super(EB_GROMACS, self).make_module_req_guess()
-        if not self.lib_subdir:
+    @property
+    def lib_subdirs(self):
+        """Return list of relative paths to subdirs holding library files"""
+        if len(self._lib_subdirs) == 0:
             try:
-                self.lib_subdir = self.get_lib_subdir()
+                self._lib_subdirs = self.get_lib_subdirs()
             except EasyBuildError as error:
                 if build_option('force') and build_option('module_only'):
-                    self.log.info("No lib subdirectory directory found in installation: %s", error)
+                    self.log.info(f"No sub-directory with GROMACS libraries found in installation: {error}")
                     self.log.info("You are forcing module creation for a non-existent installation!")
                 else:
                     raise error
-        guesses.update({
-            'LD_LIBRARY_PATH': [self.lib_subdir],
-            'LIBRARY_PATH': [self.lib_subdir],
-            'PKG_CONFIG_PATH': [os.path.join(self.lib_subdir, 'pkgconfig')],
-        })
-        return guesses
+
+        return self._lib_subdirs
+
+    def get_lib_subdirs(self):
+        """
+        Return list of relative paths to sub-directories that contain GROMACS libraries
+
+        The GROMACS libraries get installed in different locations (deeper subdirectory),
+        depending on the platform;
+        this is determined by the GNUInstallDirs CMake module;
+        rather than trying to replicate the logic, we just figure out where the library was placed
+        """
+
+        if LooseVersion(self.version) < LooseVersion('5.0'):
+            libname = f'libgmx*.{self.libext}'
+        else:
+            libname = f'libgromacs*.{self.libext}'
+
+        lib_subdirs = []
+        real_installdir = os.path.realpath(self.installdir)
+        for lib_path in glob.glob(os.path.join(real_installdir, '**', libname), recursive=True):
+            lib_relpath = os.path.realpath(lib_path)  # avoid symlinks
+            lib_relpath = lib_relpath[len(real_installdir) + 1:]  # relative path from installdir
+            subdir = lib_relpath.split(os.sep)[0:-1]
+            lib_subdirs.append(os.path.join(*subdir))
+
+        if len(lib_subdirs) == 0:
+            raise EasyBuildError(f"Failed to determine sub-directory with {libname} in {self.installdir}")
+
+        # remove duplicates, 'libname' pattern can match symlinks to actual library file
+        lib_subdirs = nub(lib_subdirs)
+        self.log.info(f"Found sub-directories that contain {libname}: {', '.join(lib_subdirs)}")
+
+        return lib_subdirs
+
+    def make_module_step(self, *args, **kwargs):
+        """Custom library subdirectories for GROMACS."""
+        self.module_load_environment.LD_LIBRARY_PATH = self.lib_subdirs
+        self.module_load_environment.LIBRARY_PATH = self.lib_subdirs
+        self.module_load_environment.PKG_CONFIG_PATH = [os.path.join(ld, 'pkgconfig') for ld in self.lib_subdirs]
+
+        return super().make_module_step(*args, **kwargs)
 
     def sanity_check_step(self):
         """Custom sanity check for GROMACS."""
+
+        # Load module to prepare environment for sanity check.
+        mod_data = super().sanity_check_load_module()
 
         dirs = [os.path.join('include', 'gromacs')]
 
@@ -656,24 +757,22 @@ class EB_GROMACS(CMakeMake):
         if dsuff:
             suffixes.extend([dsuff])
 
-        lib_files.extend([
-            'lib%s%s.%s' % (x, suff, self.libext) for x in libnames + mpi_libnames for suff in suffixes
-        ])
+        lib_files.extend([f'lib{x}{suff}.{self.libext}' for x in libnames + mpi_libnames for suff in suffixes])
         bin_files.extend([b + suff for b in bins + mpi_bins for suff in suffixes])
-
-        if not self.lib_subdir:
-            self.lib_subdir = self.get_lib_subdir()
 
         # pkgconfig dir not available for earlier versions, exact version to use here is unclear
         if LooseVersion(self.version) >= LooseVersion('4.6'):
-            dirs.append(os.path.join(self.lib_subdir, 'pkgconfig'))
+            dirs.extend([os.path.join(ld, 'pkgconfig') for ld in self.lib_subdirs])
 
         custom_paths = {
             'files': [os.path.join('bin', b) for b in bin_files] +
-            [os.path.join(self.lib_subdir, lib) for lib in lib_files],
+            [os.path.join(libdir, lib) for libdir in self.lib_subdirs for lib in lib_files],
             'dirs': dirs,
         }
-        super(EB_GROMACS, self).sanity_check_step(custom_paths=custom_paths)
+        super().sanity_check_step(custom_paths=custom_paths)
+
+        if mod_data:
+            self.clean_up_fake_module(mod_data)
 
     def run_all_steps(self, *args, **kwargs):
         """
@@ -743,9 +842,14 @@ class EB_GROMACS(CMakeMake):
                 'mpi': 'install'
             }
 
-        precisions = ['single']
+        precisions = []
+        if self.cfg.get('single_precision'):
+            precisions.append('single')
         if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
             precisions.append('double')
+
+        if precisions == []:
+            raise EasyBuildError("No precision selected. At least one of single/double_precision must be unset or True")
 
         mpitypes = ['nompi']
         if self.toolchain.options.get('usempi', None):
@@ -781,7 +885,7 @@ class EB_GROMACS(CMakeMake):
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
         self.log.info("Building these variants of GROMACS: %s", ', '.join(versions_built))
-        return super(EB_GROMACS, self).run_all_steps(*args, **kwargs)
+        return super().run_all_steps(*args, **kwargs)
 
         self.cfg['install_cmd'] = self.orig_install_cmd
         self.cfg['build_cmd'] = self.orig_build_cmd

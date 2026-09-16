@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="TestFooCPU-20251030150550" tests="1" file=".py" time="0.013" timestamp="2025-10-30T15:05:50" failures="0" errors="0" skipped="0">
+	<testcase classname="TestFooCPU" name="test_bar_cpu" time="0.013" timestamp="2025-10-30T15:05:50">
+		<system-out><![CDATA[called with TestFooCPU
+]]></system-out>
+	</testcase>
+</testsuite>

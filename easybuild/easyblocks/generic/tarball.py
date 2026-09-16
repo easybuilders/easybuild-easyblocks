@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -40,8 +40,8 @@ import os
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import copy_dir, extract_file, remove_dir
-from easybuild.tools.run import run_cmd
+from easybuild.tools.filetools import clean_dir, copy_dir, extract_file, remove_dir
+from easybuild.tools.run import run_shell_cmd
 
 
 class Tarball(ExtensionEasyBlock):
@@ -72,7 +72,7 @@ class Tarball(ExtensionEasyBlock):
         """
         pass
 
-    def run(self, *args, **kwargs):
+    def install_extension(self, *args, **kwargs):
         """Install as extension: unpack sources and copy (via install step)."""
         if self.cfg['install_type'] is None:
             self.log.info("Auto-enabled install_type=merge because Tarball is being used to install an extension")
@@ -94,7 +94,7 @@ class Tarball(ExtensionEasyBlock):
             preinstall_cmd = '&& '.join([cmd for cmd in [preinstall_cmd, self.cfg['preinstall_cmd']] if cmd])
         if preinstall_cmd:
             self.log.info("Preparing installation of %s using command '%s'..." % (self.name, preinstall_cmd))
-            run_cmd(preinstall_cmd, log_all=True, simple=True)
+            run_shell_cmd(preinstall_cmd)
 
         # Copy source directory
         source_path = src or self.cfg['start_dir']
@@ -102,27 +102,23 @@ class Tarball(ExtensionEasyBlock):
         if self.cfg['install_type'] == 'subdir':
             # Wipe and install in a sub-directory with the name of the package
             install_path = os.path.join(self.installdir, self.name.lower())
-            dirs_exist_ok = False
             install_logmsg = "Copying tarball contents of %s to sub-directory %s..."
+            remove_dir(install_path)
         elif self.cfg['install_type'] == 'merge':
             # Enable merging with root of existing installdir
             install_path = self.installdir
-            dirs_exist_ok = True
             install_logmsg = "Merging tarball contents of %s into %s..."
         elif self.cfg['install_type'] is None:
-            # Wipe and copy root of installation directory (default)
+            # Clean and copy root of installation directory (default)
             install_path = self.installdir
-            dirs_exist_ok = False
-            install_logmsg = "Copying tarball contents of %s into %s after wiping it..."
+            install_logmsg = "Copying tarball contents of %s into %s after cleaning it..."
+            clean_dir(install_path)
         else:
             raise EasyBuildError("Unknown option '%s' for index_type.", self.cfg['install_type'])
 
         self.log.info(install_logmsg, self.name, install_path)
 
-        if not dirs_exist_ok:
-            remove_dir(install_path)
-
-        copy_dir(source_path, install_path, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=dirs_exist_ok)
+        copy_dir(source_path, install_path, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=True)
 
     def sanity_check_rpath(self):
         """Skip the rpath sanity check, this is binary software"""

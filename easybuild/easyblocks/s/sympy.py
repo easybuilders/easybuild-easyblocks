@@ -1,5 +1,5 @@
 ##
-# Copyright 2009-2024 Ghent University
+# Copyright 2009-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -34,23 +34,22 @@ import tempfile
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 
+from easybuild.tools import LooseVersion
+
 
 class EB_sympy(PythonPackage):
     """Custom easyblock for installing the sympy Python package."""
 
-    @staticmethod
-    def extra_options(extra_vars=None):
-        """Customize default value for easyconfig parameters for sympy"""
-        extra_vars = PythonPackage.extra_options(extra_vars=extra_vars)
-        extra_vars['use_pip'][0] = True
-        extra_vars['sanity_pip_check'][0] = True
-        extra_vars['download_dep_fail'][0] = True
-        return extra_vars
-
     def test_step(self):
         """Custom test step for sympy"""
-
-        self.cfg['runtest'] = "python setup.py test"
+        self.testinstall = True
+        if LooseVersion(self.version) >= LooseVersion('1.13.0'):
+            self.cfg['runtest'] = 'python -s -m pytest -ra --tb=short sympy'
+        else:
+            self.cfg['runtest'] = (
+                "python -s -c 'from sympy.testing.runtests import test; "
+                "import sys; sys.exit(0 if test() else 1)'"
+            )
 
         # we need to make sure that the temporary directory being used is not a symlinked path;
         # see https://github.com/easybuilders/easybuild-easyconfigs/issues/17593
@@ -60,7 +59,7 @@ class EB_sympy(PythonPackage):
         msg += "to avoid failing tests due to the temporary directory being a symlinked path..."
         self.log.info(msg)
 
-        super(EB_sympy, self).test_step(self)
+        super().test_step()
 
         # restore original temporary directory
         tempfile.tempdir = original_tmpdir
@@ -78,4 +77,4 @@ class EB_sympy(PythonPackage):
 
         custom_commands = ["isympy --help"]
 
-        return super(EB_sympy, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

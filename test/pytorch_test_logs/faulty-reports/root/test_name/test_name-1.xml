@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!-- Missing testsuite/testsuites at root -->
+<testcase classname="MissingRootTag" name="test1" time="3.14" file="test_name.py"/>

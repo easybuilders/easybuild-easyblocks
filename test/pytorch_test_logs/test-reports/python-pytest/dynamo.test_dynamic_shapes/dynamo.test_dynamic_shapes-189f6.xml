@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<testsuites>
+  <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="4" time="4.2">
+    <testcase classname="DynamicShapesMiscTests" name="test_packaging_version_parse_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py">
+      <system-out>[snip]</system-out>
+    </testcase>
+    <testcase classname="DynamicShapesMiscTests" name="test_pair_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py">
+      <system-out>[snip]</system-out>
+    </testcase>
+    <testcase classname="DynamicShapesMiscTests" name="test_param_shape_binops_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py">
+      <system-out>[snip]</system-out>
+    </testcase>
+    <testcase classname="DynamicShapesMiscTests" name="test_parameter_free_dynamic_shapes" time="4.2" file="dynamo/test_dynamic_shapes.py">
+      <rerun message="...">[snip]</rerun>
+      <rerun message="...">[snip]</rerun>
+      <failure message="...">[snip]</failure>
+      <system-out>[snip]</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

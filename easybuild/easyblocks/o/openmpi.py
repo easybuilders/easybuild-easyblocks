@@ -1,5 +1,5 @@
 ##
-# Copyright 2019-2024 Ghent University
+# Copyright 2019-2026 Ghent University
 #
 # This file is part of EasyBuild,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -32,6 +32,7 @@ import os
 import re
 from easybuild.tools import LooseVersion
 
+import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig.constants import EASYCONFIG_CONSTANTS
@@ -75,15 +76,20 @@ class EB_OpenMPI(ConfigureMake):
         if LooseVersion(self.version) >= '5.0.0':
             known_dependencies.append('PRRTE')
 
+            # ROCm support added to OpenMPI after 5.0.x
+            rocmroot = get_software_root('ROCm-LLVM')
+            if rocmroot:
+                known_dependencies.append('HIP')
+
         # Value to use for `--with-<dep>=<value>` if the dependency is not specified in the easyconfig
         # No entry is interpreted as no option added at all
         # This is to make builds reproducible even when the system libraries are changed and avoids failures
         # due to e.g. finding only PMIx but not libevent on the system
-        unused_dep_value = dict()
+        unused_dep_value = {}
         # Known options since version 3.0 (no earlier ones checked)
         if LooseVersion(self.version) >= LooseVersion('3.0'):
             # Default to disable the option with "no"
-            unused_dep_value = {dep: 'no' for dep in known_dependencies}
+            unused_dep_value = dict.fromkeys(known_dependencies, 'no')
             # For these the default is to use an internal copy and not using any is not supported
             for dep in ('hwloc', 'libevent', 'PMIx'):
                 unused_dep_value[dep] = 'internal'
@@ -100,9 +106,14 @@ class EB_OpenMPI(ConfigureMake):
             # libfabric option renamed in OpenMPI 3.1.0 to ofi
             if dep == 'libfabric' and LooseVersion(self.version) >= LooseVersion('3.1'):
                 opt_name = 'ofi'
-                # Check new option name. They are synonyms since 3.1.0 for backward compatibility
-                if config_opt_used(opt_name):
-                    continue
+
+            # needed in easybuild setup as rocm-llvm and hip live in separate dirs
+            if dep == 'HIP' and LooseVersion(self.version) >= LooseVersion('5.0'):
+                opt_name = 'rocm'
+
+            # check again if option is already used, using new name
+            if config_opt_used(opt_name):
+                continue
 
             dep_root = get_software_root(dep)
             # If the dependency is loaded, specify its path, else use the "unused" value, if any
@@ -140,7 +151,14 @@ class EB_OpenMPI(ConfigureMake):
                 else:
                     self.cfg.update('configopts', '--without-verbs')
 
-        super(EB_OpenMPI, self).configure_step()
+        if '--with-pmix' in self.cfg['configopts']:
+            # Unset PMIX variables potentially set by SLURM which may cause configure errors such as
+            # > configure: WARNING: OPAL_VAR_SCOPE_PUSH called on "PMIX_VERSION",
+            # > configure: WARNING: but it is already defined with value "3.2.3"
+            # > configure: WARNING: This usually indicates an error in configure.
+            # > configure: error: Cannot continue
+            env.unset_env_vars([v for v in os.environ if v.startswith("PMIX_")])
+        super().configure_step()
 
     def test_step(self):
         """Test step for OpenMPI"""
@@ -148,7 +166,7 @@ class EB_OpenMPI(ConfigureMake):
         if self.cfg['runtest'] is None:
             self.cfg['runtest'] = 'check'
 
-        super(EB_OpenMPI, self).test_step()
+        super().test_step()
 
     def load_module(self, *args, **kwargs):
         """
@@ -156,7 +174,7 @@ class EB_OpenMPI(ConfigureMake):
 
         Also put RPATH wrappers back in place if needed, to ensure that sanity check commands work as expected.
         """
-        super(EB_OpenMPI, self).load_module(*args, **kwargs)
+        super().load_module(*args, **kwargs)
 
         # ensure RPATH wrappers are in place, otherwise compiling minimal test programs will fail
         if build_option('rpath'):
@@ -209,17 +227,33 @@ class EB_OpenMPI(ConfigureMake):
         if expected['mpif90'] == 'pgf90':
             expected['mpif90'] = 'pgfortran'
         # for Clang the pattern is always clang
-        for key in ['mpicxx', 'mpifort', 'mpif90']:
-            if expected[key] in ['clang++', 'flang']:
+        for key in ['mpicc', 'mpicxx']:
+            if expected[key] in ['clang++', 'amdclang', 'amdclang++']:
                 expected[key] = 'clang'
+        # for flang/flang-new the pattern is always flang
+        for key in ['mpifort', 'mpif90']:
+            if expected[key] in ['flang', 'flang-new', 'amdflang']:
+                expected[key] = 'flang'
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
 
+        rocmroot = get_software_root('ROCm-LLVM')
+        if rocmroot:
+            custom_commands.extend([
+                "ompi_info | grep -i 'rocm'",
+                # ROCm MPI extension is built and exposed
+                "ompi_info --all | grep -E 'MPI extensions:.*rocm'",
+                # The ROCm accelerator framework component is present
+                "ompi_info | grep -E 'MCA accelerator: rocm'",
+            ])
+            if get_software_root('UCX') or get_software_root('UCX-ROCm'):
+                custom_commands.append("ompi_info --param pml ucx --level 9 | grep -i rocm_ipc")
+
         # Add minimal test program to sanity checks
         # Run with correct MPI launcher
-        mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, dict(), mpi_version=self.version)
+        mpi_cmd_tmpl, params = get_mpi_cmd_template(toolchain.OPENMPI, {}, mpi_version=self.version)
         # Limit number of ranks to 8 to avoid it failing due to hyperthreading
-        ranks = min(8, self.cfg['parallel'])
+        ranks = min(8, self.cfg.parallel)
         for srcdir, src, compiler in (
             ('examples', 'hello_c.c', 'mpicc'),
             ('examples', 'hello_mpifh.f', 'mpifort'),
@@ -253,4 +287,4 @@ class EB_OpenMPI(ConfigureMake):
                     params['nr_ranks'] = 1
                     custom_commands.append(mpi_cmd_tmpl % params)
 
-        super(EB_OpenMPI, self).sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

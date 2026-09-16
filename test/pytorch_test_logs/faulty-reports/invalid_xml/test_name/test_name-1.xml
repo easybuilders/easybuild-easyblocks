@@ -1,0 +1,5 @@
+<testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="4.2">
+  <testcase classname="TestName" name="test1" time="4.2" file="test_name.py">
+  <!-- wrong closing tag so XML fails to parse -->
+  </wrong>
+</testsuite>

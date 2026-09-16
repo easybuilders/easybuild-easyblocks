@@ -11,7 +11,7 @@ import os
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import mkdir, symlink
-from easybuild.tools.run import run_cmd
+from easybuild.tools.run import run_shell_cmd
 
 
 class EB_Chimera(PackedBinary):
@@ -22,7 +22,7 @@ class EB_Chimera(PackedBinary):
         to obtain chimera.bin installer."""
 
         cmd = "unzip -d %s %s" % (self.builddir, self.src[0]['path'])
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
     def install_step(self):
         """Install using chimera.bin."""
@@ -41,7 +41,7 @@ class EB_Chimera(PackedBinary):
         # root directory.
         cmd = "./chimera.bin -q -d %s" % os.path.join(self.installdir,
                                                       'chimera')
-        run_cmd(cmd, log_all=True, simple=True)
+        run_shell_cmd(cmd)
 
         # Create a symlink to the Chimera startup script; this symlink
         # will end up in PATH.  The startup script sets up the
