@@ -263,7 +263,9 @@ class RPackage(ExtensionEasyBlock):
                         dep_names = [x.split('(')[0].strip() for x in line.split(':', 1)[1].split(',')]
                         deps.extend([d for d in dep_names if d not in ('', 'R', self.name)])
 
-                self._required_deps = deps_map.get(self.name, [])
+                # 'modulename' denotes the actual R package name when it differs from the extension name.
+                pkg_name = self.options.get('modulename') or self.name
+                self._required_deps = deps_map.get(pkg_name, [])
                 self.log.info("Required dependencies for %s: %s", self.name, self._required_deps)
             else:
                 # no source => no required dependencies assumed
