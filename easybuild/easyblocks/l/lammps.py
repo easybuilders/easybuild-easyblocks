@@ -822,7 +822,7 @@ class EB_LAMMPS(CMakeMake):
             else:
                 set_env_var_cmd = "export OMPI_MCA_rmaps_base_oversubscribe=1"
 
-        custom_commands = [f"{set_env_var_cmd} && {cmd}" for cmd in custom_commands]
+            custom_commands = [f"{set_env_var_cmd} && {cmd}" for cmd in custom_commands]
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
