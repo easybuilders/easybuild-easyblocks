@@ -634,9 +634,9 @@ class EB_GROMACS(CMakeMake):
                 if not all(version_parts):
                     raise EasyBuildError(f"Failed to extract extension version from {version_py}")
                 version = '.'.join(part[1] for part in version_parts)
-                m_suffix = re.search("""_suffix += +["'].*?["']""", version_py_txt)
+                m_suffix = re.search("""_suffix += +["'](.*?)["']""", version_py_txt)
                 if m_suffix:
-                    version += m_suffix
+                    version += m_suffix[1]
                 self.log.info(f"Determined version '{version}' from {version_py}")
                 apply_regex_substitutions(pyproject_toml, [('^version = .*', f'version= "{version}"')])
             # Reset installopts etc for the benefit of the gmxapi extension
