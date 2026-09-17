@@ -629,8 +629,8 @@ class EB_GROMACS(CMakeMake):
             else:
                 self.log.info(f'Updating Python extension version in {pyproject_toml} from {version_py}')
                 version_py_txt = read_file(version_py)
-                names = ['_major', '_minor', '_micro', '_suffix']
-                version_parts = [re.search(f"{name} += +(.*)", version_py_txt) for name in names]
+                names = ['_major', '_minor', '_micro']
+                version_parts = [re.search(fr"{name} += +(\d+)", version_py_txt) for name in names]
                 if not all(version_parts):
                     raise EasyBuildError(f"Failed to extract extension version from {version_py}")
                 version = '.'.join(part[1] for part in version_parts)
