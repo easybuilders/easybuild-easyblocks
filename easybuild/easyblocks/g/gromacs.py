@@ -101,6 +101,34 @@ class EB_GROMACS(CMakeMake):
         else:
             self.libext = 'a'
 
+        with self.cfg.disable_templating():
+            if 'GMX_TEST_TIMEOUT_FACTOR' not in self.cfg['configopts']:
+                # be a bit more forgiving w.r.t. timeouts for GROMACS test suite,
+                # see also https://gitlab.com/gromacs/gromacs/-/issues/5062
+                self.cfg.update('configopts', '-DGMX_TEST_TIMEOUT_FACTOR=3')
+
+        # Set defaults for gmxapi extension if specified
+        exts_list: list = self.cfg.get_ref('exts_list')
+        if exts_list:
+            idx_gmxapi = next((i for i, ext in enumerate(exts_list)
+                               if len(ext) >= 2 and ext[0] == 'gmxapi'), None)
+            if idx_gmxapi is not None:
+                gmx_api = exts_list[idx_gmxapi]
+                if len(gmx_api) < 3:
+                    gmx_api = (gmx_api[0], gmx_api[1], {})
+                opts: dict = gmx_api[2]
+                # If not otherwise specified use the same sources for the Python package
+                if 'source_tmpl' not in opts and 'sources' not in opts:
+                    opts.setdefault('nosource', True)
+                    opts.setdefault('start_dir', 'python_packaging/gmxapi')
+                # Ensure using the correct config (set by the main package)
+                opts.setdefault('preinstallopts',
+                                'export CMAKE_ARGS="-Dgmxapi_ROOT=%(installdir)s '
+                                '-C %(installdir)s/share/cmake/gromacs_mpi/gromacs-hints_mpi.cmake" && ')
+                if not self.cfg['exts_defaultclass']:
+                    opts.setdefault('easyblock', 'PythonPackage')
+                exts_list[idx_gmxapi] = gmx_api
+
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
 
@@ -789,7 +817,22 @@ class EB_GROMACS(CMakeMake):
             [os.path.join(libdir, lib) for libdir in self.lib_subdirs for lib in lib_files],
             'dirs': dirs,
         }
-        super().sanity_check_step(custom_paths=custom_paths)
+
+        gmx_api_version = next((ext[1] for ext in self.cfg['exts_list']
+                                if isinstance(ext, tuple) and ext[0] == 'gmxapi'),
+                               None)
+        if gmx_api_version:
+            # Ensure the version specified in the easyconfig is the same as that of the package info
+            py_code = '\n'.join([
+                'import sys; from gmxapi.version import __version__ as version',
+                'print(version)',
+                f'sys.exit(0 if version == "{gmx_api_version}" else 1)',
+            ])
+            custom_commands = [f"python -sc '{py_code}'"]
+        else:
+            custom_commands = None
+
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
         if mod_data:
             self.clean_up_fake_module(mod_data)
