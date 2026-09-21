@@ -356,3 +356,21 @@ class EB_Kokkos(CMakeMake):
             "hpcbind --help",
         ]
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra(self):
+        """
+        Set NVCC_WRAPPER_DEFAULT_COMPILER to the original compiler name, since
+        Kokkos will use the rpath wrapper path to build Kokkos itself, leading
+        to build issues for other packages. Do not use the full compiler path,
+        so that future software can make use of rpath wrappers via buildenv or
+        a module build with rpath enabled.
+        """
+
+        txt = super().make_module_extra()
+
+        if self.cuda:
+            txt += self.module_generator.set_environment('NVCC_WRAPPER_DEFAULT_COMPILER',
+                                                         self.toolchain.get_variable('CXX'))
+            self.log.debug("make_module_extra added this: %s", txt)
+
+        return txt
