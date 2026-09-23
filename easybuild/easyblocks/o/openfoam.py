@@ -553,6 +553,8 @@ class EB_OpenFOAM(EasyBlock):
             'dirs': dirs,
         }
 
+        pre_cmds = []
+
         # run motorBike tutorial case to ensure the installation is functional (if it's available);
         # only for recent (>= v6.0) versions of openfoam.org variant
         # could be turned off by set 'sanity_check_motorbike' to False (default True)
@@ -589,7 +591,7 @@ class EB_OpenFOAM(EasyBlock):
             if self.looseversion <= LooseVersion('10'):
                 cmds = [
                     "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
-                    # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
+                    # Make sure the tmpdir for tests is writeable if read-only-installdir is used
                     "chmod -R +w %s" % test_dir,
                     "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
                     "source $FOAM_BASH",
@@ -611,8 +613,8 @@ class EB_OpenFOAM(EasyBlock):
             else:
                 cmds = [
                     "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
-                    # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
-                    "chmod -R +w  %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                    # Make sure the tmpdir for tests is writeable if read-only-installdir is used
+                    "chmod -R +w %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
                     "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
                     "source $FOAM_BASH",
                     ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
@@ -622,10 +624,26 @@ class EB_OpenFOAM(EasyBlock):
                     "find . -type f -iname '*level*' -exec rm {} \\;",
                     "runParallel renumberMesh -overwrite",
                     "runParallel potentialFoam -initialiseUBCs",
+                ]
+
+                # The abbreviated motorBike sanity test does not run snappyHexMesh.
+                # With OpenFOAM 14, running the resulting background-mesh case to
+                # its default endTime eventually diverges and triggers SIGFPE in
+                # the GAMG pressure solver. A short run is sufficient to verify
+                # that the parallel solver stack is functional.
+                if self.looseversion >= LooseVersion('14'):
+                    cmds.extend([
+                        "foamDictionary system/controlDict -entry startFrom -set startTime",
+                        "foamDictionary system/controlDict -entry startTime -set 0",
+                        "foamDictionary system/controlDict -entry endTime -set 10",
+                    ])
+
+                cmds.extend([
                     "runParallel simpleFoam",
                     "cd %s" % self.builddir,
                     "rm -r %s" % test_dir,
-                ]
+                ])
+
             # all commands need to be run in a single shell command,
             # because sourcing $FOAM_BASH sets up environment
             custom_commands.append(' && '.join(pre_cmds + cmds))
