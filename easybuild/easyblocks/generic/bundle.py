@@ -244,10 +244,6 @@ class Bundle(EasyBlock):
                 # instantiate the component to transfer further information
                 comp_instance = comp_cfg.easyblock(comp_cfg, logfile=self.logfile)
 
-                # correct build/install dirs
-                comp_instance.builddir = self.builddir
-                comp_instance.install_subdir, comp_instance.installdir = self.install_subdir, self.installdir
-
                 # check if sanity checks are enabled for the component
                 if self.cfg['sanity_check_all_components'] or comp_cfg['name'] in self.cfg['sanity_check_components']:
                     self.comp_cfgs_sanity_check.append(comp_instance)
@@ -260,6 +256,13 @@ class Bundle(EasyBlock):
         if self.cfg['sanity_check_components'] or self.cfg['sanity_check_all_components']:
             self.cfg['sanity_check_paths'] = self.backup_sanity_paths
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
+
+    def post_init(self):
+        super().post_init()
+        for _, comp in self.comp_instances:
+            # correct build/install dirs after possibly changing them in parent post_init
+            comp.builddir = self.builddir
+            comp.install_subdir, comp.installdir = self.install_subdir, self.installdir
 
     def check_checksums(self):
         """
@@ -486,31 +489,19 @@ class Bundle(EasyBlock):
         if self.cfg['exts_list'] or self.cfg['sanity_check_paths'] or self.cfg['sanity_check_commands']:
             super().sanity_check_step(*args, **kwargs)
         else:
+            # Loaded module is also required for the component sanity checking, so done below
             self.log.info("Testing loading of module '%s' by means of sanity check" % self.full_mod_name)
-            fake_mod_data = self.load_fake_module(purge=True)
-            self.log.debug("Cleaning up after testing loading of module")
-            self.clean_up_fake_module(fake_mod_data)
 
-        # run sanity checks for specific components
-        cnt = len(self.comp_cfgs_sanity_check)
-        if cnt > 0:
-            if self.sanity_check_module_loaded:
-                loaded_module = False
-            else:
-                self.sanity_check_load_module(
-                    extension=kwargs.get('extension'),  # Deprecated for 6.0, let it show warning if passed
-                    extra_modules=kwargs.get('extra_modules'))
-                loaded_module = self.sanity_check_module_loaded
-            for idx, comp in enumerate(self.comp_cfgs_sanity_check):
-                print_msg("sanity checking bundle component %s v%s (%i/%i)...", comp.name, comp.version, idx + 1, cnt)
-                self.log.info("Starting sanity check step for component %s v%s", comp.name, comp.version)
+        # Note that the module might be already loaded at this point
+        with self.sanity_check_module_environment(extra_modules=kwargs.get('extra_modules'), check_loaded=False):
+            # run sanity checks for specific components
+            cnt = len(self.comp_cfgs_sanity_check)
+            if cnt > 0:
+                for idx, comp in enumerate(self.comp_cfgs_sanity_check, start=1):
+                    print_msg(f"sanity checking bundle component {comp.name} v{comp.version} ({idx}/{cnt})...")
+                    self.log.info("Starting sanity check step for component %s v%s", comp.name, comp.version)
 
-                # Avoid loading the module in components again
-                comp.sanity_check_module_loaded = True
-                comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
-                comp.sanity_check_module_loaded = False
-            if loaded_module:
-                if self.fake_mod_data:
-                    self.clean_up_fake_module(self.fake_mod_data)
-                    self.fake_mod_data = None
-                self.sanity_check_module_loaded = False
+                    # Avoid loading the module in components again
+                    comp.sanity_check_module_loaded = True
+                    comp.run_step('sanity_check', [lambda x: x.sanity_check_step])
+                    comp.sanity_check_module_loaded = False
