@@ -258,8 +258,8 @@ class EB_Clang(CMakeMake):
 
             glob_src_dirs = [glob_dir for globpattern in globpatterns for glob_dir in glob.glob(globpattern)]
             if len(glob_src_dirs) != 1:
-                raise EasyBuildError("Failed to find exactly one source directory for pattern %s: %s", globpatterns,
-                                     glob_src_dirs)
+                raise EasyBuildError("Failed to find exactly one source directory in %s for pattern %s: %s",
+                                     os.getcwd(), globpatterns, glob_src_dirs)
             src_dirs[glob_src_dirs[0]] = targetdir
 
         if any(x['name'].startswith('llvm-project') for x in self.src):
@@ -283,36 +283,25 @@ class EB_Clang(CMakeMake):
             #            lld/          Unpack lld-*.tar.gz here
             #            lldb/         Unpack lldb-*.tar.gz here
             #        libunwind/        Unpack libunwind-*.tar.gz here
-            find_source_dir('compiler-rt-*', os.path.join(self.llvm_src_dir, 'projects', 'compiler-rt'))
-
-            if 'polly' in self.cfg['llvm_projects']:
-                find_source_dir('polly-*', os.path.join(self.llvm_src_dir, 'tools', 'polly'))
-
-            if 'lld' in self.cfg['llvm_projects']:
-                find_source_dir('lld-*', os.path.join(self.llvm_src_dir, 'tools', 'lld'))
-                if LooseVersion(self.version) >= LooseVersion('12.0.1'):
-                    find_source_dir('libunwind-*', os.path.normpath(os.path.join(self.llvm_src_dir, '..', 'libunwind')))
-
-            if 'lldb' in self.cfg['llvm_projects']:
-                find_source_dir('lldb-*', os.path.join(self.llvm_src_dir, 'tools', 'lldb'))
-
-            if 'libcxx' in self.cfg['llvm_runtimes']:
-                find_source_dir('libcxx-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxx'))
-                find_source_dir('libcxxabi-*', os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'))
-
-            find_source_dir(['clang-[1-9]*', 'cfe-*'], os.path.join(self.llvm_src_dir, 'tools', 'clang'))
-
-            if 'clang-tools-extra' in self.cfg['llvm_projects']:
-                find_source_dir('clang-tools-extra-*',
-                                os.path.join(self.llvm_src_dir, 'tools', 'clang', 'tools', 'extra'))
-
-            if LooseVersion(self.version) >= LooseVersion('3.8'):
-                find_source_dir('openmp-*', os.path.join(self.llvm_src_dir, 'projects', 'openmp'))
+            src_dirs = {
+                'compiler-rt-': os.path.join(self.llvm_src_dir, 'projects', 'compiler-rt'),
+                'polly-': os.path.join(self.llvm_src_dir, 'tools', 'polly'),
+                'lld-': os.path.join(self.llvm_src_dir, 'tools', 'lld'),
+                'libunwind-': os.path.normpath(os.path.join(self.llvm_src_dir, '..', 'libunwind')),
+                'lldb-': os.path.join(self.llvm_src_dir, 'tools', 'lldb'),
+                'libcxx-': os.path.join(self.llvm_src_dir, 'projects', 'libcxx'),
+                'libcxxabi-': os.path.join(self.llvm_src_dir, 'projects', 'libcxxabi'),
+                # MUST be before clang-
+                'clang-tools-extra-': os.path.join(self.llvm_src_dir, 'tools', 'clang', 'tools', 'extra'),
+                'clang-': os.path.join(self.llvm_src_dir, 'tools', 'clang'),
+                'cfe-': os.path.join(self.llvm_src_dir, 'tools', 'clang'),
+                'openmp-': os.path.join(self.llvm_src_dir, 'projects', 'openmp'),
+            }
 
         for src in self.src:
-            for (dirname, new_path) in src_dirs.items():
-                if src['name'].startswith(dirname):
-                    old_path = os.path.join(src['finalpath'], dirname)
+            for (prefix, new_path) in src_dirs.items():
+                if src['name'].startswith(prefix):
+                    old_path = src['finalpath']
                     try:
                         shutil.move(old_path, new_path)
                     except IOError as err:
