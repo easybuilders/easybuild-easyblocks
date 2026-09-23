@@ -90,7 +90,6 @@ class EB_ROOT(CMakeMake):
         python_root = get_software_root('Python')
         if python_root:
             pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
-            self.cfg.update('configopts', '-DPYTHON_EXECUTABLE=%s' % os.path.join(python_root, 'bin', 'python'))
             python_inc_dir = find_glob_pattern(os.path.join(python_root, 'include', 'python%s*' % pyshortver))
             self.cfg.update('configopts', '-DPYTHON_INCLUDE_DIR=%s' % python_inc_dir)
             python_lib = find_glob_pattern(
