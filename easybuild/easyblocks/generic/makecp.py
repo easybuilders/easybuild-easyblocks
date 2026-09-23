@@ -91,6 +91,14 @@ class MakeCp(ConfigureMake):
 
             mkdir(target, parents=True)
 
+            # first look for files in start dir
+            search_locations = [('start dir', self.start_dir)]
+            # use location of first unpacked source file as fallback location
+            try:
+                search_locations.append(('unpacked source dir', self.src[0]['finalpath']))
+            except (IndexError, KeyError):
+                pass  # Ignore if no source or source has not finalpath
+
             for orig_files_spec in files_specs:
                 if isinstance(orig_files_spec, tuple):
                     files_spec = orig_files_spec[0]
@@ -99,21 +107,16 @@ class MakeCp(ConfigureMake):
                     files_spec = orig_files_spec
                     dest = None
 
-                # first look for files in start dir
-                filepaths = glob.glob(os.path.join(self.cfg['start_dir'], files_spec))
-                tup = (files_spec, self.cfg['start_dir'], filepaths)
-                self.log.debug("List of files matching '%s' in start dir %s: %s" % tup)
-
-                if not filepaths and len(self.src) > 0 and 'finalpath' in self.src[0]:
-                    # use location of first unpacked source file as fallback location
-                    tup = (files_spec, self.cfg['start_dir'])
-                    self.log.warning("No files matching '%s' found in start dir %s" % tup)
-                    filepaths = glob.glob(os.path.join(self.src[0]['finalpath'], files_spec))
-                    self.log.debug("List of files matching '%s' in %s: %s" % (tup + (filepaths,)))
+                for desc, loc in search_locations:
+                    filepaths = glob.glob(os.path.join(loc, files_spec))
+                    if filepaths:
+                        break
+                    self.log.warning("No files matching '%s' found in %s %s", files_spec, desc, loc)
 
                 # there should be at least one match per file spec
                 if not filepaths:
-                    raise EasyBuildError("No files matching '%s' found anywhere.", files_spec)
+                    raise EasyBuildError("No files matching '%s' found in %s.",
+                                         files_spec, ' or '.join(loc[1] for loc in search_locations))
 
                 if dest and len(filepaths) != 1:
                     raise EasyBuildError("When a list with new names has been specified, the original file spec can "
