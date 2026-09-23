@@ -89,10 +89,8 @@ jobs:
         pip --version
         pip install --upgrade pip
         pip --version
-        if ! python -c "import distutils" 2> /dev/null; then
-          # we need setuptools for distutils in Python 3.12+, needed for python setup.py sdist
-          pip install --upgrade setuptools
-        fi
+        pip install setuptools
+
     - name: install EasyBuild framework
       run: |
           # first determine which branch of easybuild-framework repo to install
