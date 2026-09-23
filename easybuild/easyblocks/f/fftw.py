@@ -188,10 +188,13 @@ class EB_FFTW(ConfigureMake):
                     if prec == 'single' and getattr(self, flag):
                         prec_configopts.append('--enable-%s' % flag)
 
+                fftw_ver = LooseVersion(self.version)
                 if self.sve:
                     # SVE (ARM) only for single precision and double precision (on AARCH64 if sve feature is present)
                     if prec == 'single' or prec == 'double':
                         prec_configopts.append('--enable-fma --enable-armv8-cntvct-el0')
+                        if fftw_ver >= LooseVersion('3.3.11'):
+                            prec_configopts.append('--enable-sve')
                 elif self.asimd or self.neon:
                     # NEON (ARM) only for single precision and double precision (on AARCH64)
                     if prec == 'single' or (prec == 'double' and self.asimd):
@@ -201,7 +204,6 @@ class EB_FFTW(ConfigureMake):
                 # (we do it last so as not to affect previous logic)
                 cpu_arch = get_cpu_architecture()
                 comp_fam = self.toolchain.comp_family()
-                fftw_ver = LooseVersion(self.version)
                 if cpu_arch == POWER and comp_fam == TC_CONSTANT_GCC:
                     # See https://github.com/FFTW/fftw3/issues/59 which applies to GCC 5 and above
                     # Upper bound of 3.4 (as of yet unreleased) in hope there will eventually be a fix.
