@@ -109,6 +109,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             """Custom easyconfig parameters for Quantum ESPRESSO."""
             extra_vars = {
                 'with_cuda': [False, 'Enable CUDA support', CUSTOM],
+                'with_gpu_aware_mpi': [False, 'Use GPU aware MPI operations', CUSTOM],
                 'with_scalapack': [True, 'Enable ScaLAPACK support', CUSTOM],
                 'with_fox': [False, 'Enable FoX support', CUSTOM],
                 'with_gipaw': [True, 'Enable GIPAW support', CUSTOM],
@@ -169,6 +170,7 @@ class EB_QuantumESPRESSO(EasyBlock):
             self._add_mpi()
             self._add_openmp()
             self._add_cuda()
+            self._add_gpu_aware_mpi()
 
         def _add_libraries(self):
             """Enable external libraries for Quantum ESPRESSO."""
@@ -212,6 +214,23 @@ class EB_QuantumESPRESSO(EasyBlock):
             else:
                 self.cfg.update('configopts', '-DQE_ENABLE_CUDA=OFF')
                 self.cfg.update('configopts', '-DQE_ENABLE_OPENACC=OFF')
+
+        def _check_toolchain_supports_gpu_aware_mpi(self):
+            supported_toolchains = [toolchain.NVHPC]
+            comp_fam = self.toolchain.comp_family()
+            if comp_fam not in supported_toolchains:
+                supported_toolchain_names = [stc.NAME for stc in supported_toolchains]
+                raise EasyBuildError("with_gpu_aware_mpi is supported by toolchains %s: " % supported_toolchain_names)
+
+        def _add_gpu_aware_mpi(self):
+            """Enable GPU ware MPI operations"""
+            if self.cfg.get('with_gpu_aware_mpi', True):
+                self._check_toolchain_supports_gpu_aware_mpi()
+                if not (self.cfg.get('with_cuda', True) and self.cfg.get('usempi', True)):
+                    raise EasyBuildError('with_gpu_aware_mpi requires with_cuda and usempi')
+                self.cfg.update('configopts', '-DQE_ENABLE_MPI_GPU_AWARE=ON')
+            else:
+                self.cfg.update('configopts', '-DQE_ENABLE_MPI_GPU_AWARE=OFF')
 
         def _add_scalapack(self):
             """Enable ScaLAPACK for Quantum ESPRESSO."""
