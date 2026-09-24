@@ -78,14 +78,20 @@ class EB_Sentaurus(Binary):
         })
         return extra_vars
 
+    def __init__(self, *args, **kwargs):
+        """Constructor, initialize class variables."""
+        super().__init__(*args, **kwargs)
+
+        if self.cfg['requires_eula'] is None:
+            self.cfg['requires_eula'] = [
+                'Synopsys', 'See license of the Synopsys product you are installing.'
+            ]
+
+
     def build_step(self):
         """
         Unpack sources with synopsys "installer".
         """
-        # Batch installer accepts the EULA, must tell user:
-        synopsys_eula = 'See license of the Synopsys product you are installing.'
-        self.check_accepted_eula(name='Synopsys', more_info=synopsys_eula)
-
         # Check early to inform user it is required for license
         self.siteid = self.cfg['siteid'] or os.getenv('EB_SENTAURUS_SITEID')
         if self.siteid is None:
