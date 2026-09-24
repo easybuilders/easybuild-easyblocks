@@ -42,7 +42,7 @@ class EB_Mamba(EB_Anaconda):
         Custom sanity check for Mamba
         """
         custom_paths = {
-            'files': [os.path.join('bin', x) for x in ['2to3', 'conda', 'pydoc', 'python', 'mamba']],
+            'files': [os.path.join('bin', x) for x in ['conda', 'pydoc', 'python', 'mamba']],
             'dirs': ['etc', 'lib', 'pkgs'],
         }
         # Directly call EB_Anaconda's super, as this sanity_check_step should _overwrite_ Anaconda's (not call it)

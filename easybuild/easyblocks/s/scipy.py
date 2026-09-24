@@ -167,6 +167,10 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
 
     def test_step(self):
         """Run available scipy unit tests. Adapted from numpy easyblock"""
+        # Do not try to run tests if a user requested to not run them
+        if self.cfg['runtest'] is False:
+            self.log.info("Skipping tests due to runtest = False")
+            return ''
 
         if self.use_meson:
             # temporarily install scipy so we can run the test suite

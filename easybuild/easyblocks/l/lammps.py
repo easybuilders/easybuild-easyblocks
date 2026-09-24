@@ -46,14 +46,14 @@ from easybuild.easyblocks.kokkos import KOKKOS_LEGACY_ARCH_MAPPING, KOKKOS_CPU_M
 from easybuild.framework.easyconfig import CUSTOM, MANDATORY
 from easybuild.tools.build_log import EasyBuildError, print_warning, print_msg
 from easybuild.tools.config import build_option, IGNORE
-from easybuild.tools.filetools import copy_dir, copy_file, mkdir, read_file, which
+from easybuild.tools.filetools import apply_regex_substitutions, copy_dir, copy_file, mkdir, read_file, which
 from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import AARCH64, get_cpu_architecture, get_shared_lib_ext, get_avail_core_count
+from easybuild.tools.systemtools import AARCH64
+from easybuild.tools.systemtools import get_avail_core_count, get_cpu_architecture, get_gpu_info, get_shared_lib_ext
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
-
 
 # lammps version, which caused the most changes. This may not be precise, but it does work with existing easyconfigs
 ref_version = '29Sep2021'
@@ -110,6 +110,34 @@ def translate_lammps_version(version, path=None):
             raise ValueError(f"LAMMPS version {version} cannot be translated")
 
 
+def get_ld_preload_value_cuda_stubs():
+    """
+    Determine value for $LD_PRELOAD that includes CUDA stub libraries
+    """
+    ld_preload = os.getenv('LD_PRELOAD')
+    ld_preload = ld_preload.split(os.pathsep) if ld_preload else []
+
+    cuda_stub_libs = [
+            os.path.join('lib', 'stubs', 'libcuda.so'),
+            os.path.join('lib64', 'stubs', 'libcuda.so.1')
+    ]
+
+    cuda_stub_lib_paths = []
+
+    # check if CUDA stubs library is already included, to avoid doing so twice
+    if not any(x.endswith(cuda_stub_libs[0]) for x in ld_preload):
+
+        cuda_root = get_software_root('CUDA')
+        cuda_stub_lib_paths = [os.path.join(cuda_root, x) for x in cuda_stub_libs]
+
+        # make sure these paths exist before we shove them into $LD_PRELOAD
+        for path in cuda_stub_lib_paths:
+            if not os.path.exists(path):
+                raise EasyBuildError(f"CUDA stub library at {path} does not exist!")
+
+    return os.pathsep.join(cuda_stub_lib_paths + ld_preload)
+
+
 class EB_LAMMPS(CMakeMake):
     """
     Support for building and installing LAMMPS
@@ -125,6 +153,19 @@ class EB_LAMMPS(CMakeMake):
 
         self.cur_version = None
 
+        # check if an NVIDIA GPU is available;
+        # we need to know this because extra steps are required
+        # when we're crosscompiling an NVIDIA GPU build on a CPU-only system
+        gpus = get_gpu_info()
+        self.nvidia_gpu_found = 'NVIDIA' in gpus
+
+        # see https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html for values that can be passed to -march
+        self.aarch64_march_mapping = {
+            'neoverse_n1': 'armv8.2-a',
+            'neoverse_v1': 'armv8.4-a',
+            'neoverse_v2': 'armv9-a',
+        }
+
     def update_kokkos_cpu_mapping(self):
         """
         Update mapping to Kokkos CPU targets based on LAMMPS version
@@ -133,6 +174,10 @@ class EB_LAMMPS(CMakeMake):
             self.kokkos_cpu_mapping['neoverse_n1'] = 'ARMV81'
             self.kokkos_cpu_mapping['neoverse_v1'] = 'ARMV81'
             self.kokkos_cpu_mapping['cortex_a72'] = 'ARMV81'
+            # we also need to replace the values for -march to avoid conflicts with compiler options used by Kokkos;
+            # see also https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
+            self.aarch64_march_mapping['neoverse_n1'] = 'armv8.1-a'
+            self.aarch64_march_mapping['neoverse_v1'] = 'armv8.1-a'
 
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('21sep2021')):
             self.kokkos_cpu_mapping['a64fx'] = 'A64FX'
@@ -149,7 +194,13 @@ class EB_LAMMPS(CMakeMake):
         if LooseVersion(self.cur_version) >= LooseVersion(translate_lammps_version('22Jul2025')):
             self.kokkos_cpu_mapping['zen5'] = 'ZEN5'
 
-    def get_kokkos_arch(self, cuda_cc, kokkos_arch):
+        if LooseVersion(self.cur_version) > LooseVersion(translate_lammps_version('22Jul2025')):
+            # for newer versions of LAMMPS (which include Kokkos 4.7+)
+            # we should use ARMV84_SVE in kokkos_cpu_mapping for neoverse_v1,
+            # see https://github.com/kokkos/kokkos/commit/16726efdd5cbe272fe873e0e73feb7d1befb8122
+            print_warning(f"update_kokkos_cpu_mapping function needs to be updated for LAMMPS {self.version}!")
+
+    def get_kokkos_arch(self, cuda_cc, kokkos_arch, cuda_pre_13_2=False):
         """
         Return KOKKOS ARCH in LAMMPS required format, which is 'CPU_ARCH' and 'GPU_ARCH'.
 
@@ -184,7 +235,10 @@ class EB_LAMMPS(CMakeMake):
             # for LAMMPS >= 2Aug2023: use native CPU arch
             # If we specify a CPU arch, Kokkos' CMake will add the correspondent -march and -mtune flags to the
             # compilation line, possibly overriding the ones set by EasyBuild.
-            processor_arch = 'NATIVE'
+            if get_cpu_architecture() == AARCH64 and cuda_pre_13_2:
+                processor_arch = self.kokkos_cpu_mapping.get(get_cpu_arch())
+            else:
+                processor_arch = 'NATIVE'
         else:
             # for old versions: try to auto-detect CPU arch
             warning_msg = "kokkos_arch not set. Trying to auto-detect CPU arch."
@@ -393,8 +447,19 @@ class EB_LAMMPS(CMakeMake):
             if '-DFFT_PACK=' not in self.cfg['configopts']:
                 self.cfg.update('configopts', '-DFFT_PACK=array')
 
+        # check whether CUDA version older than 13.2 is used,
+        # since then we need to work around a problem with Arm NEON,
+        # see https://github.com/kokkos/kokkos/issues/7483
+        cuda_pre_13_2 = False
+        if self.cuda:
+            cuda_ver = get_software_version('CUDA')
+            if cuda_ver:
+                cuda_pre_13_2 = LooseVersion(cuda_ver) < '13.2.0'
+            else:
+                raise EasyBuildError("Could not determine CUDA version!")
+
         # detect the CPU and GPU architecture (used for Intel and Kokkos packages below)
-        processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'])
+        processor_arch, gpu_arch = self.get_kokkos_arch(cuda_cc, self.cfg['kokkos_arch'], cuda_pre_13_2=cuda_pre_13_2)
 
         # INTEL package
         if processor_arch in KOKKOS_INTEL_PACKAGE_ARCH_LIST or \
@@ -421,12 +486,64 @@ class EB_LAMMPS(CMakeMake):
                 self.cfg.update('configopts', '-D%s_ENABLE_CUDA=yes' % self.kokkos_prefix)
                 if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
                     self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, processor_arch))
+
+                    # disable ARM NEON in Kokkos when building on Arm with CUDA < 13.2,
+                    # to work around build errors like ".../arm_neon.h(46): error: identifier";
+                    # See https://github.com/kokkos/kokkos/issues/7483
+                    if get_cpu_architecture() == AARCH64 and cuda_pre_13_2:
+                        self.cfg.update('configopts', '-D%s_ARCH_ARM_NEON=no' % self.kokkos_prefix)
+
                     self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, gpu_arch))
                 else:
                     # Older versions of Kokkos required us to tweak the C++ compiler
                     self.cfg.update('configopts', '-DCMAKE_CXX_COMPILER="%s"' % nvcc_wrapper_path)
                     self.cfg.update('configopts', '-DCMAKE_CXX_FLAGS="-ccbin $CXX $CXXFLAGS"')
                     self.cfg.update('configopts', '-D%s_ARCH="%s;%s"' % (self.kokkos_prefix, processor_arch, gpu_arch))
+
+                # add -march option with +nosimd to $CXXFLAGS to disable ARM NEON when building on Arm with CUDA < 13.2,
+                # and patch Kokkos script to inject +nosimd to the -march option it adds;
+                # to work around build errors like ".../arm_neon.h(46): error: identifier";
+                # See https://github.com/kokkos/kokkos/issues/7483
+                if get_cpu_architecture() == AARCH64 and cuda_pre_13_2:
+                    if build_option('optarch') == OPTARCH_GENERIC:
+                        march_flag = 'armv8-a+nosimd'
+                    else:
+                        cpu_arch = get_cpu_arch()
+                        if cpu_arch in self.aarch64_march_mapping:
+                            march_flag = self.aarch64_march_mapping[cpu_arch]
+                            # for some LAMMPS versions we can't use ARMV9-A as target architecture yet,
+                            # because the SVE2 it implies leads to trouble
+                            if march_flag == 'armv9-a' and any(self.version.startswith(x) for x in ['22Jul2025']):
+                                march_flag = 'armv8.4-a'
+
+                            march_flag += '+nosimd'
+                        else:
+                            error_msg = "Specified CPU ARCH (%s) " % cpu_arch
+                            error_msg += "was not found in listed options [%s]." % self.aarch64_march_mapping
+                            raise EasyBuildError(error_msg)
+
+                    # add -march option determined above in addition to -mcpu=native in $CXXFLAGS,
+                    # to take control of the target architecture;
+                    # if -mcpu is used in conjunction with -march (or -mtune),
+                    # those options take precedence over the appropriate part of this option;
+                    # see also https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
+                    orig_cxxflags = os.getenv('CXXFLAGS', '')
+
+                    # strip out -mcpu=native from $CXXFLAGS, since that will clash with the -march flag being added,
+                    # resulting in warnings like "switch '-mcpu=...' conflicts with '-march=...' switch
+                    cxxflags = orig_cxxflags.replace('-mcpu=native', '')
+
+                    # add -march flag determined above to $CXXFLAGS
+                    cxxflags += ' -march=' + march_flag
+
+                    env.setvar('CXXFLAGS', cxxflags)
+                    self.log.info(f'Modified $CXXFLAGS to disable Arm NEON: "{cxxflags}" (was: "{orig_cxxflags}")')
+
+                    # patch lib/kokkos/cmake/kokkos_arch.cmake to append +nosimd to all '-march=armv.*' entries;
+                    # this is necessary to avoid that an -march option that is added by Kokkos overrules
+                    # what we added to $CXXFLAGS above
+                    kokkos_arch_cmake = os.path.join('lib', 'kokkos', 'cmake', 'kokkos_arch.cmake')
+                    apply_regex_substitutions(kokkos_arch_cmake, [(r'-march=(armv[^\s]+)', r'-march=\1+nosimd')])
             else:
                 if LooseVersion(self.cur_version) >= LooseVersion(self.ref_version):
                     self.cfg.update('configopts', '-D%s_ARCH_%s=yes' % (self.kokkos_prefix, processor_arch))
@@ -509,6 +626,24 @@ class EB_LAMMPS(CMakeMake):
             else:
                 self.cfg['runtest'] = False
 
+        # For crosscompiling LAMMPS with CUDA:
+        # - CUDA stubs need to be explicitly added to the linker
+        # - libcuda.so needs to be added to LD_PRELOAD
+        if self.cuda and not self.nvidia_gpu_found:
+
+            # we need to make sure that the path to the CUDA stub libraries is found when linking
+            # but does not get baked into the RPATH section so they will be used at runtime,
+            # so we use -rpath-link (as opposed to -rpath)
+            if self.toolchain.use_rpath:
+                cuda_root = get_software_root('CUDA')
+                self.cfg.update('configopts', f'-DCMAKE_EXE_LINKER_FLAGS=-Wl,-rpath-link,{cuda_root}/lib/stubs')
+
+            ld_preload = get_ld_preload_value_cuda_stubs()
+            env.setvar('LD_PRELOAD', ld_preload)
+            msg = "Cross-compiling NVIDIA GPU build on CPU-only system, "
+            msg += f"so $LD_PRELOAD updated to include CUDA stub libraries: {ld_preload}"
+            self.log.info(msg)
+
         return super().configure_step()
 
     def install_step(self):
@@ -563,9 +698,21 @@ class EB_LAMMPS(CMakeMake):
             test_cmd = 'ctest'
             if LooseVersion(self.cmake_version) >= '3.17.0':
                 test_cmd += ' --no-tests=error'
-            test_cmd += ' -LE unstable -E "TestMliapPyUnified|AtomicPairStyle:meam_spline|KSpaceStyle:scafacos.*"'
+            skipped_tests = "TestMliapPyUnified|AtomicPairStyle:meam_spline|KSpaceStyle:scafacos.*"
+            if self.cuda and not self.nvidia_gpu_found:
+                # these tests require libcuda.so that is *not* a stub, so skip them
+                skipped_tests += "|LibraryOpen|LibraryProperties|LammpsClass|NeighborClass"
+            test_cmd += f' -LE unstable -E "{skipped_tests}"'
             self.log.debug(f"Running tests using test_cmd = '{test_cmd}' as test_cmd")
             self.cfg['test_cmd'] = test_cmd
+
+            # allow oversubscription of cores while running tests
+            openmpi_ver = get_software_version('OpenMPI')
+            if openmpi_ver:
+                if LooseVersion(openmpi_ver) >= '5.0':
+                    env.setvar('PRTE_MCA_rmaps_default_mapping_policy', ':oversubscribe')
+                else:
+                    env.setvar('OMPI_MCA_rmaps_base_oversubscribe', '1')
 
         super().test_step()
 
@@ -650,7 +797,7 @@ class EB_LAMMPS(CMakeMake):
            LooseVersion(self.cur_version) < LooseVersion(translate_lammps_version('22Jul2025')):
             custom_commands = [cmd + '; l.finalize() if l else None' for cmd in custom_commands]
 
-        custom_commands = ["""python -c '%s'""" % cmd for cmd in custom_commands]
+        custom_commands = [f"python -c '{cmd}'" for cmd in custom_commands]
 
         # Execute sanity check commands within an initialized MPI in MPI enabled toolchains
         if self.toolchain.options.get('usempi', None):
@@ -659,7 +806,23 @@ class EB_LAMMPS(CMakeMake):
             self.log.info("Using %s cores for the MPI tests" % test_core_cnt)
             custom_commands = [self.toolchain.mpi_cmd_for(cmd, test_core_cnt) for cmd in custom_commands]
 
-        custom_commands = ["cd %s && " % execution_dir + cmd for cmd in custom_commands]
+        # When crosscompiling LAMMPS with CUDA the build and testing require $LD_PRELOAD being set.
+        # During testing I found that $LD_PRELOAD was not picked up in the environment.
+        # It has to be explicitly set in the command.
+        if self.cuda and not self.nvidia_gpu_found:
+            ld_preload = get_ld_preload_value_cuda_stubs()
+            custom_commands = [f'LD_PRELOAD="{ld_preload}" {cmd}' for cmd in custom_commands]
+
+        custom_commands = [f"cd {execution_dir} && {cmd}" for cmd in custom_commands]
+
+        openmpi_ver = get_software_version('OpenMPI')
+        if openmpi_ver:
+            if LooseVersion(openmpi_ver) >= '5.0':
+                set_env_var_cmd = "export PRTE_MCA_rmaps_default_mapping_policy=':oversubscribe'"
+            else:
+                set_env_var_cmd = "export OMPI_MCA_rmaps_base_oversubscribe=1"
+
+            custom_commands = [f"{set_env_var_cmd} && {cmd}" for cmd in custom_commands]
 
         shlib_ext = get_shared_lib_ext()
         custom_paths = {
