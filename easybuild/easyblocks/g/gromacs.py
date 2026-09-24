@@ -38,6 +38,7 @@ import glob
 import os
 import re
 import shutil
+from pathlib import Path
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -47,7 +48,8 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import copy_dir, find_backup_name_candidate, remove_dir, symlink, which
+from easybuild.tools.filetools import apply_regex_substitutions, copy_dir, find_backup_name_candidate
+from easybuild.tools.filetools import read_file, remove_dir, symlink, which
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_cpu_features, get_shared_lib_ext
@@ -98,6 +100,34 @@ class EB_GROMACS(CMakeMake):
             self.libext = get_shared_lib_ext()
         else:
             self.libext = 'a'
+
+        with self.cfg.disable_templating():
+            if 'GMX_TEST_TIMEOUT_FACTOR' not in self.cfg['configopts']:
+                # be a bit more forgiving w.r.t. timeouts for GROMACS test suite,
+                # see also https://gitlab.com/gromacs/gromacs/-/issues/5062
+                self.cfg.update('configopts', '-DGMX_TEST_TIMEOUT_FACTOR=3')
+
+        # Set defaults for gmxapi extension if specified
+        exts_list: list = self.cfg.get_ref('exts_list')
+        if exts_list:
+            idx_gmxapi = next((i for i, ext in enumerate(exts_list)
+                               if len(ext) >= 2 and ext[0] == 'gmxapi'), None)
+            if idx_gmxapi is not None:
+                gmx_api = exts_list[idx_gmxapi]
+                if len(gmx_api) < 3:
+                    gmx_api = (gmx_api[0], gmx_api[1], {})
+                opts: dict = gmx_api[2]
+                # If not otherwise specified use the same sources for the Python package
+                if 'source_tmpl' not in opts and 'sources' not in opts:
+                    opts.setdefault('nosource', True)
+                    opts.setdefault('start_dir', 'python_packaging/gmxapi')
+                # Ensure using the correct config (set by the main package)
+                opts.setdefault('preinstallopts',
+                                'export CMAKE_ARGS="-Dgmxapi_ROOT=%(installdir)s '
+                                '-C %(installdir)s/share/cmake/gromacs_mpi/gromacs-hints_mpi.cmake" && ')
+                if not self.cfg['exts_defaultclass']:
+                    opts.setdefault('easyblock', 'PythonPackage')
+                exts_list[idx_gmxapi] = gmx_api
 
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
@@ -178,7 +208,6 @@ class EB_GROMACS(CMakeMake):
 
     def configure_step(self):
         """Custom configuration procedure for GROMACS: set configure options for configure or cmake."""
-
         gromacs_version = LooseVersion(self.version)
 
         if gromacs_version >= '4.6':
@@ -285,7 +314,6 @@ class EB_GROMACS(CMakeMake):
             if gromacs_version >= '2025' and plumed_patches is False:
                 self.log.info('Native PLUMED support has been enabled.')
                 self.cfg.update('configopts', '-DGMX_USE_PLUMED=ON')
-
             else:
                 # Need to check if PLUMED has an engine for this version
                 engine = 'gromacs-%s' % self.version
@@ -337,11 +365,11 @@ class EB_GROMACS(CMakeMake):
             # OpenMP is not supported for versions older than 4.5.
             if gromacs_version >= '4.5':
                 # enable OpenMP support if desired
-                if self.toolchain.options.get('openmp', None):
+                if self.toolchain.options.get('openmp'):
                     self.cfg.update('configopts', "--enable-threads")
                 else:
                     self.cfg.update('configopts', "--disable-threads")
-            elif self.toolchain.options.get('openmp', None):
+            elif self.toolchain.options.get('openmp'):
                 raise EasyBuildError("GROMACS version %s does not support OpenMP" % self.version)
 
             # GSL support
@@ -459,7 +487,7 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', "-DREGRESSIONTEST_PATH='%%(builddir)s/%s-%%(version)s' " % prefix)
 
             # enable OpenMP support if desired
-            if self.toolchain.options.get('openmp', None):
+            if self.toolchain.options.get('openmp'):
                 self.cfg.update('configopts', "-DGMX_OPENMP=ON")
             else:
                 self.cfg.update('configopts', "-DGMX_OPENMP=OFF")
@@ -542,7 +570,6 @@ class EB_GROMACS(CMakeMake):
         Custom build step for GROMACS; Skip if CUDA is enabled and the current
         iteration is for double precision
         """
-
         if self.is_double_precision_cuda_build:
             self.log.info("skipping build step")
         else:
@@ -616,9 +643,30 @@ class EB_GROMACS(CMakeMake):
 
     def extensions_step(self, fetch=False):
         """ Custom extensions step, only handle extensions after the last iteration round"""
-        if self.iter_idx < self.variants_to_build - 1:
+        if self.iter_idx < self.num_variants_to_build - 1:
             self.log.info("skipping extension step %s", self.iter_idx)
         else:
+            version_py = Path(self.start_dir) / 'python_packaging/gmxapi/src/gmxapi/version.py'
+            pyproject_toml = Path(self.start_dir) / 'python_packaging/gmxapi/pyproject.toml'
+            if not version_py.exists():
+                run_shell_cmd('false')
+                self.log.info(f'{version_py} not found required to determine Python extension version')
+            elif not pyproject_toml.exists():
+                run_shell_cmd('false')
+                self.log.info(f'{pyproject_toml} not found. Not updating Python extension version')
+            else:
+                self.log.info(f'Updating Python extension version in {pyproject_toml} from {version_py}')
+                version_py_txt = read_file(version_py)
+                names = ['_major', '_minor', '_micro']
+                version_parts = [re.search(fr"{name} += +(\d+)", version_py_txt) for name in names]
+                if not all(version_parts):
+                    raise EasyBuildError(f"Failed to extract extension version from {version_py}")
+                version = '.'.join(part[1] for part in version_parts)
+                m_suffix = re.search("""_suffix += +["'](.*?)["']""", version_py_txt)
+                if m_suffix:
+                    version += m_suffix[1]
+                self.log.info(f"Determined version '{version}' from {version_py}")
+                apply_regex_substitutions(pyproject_toml, [('^version = .*', f'version= "{version}"')])
             # Reset installopts etc for the benefit of the gmxapi extension
             self.cfg['install_cmd'] = self.orig_install_cmd
             self.cfg['build_cmd'] = self.orig_build_cmd
@@ -728,7 +776,7 @@ class EB_GROMACS(CMakeMake):
                     mpi_libnames.append('gmxpreprocess')
 
         # also check for MPI-specific binaries/libraries
-        if self.toolchain.options.get('usempi', None):
+        if self.toolchain.options.get('usempi'):
             if LooseVersion(self.version) < LooseVersion('4.6'):
                 mpisuff = self.cfg.get('mpisuffix', '_mpi')
             else:
@@ -769,7 +817,22 @@ class EB_GROMACS(CMakeMake):
             [os.path.join(libdir, lib) for libdir in self.lib_subdirs for lib in lib_files],
             'dirs': dirs,
         }
-        super().sanity_check_step(custom_paths=custom_paths)
+
+        gmx_api_version = next((ext[1] for ext in self.cfg['exts_list']
+                                if isinstance(ext, tuple) and ext[0] == 'gmxapi'),
+                               None)
+        if gmx_api_version:
+            # Ensure the version specified in the easyconfig is the same as that of the package info
+            py_code = '\n'.join([
+                'import sys; from gmxapi.version import __version__ as version',
+                'print(version)',
+                f'sys.exit(0 if version == "{gmx_api_version}" else 1)',
+            ])
+            custom_commands = [f"python -sc '{py_code}'"]
+        else:
+            custom_commands = None
+
+        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
         if mod_data:
             self.clean_up_fake_module(mod_data)
@@ -848,11 +911,11 @@ class EB_GROMACS(CMakeMake):
         if self.cfg.get('double_precision') is None or self.cfg.get('double_precision'):
             precisions.append('double')
 
-        if precisions == []:
+        if not precisions:
             raise EasyBuildError("No precision selected. At least one of single/double_precision must be unset or True")
 
         mpitypes = ['nompi']
-        if self.toolchain.options.get('usempi', None):
+        if self.toolchain.options.get('usempi'):
             mpitypes.append('mpi')
 
         # We need to count the number of variations to build.
@@ -881,13 +944,10 @@ class EB_GROMACS(CMakeMake):
                 self.cfg.update('configopts', ' '.join(var_confopts + [common_config_opts]))
                 self.cfg.update('buildopts', ' '.join(var_buildopts + [common_build_opts]))
                 self.cfg.update('installopts', ' '.join(var_installopts + [common_install_opts]))
-        self.variants_to_build = len(self.cfg['configopts'])
+        self.num_variants_to_build = len(self.cfg['configopts'])
 
         self.log.debug("List of configure options to iterate over: %s", self.cfg['configopts'])
         self.log.info("Building these variants of GROMACS: %s", ', '.join(versions_built))
-        return super().run_all_steps(*args, **kwargs)
-
-        self.cfg['install_cmd'] = self.orig_install_cmd
-        self.cfg['build_cmd'] = self.orig_build_cmd
-
         self.log.info("A full regression test suite is available from the GROMACS web site: %s", self.cfg['homepage'])
+
+        return super().run_all_steps(*args, **kwargs)
