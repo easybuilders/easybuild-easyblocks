@@ -37,8 +37,6 @@ def shorten_content(path: Path):
     # Ignore timestamp & hostname
     content = re.sub(r'timestamp="[^"]+"', '', content)
     content = re.sub(r'hostname="[^"]+"', '', content)
-    # Remove type attribute from <skipped> tags
-    content = re.sub(r'(<skipped)\s+type="[^"]+"', r'\1', content)
 
     # Remove stdout/stderr from about half of the files.
     # For the other half just shorten it.
