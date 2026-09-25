@@ -121,13 +121,25 @@ class EB_OCaml(ConfigureMake):
             self.with_opam = True
             change_dir(opam_dir)
 
-            run_shell_cmd("./configure --prefix=%s" % self.installdir)
+            opam_ver = os.path.basename(opam_dir)
+            opam_ver = re.sub(r'^opam(?:-full)?-', '', opam_ver)
+
+            opam_configure_cmd = "./configure --prefix=%s" % self.installdir
+            if LooseVersion(opam_ver) >= LooseVersion('2.2.0'):
+                opam_configure_cmd += " --with-vendored-deps"
+
+            run_shell_cmd(opam_configure_cmd)
             run_shell_cmd("make lib-ext")  # locally build/install required dependencies
             run_shell_cmd("make")
             run_shell_cmd("make install")
 
-            opam_init_cmd = mk_opam_init_cmd(root=os.path.join(self.installdir, OPAM_SUBDIR))
+            opam_root = os.path.join(self.installdir, OPAM_SUBDIR)
+            opam_init_cmd = mk_opam_init_cmd(root=opam_root)
+            if LooseVersion(opam_ver) >= LooseVersion('2.2.0'):
+                opam_init_cmd += ' --bare --no-setup'
             run_shell_cmd(opam_init_cmd)
+            if LooseVersion(opam_ver) >= LooseVersion('2.2.0'):
+                run_shell_cmd('opam switch create default ocaml-system.%s --root=%s' % (self.version, opam_root))
 
             self.clean_up_fake_module(fake_mod_data)
         else:
