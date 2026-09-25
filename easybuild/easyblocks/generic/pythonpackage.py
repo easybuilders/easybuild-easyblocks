@@ -1244,6 +1244,15 @@ class PythonPackage(ExtensionEasyBlock):
 
         return mod_data
 
+    @property
+    def package_name(self):
+        """Determine the intended Python package name
+
+        Uses `extension_name` if set falling back to `name`
+        """
+        pkg_name = self.cfg['extension_name']
+        return self.name if pkg_name is None else pkg_name
+
     def sanity_check_step(self, *args, **kwargs):
         """
         Custom sanity check for Python packages
@@ -1350,7 +1359,7 @@ class PythonPackage(ExtensionEasyBlock):
             run_pip_check(python_cmd=python_cmd)
 
             unversioned_packages = self.cfg.get('unversioned_packages', [])
-            pkgs = [(self.name, self.version)]
+            pkgs = [(self.package_name, self.version)]
             run_pip_list(pkgs, python_cmd=python_cmd, unversioned_packages=unversioned_packages,
                          strict_check=toplevel_params['sanity_check_pip_list'])
 
