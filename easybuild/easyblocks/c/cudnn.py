@@ -78,3 +78,12 @@ class EB_cuDNN(Tarball):
             more_info='https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html'
         )
         return super().fetch_step(*args, **kwargs)
+
+    def make_module_extra(self):
+        """Set the install directory as CUDNN_HOME, CUDNN_PATH."""
+
+        txt = super().make_module_extra()
+        txt += self.module_generator.set_environment('CUDNN_HOME', self.installdir)
+        txt += self.module_generator.set_environment('CUDNN_PATH', self.installdir)
+        self.log.debug("make_module_extra added this: %s", txt)
+        return txt

@@ -68,14 +68,17 @@ class EB_VMD(ConfigureMake):
         """
         # make sure required dependencies are available
         deps = {}
-        for dep in ['FLTK', 'Mesa', 'netCDF', 'Python', 'Tcl', 'Tk']:
+        for dep in ['FLTK', 'netCDF', 'Python', 'Tcl', 'Tk']:
             deps[dep] = get_software_root(dep)
             if deps[dep] is None:
                 raise EasyBuildError("Required dependency %s is missing", dep)
 
-        # optional dependencies
-        for dep in ['ACTC', 'CUDA', 'OptiX']:
+        # optional dependencies (either Mesa or OpenGL should be there)
+        for dep in ['ACTC', 'CUDA', 'OptiX', 'Mesa', 'OpenGL']:
             deps[dep] = get_software_root(dep)
+
+        if not ('Mesa' in deps or 'OpenGL' in deps):
+            raise EasyBuildError("Required dependency Mesa or OpenGL is missing")
 
         # specify Tcl/Tk locations & libraries
         tclinc = os.path.join(deps['Tcl'], 'include')
@@ -171,6 +174,8 @@ class EB_VMD(ConfigureMake):
         for key in deps:
             if deps[key]:
                 if key == 'Mesa':
+                    self.cfg.update('configopts', "OPENGL MESA", allow_duplicate=False)
+                if key == 'OpenGL':
                     self.cfg.update('configopts', "OPENGL MESA", allow_duplicate=False)
                 elif key == 'OptiX':
                     self.cfg.update('configopts', "LIBOPTIX", allow_duplicate=False)

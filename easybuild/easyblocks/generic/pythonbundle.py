@@ -26,12 +26,14 @@
 EasyBuild support for installing a bundle of Python packages, implemented as a generic easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Samuel Moors (Vrije Universiteit Brussel)
 """
 import os
 
 from easybuild.easyblocks.generic.bundle import Bundle
-from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_PYTHON_PACKAGES, run_pip_check, set_py_env_vars
+from easybuild.easyblocks.generic.pythonpackage import EXTS_FILTER_DUMMY_PACKAGES, EXTS_FILTER_PYTHON_PACKAGES
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, get_pylibdirs, find_python_cmd_from_ec
+from easybuild.easyblocks.generic.pythonpackage import run_pip_check, run_pip_list, set_py_env_vars
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_root
@@ -60,6 +62,8 @@ class PythonBundle(Bundle):
 
         self.cfg['exts_defaultclass'] = 'PythonPackage'
         self.cfg['exts_filter'] = EXTS_FILTER_PYTHON_PACKAGES
+        if self.cfg.get('dummy_package', False):
+            self.cfg['exts_filter'] = EXTS_FILTER_DUMMY_PACKAGES
 
         # need to disable templating to ensure that actual value for exts_default_options is updated...
         with self.cfg.disable_templating():
@@ -70,6 +74,12 @@ class PythonBundle(Bundle):
                     self.cfg['exts_default_options'][key] = self.cfg[key]
 
             self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
+
+            # dummy packages have no sources sources
+            if self.cfg.get('dummy_package', False):
+                self.log.info(f"Disabling sources for installation of dummy packages in {self.name}-{self.version}")
+                self.cfg['exts_default_options']['nosource'] = True
+                self.cfg['exts_default_options']['source_urls'] = []
 
         self.python_cmd = None
         self.pylibdir = None
@@ -91,8 +101,9 @@ class PythonBundle(Bundle):
         # if 'python' is not used, we need to take that into account in the extensions filter
         # (which is also used during the sanity check)
         if self.python_cmd != 'python':
-            orig_exts_filter = EXTS_FILTER_PYTHON_PACKAGES
-            self.cfg['exts_filter'] = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
+            with self.cfg.disable_templating():
+                orig_exts_filter = self.cfg['exts_filter']
+                self.cfg['exts_filter'] = (orig_exts_filter[0].replace('python', self.python_cmd), orig_exts_filter[1])
 
     def prepare_step(self, *args, **kwargs):
         """Prepare for installing bundle of Python packages."""
@@ -181,8 +192,9 @@ class PythonBundle(Bundle):
             # This also ensures the exts_filter option for extensions is set correctly.
             # Load module first to get the right python command.
             if not self.sanity_check_module_loaded:
-                self.sanity_check_load_module(extension=kwargs.get('extension', False),
-                                              extra_modules=kwargs.get('extra_modules', None))
+                self.sanity_check_load_module(
+                    extension=kwargs.get('extension'),  # Deprecated for 6.0, let it show warning if passed
+                    extra_modules=kwargs.get('extra_modules'))
             self.prepare_python()
 
         # inject directory path that uses %(pyshortver)s template into default value for sanity_check_paths
@@ -200,30 +212,44 @@ class PythonBundle(Bundle):
         """Run the pip check for extensions if enabled"""
         super()._sanity_check_step_extensions()
 
-        sanity_pip_check = self.cfg['sanity_pip_check']
+        toplevel_params = {
+            'sanity_pip_check': self.cfg['sanity_pip_check'],
+            'sanity_check_pip_list': self.cfg['sanity_check_pip_list'],
+            'exts_formatter': self.cfg['exts_formatter'],
+        }
         unversioned_packages = set(self.cfg['unversioned_packages'])
 
         # The options should be set in the main EC and cannot be different between extensions.
         # For backwards compatibility and to avoid surprises enable the pip-check if it is enabled
         # in the main EC or any extension and build the union of all unversioned_packages.
-        has_sanity_pip_check_mismatch = False
         all_unversioned_packages = unversioned_packages.copy()
-        for ext in self.ext_instances:
-            if isinstance(ext, PythonPackage):
-                if ext.cfg['sanity_pip_check'] != sanity_pip_check:
-                    has_sanity_pip_check_mismatch = True
-                all_unversioned_packages.update(ext.cfg['unversioned_packages'])
+        py_exts = [x for x in self.ext_instances if isinstance(x, PythonPackage)]
 
-        if has_sanity_pip_check_mismatch:
-            self.log.deprecated("For bundles of PythonPackage extensions the sanity_pip_check parameter "
-                                "must be set at the top level, outside of exts_list", '6.0')
-            sanity_pip_check = True  # Either the main set it or any extension enabled it
+        mismatched_params = set()
+
+        for ext in py_exts:
+            for param, value in toplevel_params.items():
+                if ext.cfg[param] != value:
+                    mismatched_params.add(param)
+            all_unversioned_packages.update(ext.cfg['unversioned_packages'])
+
+        for param in toplevel_params:
+            if param in mismatched_params:
+                toplevel_params[param] = True  # Either the main set it or any extension enabled it
+
         if all_unversioned_packages != unversioned_packages:
-            self.log.deprecated("For bundles of PythonPackage extensions the unversioned_packages parameter "
-                                "must be set at the top level, outside of exts_list", '6.0')
+            mismatched_params.add('unversioned_packages')
 
-        if sanity_pip_check:
-            run_pip_check(python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages)
+        for mismatch in mismatched_params:
+            msg = (f"For bundles of PythonPackage extensions the {mismatch} parameter "
+                   "must be set at the top level, outside of exts_list")
+            self.log.deprecated(msg, '6.0')
+
+        if toplevel_params['sanity_pip_check']:
+            run_pip_check(python_cmd=self.python_cmd)
+            pkgs = [(x.name, x.version) for x in py_exts]
+            run_pip_list(pkgs, python_cmd=self.python_cmd, unversioned_packages=all_unversioned_packages,
+                         strict_check=toplevel_params['sanity_check_pip_list'])
 
     def make_module_footer(self):
         """

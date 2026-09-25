@@ -37,6 +37,7 @@ import tempfile
 from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.tensorflow import det_binutils_bin_path
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, which
@@ -67,12 +68,9 @@ class EB_jaxlib(PythonPackage):
 
         super().configure_step()
 
-        binutils_root = get_software_root('binutils')
-        if not binutils_root:
-            raise EasyBuildError("Failed to determine installation prefix for binutils")
         config_env_vars = {
             # This is the binutils bin folder: https://github.com/tensorflow/tensorflow/issues/39263
-            'GCC_HOST_COMPILER_PREFIX': os.path.join(binutils_root, 'bin'),
+            'GCC_HOST_COMPILER_PREFIX': det_binutils_bin_path(),
         }
 
         # Collect options for the build script
@@ -143,18 +141,18 @@ class EB_jaxlib(PythonPackage):
                     *([f'--repo_env=LOCAL_NCCL_PATH={nccl_root}'] if nccl_root else []),
                 ])
                 # set Clang flags - CUDA version needs Clang to be built
-                clang_root = get_software_root('Clang')
-                if clang_root:
+                clang_llvm_root = get_software_root('Clang') or get_software_root('LLVM')
+                if clang_llvm_root:
                     options.extend([
                         '--use_clang=true',
-                        f'--clang_path={os.path.join(clang_root, "bin", "clang++")}',
+                        f'--clang_path={os.path.join(clang_llvm_root, "bin", "clang++")}',
                     ])
                     bazel_options.extend([
                         '--@local_config_cuda//:cuda_compiler=clang',
                         '--@local_config_cuda//cuda:include_cuda_libs=true',
                     ])
                 else:
-                    raise EasyBuildError('For CUDA-enabled builds Clang is also required')
+                    raise EasyBuildError('For CUDA-enabled builds Clang or LLVM is also required')
 
             config_env_vars['GCC_HOST_COMPILER_PATH'] = which(os.getenv('CC'))
         elif LooseVersion(self.version) <= LooseVersion('0.4.33'):

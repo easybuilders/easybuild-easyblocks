@@ -52,11 +52,14 @@ from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root, 
 from easybuild.tools.run import run_shell_cmd, EasyBuildExit
 from easybuild.tools.systemtools import AARCH32, AARCH64, POWER, RISCV64, X86_64, POWER_LE
 from easybuild.tools.systemtools import get_cpu_architecture, get_cpu_family, get_shared_lib_ext
+from easybuild.tools.systemtools import get_ptrace_scope
 
 from easybuild.easyblocks.generic.cmakemake import CMakeMake, get_cmake_python_config_dict
 
 BUILD_TARGET_AMDGPU = 'AMDGPU'
+RUNTIME_TARGET_AMDGPU = 'amdgcn-amd-amdhsa'
 BUILD_TARGET_NVPTX = 'NVPTX'
+RUNTIME_TARGET_NVPTX = 'nvptx64-nvidia-cuda'
 
 LLVM_TARGETS = [
     'AArch64', BUILD_TARGET_AMDGPU, 'ARM', 'AVR', 'BPF', 'Hexagon', 'Lanai', 'LoongArch', 'Mips', 'MSP430',
@@ -584,7 +587,7 @@ class EB_LLVM(CMakeMake):
         options are removed from F90FLAGS and FFLAGS."""
         unsupported_flang_opts = set()
         if self.version >= '21':
-            if self.version < '22':
+            if self.version < '23':
                 unsupported_flang_opts.update([
                     '-fmath-errno', '-fno-math-errno',
                     '-fno-unsafe-math-optimizations',
@@ -593,6 +596,39 @@ class EB_LLVM(CMakeMake):
         if unsupported_flang_opts:
             self._remove_iterable_from_envvar('F90FLAGS', unsupported_flang_opts)
             self._remove_iterable_from_envvar('FFLAGS', unsupported_flang_opts)
+
+    def _configure_target_runtimes(self):
+        """
+        Configure target runtime options for LLVM, required for LLVM 22+.
+        Related to changes in https://github.com/llvm/llvm-project/pull/136729 where te build of openmp device runtimes
+        has been moved to `openmp/device` from `offload`
+        Should only be called from _configure_final_build.
+        """
+        if LooseVersion(self.version) < '22':
+            return
+
+        # First, select which targets will be built.
+        # We'll add this as a CMake argument, together with the default args, last.
+        target_archs = []
+        if self.amdgpu_target_cond:
+            target_archs.append(RUNTIME_TARGET_AMDGPU)
+        if self.nvptx_target_cond:
+            target_archs.append(RUNTIME_TARGET_NVPTX)
+
+        # Then, enable runtime targets per accelerator arch
+        # Supported options are 'compiler-rt', 'libc', 'openmp', 'libcxx', 'libcxxabi'
+        # In LLVM 22, only OpenMP is fully supported, therefore skip remainder
+        per_target_runtimes = {'openmp'}
+        per_target_runtimes &= set(self.final_runtimes)
+
+        for target_arch in target_archs:
+            self._cmakeopts[f'RUNTIMES_{target_arch}_LLVM_ENABLE_RUNTIMES'] = \
+                self.list_to_cmake_arg(per_target_runtimes)
+            self._cmakeopts[f'RUNTIMES_{target_arch}_CMAKE_CXX_FLAGS'] = ""
+
+        # Always add default last, since its runtimes are defined through LLVM_ENABLE_RUNTIMES
+        target_archs.append('default')
+        self._cmakeopts['LLVM_RUNTIME_TARGETS'] = self.list_to_cmake_arg(target_archs)
 
     def _configure_final_build(self):
         """Configure the final stage of the build."""
@@ -643,6 +679,8 @@ class EB_LLVM(CMakeMake):
         for cmake_flag in ['LIBCXX_INCLUDE_BENCHMARKS', 'LIBC_INCLUDE_BENCHMARKS', 'LLVM_INCLUDE_BENCHMARKS']:
             self._cmakeopts[cmake_flag] = include_benchmarks
             self.runtimes_cmake_args[cmake_flag] = include_benchmarks
+
+        self._configure_target_runtimes()
 
         # Make sure tests are not running with more than 'parallel' tasks
         parallel = self.cfg.parallel
@@ -1486,6 +1524,12 @@ class EB_LLVM(CMakeMake):
             if 'rocr-runtime' not in self.deps:
                 self.ignore_patterns += ['amdgcn-amd-amdhsa']
                 self.log.warning("ROCr-Runtime not in dependencies, ignoring failing tests for AMDGPU target.")
+            # Ignore compiler-rt and lldb test failures if ptrace_scope is disabled, or higher than 1.
+            # In this case, debuggers and sanitizers may fail to attach to other processes.
+            if get_ptrace_scope() > 1:
+                self.ignore_patterns += ['lldb-shell', 'lldb-unit', 'libFuzzer', 'AddressSanitizer',
+                                         'HWAddressSanitizer', 'LeakSanitizer', 'SanitizerCommon', 'UBSan']
+                self.log.warning("ptrace_scope > 1 was found, ignoring failing compiler-rt sanitizer and lldb tests.")
 
             max_failed = self.cfg['test_suite_max_failed']
             if LooseVersion(get_software_version("CMake")) >= '3.19':
@@ -1711,7 +1755,7 @@ class EB_LLVM(CMakeMake):
             if version < '19':
                 check_bin_files += ['bbc', 'flang-new', 'flang-to-external-fc', 'f18-parse-demo', 'fir-opt', 'tco']
             else:
-                check_bin_files += ['bbc', 'flang-new', 'f18-parse-demo', 'fir-opt', 'tco']
+                check_bin_files += ['bbc', 'f18-parse-demo', 'fir-opt', 'tco']
             check_lib_files += [
                 'libFortranSemantics.a', 'libFortranLower.a', 'libFortranParser.a',
                 'libFIRCodeGen.a', 'libflangFrontend.a', 'libFortranDecimal.a',
@@ -1722,8 +1766,18 @@ class EB_LLVM(CMakeMake):
                     'libFortranRuntime.a', 'libFortranCommon.a'
                 ]
             check_dirs += ['lib/cmake/flang', 'include/flang']
-            custom_commands += ['bbc --help', 'mlir-tblgen --help', 'flang-new --help']
-            gcc_prefix_compilers += ['flang-new']
+            custom_commands += ['bbc --help', 'mlir-tblgen --help']
+
+            # Starting with LLVM 22, some implementations, e.g. AMD ROCm,
+            # omit flang-new. Therefore, adapt the check to look for flang instead.
+            if version < '22':
+                check_bin_files += ['flang-new']
+                custom_commands += ['flang-new --help']
+                gcc_prefix_compilers += ['flang-new']
+            else:
+                check_bin_files += ['flang']
+                custom_commands += ['flang --help']
+                gcc_prefix_compilers += ['flang']
 
         if 'lld' in self.final_projects:
             check_bin_files += ['ld.lld', 'lld', 'lld-link', 'wasm-ld']

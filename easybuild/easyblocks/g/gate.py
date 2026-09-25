@@ -40,6 +40,7 @@ import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.filetools import clean_dir, copy_dir
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -138,8 +139,8 @@ class EB_GATE(CMakeMake):
 
             # copy all the things
             try:
-                shutil.rmtree(self.installdir)
-                shutil.copytree(self.cfg['start_dir'], self.installdir)
+                clean_dir(self.installdir)
+                copy_dir(self.cfg['start_dir'], self.installdir, dirs_exist_ok=True)
             except OSError as err:
                 raise EasyBuildError("Failed to copy %s to %s: %s", self.cfg['start_dir'], self.installdir, err)
 

@@ -68,7 +68,7 @@ class EB_MRtrix(EasyBlock):
                 env.setvar('LDLIB', "%s -shared LDLIB_FLAGS OBJECTS -o LIB" % os.getenv('CXX'))
 
             env.setvar('QMAKE_CXX', os.getenv('CXX'))
-            cmd = "python configure -verbose"
+            cmd = "python configure -verbose " + self.cfg['configopts']
 
             run_shell_cmd(cmd)
 

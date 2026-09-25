@@ -61,6 +61,8 @@ class EB_binutils(ConfigureMake):
         """Easyblock constructor"""
         super().__init__(*args, **kwargs)
 
+        self.search_paths = []
+
         if LooseVersion(self.version) >= LooseVersion('2.44') or get_cpu_family() == RISCV:
             # ld.gold linker is not supported on RISC-V, and is being phased out starting from v2.44
             self.use_gold = False
@@ -103,12 +105,12 @@ class EB_binutils(ConfigureMake):
 
         version = LooseVersion(self.version)
 
+        # determine list of 'lib' directories to use rpath for;
+        # this should 'harden' the resulting binutils to bootstrap GCC
+        # (no trouble when other libstdc++ is build etc)
+        lib_paths = self.determine_used_library_paths()
+        self.search_paths = lib_paths.copy()
         if self.toolchain.is_system_toolchain():
-            # determine list of 'lib' directories to use rpath for;
-            # this should 'harden' the resulting binutils to bootstrap GCC
-            # (no trouble when other libstdc++ is build etc)
-            lib_paths = self.determine_used_library_paths()
-
             # The installed lib dir must come first though to avoid taking system libs over installed ones, see:
             # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
             # To get literal $ORIGIN through Make we need to escape it by doubling $$, else it's a variable to Make;
@@ -230,6 +232,10 @@ class EB_binutils(ConfigureMake):
                     # append "-std=c++11" to $CXXFLAGS, not overriding
                     self.cfg.update('buildopts', 'CXXFLAGS="$CXXFLAGS -std=c++11"')
 
+    def build_step(self, verbose=None, path=None):
+        env.setvar('LIB_PATH', ':'.join(self.search_paths))
+        return super().build_step(verbose, path)
+
     def install_step(self):
         """Install using 'make install', also symlink libiberty/demangle headers if desired."""
         super().install_step()
@@ -293,6 +299,9 @@ class EB_binutils(ConfigureMake):
 
         # All binaries support --version, check that they can be run
         custom_commands = ['%s --version' % b for b in binaries]
+
+        for sdir in self.search_paths:
+            custom_commands.append(f'ld -verbose | grep "SEARCH_DIR(" | grep "{sdir}"')
 
         # if zlib is listed as a build dependency, it should have been linked in statically
         build_deps = self.cfg.dependencies(build_only=True)

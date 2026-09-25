@@ -448,6 +448,7 @@ class EB_PyTorch(PythonPackage):
         elif pytorch_version >= '1.9.0' and get_software_root('BLIS'):
             options.append('BLAS=BLIS')
             options.append('BLIS_HOME=' + get_software_root('BLIS'))
+            options.append('USE_MKLDNN=ON')
             options.append('USE_MKLDNN_CBLAS=ON')
         elif get_software_root('OpenBLAS'):
             # This is what PyTorch defaults to if no MKL is found.
@@ -462,6 +463,13 @@ class EB_PyTorch(PythonPackage):
             ])
         else:
             raise EasyBuildError("Did not find a supported BLAS in dependencies. Don't know which BLAS lib to use")
+
+        if pytorch_version >= '1.10':
+            acl_root = get_software_root('ArmComputeLibrary')
+            if acl_root:
+                options.append('USE_MKLDNN=ON')
+                options.append('USE_MKLDNN_ACL=ON')
+                env.setvar('ACL_ROOT_DIR', acl_root)
 
         available_dependency_options = EB_PyTorch.get_dependency_options_for_version(self.version)
         dependency_names = self.cfg.dependency_names()
@@ -534,7 +542,7 @@ class EB_PyTorch(PythonPackage):
 
         build_type = self.cfg.get('build_type')
         if build_type is None:
-            build_type = 'Debug' if self.toolchain.options.get('debug', None) else 'Release'
+            build_type = 'Debug' if self.toolchain.options.get('debug') else 'Release'
         else:
             for name in ('prebuildopts', 'preinstallopts', 'custom_opts'):
                 if '-DCMAKE_BUILD_TYPE=' in self.cfg[name]:
@@ -551,7 +559,7 @@ class EB_PyTorch(PythonPackage):
 
         unique_options = self.cfg['custom_opts']
         for option in options:
-            name = option.split('=')[0] + '='  # Include the equals sign to avoid partial matches
+            name = option.split('=', maxsplit=1)[0] + '='  # Include the equals sign to avoid partial matches
             if not any(opt.startswith(name) for opt in unique_options):
                 unique_options.append(option)
 
@@ -627,6 +635,13 @@ class EB_PyTorch(PythonPackage):
         env.setvar('SANDCASTLE', '1')
         # Skip this test(s) which is very flaky
         env.setvar('SKIP_TEST_BOTTLENECK', '1')
+        env.setvar('MAX_JOBS', str(self.cfg.parallel))
+        if not os.environ.get('OMP_NUM_THREADS'):
+            # Similar to https://github.com/pytorch/pytorch/blob/main/.ci/pytorch/test.sh:
+            # Limit to a quarter of the CPUs (or less if parallel is set)
+            # and leave some headroom for NUM_PROCS=3 parallel tests.
+            # Use at least 4 threads to avoid numerical mismatches from changed FP reductions.
+            env.setvar('OMP_NUM_THREADS', str(max(4, self.cfg.parallel // 4)))
         if self.has_xml_test_reports:
             env.setvar(self.GENERATE_TEST_REPORT_VAR_NAME, '1')
         # Parse excluded_tests and flatten into space separated string
@@ -642,15 +657,15 @@ class EB_PyTorch(PythonPackage):
             'excluded_tests': ' '.join(excluded_tests)
         })
 
-        parsed_test_result = super().test_step(return_output_ec=True)
-        if parsed_test_result is None:
+        test_step_result = super().test_step(return_output_ec=True)
+        if test_step_result is None:
             if self.cfg['runtest'] is False:
                 msg = "Do not set 'runtest' to False, use --skip-test-step instead."
             else:
                 msg = "Tests did not run. Make sure 'runtest' is set to a command."
             raise EasyBuildError(msg)
 
-        tests_out, tests_ec = parsed_test_result
+        tests_out, tests_ec = test_step_result
 
         failed_test_names = find_failed_test_names(tests_out)
         parsed_test_result = parse_test_log(tests_out)
@@ -700,6 +715,11 @@ class EB_PyTorch(PythonPackage):
             parsed_test_result = new_result
             failed_test_names = new_failed_names
 
+        # Calculate total number of unsuccesful tests
+        failed_test_cnt = parsed_test_result.failure_cnt + parsed_test_result.error_cnt
+        # Always log what we detected, allows for easy comparison of different builds
+        self.log.info("Detected %d failed tests (out of %d)", failed_test_cnt, parsed_test_result.test_cnt)
+
         # Show failed subtests, if any, to aid in debugging failures
         if failed_test_names.error or failed_test_names.fail:
             msg = []
@@ -714,8 +734,6 @@ class EB_PyTorch(PythonPackage):
         # Create clear summary report
         # Use a list of messages we can later join together
         failure_msgs = []
-        # Calculate total number of unsuccesful and total tests
-        failed_test_cnt = parsed_test_result.failure_cnt + parsed_test_result.error_cnt
         # Only add count message if we detected any failed tests
         if failed_test_cnt > 0:
             failure_or_failures = 'failure' if parsed_test_result.failure_cnt == 1 else 'failures'
@@ -827,6 +845,8 @@ class EB_PyTorch(PythonPackage):
             raise EasyBuildError("Test ended with failures! Exit code: %s\n%s", tests_ec, failure_report)
         elif tests_ec:
             raise EasyBuildError("Test command had non-zero exit code (%s), but no failed tests found?!", tests_ec)
+        else:
+            self.log.info("All tests passed successfully!")
 
     def test_cases_step(self):
         self._set_cache_dirs()

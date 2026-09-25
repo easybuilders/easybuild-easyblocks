@@ -30,6 +30,7 @@ EasyBuild support for installing software using 'conda', implemented as an easyb
 """
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
+from easybuild.tools import LooseVersion
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS, get_software_root
 from easybuild.tools.build_log import EasyBuildError
@@ -84,6 +85,15 @@ class Conda(Binary):
         else:
             raise EasyBuildError("No conda/mamba/micromamba available.")
 
+        # Identify conda version
+        cmd = "%s --version" % conda_cmd
+        res = run_shell_cmd(cmd)
+        conda_version = res.output.split(' ')[1]
+        if LooseVersion(conda_version) >= LooseVersion('24.3'):
+            force = '--yes'
+        else:
+            force = '--force'
+
         # initialize conda environment
         # setuptools is just a choice, but *something* needs to be there
         cmd = f"{conda_cmd} config --add create_default_packages setuptools"
@@ -98,7 +108,7 @@ class Conda(Binary):
 
             # use --force to ignore existing installation directory
             cmd = f"{self.cfg['preinstallopts']} {conda_cmd} env create "
-            cmd += f"--force {env_spec} -p {self.installdir}"
+            cmd += f"{force} {env_spec} -p {self.installdir}"
             run_shell_cmd(cmd)
 
         else:
@@ -114,7 +124,7 @@ class Conda(Binary):
                 self.log.info("Installed conda requirements")
 
             cmd = f"{self.cfg['preinstallopts']} {conda_cmd} create "
-            cmd += f"--force -y -p {self.installdir} {install_args}"
+            cmd += f"{force} -y -p {self.installdir} {install_args}"
             run_shell_cmd(cmd)
 
         # clean up

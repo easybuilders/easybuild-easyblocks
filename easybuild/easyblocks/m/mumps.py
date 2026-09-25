@@ -65,7 +65,7 @@ class EB_MUMPS(ConfigureMake):
             make_inc_templ = 'Makefile.INTEL.%s'
             optf = "-Dintel_ -DALLOW_NON_INIT -nofor-main"
             optl = "%s -nofor-main" % optl
-        elif comp_fam == toolchain.GCC:  # @UndefinedVariable
+        elif comp_fam in [toolchain.GCC, toolchain.LLVM]:  # @UndefinedVariable
             if LooseVersion(self.version) >= LooseVersion('5.0.0'):
                 make_inc_templ = 'Makefile.debian.%s'
             else:

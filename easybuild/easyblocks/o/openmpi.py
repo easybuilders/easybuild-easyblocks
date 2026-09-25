@@ -76,6 +76,11 @@ class EB_OpenMPI(ConfigureMake):
         if LooseVersion(self.version) >= '5.0.0':
             known_dependencies.append('PRRTE')
 
+            # ROCm support added to OpenMPI after 5.0.x
+            rocmroot = get_software_root('ROCm-LLVM')
+            if rocmroot:
+                known_dependencies.append('HIP')
+
         # Value to use for `--with-<dep>=<value>` if the dependency is not specified in the easyconfig
         # No entry is interpreted as no option added at all
         # This is to make builds reproducible even when the system libraries are changed and avoids failures
@@ -101,9 +106,14 @@ class EB_OpenMPI(ConfigureMake):
             # libfabric option renamed in OpenMPI 3.1.0 to ofi
             if dep == 'libfabric' and LooseVersion(self.version) >= LooseVersion('3.1'):
                 opt_name = 'ofi'
-                # Check new option name. They are synonyms since 3.1.0 for backward compatibility
-                if config_opt_used(opt_name):
-                    continue
+
+            # needed in easybuild setup as rocm-llvm and hip live in separate dirs
+            if dep == 'HIP' and LooseVersion(self.version) >= LooseVersion('5.0'):
+                opt_name = 'rocm'
+
+            # check again if option is already used, using new name
+            if config_opt_used(opt_name):
+                continue
 
             dep_root = get_software_root(dep)
             # If the dependency is loaded, specify its path, else use the "unused" value, if any
@@ -218,14 +228,26 @@ class EB_OpenMPI(ConfigureMake):
             expected['mpif90'] = 'pgfortran'
         # for Clang the pattern is always clang
         for key in ['mpicc', 'mpicxx']:
-            if expected[key] in ['clang++']:
+            if expected[key] in ['clang++', 'amdclang', 'amdclang++']:
                 expected[key] = 'clang'
         # for flang/flang-new the pattern is always flang
         for key in ['mpifort', 'mpif90']:
-            if expected[key] in ['flang', 'flang-new']:
+            if expected[key] in ['flang', 'flang-new', 'amdflang']:
                 expected[key] = 'flang'
 
         custom_commands = ["%s --version | grep '%s'" % (key, expected[key]) for key in sorted(expected.keys())]
+
+        rocmroot = get_software_root('ROCm-LLVM')
+        if rocmroot:
+            custom_commands.extend([
+                "ompi_info | grep -i 'rocm'",
+                # ROCm MPI extension is built and exposed
+                "ompi_info --all | grep -E 'MPI extensions:.*rocm'",
+                # The ROCm accelerator framework component is present
+                "ompi_info | grep -E 'MCA accelerator: rocm'",
+            ])
+            if get_software_root('UCX') or get_software_root('UCX-ROCm'):
+                custom_commands.append("ompi_info --param pml ucx --level 9 | grep -i rocm_ipc")
 
         # Add minimal test program to sanity checks
         # Run with correct MPI launcher

@@ -64,6 +64,8 @@ KOKKOS_CPU_ARCH_LIST = [
     'ZEN5',  # AMD Zen5 class CPU (AVX-512), since Kokkos 4.7
     'ARMV80',  # ARMv8.0 Compatible CPU
     'ARMV81',  # ARMv8.1 Compatible CPU
+    'ARMV84',  # ARMv8.4 Compatible CPU
+    'ARMV84_SVE',  # ARMv8.4 with SVE compatible CPU
     'ARMV8_THUNDERX',  # ARMv8 Cavium ThunderX CPU
     'ARMV8_THUNDERX2',  # ARMv8 Cavium ThunderX2 CPU
     'A64FX',  # ARMv8.2 with SVE Support
@@ -93,6 +95,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'ADA89',  # NVIDIA Ada Lovelace generation CC 8.9 GPU, since Kokkos 4.1
     'HOPPER90',  # NVIDIA Hopper generation CC 9.0 GPU, since Kokkos 4.0
     'BLACKWELL100',  # NVIDIA Blackwell generation CC 10.0 GPU, since Kokkos 4.7
+    'BLACKWELL103',  # NVIDIA Blackwell generation, since Kokkos 5.1
     'BLACKWELL120',  # NVIDIA Blackwell generation CC 12.0 GPU, since Kokkos 4.7
 
     'AMD_GFX906',  # AMD GPU MI50/MI60, since Kokkos 4.2
@@ -100,6 +103,7 @@ KOKKOS_CPU_ARCH_LIST = [
     'AMD_GFX90A',  # AMD GPU MI200, since Kokkos 4.2
     'AMD_GFX942',  # AMD GPU MI300, since Kokkos 4.2
     'AMD_GFX942_APU',  # AMD APU MI300A, since Kokkos 4.5
+    'AMD_GFX950',  # MI355X, MI350X, since Kokkos 5.1
     'AMD_GFX1030',  # AMD GPU V620/W6800, since Kokkos 4.2
     'AMD_GFX1100',  # AMD GPU RX7900XTX, since Kokkos 4.2
     'AMD_GFX1103',  # AMD APU Phoenix, since Kokkos 4.5
@@ -114,6 +118,32 @@ KOKKOS_CPU_ARCH_LIST = [
     'INTEL_PVC',  # Intel GPU Ponte Vecchio
     'INTEL_DG2',  # Intel GPU DG2, since Kokkos 4.7
 ] + KOKKOS_INTEL_PACKAGE_ARCH_LIST
+
+
+KOKKOS_LEGACY_ARCH_MAPPING = {
+    'ZEN': 'EPYC',
+    'ZEN2': 'EPYC',
+    'ZEN3': 'EPYC',
+    'POWER8': 'Power8',
+    'POWER9': 'Power9',
+}
+
+
+KOKKOS_CPU_MAPPING = {
+    'sandybridge': 'SNB',
+    'ivybridge': 'SNB',
+    'haswell': 'HSW',
+    'broadwell': 'BDW',
+    'skylake_avx512': 'SKX',
+    'cascadelake': 'SKX',
+    'icelake': 'SKX',
+    'sapphirerapids': 'SKX',
+    'knights-landing': 'KNL',
+    'zen': 'ZEN',
+    'zen2': 'ZEN2',
+    'zen3': 'ZEN3',
+    'power9le': 'POWER9',
+}
 
 
 KOKKOS_GPU_ARCH_TABLE = {
@@ -133,8 +163,11 @@ KOKKOS_GPU_ARCH_TABLE = {
     '8.6': 'AMPERE86',  # NVIDIA Ampere generation CC 8.6
     '8.9': 'ADA89',  # NVIDIA Ada Lovelace generation CC 8.9
     '9.0': 'HOPPER90',  # NVIDIA Hopper generation CC 9.0
+    '9.0a': 'HOPPER90',  # NVIDIA Hopper generation cc 9.0 with family-specific optimization
     '10.0': 'BLACKWELL100',  # NVIDIA Blackwell generation CC 10.0
+    '10.0f': 'BLACKWELL100',  # # NVIDIA Blackwell generation CC 10.0 with family-specific optimization
     '12.0': 'BLACKWELL120',  # NVIDIA Blackwell generation CC 12.0
+    '12.0f': 'BLACKWELL120',  # NVIDIA Blackwell generation CC 12.0 with family-specific optimization
     'gfx906': 'AMD_GFX906',  # MI50 / MI60
     'gfx908': 'AMD_GFX908',  # MI100
     'gfx90a': 'AMD_GFX90A',  # MI200 series
@@ -285,9 +318,9 @@ class EB_Kokkos(CMakeMake):
             self.cfg.update('configopts', '-DKokkos_ENABLE_HIP=ON')
             self.cfg.update('configopts', '-DKokkos_ARCH_%s=ON' % gpu_arch)
             if 'rocthrust' in [dep['name'].lower() for dep in self.cfg.dependencies(runtime_only=True)]:
-                self.cfg.update('configopts', '-DKokkos_ENABLE_ROCTRUST=ON')
+                self.cfg.update('configopts', '-DKokkos_ENABLE_ROCTHRUST=ON')
             else:
-                self.cfg.update('configopts', '-DKokkos_ENABLE_ROCTRUST=OFF')
+                self.cfg.update('configopts', '-DKokkos_ENABLE_ROCTHRUST=OFF')
         elif self.sycl:
             self.cfg.update('configopts', '-DKokkos_ENABLE_SYCL=ON')
             if 'onedpl' in [dep['name'].lower() for dep in self.cfg.dependencies(runtime_only=True)]:
@@ -323,3 +356,21 @@ class EB_Kokkos(CMakeMake):
             "hpcbind --help",
         ]
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def make_module_extra(self):
+        """
+        Set NVCC_WRAPPER_DEFAULT_COMPILER to the original compiler name, since
+        Kokkos will use the rpath wrapper path to build Kokkos itself, leading
+        to build issues for other packages. Do not use the full compiler path,
+        so that future software can make use of rpath wrappers via buildenv or
+        a module build with rpath enabled.
+        """
+
+        txt = super().make_module_extra()
+
+        if self.cuda:
+            txt += self.module_generator.set_environment('NVCC_WRAPPER_DEFAULT_COMPILER',
+                                                         self.toolchain.get_variable('CXX'))
+            self.log.debug("make_module_extra added this: %s", txt)
+
+        return txt

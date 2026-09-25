@@ -39,7 +39,7 @@ import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.easyblocks.python import EB_Python
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import move_file, remove_dir
+from easybuild.tools.filetools import clean_dir, move_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -95,7 +95,7 @@ class EB_Tkinter(EB_Python):
         # Reset the install directory and remove it if it already exists. It will not have been removed automatically
         # at the start of the install step, as self.installdir pointed at the temporary install directory.
         self.installdir = self.orig_installdir
-        remove_dir(self.installdir)
+        clean_dir(self.installdir)
 
         dest_pylibdir = os.path.join(self.installdir, det_pylibdir())
 
