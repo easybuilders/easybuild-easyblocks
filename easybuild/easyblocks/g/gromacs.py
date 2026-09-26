@@ -748,7 +748,7 @@ class EB_GROMACS(CMakeMake):
         bin_files = []
 
         dsuff = None
-        if not get_software_root('CUDA'):
+        if 'CUDA' not in self.cfg.dependency_names():
             for configopts in configopts_list:
                 # add the _d suffix to the suffix, in case of double precision
                 if self.double_prec_pattern in configopts:
