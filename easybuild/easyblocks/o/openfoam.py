@@ -33,6 +33,7 @@ EasyBuild support for building and installing OpenFOAM, implemented as an easybl
 @author: Xavier Besseron (University of Luxembourg)
 @author: Ward Poelmans (Ghent University)
 @author: Balazs Hajgato (Free University Brussels (VUB))
+@author: Andras Horvath (TU Wien)
 """
 
 import glob
@@ -607,8 +608,8 @@ class EB_OpenFOAM(EasyBlock):
                     "cd %s" % self.builddir,
                     "rm -r %s" % test_dir,
                 ]
-            # v11 and above run the motorBike example differently
-            else:
+            # v11 to v13 run the motorBike example differently
+            if (self.looseversion > LooseVersion('10') and self.looseversion < LooseVersion('14')):
                 cmds = [
                     "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
                     # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
@@ -623,6 +624,26 @@ class EB_OpenFOAM(EasyBlock):
                     "runParallel renumberMesh -overwrite",
                     "runParallel potentialFoam -initialiseUBCs",
                     "runParallel simpleFoam",
+                    "cd %s" % self.builddir,
+                    "rm -r %s" % test_dir,
+                ]
+            # motorBike for v14 and above
+            if self.looseversion > LooseVersion('13'):
+                cmds = [
+                    "cp -dR --preserve=timestamps %s %s" % (motorbike_path, test_dir),
+                    # Make sure the tmpdir for tests ir writeable if read-only-installdir is used
+                    "chmod -R +w  %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                    "cd %s" % os.path.join(test_dir, os.path.basename(motorbike_path)),
+                    "source $FOAM_BASH",
+                    ". $WM_PROJECT_DIR/bin/tools/RunFunctions",
+                    "cp $FOAM_TUTORIALS/resources/geometry/motorBike.obj.gz constant/%s/" % geom_target_dir,
+                    "runApplication blockMesh",
+                    "runApplication decomposePar -copyZero",
+                    "runParallel snappyHexMesh",
+                    "find . -type f -iname '*level*' -exec rm {} \\;",
+                    "runParallel renumberMesh",
+                    "runParallel potentialFoam -initialiseUBCs",
+                    "runParallel foamRun",
                     "cd %s" % self.builddir,
                     "rm -r %s" % test_dir,
                 ]
