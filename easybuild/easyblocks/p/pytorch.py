@@ -493,30 +493,26 @@ class EB_PyTorch(PythonPackage):
 
         if get_software_root('CUDA'):
             options.append('USE_CUDA=1')
-            cudnn_root = get_software_root('cuDNN')
+            cudnn_root, cudnn_var = get_software_root('cuDNN', True)
             if cudnn_root:
-                options.append('CUDNN_LIB_DIR=' + os.path.join(cudnn_root, 'lib64'))
-                options.append('CUDNN_INCLUDE_DIR=' + os.path.join(cudnn_root, 'include'))
+                options.append('CUDNN_LIB_DIR=' + os.path.join(f'${cudnn_var}', 'lib64'))
+                options.append('CUDNN_INCLUDE_DIR=' + os.path.join(f'${cudnn_var}', 'include'))
 
-            nccl_root = get_software_root('NCCL')
+            nccl_root, nccl_var = get_software_root('NCCL', True)
             if nccl_root:
                 options.append('USE_SYSTEM_NCCL=1')
-                options.append('NCCL_INCLUDE_DIR=' + os.path.join(nccl_root, 'include'))
+                options.append('NCCL_INCLUDE_DIR=' + os.path.join(f'${nccl_var}', 'include'))
 
-            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
-            if not cuda_cc:
-                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
-                                     'cuda_compute_capabilities easyconfig parameter or via '
-                                     '--cuda-compute-capabilities')
-
-            self.log.info('Compiling with specified list of CUDA compute capabilities: %s', ', '.join(cuda_cc))
+            cuda_arch_list = self.cfg.get_cuda_cc_template_value('cuda_cc_semicolon_sep')
+            self.log.info('Compiling with specified list of CUDA compute capabilities: %s',
+                          ', '.join(cuda_arch_list.split(';')))
+            if cuda_arch_list:
+                self.log.info('Also creating PTX code for architecture ' + cuda_arch_list.split(';')[-1])
+                cuda_arch_list += '+PTX'
             # This variable is also used at runtime (e.g. for tests) and if it is not set PyTorch will automatically
             # determine the compute capability of a GPU in the system and use that which may fail tests if
             # it is to new for the used nvcc
-            env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
+            env.setvar('TORCH_CUDA_ARCH_LIST', cuda_arch_list)
         else:
             # Disable CUDA
             options.append('USE_CUDA=0')
