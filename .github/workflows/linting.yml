@@ -26,3 +26,6 @@ jobs:
 
     - name: Run flake8 to verify PEP8-compliance of Python code
       run: flake8
+
+    - name: Verify easybuild/easyblocks/__init__.pyi stub is up to date
+      run: python scripts/generate_init_stub.py --check
