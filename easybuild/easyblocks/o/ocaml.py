@@ -62,8 +62,9 @@ def det_opam_version():
 def mk_opam_init_cmd(root=None):
     """Construct 'opam init' command."""
 
-    opam_init_cmd = ['opam', 'init']
     opam_ver = det_opam_version()
+
+    opam_init_cmd = ['opam', 'init']
 
     if LooseVersion(opam_ver) >= LooseVersion('2.0.0'):
         # disable sandboxing, required bubblewrap (which requires setuid)
@@ -71,13 +72,22 @@ def mk_opam_init_cmd(root=None):
         opam_init_cmd.append('--disable-sandboxing')
 
     if LooseVersion(opam_ver) >= LooseVersion('2.4.0'):
-        # opam >= 2.4 no longer selects the system compiler by default
-        opam_init_cmd.extend(['--compiler=ocaml-system', '--no-setup'])
+        # create the default switch explicitly so its name matches the module's PATH
+        opam_init_cmd.extend(['--bare', '--no-setup'])
 
     if root:
         opam_init_cmd.extend(['--root', root])
 
-    return ' '.join(opam_init_cmd)
+    cmd = ' '.join(opam_init_cmd)
+
+    if LooseVersion(opam_ver) >= LooseVersion('2.4.0'):
+        switch_cmd = ['opam', 'switch', 'create', 'default', 'ocaml-system']
+        if root:
+            switch_cmd.extend(['--root', root])
+
+        cmd += ' && ' + ' '.join(switch_cmd)
+
+    return cmd
 
 
 class EB_OCaml(ConfigureMake):
