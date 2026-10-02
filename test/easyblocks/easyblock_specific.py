@@ -223,7 +223,7 @@ class EasyBlockSpecificTest(TestCase):
 
         os.environ['PATH'] = '%s:%s' % (self.tmpdir, os.getenv('PATH'))
 
-        self.assertErrorRegex(EasyBuildError, "Failed to determine CMake version", det_cmake_version)
+        self.assertRaisesRegex(EasyBuildError, "Failed to determine CMake version", det_cmake_version)
 
         # if $EBVERSIONCMAKE is defined (by loaded CMake module), that's picked up
         os.environ['EBVERSIONCMAKE'] = '1.2.3'
@@ -534,8 +534,8 @@ class EasyBlockSpecificTest(TestCase):
             "foo.*requires.*bar.*not installed.*",
         ])
         with self.mocked_stdout_stderr():
-            self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_check,
-                                  python_cmd=sys.executable)
+            self.assertRaisesRegex(EasyBuildError, error_pattern, python.run_pip_check,
+                                   python_cmd=sys.executable)
 
         # invalid pip version
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
@@ -544,7 +544,7 @@ class EasyBlockSpecificTest(TestCase):
 
         python.run_shell_cmd = mocked_run_shell_cmd_pip
         error_pattern = "Failed to determine pip version!"
-        self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_check, python_cmd=sys.executable)
+        self.assertRaisesRegex(EasyBuildError, error_pattern, python.run_pip_check, python_cmd=sys.executable)
 
     def test_run_pip_list(self):
         """Test run_pip_list function provided by EB_Python easyblock."""
@@ -601,8 +601,8 @@ class EasyBlockSpecificTest(TestCase):
             "wrong",
         ])
         with self.mocked_stdout_stderr():
-            self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_list, [],
-                                  python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
+            self.assertRaisesRegex(EasyBuildError, error_pattern, python.run_pip_list, [],
+                                   python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
 
         # inject errors with mismatched packages name or version
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
@@ -624,9 +624,9 @@ class EasyBlockSpecificTest(TestCase):
             r"wrong-version 5.6.7.*",
         ])
         with self.mocked_stdout_stderr():
-            self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_list,
-                                  [('wrong_name', '1.2.3'), ('wrong_version', '5.6.7')],
-                                  python_cmd=sys.executable, strict_check=True)
+            self.assertRaisesRegex(EasyBuildError, error_pattern, python.run_pip_list,
+                                   [('wrong_name', '1.2.3'), ('wrong_version', '5.6.7')],
+                                   python_cmd=sys.executable, strict_check=True)
 
     def test_symlink_dist_site_packages(self):
         """Test symlink_dist_site_packages provided by PythonPackage easyblock."""
@@ -894,24 +894,24 @@ class EasyBlockSpecificTest(TestCase):
         #  Some error cases
         error_log_dir = test_log_dir / 'faulty-reports'
 
-        self.assertErrorRegex(ValueError, "<testsuites> or <testsuite>",
-                              pytorch.get_test_results, error_log_dir / 'root')
-        self.assertErrorRegex(ValueError, "Failed to parse",
-                              pytorch.get_test_results, error_log_dir / 'invalid_xml')
-        self.assertErrorRegex(ValueError, "multiple reported files",
-                              pytorch.get_test_results, error_log_dir / 'multi_file')
-        self.assertErrorRegex(ValueError, "Path from folder and filename should be equal",
-                              pytorch.get_test_results, error_log_dir / 'different_file_name')
-        self.assertErrorRegex(ValueError, "Unexpected file attribute",
-                              pytorch.get_test_results, error_log_dir / 'file_attribute')
-        self.assertErrorRegex(ValueError, "Invalid state",
-                              pytorch.get_test_results, error_log_dir / 'skip_and_failed')
-        self.assertErrorRegex(ValueError, "no test",
-                              pytorch.get_test_results, error_log_dir / 'no_tests')
-        self.assertErrorRegex(ValueError, "Invalid test count",
-                              pytorch.get_test_results, error_log_dir / 'consistency')
-        self.assertErrorRegex(ValueError, "Duplicate test",
-                              pytorch.get_test_results, error_log_dir / 'duplicate')
+        self.assertRaisesRegex(ValueError, "<testsuites> or <testsuite>",
+                               pytorch.get_test_results, error_log_dir / 'root')
+        self.assertRaisesRegex(ValueError, "Failed to parse",
+                               pytorch.get_test_results, error_log_dir / 'invalid_xml')
+        self.assertRaisesRegex(ValueError, "multiple reported files",
+                               pytorch.get_test_results, error_log_dir / 'multi_file')
+        self.assertRaisesRegex(ValueError, "Path from folder and filename should be equal",
+                               pytorch.get_test_results, error_log_dir / 'different_file_name')
+        self.assertRaisesRegex(ValueError, "Unexpected file attribute",
+                               pytorch.get_test_results, error_log_dir / 'file_attribute')
+        self.assertRaisesRegex(ValueError, "Invalid state",
+                               pytorch.get_test_results, error_log_dir / 'skip_and_failed')
+        self.assertRaisesRegex(ValueError, "no test",
+                               pytorch.get_test_results, error_log_dir / 'no_tests')
+        self.assertRaisesRegex(ValueError, "Invalid test count",
+                               pytorch.get_test_results, error_log_dir / 'consistency')
+        self.assertRaisesRegex(ValueError, "Duplicate test",
+                               pytorch.get_test_results, error_log_dir / 'duplicate')
 
 
 def suite(loader):
