@@ -314,13 +314,12 @@ class EasyBlockSpecificTest(TestCase):
 
     def test_cargo_get_workspace_members(self):
         """Test get_workspace_members in the Cargo easyblock"""
-        with tempfile.TemporaryDirectory(delete=False) as tmpdir:
-            crate_dir = Path(tmpdir)
-            crates_dir = crate_dir / "crates"
-            mkdir(crates_dir / "sub_crate1", parents=True)
-            mkdir(crates_dir / "sub_crate2", parents=True)
-            write_file(crates_dir / "sub_crate1" / "Cargo.toml", "")
-            write_file(crates_dir / "sub_crate2" / "Cargo.toml", "")
+        crate_dir = Path(tempfile.mkdtemp())
+        crates_dir = crate_dir / "crates"
+        mkdir(crates_dir / "sub_crate1", parents=True)
+        mkdir(crates_dir / "sub_crate2", parents=True)
+        write_file(crates_dir / "sub_crate1" / "Cargo.toml", "")
+        write_file(crates_dir / "sub_crate2" / "Cargo.toml", "")
 
         # Simple crate
         toml_text = textwrap.dedent("""
