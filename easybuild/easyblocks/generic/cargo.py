@@ -83,8 +83,8 @@ source = "{source}"
 CARGO_CHECKSUM_JSON = '{{"files": {{}}, "package": "{checksum}"}}'
 
 
-def _get_workspace_members(cargo_toml: Dict[str, Any]) -> Optional[List[str]]:
-    """Find all members of a cargo workspace in the parsed the Cargo.toml file.
+def _get_workspace_members(crate_dir: Path, cargo_toml: Dict[str, Any]) -> Optional[List[str]]:
+    """Find all members of a cargo workspace in the parsed the Cargo.toml file located in the given path.
 
     Returns all members (subfolder names) if it is a workspace, otherwise None
     """
@@ -93,9 +93,21 @@ def _get_workspace_members(cargo_toml: Dict[str, Any]) -> Optional[List[str]]:
     except KeyError:
         return None
     try:
-        return workspace['members']
+        members = workspace['members']
     except KeyError:
         raise EasyBuildError('Failed to find members in %s', cargo_toml)
+
+    # Expand glob patterns in members, e.g. "components/*" to find all subfolders
+    expanded_members = []
+    for member in members:
+        if any(c in member for c in "*?["):
+            # Expand glob pattern
+            expanded_members.extend(str(p.relative_to(crate_dir))
+                                    for p in crate_dir.glob(member)
+                                    if p.is_dir() and (p / "Cargo.toml").is_file())
+        else:
+            expanded_members.append(member)
+    return expanded_members
 
 
 def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, Any]):
@@ -384,7 +396,7 @@ class Cargo(ExtensionEasyBlock):
             # we have to remove the top-level folder or cargo fails with:
             # "found a virtual manifest at [...]Cargo.toml instead of a package manifest"
             parsed_toml = tomllib.loads(read_file(cargo_toml))
-            members = _get_workspace_members(parsed_toml)
+            members = _get_workspace_members(crate_dir, parsed_toml)
             if members:
                 self.log.info(f'Found workspace in {crate_dir}. Members: ' + ', '.join(members))
                 if not any((crate_dir / crate).is_dir() for crate in members):

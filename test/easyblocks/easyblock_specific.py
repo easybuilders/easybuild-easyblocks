@@ -314,6 +314,13 @@ class EasyBlockSpecificTest(TestCase):
 
     def test_cargo_get_workspace_members(self):
         """Test get_workspace_members in the Cargo easyblock"""
+        crate_dir = Path(tempfile.mkdtemp())
+        crates_dir = crate_dir / "crates"
+        mkdir(crates_dir / "sub_crate1", parents=True)
+        mkdir(crates_dir / "sub_crate2", parents=True)
+        write_file(crates_dir / "sub_crate1" / "Cargo.toml", "")
+        write_file(crates_dir / "sub_crate2" / "Cargo.toml", "")
+
         # Simple crate
         toml_text = textwrap.dedent("""
             [package]
@@ -324,7 +331,7 @@ class EasyBlockSpecificTest(TestCase):
             documentation = "url"
             license = "MIT"
         """)
-        members = cargo._get_workspace_members(tomllib.loads(toml_text))
+        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))
         self.assertIsNone(members)
 
         # Virtual manifest
@@ -336,8 +343,16 @@ class EasyBlockSpecificTest(TestCase):
                 "reqwest-retry",
             ]
         """)
-        members = cargo._get_workspace_members(tomllib.loads(toml_text))
+        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))
         self.assertEqual(members, ["reqwest-middleware", "reqwest-tracing", "reqwest-retry"])
+
+        # Glob pattern
+        toml_text = textwrap.dedent("""
+            [workspace]
+            members = [ "crates/*"]
+        """)
+        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))
+        self.assertEqual(sorted(members), ["crates/sub_crate1", "crates/sub_crate2"])
 
         # Workspace (root is a package too)
         toml_text = textwrap.dedent("""
@@ -353,7 +368,7 @@ class EasyBlockSpecificTest(TestCase):
             [dependencies]
             leptos = { version = "0.6", features = ["csr"] }
         """)
-        members = cargo._get_workspace_members(tomllib.loads(toml_text))
+        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))
         self.assertEqual(members, ["nothing", "src-tauri"])
 
     def test_cargo_merge_sub_crate(self):
