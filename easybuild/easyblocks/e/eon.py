@@ -25,10 +25,12 @@
 """
 EasyBuild support for building and installing eOn, implemented as an easyblock
 
-eOn exposes each optional potential and solver as a Meson boolean, and the set
+eOn exposes each optional potential and solver as a Meson option, and the set
 of options changes between releases. This easyblock turns on every option whose
 dependencies are present, and passes only options the unpacked source declares,
-so an easyconfig builds as much of eOn as its dependency list allows.
+so an easyconfig builds as much of eOn as its dependency list allows. Feature
+options get enabled/disabled, deprecated options are left unset, and Meson does
+not download wraps.
 
 @author: Rohit Goswami (SURF)
 """
@@ -50,19 +52,47 @@ OPTION_DEPS = {
     'with_ase': ['pybind11', 'ASE'],
 }
 
-OPTION_RE = re.compile(r"^\s*option\(\s*'(\w+)'", re.M)
+OPTION_START_RE = re.compile(r"^\s*option\(\s*'(\w+)'", re.M)
+OPTION_TYPE_RE = re.compile(r"\btype\s*:\s*'(\w+)'")
+OPTION_DEPRECATED_RE = re.compile(r"\bdeprecated\s*:\s*(true|'|\[|\{)")
+
+
+def parse_meson_options(text):
+    """
+    Map each option a meson.options or meson_options.txt declares to (type, deprecated).
+
+    eOn turns options into features and deprecates others between releases
+    (with_mpi became a feature in 3.5.0, with_rgpot is deprecated since 3.4.0).
+    """
+    text = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('#'))
+    starts = list(OPTION_START_RE.finditer(text))
+    options = {}
+    for idx, match in enumerate(starts):
+        end = starts[idx + 1].start() if idx + 1 < len(starts) else len(text)
+        body = text[match.end():end]
+        opt_type = OPTION_TYPE_RE.search(body)
+        options[match.group(1)] = (opt_type.group(1) if opt_type else None, bool(OPTION_DEPRECATED_RE.search(body)))
+    return options
+
+
+def meson_value(opt_type, value):
+    """Spell a boolean the way Meson accepts it for an option of this type."""
+    if opt_type == 'feature':
+        return 'enabled' if value else 'disabled'
+    return str(value).lower()
 
 
 class EB_eOn(MesonNinja):
     """Support for building and installing eOn."""
 
     def _declared_options(self):
-        """Names of the Meson options the source tree declares."""
+        """Type and deprecation state of each Meson option the source tree declares."""
+        # MesonNinja passes build_dir to meson as the source directory
         src = self.cfg['build_dir'] or self.start_dir
         for fn in ('meson.options', 'meson_options.txt'):
             path = os.path.join(src, fn)
             if os.path.isfile(path):
-                return set(OPTION_RE.findall(read_file(path)))
+                return parse_meson_options(read_file(path))
         raise EasyBuildError("No meson.options or meson_options.txt found in %s", src)
 
     def _feature_options(self):
@@ -82,13 +112,23 @@ class EB_eOn(MesonNinja):
         for opt, value in sorted(self._feature_options().items()):
             if opt not in declared:
                 self.log.info("eOn: source does not declare Meson option %s, not setting it", opt)
+                continue
+            opt_type, deprecated = declared[opt]
+            if deprecated:
+                self.log.info("eOn: Meson option %s is deprecated, not setting it", opt)
             elif '-D%s=' % opt in self.cfg['configopts']:
                 self.log.info("eOn: %s is set in configopts, leaving it", opt)
             else:
-                self.cfg.update('configopts', '-D%s=%s' % (opt, str(value).lower()))
+                self.cfg.update('configopts', '-D%s=%s' % (opt, meson_value(opt_type, value)))
                 if value:
                     enabled.append(opt)
         self.log.info("eOn: enabled Meson options: %s", ', '.join(enabled) or 'none')
+
+        # every dependency comes from the easyconfig; a missing one fails here
+        # instead of Meson fetching a wrap from the network
+        if 'wrap_mode' not in self.cfg['configopts'] and '--wrap-mode' not in self.cfg['configopts']:
+            self.cfg.update('configopts', '--wrap-mode=nodownload')
+
         return super().configure_step(*args, **kwargs)
 
     def test_step(self):
