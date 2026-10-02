@@ -67,6 +67,7 @@ class EB_OpenFOAM(EasyBlock):
         extra_vars.update({
             'sanity_check_motorbike': [True, "Should the motorbike sanity check run?", CUSTOM],
             'sanity_check_oversubscribe': [True, "Should the motorbike sanity check use oversubscription?", CUSTOM],
+            'precision': ['DP', "Floating-point precision: DP, SP, or SPDP", CUSTOM],
         })
         return extra_vars
 
@@ -123,6 +124,9 @@ class EB_OpenFOAM(EasyBlock):
         # Note: this name must contain 'MPI' so the MPI version of the
         # Pstream library is built (cf src/Pstream/Allwmake)
         self.wm_mplib = "EASYBUILDMPI"
+
+        # floating-point precision (DP default); SP/SPDP override via etc/prefs.sh
+        self.wm_precision = self.cfg['precision']
 
     def extract_step(self):
         """Extract sources as expected by the OpenFOAM(-Extend) build scripts."""
@@ -282,6 +286,22 @@ class EB_OpenFOAM(EasyBlock):
         # Set Compile options according to build type
         env.setvar("WM_COMPILE_OPTION", self.build_type)
 
+        # Floating-point precision. etc/bashrc sets WM_PRECISION_OPTION=DP unconditionally,
+        # so an env var alone is clobbered when Allwmake sources bashrc. The sanctioned
+        # override is etc/prefs.sh (sourced by config.sh/setup AFTER the unconditional DP
+        # and BEFORE WM_OPTIONS is computed). Build runs in the install dir, so writing
+        # prefs.sh here applies to both the build and the installed module.
+        env.setvar("WM_PRECISION_OPTION", self.wm_precision)
+        if self.wm_precision != 'DP':
+            prefs_path = os.path.join(self.installdir, self.openfoamdir, 'etc', 'prefs.sh')
+            existing = ''
+            if os.path.exists(prefs_path):
+                existing = open(prefs_path).read()
+            if 'WM_PRECISION_OPTION' not in existing:
+                with open(prefs_path, 'a') as fh:
+                    fh.write('export WM_PRECISION_OPTION=%s\n' % self.wm_precision)
+                self.log.info("Wrote WM_PRECISION_OPTION=%s to %s" % (self.wm_precision, prefs_path))
+
         # parallel build spec
         env.setvar("WM_NCOMPPROCS", str(self.cfg.parallel))
 
@@ -417,7 +437,7 @@ class EB_OpenFOAM(EasyBlock):
         elif arch == POWER:
             archpart = 'PPC64le'
 
-        psubdir = "linux%s%sDP%s%s" % (archpart, self.wm_compiler, int_size, self.build_type)
+        psubdir = "linux%s%s%s%s%s" % (archpart, self.wm_compiler, self.wm_precision, int_size, self.build_type)
         return psubdir
 
     def install_step(self):
@@ -641,6 +661,7 @@ class EB_OpenFOAM(EasyBlock):
             # Set WM_COMPILE_OPTION in the module file
             # $FOAM_BASH will then pick it up correctly.
             ('WM_COMPILE_OPTION', self.build_type),
+            ('WM_PRECISION_OPTION', self.wm_precision),
             ('WM_PROJECT_VERSION', self.version),
             ('FOAM_INST_DIR', self.installdir),
             ('WM_COMPILER', self.wm_compiler),
