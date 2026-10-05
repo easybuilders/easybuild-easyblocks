@@ -290,6 +290,7 @@ class EB_PyTorch(PythonPackage):
         """Constructor for PyTorch easyblock."""
         super().__init__(*args, **kwargs)
         self.options['modulename'] = 'torch'
+        self.cfg['extension_name'] = 'torch'
         self.has_xml_test_reports = False
 
         self.tmpdir = tempfile.mkdtemp(suffix='-pytorch-build')
