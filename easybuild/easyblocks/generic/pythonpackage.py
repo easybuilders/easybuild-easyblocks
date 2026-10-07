@@ -708,14 +708,49 @@ class PythonPackage(ExtensionEasyBlock):
         self.all_pylibdirs = get_pylibdirs(python_cmd=self.python_cmd)
         self.pylibdir = self.all_pylibdirs[0]
 
+    def verify_eb_pythonprefixes(self):
+        """Warn if mixing dependency modules with $PYTHONPATH and $EBPYTHONPREFIXES"""
+        python_root = get_software_root('Python')
+        # Our site-customize is installed into the Python module. If that isn't loaded there is nothing to check.
+        if not python_root:
+            return
+        pythonpaths_var = os.environ.get('PYTHONPATH')
+        if not (os.environ.get(EBPYTHONPREFIXES) and pythonpaths_var):
+            self.log.debug('At most one of $PYTHONPATH and $%s is set. Skipping conflict check.', EBPYTHONPREFIXES)
+            return
+        # Check if any entry from $PYTHONPATH is from a dependent module.
+        # Resolve symlinks (only works for existing paths) to match the strings later.
+        pythonpaths = [os.path.realpath(path) for path in pythonpaths_var.split(os.path.pathsep)
+                       if os.path.exists(path)]
+        # Check only paths that could be replaced by $EBPYTHONPREFIXES to avoid false positives
+        pythonpaths = [path for path in pythonpaths if path.endswith(os.sep + self.pylibdir)]
+        self.log.debug('Keeping %s from $PYTHONPATH=%s for checking', pythonpaths, pythonpaths_var)
+
+        def is_in_pythonpaths(dependency):
+            if dependency['name'] == 'Python':
+                return False  # Ignore the Python module
+            try:
+                root = os.path.realpath(get_software_root(dependency['name']))
+            except OSError:
+                return False
+            # Search for the path or a subdirectory of it
+            return any(path == root or path.startswith(root + os.sep) for path in pythonpaths)
+
+        conflicts = [dep['name'] for dep in self.cfg.dependencies() if is_in_pythonpaths(dep)]
+        if conflicts:
+            print_warning('The following modules set $PYTHONPATH but $%s is also used: %s\n'
+                          'Mixing such modules might cause unexpected results during the build of Python packages. '
+                          'Try rebuilding the module files to use either $PYTHONPATH or $%s.',
+                          EBPYTHONPREFIXES, ', '.join(conflicts), EBPYTHONPREFIXES)
+
     def prepare_python(self):
         """Python-specific preparations."""
 
         self.python_cmd = find_python_cmd_from_ec(self.log, self.cfg, self.require_python)
 
         if self.python_cmd:
-            # set Python lib directories
             self.set_pylibdirs()
+            self.verify_eb_pythonprefixes()
 
         self.set_ulimit()
 
