@@ -122,7 +122,8 @@ class GoPackage(EasyBlock):
             # see https://pkg.go.dev/cmd/internal/obj/riscv#hdr-RISC_V_extensions
             # for what the latest Go version supports.
             # Profile rva23u64 requires Go version 1.25 or newer.
-            if optarch in ['rva20u64', 'rva22u64', 'rva23u64']:
+            optarch = optarch.lower()
+            if optarch in ['RVA20U64', 'RVA22U64', 'rva23u64']:
                 if optarch == 'rva23u64' and LooseVersion(get_software_version('Go')) < LooseVersion("1.25"):
                     raise EasyBuildError("Profile rva23u64 requires Go 1.25 or newer.")
                 opt_level = optarch
