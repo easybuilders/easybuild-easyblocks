@@ -99,6 +99,18 @@ git commit -m "support for Linux From Scratch"
 
 If you are working on several things at the same time, try and keep things isolated in seperate branches, to keep it manageable (both for you, and for reviewing your contributions, see below).
 
+### Regenerate the import stubs when adding an easyblock
+
+The lettered subfolders under `easybuild/easyblocks/` (like `c/clang.py`) are flattened into the `easybuild.easyblocks` namespace at runtime via `pkgutil.extend_path` in `easybuild/easyblocks/__init__.py`. LSPs and type-checkers do not execute that logic, so flattened imports like `from easybuild.easyblocks.clang import ...` would otherwise show up as unresolved. To fix this, PEP 561 stubs are generated: a minimal `easybuild/easyblocks/__init__.pyi` for the package public API, plus a per-module `<name>.pyi` (e.g. `clang.pyi`) alongside it that re-exports from the real lettered subdirectory.
+
+When you add or remove an easyblock, regenerate the stubs so static analysis stays in sync:
+
+```bash
+python scripts/generate_init_stub.py
+```
+
+The CI checks that the committed stubs match what the generator would produce, so remember to commit the regenerated `*.pyi` files together with your new easyblock.
+
 
 
 ## Pull request
