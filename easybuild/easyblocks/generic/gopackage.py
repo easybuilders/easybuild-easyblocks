@@ -119,11 +119,12 @@ class GoPackage(EasyBlock):
             microarch = 'GORISCV64'
             opt_level = 'rva20u64'
             # Currenty only RISC-V profiles rva20u64, rva22u64, rva23u64 are supported,
-            # see https://pkg.go.dev/cmd/internal/obj/riscv#hdr-RISC_V_extensions for what the latest Go version supports.
-            # For rva23u64, Go version 1.25 or newer is required.
+            # see https://pkg.go.dev/cmd/internal/obj/riscv#hdr-RISC_V_extensions
+            # for what the latest Go version supports.
+            # Profile rva23u64 requires Go version 1.25 or newer.
             if optarch in ['rva20u64', 'rva22u64', 'rva23u64']:
                 if optarch == 'rva23u64' and LooseVersion(get_software_version('Go')) < LooseVersion("1.25"):
-                    raise EasyBuildError("Go version %s does not support RISC-V profile rva23u64; version 1.25 or newer is required.")
+                    raise EasyBuildError("Profile rva23u64 requires Go 1.25 or newer.")
                 opt_level = optarch
             elif optarch == OPTARCH_GENERIC:
                 opt_level = 'rva20u64'
