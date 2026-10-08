@@ -102,6 +102,7 @@ class GoPackage(EasyBlock):
             # Allowed values are v8.{0-9} and v9.{0-5}. This may be followed by an option specifying extensions
             # implemented by target hardware. Example: GOARM64=v8.0,lse
             if optarch.startswith("V8.") or optarch.startswith("V9."):
+                # GOARM64 values should be lowercase, see https://go.dev/wiki/MinimumRequirements#arm64
                 opt_level = optarch.lower()
             elif optarch == OPTARCH_GENERIC:
                 opt_level = "v8.0"
