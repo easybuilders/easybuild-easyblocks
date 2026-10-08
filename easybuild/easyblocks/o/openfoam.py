@@ -104,11 +104,8 @@ class EB_OpenFOAM(EasyBlock):
             self.openfoamdir = '-'.join([self.name, '-'.join(self.version.split('-')[:2])])
         self.log.debug("openfoamdir: %s" % self.openfoamdir)
 
-        # Set build type to requested value
-        if self.toolchain.options['debug']:
-            self.build_type = 'Debug'
-        else:
-            self.build_type = 'Opt'
+        # Always set build type to Opt, let easybuild decide CFLAGS and CXXFLAGS
+        self.build_type = 'Opt'
 
         # determine values for wm_compiler and wm_mplib
         comp_fam = self.toolchain.comp_family()
