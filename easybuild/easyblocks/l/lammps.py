@@ -757,7 +757,7 @@ class EB_LAMMPS(CMakeMake):
 
         # add accelerator-specific tests
         # INTEL package - it requires mpi4py - run only for updated easyconfigs >= 29Aug2024
-        if 'msst' in self.cfg['sanity_check_test_inputs']:
+        if 'msst' in sanity_check_test_inputs:
             if LooseVersion(self.version) >= LooseVersion('29Aug2024'):
                 custom_commands.append(
                     'from lammps import lammps; '
