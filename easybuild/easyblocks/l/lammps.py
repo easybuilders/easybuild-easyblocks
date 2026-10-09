@@ -761,7 +761,8 @@ class EB_LAMMPS(CMakeMake):
             if LooseVersion(self.version) >= LooseVersion('29Aug2024'):
                 custom_commands.append(
                     'from lammps import lammps; '
-                    'l=lammps(cmdargs=["-sf", "intel"]).file("%s") if "INTEL" in lammps().installed_packages else None' %
+                    'l=lammps(cmdargs=["-sf", "intel"]).file("%s") '
+                    'if "INTEL" in lammps().installed_packages else None' %
                     os.path.join(self.installdir, "examples", "msst", "in.msst")
                 )
             if self.cfg['kokkos']:  # KOKKOS package
