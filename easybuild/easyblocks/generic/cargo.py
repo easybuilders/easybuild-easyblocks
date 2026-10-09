@@ -37,7 +37,7 @@ import shutil
 import tempfile
 from glob import glob
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import easybuild.tools.environment as env
 import easybuild.tools.systemtools as systemtools
@@ -93,12 +93,12 @@ def _get_workspace_members(crate_dir: Path, cargo_toml: Dict[str, Any]) -> Optio
     except KeyError:
         return None
     try:
-        members = workspace['members']
+        members: List[str] = workspace['members']
     except KeyError:
         raise EasyBuildError('Failed to find members in %s', cargo_toml)
 
     # Expand glob patterns in members, e.g. "components/*" to find all subfolders
-    expanded_members = []
+    expanded_members: List[str] = []
     for member in members:
         if any(c in member for c in "*?["):
             # Expand glob pattern
@@ -122,15 +122,30 @@ def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, Any]):
             return {**parent, **child}  # Merge dictionaries, overwrite with child values
         return parent
 
-    def do_replacement(section_name, workspace_section_name=None):
+    def do_replacement(section_or_section_name: Union[str, Dict[str, Any]], ws_section_name: Optional[str] = None):
+        if isinstance(section_or_section_name, str):
+            try:
+                section: Dict[str, Any] = cargo_toml[section_or_section_name]
+            except KeyError:
+                return
+            if ws_section_name is None:
+                ws_section_name = section_or_section_name
+        else:
+            section = section_or_section_name
+            assert ws_section_name, "Need workspace section name when passing section as dict"
         try:
-            section: Dict[str, Any] = cargo_toml[section_name]
-            workspace_section: Dict[str, Any] = workspace[workspace_section_name or section_name]
+            workspace_section: Dict[str, Any] = workspace[ws_section_name]
         except KeyError:
             return
+
         if section.pop('workspace', False):
-            section = do_merge(workspace_section, section)
-            cargo_toml[section_name] = section
+            merged = do_merge(workspace_section, section)
+            if isinstance(section_or_section_name, str):
+                cargo_toml[section_or_section_name] = merged
+                section = merged
+            else:
+                section.clear()
+                section.update(merged)
 
         for key, value in section.items():
             if isinstance(value, dict) and value.pop('workspace', False):
@@ -141,6 +156,12 @@ def _merge_sub_crate(cargo_toml_path: Path, workspace_toml: Dict[str, Any]):
     do_replacement('build-dependencies', 'dependencies')
     do_replacement('dev-dependencies', 'dependencies')
     do_replacement('lints')
+    # Merge dependencies from target sections like:
+    # `target."cfg(unix)".dependencies.libc` or `target.'cfg(any())'.dependencies``
+    for target_section in cargo_toml.get('target', {}).values():
+        for dep_type in ('dependencies', 'build-dependencies', 'dev-dependencies'):
+            if dep_type in target_section:
+                do_replacement(target_section[dep_type], 'dependencies')
 
     write_file(cargo_toml_path, dump_toml(cargo_toml))
 
@@ -319,7 +340,8 @@ class Cargo(ExtensionEasyBlock):
                 git_key = src['crate'][2:]
                 git_repo, rev = git_key
                 self.log.debug("Sources of %s(%s) belong to git repo: %s rev %s",
-                               crate_name, src['name'], git_repo, rev)
+                               crate_name,  # pylint: disable=possibly-used-before-assignment
+                               src['name'], git_repo, rev)
                 # Do a sanity check that sources for the same repo and revision are the same
                 try:
                     previous_source = git_sources[git_key]

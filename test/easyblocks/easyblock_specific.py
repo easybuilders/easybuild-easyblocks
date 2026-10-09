@@ -284,7 +284,7 @@ class EasyBlockSpecificTest(TestCase):
             ver = pkg1['version']
             self.assertTrue(regex.match(ver), f"Pattern {regex.pattern} matches for pkg version: {ver}")
 
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+        def mocked_run_shell_cmd_pip(cmd, **_kwargs):
             stderr = None
             if "pip list" in cmd:
                 output = '[{"name": "example", "version": "1.2.3"}]'
@@ -331,7 +331,7 @@ class EasyBlockSpecificTest(TestCase):
             documentation = "url"
             license = "MIT"
         """)
-        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))
+        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))  # pylint: disable=protected-access
         self.assertIsNone(members)
 
         # Virtual manifest
@@ -343,7 +343,7 @@ class EasyBlockSpecificTest(TestCase):
                 "reqwest-retry",
             ]
         """)
-        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))
+        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))  # pylint: disable=protected-access
         self.assertEqual(members, ["reqwest-middleware", "reqwest-tracing", "reqwest-retry"])
 
         # Glob pattern
@@ -351,7 +351,7 @@ class EasyBlockSpecificTest(TestCase):
             [workspace]
             members = [ "crates/*"]
         """)
-        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))
+        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))  # pylint: disable=protected-access
         self.assertEqual(sorted(members), ["crates/sub_crate1", "crates/sub_crate2"])
 
         # Workspace (root is a package too)
@@ -368,7 +368,7 @@ class EasyBlockSpecificTest(TestCase):
             [dependencies]
             leptos = { version = "0.6", features = ["csr"] }
         """)
-        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))
+        members = cargo._get_workspace_members(crate_dir, tomllib.loads(toml_text))  # pylint: disable=protected-access
         self.assertEqual(members, ["nothing", "src-tauri"])
 
     def test_cargo_merge_sub_crate(self):
@@ -418,7 +418,7 @@ class EasyBlockSpecificTest(TestCase):
             [lints]
             workspace = true
         """)
-        cargo._merge_sub_crate(cargo_toml, ws_parsed)
+        cargo._merge_sub_crate(cargo_toml, ws_parsed)  # pylint: disable=protected-access
         self.assertEqual(tomllib.loads(cargo_toml.read_text()), tomllib.loads("""
             [package]
             name = "bar"
@@ -451,7 +451,7 @@ class EasyBlockSpecificTest(TestCase):
             [dependencies]
             regex = { workspace = true }
         """)
-        cargo._merge_sub_crate(cargo_toml, ws_parsed)
+        cargo._merge_sub_crate(cargo_toml, ws_parsed)  # pylint: disable=protected-access
         self.assertEqual(tomllib.loads(cargo_toml.read_text()), tomllib.loads("""
             [package]
             name = "bar"
@@ -459,6 +459,45 @@ class EasyBlockSpecificTest(TestCase):
             [dependencies]
             regex = { version = "1.6.0", default-features = false, features = ["std"] }
         """))
+
+        # Check [target.<cfg>.dependencies] sections
+        crate_dir = Path(tempfile.mkdtemp())
+        cargo_toml = crate_dir / 'Cargo.toml'
+        ws_parsed = tomllib.loads("""
+            [workspace]
+            members = ["bar"]
+
+            [workspace.package]
+            version = "1.2.3"
+
+            [workspace.dependencies]
+            tikv = "0.6"
+            paste = "4.2"
+            regex = { version = "1.6.0", default-features = false }
+        """)
+        cargo_toml.write_text("""
+            [package]
+            name = "bar"
+            version.workspace = true
+
+            [target."cfg(target_os = \\"linux\\")".dependencies]
+            tikv = { workspace = true }
+
+            [target."cfg(unix)".dependencies]
+            regex = { workspace = true, features = ["unicode"] }
+
+            [target."cfg(windows)".dev-dependencies]
+            paste = { workspace = true }
+        """)
+        cargo._merge_sub_crate(cargo_toml, ws_parsed)  # pylint: disable=protected-access
+        result = tomllib.loads(cargo_toml.read_text())
+        self.assertEqual(result['package']['version'], "1.2.3")
+        self.assertEqual(result['target']['cfg(target_os = "linux")']['dependencies']['tikv'], "0.6")
+        self.assertEqual(
+            result['target']['cfg(unix)']['dependencies']['regex'],
+            {"version": "1.6.0", "default-features": False, "features": ["unicode"]},
+        )
+        self.assertEqual(result['target']['cfg(windows)']['dev-dependencies']['paste'], "4.2")
 
     def test_handle_local_py_install_scheme(self):
         """Test handle_local_py_install_scheme function provided by PythonPackage easyblock."""
@@ -512,7 +551,7 @@ class EasyBlockSpecificTest(TestCase):
     def test_run_pip_check(self):
         """Test run_pip_check function provided by EB_Python easyblock."""
 
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+        def mocked_run_shell_cmd_pip(cmd, **_kwargs):
             if "pip check" in cmd:
                 output = "No broken requirements found."
             elif "pip --version" in cmd:
@@ -529,7 +568,7 @@ class EasyBlockSpecificTest(TestCase):
             python.run_pip_check(python_cmd=sys.executable)
 
         # inject all possible errors
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+        def mocked_run_shell_cmd_pip(cmd, **_kwargs):  # pylint: disable=function-redefined
             if "pip check" in cmd:
                 output = "foo-1.2.3 requires bar-4.5.6, which is not installed."
                 exit_code = 1
@@ -553,7 +592,7 @@ class EasyBlockSpecificTest(TestCase):
                                   python_cmd=sys.executable)
 
         # invalid pip version
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+        def mocked_run_shell_cmd_pip(cmd, **_kwargs):  # pylint: disable=function-redefined
             return RunShellCmdResult(cmd=cmd, exit_code=0, output="1.2.3", stderr=None, work_dir=None,
                                      out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
 
@@ -564,7 +603,7 @@ class EasyBlockSpecificTest(TestCase):
     def test_run_pip_list(self):
         """Test run_pip_list function provided by EB_Python easyblock."""
 
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+        def mocked_run_shell_cmd_pip(cmd, **_kwargs):
             if "pip list" in cmd:
                 output = '[{"name": "example", "version": "1.2.3"}]'
             else:
@@ -579,7 +618,7 @@ class EasyBlockSpecificTest(TestCase):
             python.run_pip_list([], python_cmd=sys.executable)
 
         # test ignored unversioned Python packages
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+        def mocked_run_shell_cmd_pip(cmd, **_kwargs):  # pylint: disable=function-redefined
             if "pip list" in cmd:
                 output = '[{"name": "zero", "version": "0.0.0"}, {"name": "example-pkg", "version": "1.2.3"}]'
             else:
@@ -597,7 +636,7 @@ class EasyBlockSpecificTest(TestCase):
             python.run_pip_list([('example.pkg', '1.2.3')], python_cmd=sys.executable, unversioned_packages={'zero'})
 
         # inject all possible errors with unversioned packages
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+        def mocked_run_shell_cmd_pip(cmd, **_kwargs):  # pylint: disable=function-redefined
             if "pip list" in cmd:
                 output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong", "version": "0.0.0"}]'
                 exit_code = 0
@@ -620,7 +659,7 @@ class EasyBlockSpecificTest(TestCase):
                                   python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
 
         # inject errors with mismatched packages name or version
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+        def mocked_run_shell_cmd_pip(cmd, **_kwargs):  # pylint: disable=function-redefined
             if "pip list" in cmd:
                 output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong-version", "version": "1.1.1"}]'
                 exit_code = 0
