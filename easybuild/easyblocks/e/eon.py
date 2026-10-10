@@ -40,16 +40,16 @@ import re
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import read_file
-from easybuild.tools.modules import get_software_root
+from easybuild.tools.modules import get_software_root, get_software_version
 from easybuild.tools.run import run_shell_cmd
 
 # Meson option -> EasyBuild names of the dependencies it needs (client/meson.build)
 OPTION_DEPS = {
-    'with_rgpot': ['rgpot'],
     'with_serve': ['rgpot', 'CapnProto'],
     'with_xtb': ['xtb'],
-    'with_parallel_neb': ['tbb'],
     'with_ase': ['pybind11', 'ASE'],
+    'with_pyeonclient': ['nanobind'],
+    'with_metatomic': ['PyTorch', 'metatomic-torch'],
 }
 
 OPTION_START_RE = re.compile(r"^\s*option\(\s*'(\w+)'", re.M)
@@ -123,6 +123,15 @@ class EB_eOn(MesonNinja):
                 if value:
                     enabled.append(opt)
         self.log.info("eOn: enabled Meson options: %s", ', '.join(enabled) or 'none')
+
+        # with_metatomic links libtorch from the PyTorch installation, not from pip
+        if 'with_metatomic' in enabled and 'torch_path' in declared and '-Dtorch_path=' not in self.cfg['configopts']:
+            pyshortver = '.'.join(get_software_version('Python').split('.')[:2])
+            torch_path = os.path.join(get_software_root('PyTorch'), 'lib', 'python%s' % pyshortver,
+                                      'site-packages', 'torch')
+            if not os.path.isdir(torch_path):
+                raise EasyBuildError("with_metatomic: no torch package at %s", torch_path)
+            self.cfg.update('configopts', '-Dtorch_path=%s' % torch_path)
 
         # every dependency comes from the easyconfig; a missing one fails here
         # instead of Meson fetching a wrap from the network
