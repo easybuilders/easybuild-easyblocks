@@ -955,7 +955,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.install_cmd_output += res.output
         elif (self.cfg['prebuildopts'] and not self.cfg['preinstallopts']) or (
                 self.cfg['buildopts'] and not self.cfg['installopts']):
-            msg = '(pre_)build_opts specified but no build is beeing run.'
+            msg = '(pre_)build_opts specified but no build is being run.'
             if self.using_pip_install():
                 msg += ' When using pip only the install step is performed and the build options are ignored.'
                 msg += ' Use (pre_)install_opts in this case.'
