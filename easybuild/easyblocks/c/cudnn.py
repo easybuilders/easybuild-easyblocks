@@ -44,6 +44,11 @@ class EB_cuDNN(Tarball):
         # Need to call super's init first, so we can use self.version
         super().__init__(*args, **kwargs)
 
+        if self.cfg['requires_eula'] is None:
+            self.cfg['requires_eula'] = [
+                'cuDNN', 'https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html'
+            ]
+
         # Generate cudnnarch template value for this system
         cudnnarch = False
         myarch = get_cpu_architecture()
@@ -68,16 +73,6 @@ class EB_cuDNN(Tarball):
         self.cfg['keepsymlinks'] = True
         self.cfg.template_values['cudnnarch'] = cudnnarch
         self.cfg.generate_template_values()
-
-    def fetch_step(self, *args, **kwargs):
-        """Check for EULA acceptance prior to getting sources."""
-        # EULA for cuDNN must be accepted via --accept-eula-for EasyBuild configuration option,
-        # or via 'accept_eula = True' in easyconfig file
-        self.check_accepted_eula(
-            name='cuDNN',
-            more_info='https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html'
-        )
-        return super().fetch_step(*args, **kwargs)
 
     def make_module_extra(self):
         """Set the install directory as CUDNN_HOME, CUDNN_PATH."""
