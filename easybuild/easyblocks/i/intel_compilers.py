@@ -26,21 +26,32 @@
 EasyBuild support for installing Intel compilers, implemented as an easyblock
 
 @author: Kenneth Hoste (Ghent University)
+@author: Adam McCartney (TU Wien)
 """
+import glob
 import os
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.intelbase import IntelBase
 from easybuild.easyblocks.tbb import get_tbb_gccprefix
 from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.config import build_option
+from easybuild.tools.filetools import write_file
 from easybuild.tools.modules import MODULE_LOAD_ENV_HEADERS
 from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.utilities import trace_msg
 
 
 class EB_intel_minus_compilers(IntelBase):
     """
     Support for installing Intel compilers, starting with verion 2021.x (oneAPI)
     """
+
+    # Intel allows the use of config files for specific compilers since
+    # at least 2023.0
+    # Notes: ifx is introduced with version 2024.0
+    #        ifort is deprecated and marked for removal with 2025.0
+    cfg_compilers = ['ifort', 'ifx', 'icpx', 'icx']
 
     def __init__(self, *args, **kwargs):
         """
@@ -51,6 +62,20 @@ class EB_intel_minus_compilers(IntelBase):
         # this easyblock is only valid for recent versions of the Intel compilers (2021.x, oneAPI)
         if LooseVersion(self.version) < LooseVersion('2021'):
             raise EasyBuildError("Invalid version %s, should be >= 2021.x" % self.version)
+
+    def _set_dynamic_linker(self):
+        """Set the dynamic linker for the build if not the default one."""
+        if self.sysroot:
+            linkers = glob.glob(os.path.join(self.sysroot, '**', 'ld-*.so*'))
+            for linker in linkers:
+                if os.path.isfile(linker) and not os.path.islink(linker):
+                    self.log.info("Using linker %s from sysroot", linker)
+                    self.dynamic_linker = linker
+                    break
+            else:
+                msg = f"No linker found in sysroot {self.sysroot}, using default linker"
+                trace_msg(msg)
+                self.log.warning(msg)
 
     @property
     def compilers_subdir(self):
@@ -80,6 +105,23 @@ class EB_intel_minus_compilers(IntelBase):
         # redefine $HOME for install step, to avoid that anything is stored in $HOME/intel
         # (like the 'installercache' database)
         self.cfg['preinstallopts'] += " HOME=%s " % self.builddir
+        self.sysroot = build_option('sysroot')
+        if self.sysroot:
+            self._set_dynamic_linker()
+
+    def _create_compiler_config_file(self, installdir):
+        """Create config files for the compilers to leverage sysroot."""
+
+        bin_dir = os.path.join(installdir, self.compilers_subdir, 'bin')
+        opts = []
+        if self.dynamic_linker:  # sysroot is set
+            opts.append("--sysroot=%s" % self.sysroot)
+            opts.append("-Wl,--dynamic-linker=%s" % self.dynamic_linker)
+
+        for cmp in self.cfg_compilers:
+            cfg_file = os.path.join(bin_dir, "%s.cfg" % cmp)
+            self.log.info("Writing config: %s to %s" % (' '.join(opts), cfg_file,))
+            write_file(cfg_file, ' '.join(opts))
 
     def install_step(self):
         """
@@ -94,11 +136,12 @@ class EB_intel_minus_compilers(IntelBase):
             self.src = [src]
             super().install_step()
 
+        self._create_compiler_config_file(self.installdir)
+
     def sanity_check_step(self):
         """
         Custom sanity check for Intel compilers.
         """
-
         oneapi_compiler_cmds = [
             'dpcpp',  # Intel oneAPI Data Parallel C++ compiler
             'icx',  # oneAPI Intel C compiler
