@@ -37,6 +37,7 @@ import tempfile
 from easybuild.tools import LooseVersion
 import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.easyblocks.tensorflow import det_binutils_bin_path
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import apply_regex_substitutions, which
@@ -67,12 +68,9 @@ class EB_jaxlib(PythonPackage):
 
         super().configure_step()
 
-        binutils_root = get_software_root('binutils')
-        if not binutils_root:
-            raise EasyBuildError("Failed to determine installation prefix for binutils")
         config_env_vars = {
             # This is the binutils bin folder: https://github.com/tensorflow/tensorflow/issues/39263
-            'GCC_HOST_COMPILER_PREFIX': os.path.join(binutils_root, 'bin'),
+            'GCC_HOST_COMPILER_PREFIX': det_binutils_bin_path(),
         }
 
         # Collect options for the build script
@@ -106,21 +104,47 @@ class EB_jaxlib(PythonPackage):
         # Add optimization flags set by EasyBuild each as a separate option
         bazel_options.extend(['--copt=%s' % i for i in os.environ['CXXFLAGS'].split(' ')])
 
+        # Use an explicitly specified Clang/LLVM build dependency with JAX >= 0.10.
+        # Otherwise, use JAX's default hermetic Clang toolchain.
+        if LooseVersion(self.version) >= LooseVersion('0.10.0'):
+            build_dep_names = self.cfg.dependency_names(build_only=True)
+            clang_llvm_name = next(
+                (name for name in ['Clang', 'LLVM'] if name in build_dep_names),
+                None,
+            )
+
+            if clang_llvm_name:
+                clang_llvm_root = get_software_root(clang_llvm_name)
+                if not clang_llvm_root:
+                    raise EasyBuildError(
+                        "Failed to determine installation prefix for %s" % clang_llvm_name
+                    )
+
+                clang_path = os.path.join(clang_llvm_root, 'bin', 'clang')
+                options.append(f'--clang_path={clang_path}')
+            else:
+                self.log.info(
+                    "No Clang/LLVM build dependency specified; "
+                    "using JAX's default hermetic Clang toolchain"
+                )
+
         # CUDA version
         cuda_root = get_software_root('CUDA')
         if cuda_root:
             cudnn_root = get_software_root('cuDNN')
             if not cudnn_root:
                 raise EasyBuildError('For CUDA-enabled builds cuDNN is also required')
+
             nccl_root = get_software_root('NCCL')
-            cuda_version = '.'.join(get_software_version('CUDA').split('.')[:2])  # maj.minor
-            cudnn_version = '.'.join(get_software_version('cuDNN').split('.')[:3])  # maj.minor.patch
+            cuda_version = '.'.join(get_software_version('CUDA').split('.')[:2])
+            cudnn_version = '.'.join(get_software_version('cuDNN').split('.')[:3])
             cuda_cc = self.cfg.get_cuda_cc_template_value('cuda_compute_capabilities')
             options.extend([
                 '--cuda_compute_capabilities=' + cuda_cc,
                 '--cuda_version=' + cuda_version,
                 '--cudnn_version=' + cudnn_version,
             ])
+
             if LooseVersion(self.version) <= LooseVersion('0.4.33'):
                 options.extend([
                     '--enable_cuda',
@@ -132,19 +156,28 @@ class EB_jaxlib(PythonPackage):
                         options.append('--enable_nccl')
                     else:
                         options.append('--noenable_nccl')
-            else:  # from version 0.4.34 on
-                hermetic_cuda_cc = ','.join(f"sm_{cc.replace('.', '')}" for cc in cuda_cc.split(','))
+            else:
                 bazel_options.extend([
-                    f'--repo_env=HERMETIC_CUDA_VERSION={cuda_version}',
-                    f'--repo_env=HERMETIC_CUDNN_VERSION={cudnn_version}',
                     f'--repo_env=LOCAL_CUDA_PATH={cuda_root}',
                     f'--repo_env=LOCAL_CUDNN_PATH={cudnn_root}',
-                    f"--repo_env=HERMETIC_CUDA_COMPUTE_CAPABILITIES={hermetic_cuda_cc}",
                     *([f'--repo_env=LOCAL_NCCL_PATH={nccl_root}'] if nccl_root else []),
                 ])
-                # set Clang flags - CUDA version needs Clang to be built
-                clang_llvm_root = get_software_root('Clang') or get_software_root('LLVM')
-                if clang_llvm_root:
+                # JAX >= 0.10 uses NVCC for CUDA compilation by default and its
+                # hermetic Clang toolchain for host C/C++ compilation.
+                if LooseVersion(self.version) < LooseVersion('0.10.0'):
+                    hermetic_cuda_cc = ','.join(f"sm_{cc.replace('.', '')}" for cc in cuda_cc.split(','))
+                    bazel_options.extend([
+                        f'--repo_env=HERMETIC_CUDA_VERSION={cuda_version}',
+                        f'--repo_env=HERMETIC_CUDNN_VERSION={cudnn_version}',
+                        f'--repo_env=HERMETIC_CUDA_COMPUTE_CAPABILITIES={hermetic_cuda_cc}',
+                    ])
+
+                    clang_llvm_root = get_software_root('Clang') or get_software_root('LLVM')
+                    if not clang_llvm_root:
+                        raise EasyBuildError(
+                            'For CUDA-enabled builds Clang or LLVM is also required'
+                        )
+
                     options.extend([
                         '--use_clang=true',
                         f'--clang_path={os.path.join(clang_llvm_root, "bin", "clang++")}',
@@ -153,8 +186,6 @@ class EB_jaxlib(PythonPackage):
                         '--@local_config_cuda//:cuda_compiler=clang',
                         '--@local_config_cuda//cuda:include_cuda_libs=true',
                     ])
-                else:
-                    raise EasyBuildError('For CUDA-enabled builds Clang or LLVM is also required')
 
             config_env_vars['GCC_HOST_COMPILER_PATH'] = which(os.getenv('CC'))
         elif LooseVersion(self.version) <= LooseVersion('0.4.33'):

@@ -258,6 +258,9 @@ class Bundle(EasyBlock):
             self.cfg['sanity_check_commands'] = self.backup_sanity_cmds
 
     def post_init(self):
+        """
+        Run post-initialization tasks: fix per-component paths for build and install directories
+        """
         super().post_init()
         for _, comp in self.comp_instances:
             # correct build/install dirs after possibly changing them in parent post_init
