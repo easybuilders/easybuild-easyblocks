@@ -38,10 +38,13 @@ import os
 import re
 
 from easybuild.easyblocks.generic.mesonninja import MesonNinja
+from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.filetools import read_file
 from easybuild.tools.modules import get_software_root, get_software_version
+from easybuild.tools.environment import setvar
 from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.systemtools import AARCH64, get_cpu_architecture
 
 # Meson option -> EasyBuild names of the dependencies it needs (client/meson.build)
 OPTION_DEPS = {
@@ -75,6 +78,18 @@ def parse_meson_options(text):
     return options
 
 
+# search paths that Meson's dependency('hwy') reads (pkg-config, then CMake)
+HWY_SEARCH_VARS = ('PKG_CONFIG_PATH', 'CMAKE_PREFIX_PATH')
+
+
+def drop_prefix(path_value, prefix):
+    """Remove the entries of a colon-separated search path that sit under prefix."""
+    prefix = os.path.normpath(prefix)
+    kept = [p for p in path_value.split(os.pathsep)
+            if p and os.path.normpath(p) != prefix and not os.path.normpath(p).startswith(prefix + os.sep)]
+    return os.pathsep.join(kept)
+
+
 def meson_value(opt_type, value):
     """Spell a boolean the way Meson accepts it for an option of this type."""
     if opt_type == 'feature':
@@ -84,6 +99,42 @@ def meson_value(opt_type, value):
 
 class EB_eOn(MesonNinja):
     """Support for building and installing eOn."""
+
+    @staticmethod
+    def extra_options(extra_vars=None):
+        """Custom easyconfig parameters for eOn."""
+        extra_vars = MesonNinja.extra_options(extra_vars)
+        extra_vars.update({
+            'highway_on_aarch64': [False, "Let eOn use the Highway dependency on aarch64 (off by default: "
+                                          "Highway is optional in eOn, and its SVE targets fail on aarch64/generic)",
+                                   CUSTOM],
+        })
+        return extra_vars
+
+    def _hide_highway(self):
+        """
+        Keep eOn from finding Highway on aarch64.
+
+        eOn has no Meson option for Highway: client/meson.build looks it up with
+        dependency('hwy', required: false), so it is used whenever pkg-config or
+        CMake can see it. On aarch64 this drops the Highway prefix from those
+        search paths; with --wrap-mode=nodownload the wrap fallback does not
+        fetch anything, and eOn builds its scalar code paths.
+        Returns the list of variables that changed.
+        """
+        hwy_root = get_software_root('Highway')
+        if not hwy_root or get_cpu_architecture() != AARCH64 or self.cfg['highway_on_aarch64']:
+            return []
+        changed = []
+        for var in HWY_SEARCH_VARS:
+            old = os.environ.get(var, '')
+            new = drop_prefix(old, hwy_root)
+            if new != old:
+                setvar(var, new)
+                changed.append(var)
+        self.log.info("eOn: aarch64, configuring without Highway (%s); removed it from %s",
+                      hwy_root, ', '.join(changed) or 'no search path')
+        return changed
 
     def _declared_options(self):
         """Type and deprecation state of each Meson option the source tree declares."""
@@ -132,6 +183,8 @@ class EB_eOn(MesonNinja):
             if not os.path.isdir(torch_path):
                 raise EasyBuildError("with_metatomic: no torch package at %s", torch_path)
             self.cfg.update('configopts', '-Dtorch_path=%s' % torch_path)
+
+        self._hide_highway()
 
         # every dependency comes from the easyconfig; a missing one fails here
         # instead of Meson fetching a wrap from the network
