@@ -78,6 +78,10 @@ class Dataset(Binary):
         """No install step, datasets are extracted directly into installdir"""
         pass
 
+    def make_module_req(self):
+        """No required environment variables"""
+        return ''
+
     def post_processing_step(self):
         """Add files to object_storage, remove duplicates, add symlinks"""
 

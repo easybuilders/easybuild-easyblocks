@@ -1118,9 +1118,6 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     run_shell_cmd(cmd)
 
-            if self.pypkg_test_installdir:
-                remove_dir(self.pypkg_test_installdir)
-
             if return_output_ec:
                 return (out, ec)
 
@@ -1245,6 +1242,15 @@ class PythonPackage(ExtensionEasyBlock):
 
         return mod_data
 
+    @property
+    def package_name(self):
+        """Determine the intended Python package name
+
+        Uses `extension_name` if set falling back to `name`
+        """
+        pkg_name = self.cfg['extension_name']
+        return self.name if pkg_name is None else pkg_name
+
     def sanity_check_step(self, *args, **kwargs):
         """
         Custom sanity check for Python packages
@@ -1351,7 +1357,7 @@ class PythonPackage(ExtensionEasyBlock):
             run_pip_check(python_cmd=python_cmd)
 
             unversioned_packages = self.cfg.get('unversioned_packages', [])
-            pkgs = [(self.name, self.version)]
+            pkgs = [(self.package_name, self.version)]
             if toplevel_params['sanity_check_pip_list'] is False:
                 check_names_versions = False
             else:

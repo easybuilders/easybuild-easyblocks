@@ -247,7 +247,7 @@ class PythonBundle(Bundle):
 
         if toplevel_params['sanity_pip_check']:
             run_pip_check(python_cmd=self.python_cmd)
-            pkgs = [(x.name, x.version) for x in py_exts]
+            pkgs = [(x.package_name, x.version) for x in py_exts]
             if toplevel_params['sanity_check_pip_list'] is False:
                 check_names_versions = False
             else:

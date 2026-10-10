@@ -231,15 +231,15 @@ class EB_Score_minus_P(ConfigureMake):
         return {
             'Qt': {
                  True: ['--with-qt=%s/bin'],
-                 False: ['--without-qt'],
+                 False: [''],
             },
             'Qt5': {
                  True: ['--with-qt=%s/bin'],
-                 False: ['--without-qt'],
+                 False: [''],
             },
             'Qt6': {
                  True: ['--with-qt=%s/bin'],
-                 False: ['--without-qt'],
+                 False: [''],
             },
         }
 

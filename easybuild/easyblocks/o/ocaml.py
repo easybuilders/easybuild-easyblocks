@@ -62,17 +62,32 @@ def det_opam_version():
 def mk_opam_init_cmd(root=None):
     """Construct 'opam init' command."""
 
+    opam_ver = det_opam_version()
+
     opam_init_cmd = ['opam', 'init']
 
-    if LooseVersion(det_opam_version()) >= LooseVersion('2.0.0'):
+    if LooseVersion(opam_ver) >= LooseVersion('2.0.0'):
         # disable sandboxing, required bubblewrap (which requires setuid)
         # see http://opam.ocaml.org/doc/FAQ.html#Why-does-opam-require-bwrap
         opam_init_cmd.append('--disable-sandboxing')
 
+    if LooseVersion(opam_ver) >= LooseVersion('2.4.0'):
+        # create the default switch explicitly so its name matches the module's PATH
+        opam_init_cmd.extend(['--bare', '--no-setup'])
+
     if root:
         opam_init_cmd.extend(['--root', root])
 
-    return ' '.join(opam_init_cmd)
+    cmd = ' '.join(opam_init_cmd)
+
+    if LooseVersion(opam_ver) >= LooseVersion('2.4.0'):
+        switch_cmd = ['opam', 'switch', 'create', 'default', 'ocaml-system']
+        if root:
+            switch_cmd.extend(['--root', root])
+
+        cmd += ' && ' + ' '.join(switch_cmd)
+
+    return cmd
 
 
 class EB_OCaml(ConfigureMake):
@@ -121,7 +136,14 @@ class EB_OCaml(ConfigureMake):
             self.with_opam = True
             change_dir(opam_dir)
 
-            run_shell_cmd("./configure --prefix=%s" % self.installdir)
+            opam_dir_name = os.path.basename(opam_dir)
+            opam_ver = re.sub(r'^opam(?:-full)?-', '', opam_dir_name)
+            opam_configure_cmd = "./configure --prefix=%s" % self.installdir
+
+            if LooseVersion(opam_ver) >= LooseVersion('2.2.0'):
+                opam_configure_cmd += " --with-vendored-deps"
+
+            run_shell_cmd(opam_configure_cmd)
             run_shell_cmd("make lib-ext")  # locally build/install required dependencies
             run_shell_cmd("make")
             run_shell_cmd("make install")
