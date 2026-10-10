@@ -36,6 +36,7 @@ EasyBuild support for installing a bundle of modules, implemented as a generic e
 import copy
 import os
 from datetime import datetime
+from itertools import chain, zip_longest
 
 import easybuild.tools.environment as env
 from easybuild.framework.easyblock import EasyBlock
@@ -207,39 +208,42 @@ class Bundle(EasyBlock):
                     raise EasyBuildError("No sources specification for component %s v%s", comp_name, comp_version)
                 # If per-component source URLs are provided, attach them directly to the relevant sources
                 if comp_source_urls:
-                    for source in comp_sources:
+                    comp_sources_raw = comp_sources
+                    comp_sources = []
+                    for source in comp_sources_raw:
                         if isinstance(source, str):
-                            self.cfg.update('sources', [{'filename': source, 'source_urls': comp_source_urls[:]}])
+                            source = {'filename': source, 'source_urls': comp_source_urls[:]}
                         elif isinstance(source, dict):
                             # Update source_urls in the 'source' dict to use the one for the components
                             # (if it doesn't already exist)
                             if 'source_urls' not in source:
                                 source['source_urls'] = comp_source_urls[:]
-                            self.cfg.update('sources', [source])
                         else:
                             raise EasyBuildError("Source %s for component %s is neither a string nor a dict, cannot "
                                                  "process it.", source, comp_cfg['name'])
-                else:
-                    # add component sources to list of sources
-                    self.cfg.update('sources', comp_sources)
-
-                comp_checksums = comp_cfg['checksums']
-                if comp_checksums:
-                    src_cnt = len(comp_sources)
-
-                    # add per-component checksums for sources to list of checksums
-                    self.cfg.update('checksums', comp_checksums[:src_cnt])
-
-                    # add per-component checksums for patches to list of checksums for patches
-                    checksums_patches.extend(comp_checksums[src_cnt:])
+                        comp_sources.append(source)
 
                 with comp_cfg.allow_unresolved_templates():
                     comp_patches = comp_cfg['patches']
                     comp_postinstall_patches = comp_cfg['postinstallpatches']
-                if comp_patches:
-                    self.cfg.update('patches', comp_patches)
-                    # Patch step is skipped so adding postinstall patches of components here is harmless
-                    self.cfg.update('patches', comp_postinstall_patches)
+                comp_checksums = comp_cfg['checksums']
+                comp_src_cnt = len(comp_sources)
+
+                sources: list = self.cfg.get_ref('sources')
+                patches: list = self.cfg.get_ref('patches')
+                checksums: list = self.cfg.get_ref('checksums')
+                # Add unique source and checksum entry for each source, use None if missing checksum
+                for src, checksum in zip_longest(comp_sources, comp_checksums[:comp_src_cnt]):
+                    if src not in sources:
+                        sources.append(src)
+                        checksums.append(checksum)
+                # Add unique patch and checksum entry for each source, use None if missing checksum
+                # Patch step is skipped so adding postinstall patches of components to patches
+                for i, patch in enumerate(chain(comp_patches, comp_postinstall_patches), comp_src_cnt):
+                    if patch not in patches:
+                        patches.append(patch)
+                        # add per-component checksums for patches to list of checksums for patches
+                        checksums_patches.append(comp_checksums[i] if i < len(comp_checksums) else None)
 
                 # instantiate the component to transfer further information
                 comp_instance = comp_cfg.easyblock(comp_cfg, logfile=self.logfile)
