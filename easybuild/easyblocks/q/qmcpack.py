@@ -71,6 +71,12 @@ def cmake_bool(value):
 class EB_QMCPACK(CMakeNinja):
     """Support for building and installing QMCPACK."""
 
+    def __init__(self, *args, **kwargs):
+        """Put the installed Nexus package on PYTHONPATH."""
+        super().__init__(*args, **kwargs)
+        if self._installs_nexus() and 'PYTHONPATH' not in self.cfg['modextrapaths']:
+            self.module_load_environment.PYTHONPATH = ['lib']
+
     @staticmethod
     def extra_options(extra_vars=None):
         """Extra easyconfig parameters specific to QMCPACK."""
@@ -164,7 +170,7 @@ class EB_QMCPACK(CMakeNinja):
         self.log.info("QMCPACK: CMake options set: %s", ' '.join(enabled) or 'none')
         return super().configure_step(*args, **kwargs)
 
-    def test_step(self):
+    def test_step(self, *args, **kwargs):
         """Run the deterministic ctest label, with Open MPI oversubscription enabled."""
         if self.cfg['runtest'] is True:
             cmd = ' '.join([
@@ -176,13 +182,14 @@ class EB_QMCPACK(CMakeNinja):
                 self.cfg['testopts'],
             ])
             return run_shell_cmd(cmd).output
-        return super().test_step()
+        return super().test_step(*args, **kwargs)
 
     def _installs_nexus(self):
         """Whether Nexus gets installed (QMC_INSTALL_NEXUS defaults to ON)."""
-        return '-DQMC_INSTALL_NEXUS=OFF' not in self.cfg['configopts']
+        with self.cfg.disable_templating():
+            return '-DQMC_INSTALL_NEXUS=OFF' not in self.cfg['configopts']
 
-    def sanity_check_step(self):
+    def sanity_check_step(self, *args, **kwargs):
         """Check the binary the variant installs, the converters, and Nexus."""
         binary = 'qmcpack_complex' if self._is_complex() else 'qmcpack'
         custom_paths = {
@@ -190,11 +197,4 @@ class EB_QMCPACK(CMakeNinja):
             'dirs': ['lib/nexus'] if self._installs_nexus() else [],
         }
         custom_commands = ["%s --version 2>&1 | grep -q 'QMCPACK version'" % binary]
-        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
-
-    def make_module_extra(self):
-        """Put the installed Nexus package on PYTHONPATH."""
-        txt = super().make_module_extra()
-        if self._installs_nexus() and 'PYTHONPATH' not in self.cfg['modextrapaths']:
-            txt += self.module_generator.prepend_paths('PYTHONPATH', ['lib'])
-        return txt
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands, *args, **kwargs)
