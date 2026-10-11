@@ -86,6 +86,9 @@ class EB_netcdf4_minus_python(PythonPackage):
 
     def sanity_check_step(self):
         """Custom sanity check for netcdf4-python"""
+        # Required to have `self.pylibdir` set in --sanity-check-only mode
+        if self.python_cmd is None:
+            self.prepare_python()
         custom_paths = {
             'files': ['bin/nc3tonc4', 'bin/nc4tonc3', 'bin/ncinfo'],
             'dirs': [self.pylibdir],

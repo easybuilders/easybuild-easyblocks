@@ -34,14 +34,22 @@ import tempfile
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 
+from easybuild.tools import LooseVersion
+
 
 class EB_sympy(PythonPackage):
     """Custom easyblock for installing the sympy Python package."""
 
     def test_step(self):
         """Custom test step for sympy"""
-
-        self.cfg['runtest'] = "python setup.py test"
+        self.testinstall = True
+        if LooseVersion(self.version) >= LooseVersion('1.13.0'):
+            self.cfg['runtest'] = 'python -s -m pytest -ra --tb=short sympy'
+        else:
+            self.cfg['runtest'] = (
+                "python -s -c 'from sympy.testing.runtests import test; "
+                "import sys; sys.exit(0 if test() else 1)'"
+            )
 
         # we need to make sure that the temporary directory being used is not a symlinked path;
         # see https://github.com/easybuilders/easybuild-easyconfigs/issues/17593
@@ -51,7 +59,7 @@ class EB_sympy(PythonPackage):
         msg += "to avoid failing tests due to the temporary directory being a symlinked path..."
         self.log.info(msg)
 
-        super().test_step(self)
+        super().test_step()
 
         # restore original temporary directory
         tempfile.tempdir = original_tmpdir

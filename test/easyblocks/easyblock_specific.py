@@ -34,7 +34,6 @@ import stat
 import sys
 import tempfile
 import textwrap
-from io import StringIO
 from pathlib import Path
 from unittest import TestLoader, TextTestRunner
 from test.easyblocks.module import cleanup
@@ -49,6 +48,7 @@ import easybuild.easyblocks.p.pytorch as pytorch
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
+from easybuild.easyblocks.tensorflow import det_binutils_bin_path
 from easybuild.framework.easyblock import EasyBlock, get_easyblock_instance
 from easybuild.framework.easyconfig.easyconfig import process_easyconfig
 from easybuild.tools import config
@@ -59,6 +59,7 @@ from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, remo
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.run import RunShellCmdResult
+from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
 class EasyBlockSpecificTest(TestCase):
@@ -81,8 +82,6 @@ class EasyBlockSpecificTest(TestCase):
         super().setUp()
         self.tmpdir = tempfile.mkdtemp()
 
-        self.orig_sys_stdout = sys.stdout
-        self.orig_sys_stderr = sys.stderr
         self.orig_environ = copy.deepcopy(os.environ)
         self.orig_pythonpackage_run_shell_cmd = pythonpackage.run_shell_cmd
 
@@ -90,26 +89,12 @@ class EasyBlockSpecificTest(TestCase):
         """Test cleanup."""
         remove_dir(self.tmpdir)
 
-        sys.stdout = self.orig_sys_stdout
-        sys.stderr = self.orig_sys_stderr
         pythonpackage.run_shell_cmd = self.orig_pythonpackage_run_shell_cmd
 
         # restore original environment
         modify_env(os.environ, self.orig_environ, verbose=False)
 
         super().tearDown()
-
-    def mock_stdout(self, enable):
-        """Enable/disable mocking stdout."""
-        sys.stdout.flush()
-        if enable:
-            sys.stdout = StringIO()
-        else:
-            sys.stdout = self.orig_sys_stdout
-
-    def get_stdout(self):
-        """Return output captured from stdout until now."""
-        return sys.stdout.getvalue()
 
     def test_toolchain_external_modules(self):
         """Test use of Toolchain easyblock with external modules."""
@@ -238,7 +223,7 @@ class EasyBlockSpecificTest(TestCase):
 
         os.environ['PATH'] = '%s:%s' % (self.tmpdir, os.getenv('PATH'))
 
-        self.assertErrorRegex(EasyBuildError, "Failed to determine CMake version", det_cmake_version)
+        self.assertRaisesRegex(EasyBuildError, "Failed to determine CMake version", det_cmake_version)
 
         # if $EBVERSIONCMAKE is defined (by loaded CMake module), that's picked up
         os.environ['EBVERSIONCMAKE'] = '1.2.3'
@@ -495,14 +480,26 @@ class EasyBlockSpecificTest(TestCase):
         local_test_py = os.path.join(libdir, 'python' + pyshortver, 'site-packages', 'test.py')
         self.assertTrue(os.path.exists(local_test_py))
 
+    def test_partial_normalize_pip(self):
+        """Test partial_normalize_pip function provided by EB_Python easyblock."""
+
+        self.assertEqual(python.partial_normalize_pip('friendly-bard'), 'friendly-bard')  # normalized form
+        self.assertEqual(python.partial_normalize_pip('Friendly-Bard'), 'friendly-bard')  # uppercase -> lowercase
+        self.assertEqual(python.partial_normalize_pip('friendly_bard'), 'friendly-bard')  # underscore -> hyphen
+        self.assertEqual(python.partial_normalize_pip('friendly.bard'), 'friendly.bard')  # dots are not normalized
+        # multiple consecutive hyphens are merged into a single hyphen
+        self.assertEqual(python.partial_normalize_pip('friendly--bard'), 'friendly-bard')
+        # multiple consecutive underscores are merged and converted into a single hyphen
+        self.assertEqual(python.partial_normalize_pip('friendly__bard'), 'friendly-bard')
+        # multiple consecutive underscores and hyphens are merged and converted into a single hyphen
+        self.assertEqual(python.partial_normalize_pip('FrIeNdLy--__--bArD'), 'friendly-bard')
+
     def test_run_pip_check(self):
-        """Test run_pip_check function provided by PythonPackage easyblock."""
+        """Test run_pip_check function provided by EB_Python easyblock."""
 
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
             if "pip check" in cmd:
                 output = "No broken requirements found."
-            elif "pip list" in cmd:
-                output = '[{"name": "example", "version": "1.2.3"}]'
             elif "pip --version" in cmd:
                 output = "pip 20.0"
             else:
@@ -516,36 +513,11 @@ class EasyBlockSpecificTest(TestCase):
         with self.mocked_stdout_stderr():
             python.run_pip_check(python_cmd=sys.executable)
 
-        # test ignored of unversioned Python packages
-        def mocked_run_shell_cmd_pip(cmd, **kwargs):
-            if "pip check" in cmd:
-                output = "No broken requirements found."
-            elif "pip list" in cmd:
-                output = '[{"name": "zero", "version": "0.0.0"}]'
-            elif "pip --version" in cmd:
-                output = "pip 20.0"
-            else:
-                # unexpected command
-                return None
-
-            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
-                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
-
-        python.run_shell_cmd = mocked_run_shell_cmd_pip
-        with self.mocked_stdout_stderr():
-            python.run_pip_check(python_cmd=sys.executable, unversioned_packages=('zero', ))
-
-        with self.mocked_stdout_stderr():
-            python.run_pip_check(python_cmd=sys.executable, unversioned_packages={'zero'})
-
         # inject all possible errors
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
             if "pip check" in cmd:
                 output = "foo-1.2.3 requires bar-4.5.6, which is not installed."
                 exit_code = 1
-            elif "pip list" in cmd:
-                output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong", "version": "0.0.0"}]'
-                exit_code = 0
             elif "pip --version" in cmd:
                 output = "pip 20.0"
                 exit_code = 0
@@ -560,14 +532,10 @@ class EasyBlockSpecificTest(TestCase):
         error_pattern = '\n'.join([
             "pip check.*failed.*",
             "foo.*requires.*bar.*not installed.*",
-            r"Package 'example'.*version of 1\.2\.3 which is valid.*",
-            "Package 'nosuchpkg' in unversioned_packages was not found in the installed packages.*",
-            r".*not installed correctly.*version of '0\.0\.0':",
-            "wrong",
         ])
         with self.mocked_stdout_stderr():
-            self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_check,
-                                  python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
+            self.assertRaisesRegex(EasyBuildError, error_pattern, python.run_pip_check,
+                                   python_cmd=sys.executable)
 
         # invalid pip version
         def mocked_run_shell_cmd_pip(cmd, **kwargs):
@@ -576,7 +544,89 @@ class EasyBlockSpecificTest(TestCase):
 
         python.run_shell_cmd = mocked_run_shell_cmd_pip
         error_pattern = "Failed to determine pip version!"
-        self.assertErrorRegex(EasyBuildError, error_pattern, python.run_pip_check, python_cmd=sys.executable)
+        self.assertRaisesRegex(EasyBuildError, error_pattern, python.run_pip_check, python_cmd=sys.executable)
+
+    def test_run_pip_list(self):
+        """Test run_pip_list function provided by EB_Python easyblock."""
+
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip list" in cmd:
+                output = '[{"name": "example", "version": "1.2.3"}]'
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        with self.mocked_stdout_stderr():
+            python.run_pip_list([], python_cmd=sys.executable)
+
+        # test ignored unversioned Python packages
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip list" in cmd:
+                output = '[{"name": "zero", "version": "0.0.0"}, {"name": "example-pkg", "version": "1.2.3"}]'
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=0, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        with self.mocked_stdout_stderr():
+            python.run_pip_list([('example_pkg', '1.2.3')], python_cmd=sys.executable, unversioned_packages=('zero', ))
+
+        with self.mocked_stdout_stderr():
+            python.run_pip_list([('example.pkg', '1.2.3')], python_cmd=sys.executable, unversioned_packages={'zero'})
+
+        # inject all possible errors with unversioned packages
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip list" in cmd:
+                output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong", "version": "0.0.0"}]'
+                exit_code = 0
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=exit_code, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        error_pattern = '\n'.join([
+            r"Package 'example'.*version of 1\.2\.3 which is valid.*",
+            "Package 'nosuchpkg' in unversioned_packages was not found in the installed packages.*",
+            r".*not installed correctly.*version of '0\.0\.0':",
+            "wrong",
+        ])
+        with self.mocked_stdout_stderr():
+            self.assertRaisesRegex(EasyBuildError, error_pattern, python.run_pip_list, [],
+                                   python_cmd=sys.executable, unversioned_packages=['example', 'nosuchpkg'])
+
+        # inject errors with mismatched packages name or version
+        def mocked_run_shell_cmd_pip(cmd, **kwargs):
+            if "pip list" in cmd:
+                output = '[{"name": "example", "version": "1.2.3"}, {"name": "wrong-version", "version": "1.1.1"}]'
+                exit_code = 0
+            else:
+                # unexpected command
+                return None
+
+            return RunShellCmdResult(cmd=cmd, exit_code=exit_code, output=output, stderr=None, work_dir=None,
+                                     out_file=None, err_file=None, cmd_sh=None, thread_id=None, task_id=None)
+
+        python.run_shell_cmd = mocked_run_shell_cmd_pip
+        error_pattern = '\n'.join([
+            r"The following Python packages were likely specified with a wrong name because they are missing.*",
+            r"wrong-name.*",
+            r"The following Python packages were likely specified with a wrong version.*",
+            r"wrong-version 5.6.7.*",
+        ])
+        with self.mocked_stdout_stderr():
+            self.assertRaisesRegex(EasyBuildError, error_pattern, python.run_pip_list,
+                                   [('wrong_name', '1.2.3'), ('wrong_version', '5.6.7')],
+                                   python_cmd=sys.executable, strict_check=True)
 
     def test_symlink_dist_site_packages(self):
         """Test symlink_dist_site_packages provided by PythonPackage easyblock."""
@@ -623,6 +673,55 @@ class EasyBlockSpecificTest(TestCase):
         self.assertTrue(os.path.isdir(lib64_site_path))
         self.assertFalse(os.path.islink(lib64_site_path))
 
+    def test_det_binutils_bin_path(self):
+        """Test det_binutils_bin_path provided by TensorFlow easyblock."""
+        binutils_bin_path = det_binutils_bin_path()
+        self.assertTrue(os.path.join(binutils_bin_path, 'ld'))
+        self.assertFalse(RPATH_WRAPPERS_SUBDIR in binutils_bin_path)
+
+        wrappers_dir = os.path.join(self.tmpdir, 'fake_wrappers', RPATH_WRAPPERS_SUBDIR)
+
+        # put fake wrappers in place for a couple of binutils command
+        binutils_cmds = ('as', 'ld', 'nm', 'objdump')
+        for cmd in binutils_cmds:
+            wrapper_dir = os.path.join(wrappers_dir, '%s.wrapper' % cmd)
+            os.environ['PATH'] = wrapper_dir + ':' + os.getenv('PATH')
+            fake_wrapper = os.path.join(wrapper_dir, cmd)
+            # fake contents for RPATH wrapper script, enough to fool Toolchain.is_rpath_wrapper
+            fake_wrapper_txt = '"$RPATH_ARGS_PY" "$CMD"'
+            write_file(fake_wrapper, fake_wrapper_txt)
+            adjust_permissions(fake_wrapper, stat.S_IXUSR)
+
+        # if $EBROOTBINUTILS is set, binutils commands to consider is determined by contents of $EBROOTBINUTILS/bin
+        binutils_root = os.path.join(self.tmpdir, 'binutils_root')
+        for cmd in binutils_cmds[:2]:
+            cmd_path = os.path.join(binutils_root, 'bin', cmd)
+            write_file(cmd_path, '#!/bin/bash\necho %s' % cmd)
+            adjust_permissions(cmd_path, stat.S_IXUSR)
+        os.environ['EBROOTBINUTILS'] = binutils_root
+
+        binutils_bin_path = det_binutils_bin_path()
+        self.assertEqual(os.path.basename(binutils_bin_path), RPATH_WRAPPERS_SUBDIR)
+        self.assertEqual(sorted(os.listdir(binutils_bin_path)), ['as', 'ld'])
+        for cmd in binutils_cmds[:2]:
+            cmd_path = os.path.join(binutils_bin_path, cmd)
+            self.assertTrue(os.path.islink(cmd_path))
+            expected_target = os.path.join(wrappers_dir, '%s.wrapper' % cmd, cmd)
+            self.assertEqual(os.path.realpath(cmd_path), os.path.realpath(expected_target))
+
+        del os.environ['EBROOTBINUTILS']
+
+        # if $EBROOTBINUTILS is not set, a pre-defined list of known binutils commands is used (KNOWN_BINUTILS constant)
+        binutils_bin_path = det_binutils_bin_path()
+        self.assertEqual(os.path.basename(binutils_bin_path), RPATH_WRAPPERS_SUBDIR)
+        found_cmds = os.listdir(binutils_bin_path)
+        self.assertTrue(all(x in found_cmds for x in binutils_cmds))
+        for cmd in binutils_cmds:
+            cmd_path = os.path.join(binutils_bin_path, cmd)
+            self.assertTrue(os.path.islink(cmd_path))
+            expected_target = os.path.join(wrappers_dir, '%s.wrapper' % cmd, cmd)
+            self.assertEqual(os.path.realpath(cmd_path), os.path.realpath(expected_target))
+
     def test_translate_lammps_version(self):
         """Test translate_lammps_version function from LAMMPS easyblock"""
         lammps_versions = {
@@ -667,7 +766,7 @@ class EasyBlockSpecificTest(TestCase):
             self.assertEqual((name, suite.summary), (name, results2[name].summary))
         del results2
 
-        self.assertEqual(len(results), 15)
+        self.assertEqual(len(results), 16)
 
         # 2 small test suites used as a smoke test using a most features
         self.assertIn('backends/xeon/test_launch', results)
@@ -697,9 +796,10 @@ class EasyBlockSpecificTest(TestCase):
             dist-nccl-init-env/distr/algorithms/quantization/test_quantization: 0 failed, 1 passed, 0 skipped, 0 errors
             dist-nccl-init-file/distr/algorithms/quantization/test_quantization: 0 failed, 1 passed, 0 skipped, 0 errors
             dist/foo/bar: 0 failed, 4 passed, 0 skipped, 0 errors
+            distributed/_composable/test_composability/test_pp_composability: 0 failed, 2 passed, 0 skipped, 0 errors
             distributed/tensor/test_dtensor_ops: 0 failed, 2 passed, 2 skipped, 0 errors
             dynamo/test_dynamic_shapes: 3 failed, 14 passed, 0 skipped, 0 errors
-            dynamo/test_misc: 1 failed, 9 passed, 0 skipped, 0 errors
+            dynamo/test_misc: 3 failed, 11 passed, 0 skipped, 0 errors
             inductor/test_aot_inductor_arrayref: 2 failed, 0 passed, 0 skipped, 0 errors
             inductor/test_cudagraph_trees: 1 failed, 0 passed, 0 skipped, 0 errors
             jit/test_builtins: 0 failed, 1 passed, 0 skipped, 0 errors
@@ -713,6 +813,8 @@ class EasyBlockSpecificTest(TestCase):
         self.assertEqual(tests, textwrap.dedent("""
             AOTInductorTestABICompatibleCpuWithStackAllocation.test_fail_and_skip: failure
             AOTInductorTestABICompatibleCpuWithStackAllocation.test_skip_and_fail: failure
+            ComposabilityTest.test_pass_on_rerun_different_classname: success
+            ComposabilityTest.test_pp_and_dcp: success
             CudaGraphTreeTests.test_workspace_allocation_error: failure
             DistQuantizationTests.test_all_gather_fp16: success
             DistQuantizationTests.test_all_gather_fp16: success
@@ -735,6 +837,10 @@ class EasyBlockSpecificTest(TestCase):
             DynamicShapesMiscTests.test_python_slice_dynamic_shapes: success
             DynamicShapesMiscTests.test_pytree_tree_flatten_unflatten_dynamic_shapes: success
             DynamicShapesMiscTests.test_pytree_tree_leaves_dynamic_shapes: failure
+            MiscTests.test_fail_then_skip2: failure
+            MiscTests.test_fail_then_skip: failure
+            MiscTests.test_fail_then_xfail2: success
+            MiscTests.test_fail_then_xfail: success
             MiscTests.test_packaging_version_parse: success
             MiscTests.test_pair: success
             MiscTests.test_param_shape_binops: success
@@ -787,32 +893,32 @@ class EasyBlockSpecificTest(TestCase):
             TestTorchrun.test_multi_threads: success
             TestTorchrun.test_reshape_cpu_float64: failure
             TestTracer.test_jit_save: success
-            bar.test_2.test_func3: success
-            bar.test_foo.TestBar.test_func2: success
-            bar.test_foo.TestName.test_func1: success
+            test_2.test_func3: success
+            test_foo.TestBar.test_func2: success
+            test_foo.TestName.test_func1: success
         """).strip())
 
         #  Some error cases
         error_log_dir = test_log_dir / 'faulty-reports'
 
-        self.assertErrorRegex(ValueError, "<testsuites> or <testsuite>",
-                              pytorch.get_test_results, error_log_dir / 'root')
-        self.assertErrorRegex(ValueError, "Failed to parse",
-                              pytorch.get_test_results, error_log_dir / 'invalid_xml')
-        self.assertErrorRegex(ValueError, "multiple reported files",
-                              pytorch.get_test_results, error_log_dir / 'multi_file')
-        self.assertErrorRegex(ValueError, "Path from folder and filename should be equal",
-                              pytorch.get_test_results, error_log_dir / 'different_file_name')
-        self.assertErrorRegex(ValueError, "Unexpected file attribute",
-                              pytorch.get_test_results, error_log_dir / 'file_attribute')
-        self.assertErrorRegex(ValueError, "Invalid state",
-                              pytorch.get_test_results, error_log_dir / 'skip_and_failed')
-        self.assertErrorRegex(ValueError, "no test",
-                              pytorch.get_test_results, error_log_dir / 'no_tests')
-        self.assertErrorRegex(ValueError, "Invalid test count",
-                              pytorch.get_test_results, error_log_dir / 'consistency')
-        self.assertErrorRegex(ValueError, "Duplicate test",
-                              pytorch.get_test_results, error_log_dir / 'duplicate')
+        self.assertRaisesRegex(ValueError, "<testsuites> or <testsuite>",
+                               pytorch.get_test_results, error_log_dir / 'root')
+        self.assertRaisesRegex(ValueError, "Failed to parse",
+                               pytorch.get_test_results, error_log_dir / 'invalid_xml')
+        self.assertRaisesRegex(ValueError, "multiple reported files",
+                               pytorch.get_test_results, error_log_dir / 'multi_file')
+        self.assertRaisesRegex(ValueError, "Path from folder and filename should be equal",
+                               pytorch.get_test_results, error_log_dir / 'different_file_name')
+        self.assertRaisesRegex(ValueError, "Unexpected file attribute",
+                               pytorch.get_test_results, error_log_dir / 'file_attribute')
+        self.assertRaisesRegex(ValueError, "Invalid state",
+                               pytorch.get_test_results, error_log_dir / 'skip_and_failed')
+        self.assertRaisesRegex(ValueError, "no test",
+                               pytorch.get_test_results, error_log_dir / 'no_tests')
+        self.assertRaisesRegex(ValueError, "Invalid test count",
+                               pytorch.get_test_results, error_log_dir / 'consistency')
+        self.assertRaisesRegex(ValueError, "Duplicate test",
+                               pytorch.get_test_results, error_log_dir / 'duplicate')
 
 
 def suite(loader):

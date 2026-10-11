@@ -79,6 +79,11 @@ class EB_torchvision(PythonPackage):
         if includes:
             env.setvar('TORCHVISION_INCLUDE', os.path.pathsep.join(includes))
 
+        # Set environment variable that skips tests that require authentication with wikimedia
+        # See https://github.com/pytorch/vision/issues/9413
+        if self.cfg['runtest']:
+            env.setvar('CIRCLECI', 'true')
+
         super().configure_step()
 
     def sanity_check_step(self):
@@ -87,7 +92,7 @@ class EB_torchvision(PythonPackage):
         # load module early ourselves rather than letting parent sanity_check_step method do so,
         # so the correct 'python' command is used to by det_pylibdir() below;
         if not self.sanity_check_module_loaded:
-            self.sanity_check_load_module(extension=self.is_extension)
+            self.sanity_check_load_module()
 
         custom_commands = []
         custom_paths = {

@@ -83,5 +83,9 @@ class EB_gnupg_minus_bundle(Bundle):
         if len(self.builddir) > EB_gnupg_minus_bundle.MAX_UNIX_SOCKET_SAFE_BUILD_PATH_LENGTH:
             self.builddir = EB_gnupg_minus_bundle._get_unix_socket_compliant_buildpath(self)
 
+            # trickle down modified build dir to bundle components
+            for (_, comp_instance) in self.comp_instances:
+                comp_instance.builddir = self.builddir
+
             print_msg("using modified build path to ensure test UNIX socket can be created: %s ..." % self.builddir)
             self.log.info("Using modified build path to ensure test UNIX socket can be created: %s", self.builddir)
