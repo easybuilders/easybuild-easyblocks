@@ -1044,10 +1044,10 @@ class PythonPackage(ExtensionEasyBlock):
         else:
             errors = []
             pre_build_opts = self.cfg['prebuildopts']
-            if pre_build_opts and not self.cfg['preinstallopts']):
+            if pre_build_opts and not self.cfg['preinstallopts']:
                 errors.append(f"pre_build_opts specified as '{pre_build_opts}')
             build_opts = self.cfg['buildopts']
-            if build_opts and not self.cfg['installopts']):
+            if build_opts and not self.cfg['installopts']:
                 errors.append(f"build_opts specified as '{build_opts}')
             if errors:
                 msg = ' and '.join(errors) + f' for {self.name} but no build is being run.'
