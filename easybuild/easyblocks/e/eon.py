@@ -193,7 +193,7 @@ class EB_eOn(MesonNinja):
 
         return super().configure_step(*args, **kwargs)
 
-    def test_step(self):
+    def test_step(self, *args, **kwargs):
         """Run eOn's own test suite with meson test."""
         if self.cfg['runtest'] is True:
             cmd = ' '.join([
@@ -203,9 +203,9 @@ class EB_eOn(MesonNinja):
                 self.cfg['testopts'],
             ])
             return run_shell_cmd(cmd).output
-        return super().test_step()
+        return super().test_step(*args, **kwargs)
 
-    def sanity_check_step(self):
+    def sanity_check_step(self, *args, **kwargs):
         """Check eonclient, and the Python package when a Python dependency installs it."""
         custom_paths = {
             'files': ['bin/eonclient'],
@@ -215,4 +215,4 @@ class EB_eOn(MesonNinja):
         if get_software_root('Python'):
             custom_paths['dirs'].append('lib/python%(pyshortver)s/site-packages/eon')
             custom_commands.append('python -c "import eon"')
-        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+        return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands, *args, **kwargs)
