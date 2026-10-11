@@ -45,6 +45,7 @@ import easybuild.easyblocks.generic.cargo as cargo
 import easybuild.easyblocks.l.lammps as lammps
 import easybuild.easyblocks.p.python as python
 import easybuild.easyblocks.p.pytorch as pytorch
+import easybuild.easyblocks.s.seissol as seissol
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
@@ -752,6 +753,38 @@ class EasyBlockSpecificTest(TestCase):
         write_file(version_file, version_txt)
 
         self.assertEqual(lammps.translate_lammps_version('d3adb33f', path=self.tmpdir), '2025.04.02.3')
+
+    def test_seissol_det_target_host_arch(self):
+        """Test det_target_host_arch function from SeisSol easyblock"""
+        det = seissol.det_target_host_arch
+        X86_64, AARCH64 = seissol.X86_64, seissol.AARCH64
+
+        # nothing set: fall back to the build host
+        self.assertEqual(det(X86_64), None)
+        self.assertEqual(det(X86_64, optarch='march=native'), None)
+
+        # a set optarch decides, and wins over the CPU target
+        self.assertEqual(det(X86_64, optarch='GENERIC', cpu_target='x86_64/amd/zen4'), 'noarch')
+        self.assertEqual(det(AARCH64, optarch='GENERIC'), 'neon')
+        self.assertEqual(det(X86_64, optarch='march=haswell', cpu_target='x86_64/amd/zen4'), 'hsw')
+        self.assertEqual(det(X86_64, optarch='-march=znver3 -mtune=znver3'), 'milan')
+        self.assertEqual(det(X86_64, optarch='march=icelake-server'), 'skx')
+        self.assertEqual(det(X86_64, optarch='march=x86-64-v3'), 'hsw')
+        self.assertEqual(det(X86_64, optarch='march=x86-64-v4'), 'skx')
+        self.assertEqual(det(AARCH64, optarch='mcpu=neoverse-v1+sve'), 'sve256')
+        with self.assertRaisesRegex(EasyBuildError, "cannot derive HOST_ARCH"):
+            det(X86_64, optarch='O3')
+        with self.assertRaisesRegex(EasyBuildError, "no HOST_ARCH known"):
+            det(X86_64, optarch='march=pentium4')
+
+        # then the EESSI CPU target
+        self.assertEqual(det(X86_64, cpu_target='x86_64/generic'), 'noarch')
+        self.assertEqual(det(AARCH64, cpu_target='aarch64/generic'), 'neon')
+        self.assertEqual(det(X86_64, cpu_target='x86_64/intel/skylake_avx512'), 'skx')
+        self.assertEqual(det(X86_64, cpu_target='x86_64/amd/zen4'), 'bergamo')
+        self.assertEqual(det(AARCH64, cpu_target='aarch64/a64fx'), 'a64fx')
+        with self.assertRaisesRegex(EasyBuildError, "no HOST_ARCH known"):
+            det(X86_64, cpu_target='x86_64/intel/unknown')
 
     def test_pytorch_test_log_parsing(self):
         """Verify parsing of XML files produced by PyTorch tests."""
