@@ -50,17 +50,47 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
 
     def _configure_general_build(self):
         super(EB_ROCm_minus_LLVM, self)._configure_general_build()
-        self._cmakeopts.update({
-            'LLVM_EXTERNAL_PROJECTS': '"device-libs"',
-            'LLVM_EXTERNAL_DEVICE_LIBS_SOURCE_DIR': os.path.join(self.llvm_src_dir, 'amd', 'device-libs'),
+
+        cmake_opts = {
             'LLVM_ENABLE_PER_TARGET_RUNTIME_DIR': 'ON',
             'CLANG_DEFAULT_RTLIB': 'compiler-rt',
             'CLANG_DEFAULT_UNWINDLIB': 'libgcc',
             'DEFAULT_ROCM_PATH': self.installdir,
             'LIBOMP_COPY_EXPORTS': 'OFF',
             'CLANG_ENABLE_AMDCLANG': 'ON',
-        })
+            'LIBOMPTARGET_EXTERNAL_PROJECT_ROCM_DEVICE_LIBS_PATH': os.path.join(self.llvm_src_dir, 'amd', 'device-libs'),
+        }
 
+        # Only set LLVM_EXTERNAL_PROJECTS if openmp/offload are NOT in runtimes
+        # When openmp/offload are present, the runtimes/CMakeLists.txt adds device-libs automatically
+        # For older versions without openmp/offload, we need to explicitly add device-libs
+        if 'openmp' not in self.final_runtimes and 'offload' not in self.final_runtimes:
+            cmake_opts['LLVM_EXTERNAL_PROJECTS'] = '"device-libs"'
+            cmake_opts['LLVM_EXTERNAL_DEVICE_LIBS_SOURCE_DIR'] = os.path.join(self.llvm_src_dir, 'amd', 'device-libs')
+
+        self._cmakeopts.update(cmake_opts)
+
+        if LooseVersion('20') <= LooseVersion(self.version) <= LooseVersion('23'):
+            # Set HSA path if ROCR-Runtime source directory exists
+            rocr_runtime_path = os.path.join(self.start_dir, '..', 'ROCR-Runtime-rocm-7.2.3')
+
+            if os.path.exists(rocr_runtime_path):
+                # Pass CMAKE_PREFIX_PATH to the ROCR external project so it can find ClangConfig.cmake
+                # Use the build dir so cmake can find it after clang is built but before ROCR configures
+                cmake_prefix_path = os.path.join(self.llvm_obj_dir_stage1, 'lib', 'cmake')
+
+                self._cmakeopts.update({
+                    'LIBOMPTARGET_EXTERNAL_PROJECT_HSA_PATH': rocr_runtime_path,
+                    'OFFLOAD_EXTERNAL_PROJECT_ROCR_CMAKE_ARGS': f'-DCMAKE_PREFIX_PATH={cmake_prefix_path}'
+                })
+            # Device-libs are always built in stage 1, regardless of bootstrap
+            # So always use llvm_obj_dir_stage1 for device-libs path
+            amddevicelibs_dir = os.path.join(
+                self.llvm_obj_dir_stage1, 'tools', 'device-libs', 'lib', 'cmake', 'AMDDeviceLibs'
+            )
+            self.runtimes_cmake_args['AMDDeviceLibs_DIR'] = amddevicelibs_dir
+            # Also set for the amdgcn-amd-amdhsa per-target runtime
+            self._cmakeopts['RUNTIMES_amdgcn-amd-amdhsa_AMDDeviceLibs_DIR'] = amddevicelibs_dir
         amd_gfx_list = build_option('amdgcn_capabilities', default=[])
         if not amd_gfx_list and 'amdgcn_capabilities' in self.cfg:
             amd_gfx_list = self.cfg['amdgcn_capabilities']
@@ -84,6 +114,12 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
         self.runtimes_cmake_args['AMDDeviceLibs_DIR'] = os.path.join(
             intermediate_stage_dir, 'tools', 'device-libs', 'lib64', 'cmake', 'AMDDeviceLibs'
         )
+
+        # Clear CMAKE_Fortran_FLAGS for flang builds to avoid inheriting unsupported flags like -fno-math-errno
+        # Use a single space to ensure the arg is added (empty string would be skipped by _add_cmake_runtime_args)
+        if 'flang' in self.final_projects:
+            self.runtimes_cmake_args['CMAKE_Fortran_FLAGS'] = ' '
+
         self._add_cmake_runtime_args()
 
     def configure_step(self):
@@ -94,6 +130,7 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
             remove_dir(os.path.join(self.builddir, 'llvm.obj.2'))
             remove_dir(os.path.join(self.builddir, 'llvm.obj.3'))
         super(EB_ROCm_minus_LLVM, self).configure_step()
+
 
         if 'openmp' in self.final_projects:
             # fix path to include dir for omp.h:
