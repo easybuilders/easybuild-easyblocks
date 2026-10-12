@@ -184,7 +184,7 @@ class EB_GROMACS(CMakeMake):
 
         if gromacs_version >= '4.6':
             cuda_root = get_software_root('CUDA')
-            if self.with_cuda_suppport and cuda_root:
+            if self.with_cuda_support and cuda_root:
                 # CUDA with double precision is currently not supported in GROMACS yet
                 # If easyconfig explicitly have double_precision=True error out,
                 # otherwise warn about it and skip the double precision build
