@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<testsuites name="pytest tests">
+  <testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="4.2">
+    <testcase classname="ComposabilityTest" name="test_pass_on_rerun_different_classname" time="4.2" file="distributed/_composable/test_composability/test_pp_composability.py"/>
+  </testsuite>
+</testsuites>

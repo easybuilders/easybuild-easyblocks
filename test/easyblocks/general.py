@@ -141,7 +141,8 @@ class GeneralEasyblockTest(TestCase):
 
         # importing a non-existing module fails
         err_msg = "No module named .*"
-        self.assertErrorRegex(EasyBuildError, err_msg, det_path_for_import, 'easybuild.easyblocks.nosuchsoftwarefoobar')
+        self.assertRaisesRegex(EasyBuildError, err_msg,
+                               det_path_for_import, 'easybuild.easyblocks.nosuchsoftwarefoobar')
 
         # define easybuild.easyblocks namespace in custom easyblocks repo
         write_module('__init__.py', NAMESPACE_EXTEND_PATH)
