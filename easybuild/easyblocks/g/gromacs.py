@@ -99,6 +99,8 @@ class EB_GROMACS(CMakeMake):
         else:
             self.libext = 'a'
 
+        self.with_cuda_support = get_software_root('CUDA') is not None or 'CUDA' in self.cfg.dependency_names()
+
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
 
@@ -154,8 +156,7 @@ class EB_GROMACS(CMakeMake):
     @property
     def is_double_precision_cuda_build(self):
         """Check if the current build step involves double precision and CUDA"""
-        cuda = get_software_root('CUDA')
-        return cuda and self.double_prec_pattern in self.cfg['configopts']
+        return self.with_cuda_support and self.double_prec_pattern in self.cfg['configopts']
 
     def prepare_step(self, *args, **kwargs):
         """Custom prepare step for GROMACS."""
@@ -182,8 +183,8 @@ class EB_GROMACS(CMakeMake):
         gromacs_version = LooseVersion(self.version)
 
         if gromacs_version >= '4.6':
-            cuda = get_software_root('CUDA')
-            if cuda:
+            cuda_root = get_software_root('CUDA')
+            if self.with_cuda_suppport and cuda_root:
                 # CUDA with double precision is currently not supported in GROMACS yet
                 # If easyconfig explicitly have double_precision=True error out,
                 # otherwise warn about it and skip the double precision build
@@ -206,7 +207,7 @@ class EB_GROMACS(CMakeMake):
                     self.cfg.update('configopts', "-DGMX_GPU=CUDA")
                 else:
                     self.cfg.update('configopts', "-DGMX_GPU=ON")
-                self.cfg.update('configopts', "-DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda)
+                self.cfg.update('configopts', "-DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda_root)
 
                 # Set CUDA capabilities based on template value.
                 if '-DGMX_CUDA_TARGET_SM' not in self.cfg['configopts']:
@@ -748,7 +749,7 @@ class EB_GROMACS(CMakeMake):
         bin_files = []
 
         dsuff = None
-        if 'CUDA' not in self.cfg.dependency_names():
+        if self.with_cuda_support:
             for configopts in configopts_list:
                 # add the _d suffix to the suffix, in case of double precision
                 if self.double_prec_pattern in configopts:
