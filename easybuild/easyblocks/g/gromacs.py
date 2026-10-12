@@ -100,6 +100,7 @@ class EB_GROMACS(CMakeMake):
             self.libext = 'a'
 
         self.with_cuda_support = get_software_root('CUDA') is not None or 'CUDA' in self.cfg.dependency_names()
+        print("CUDA", self.with_cuda_support)
 
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
@@ -749,7 +750,7 @@ class EB_GROMACS(CMakeMake):
         bin_files = []
 
         dsuff = None
-        if self.with_cuda_support:
+        if not self.with_cuda_support:
             for configopts in configopts_list:
                 # add the _d suffix to the suffix, in case of double precision
                 if self.double_prec_pattern in configopts:
