@@ -7,6 +7,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools import toolchain
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.modules import get_software_root
+from easybuild.tools.systemtools import get_cpu_features, get_cpu_vendor
 
 
 class EB_ICON(ConfigureMake):
@@ -218,6 +219,11 @@ class EB_ICON(ConfigureMake):
             self.cfg.update('configopts', 'CFLAGS="$CFLAGS -qno-opt-dynamic-align"')
             self.cfg.update('configopts', 'ICON_CFLAGS="$CFLAGS -ftz"')
             self.cfg.update('configopts', 'ICON_BUNDLED_CFLAGS="-ftz"')
+
+            if get_cpu_vendor() == 'Intel' and 'avx512f' in get_cpu_features():
+                # Avoid failing tests on AVX512-capable Intel CPUs
+                self.cfg.update('configopts', 'ICON_YAC_CFLAGS="$ICON_BUNDLED_CFLAGS -xCORE-AVX2"')
+
             # Set lock_assert=0 instead of MPI_MODE_NOCHECK for a MPI_Win_lock()
             self.cfg.update('configopts', (
                 'ICON_FCFLAGS="'
