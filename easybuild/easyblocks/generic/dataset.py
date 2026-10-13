@@ -50,7 +50,7 @@ class Dataset(Binary):
             'data_install_path': [None, "Custom installation path for datasets", CUSTOM],
             'cleanup_data_sources': [False, "Whether or not to delete the data sources after installation", CUSTOM],
             'hardlink_object_storage': [
-                # N.B. not all filesystems support hardlinks
+                # N.B. not all filesystems support hardlinks and is never possible accross filesystems
                 False, "Whether to use hardlinks instead of symlinks for object storage", CUSTOM
             ],
             'object_storage_ignore_dirs': [[], "List of directories (relative to installdir) to be excluded from "
