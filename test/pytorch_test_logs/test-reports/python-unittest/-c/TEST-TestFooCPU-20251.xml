@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="TestFooCPU-20251030150550" tests="1" file=".py" time="4.2" failures="0" errors="0" skipped="0">
+  <testcase classname="TestFooCPU" name="test_bar_cpu" time="4.2">
+    <system-out>[snip]</system-out>
+  </testcase>
+</testsuite>

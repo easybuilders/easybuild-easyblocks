@@ -143,7 +143,7 @@ class EB_ESPResSo(CMakeNinja):
             self.cfg.update('configopts', f"-DESPRESSO_BUILD_WITH_{dep.upper()}={dep_flag}")
 
         version = self._get_version()
-        if version[:2] < (5, 1) and get_software_root('Kokkos') and get_software_root('Cabana'):
+        if version != 'commit' and version[:2] < (5, 1) and get_software_root('Kokkos') and get_software_root('Cabana'):
             self.cfg.update('configopts', ' -DESPRESSO_BUILD_WITH_SHARED_MEMORY_PARALLELISM=ON')
 
         self.cfg.update('configopts', ' -DESPRESSO_BUILD_WITH_STOKESIAN_DYNAMICS=OFF')
@@ -164,7 +164,7 @@ class EB_ESPResSo(CMakeNinja):
         self._patch_fetchcontent()
 
         version = self._get_version()
-        if version[:2] >= (5, 0):
+        if version == 'commit' or version[:2] >= (5, 0):
             self._set_configure_options_release_500()
         elif version[:2] >= (4, 2):
             self._set_configure_options_release_420()
@@ -240,7 +240,7 @@ class EB_ESPResSo(CMakeNinja):
         version = self._get_version()
 
         # libraries
-        if version[:2] >= (5, 0):
+        if version == 'commit' or version[:2] >= (5, 0):
             _libs = [
                 'espresso_core', 'espresso_shapes', 'espresso_walberla',
                 'espresso_script_interface', 'script_interface', 'utils', '_init',
@@ -259,7 +259,7 @@ class EB_ESPResSo(CMakeNinja):
             'constraints.py', 'electrostatics.py', 'magnetostatics.py',
             'observables.py', 'reaction_methods.py',
         ]
-        if version[:2] >= (5, 0):
+        if version == 'commit' or version[:2] >= (5, 0):
             _extra_python_modules = [
                 'electrokinetics.py', 'lb.py', 'lees_edwards.py',
                 'particle_data.py', 'system.py', 'thermostat.py', 'version.py',
@@ -267,11 +267,11 @@ class EB_ESPResSo(CMakeNinja):
             _python_modules = sorted(_python_modules + _extra_python_modules)
 
         if get_software_root('HDF5'):
-            if version[:2] >= (5, 0):
+            if version == 'commit' or version[:2] >= (5, 0):
                 _libs.append('espresso_hdf5')
             _python_modules.append(os.path.join('io', 'writer', 'h5md.py'))
         if get_software_root('CUDA'):
-            if version[:2] >= (5, 0):
+            if version == 'commit' or version[:2] >= (5, 0):
                 _python_modules.append('cuda_init.py')
             else:
                 _libs.append('cuda_init')

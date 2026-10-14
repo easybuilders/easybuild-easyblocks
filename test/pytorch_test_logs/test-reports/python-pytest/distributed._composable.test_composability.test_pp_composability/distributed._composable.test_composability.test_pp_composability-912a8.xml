@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites name="pytest tests">
+  <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="4.2">
+    <testcase classname="test.distributed._composable.test_composability.test_pp_composability.ComposabilityTest" name="test_pp_and_dcp" time="4.2"/>
+    <testcase classname="test.distributed._composable.test_composability.test_pp_composability.ComposabilityTest" name="test_pass_on_rerun_different_classname" time="4.2">
+      <failure message="...">[snip]</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

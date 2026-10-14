@@ -126,6 +126,20 @@ class EB_ESMF(ConfigureMake):
                         netcdf_libs.append('-lnetcdf_c++')
                 env.setvar('ESMF_NETCDF_LIBS', ' '.join(netcdf_libs))
 
+        # PIO
+        parallelio = get_software_root('ParallelIO')
+        if parallelio:
+            env.setvar('ESMF_PIO', 'external')
+            env.setvar('ESMF_PIO_INCLUDE', os.path.join(parallelio, 'include'))
+            env.setvar('ESMF_PIO_LIBPATH', os.path.join(parallelio, 'lib'))
+        else:
+            env.setvar('ESMF_PIO', 'internal')
+
+        # Pnetcdf
+        pnetcdf = get_software_root('Pnetcdf')
+        if pnetcdf:
+            env.setvar('ESMF_PNETCDF', 'pnetcdf-config')
+
         # 'make info' provides useful debug info
         run_shell_cmd("make info")
 
