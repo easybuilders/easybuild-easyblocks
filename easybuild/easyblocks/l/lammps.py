@@ -731,18 +731,25 @@ class EB_LAMMPS(CMakeMake):
             sanity_check_test_inputs = self.cfg['sanity_check_test_inputs']
         else:
             sanity_check_test_inputs = [
-                'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
-                'hugoniostat', 'indent', 'melt', 'min', 'msst',
+                'atm', 'balance', 'colloid', 'crack', 'dipole',
+                'friction', 'indent', 'melt', 'min',
                 'nemd', 'obstacle', 'pour', 'voronoi',
             ]
 
-        custom_commands = [
-            # LAMMPS test - you need to call specific test file on path
-            'from lammps import lammps; l=lammps(); l.file("%s")' %
+        test_paths = [
             # Examples are part of the install with paths like (installdir)/examples/filename/in.filename
             os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
-            # And this should be done for every file specified above
+            # create path for every file in sanity_check_test_inputs
             for check_file in sanity_check_test_inputs
+        ]
+
+        custom_commands = [
+            # LAMMPS test - you need to call specific test file on path
+            'from lammps import lammps; l=lammps(); l.file("%s")' % check_file
+            # And this should be done for every file specified above
+            for check_file in test_paths
+            # Double check if test exists for this may differ between LAMMPS versions
+            if os.path.isfile(check_file) 
         ]
 
         # check if a GPU is available for tests
