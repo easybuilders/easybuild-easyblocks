@@ -731,8 +731,8 @@ class EB_LAMMPS(CMakeMake):
             sanity_check_test_inputs = self.cfg['sanity_check_test_inputs']
         else:
             sanity_check_test_inputs = [
-                'atm', 'balance', 'colloid', 'crack', 'dipole',
-                'friction', 'indent', 'melt', 'min',
+                'atm', 'balance', 'colloid', 'crack', 'dipole', 'friction',
+                'hugoniostat', 'indent', 'melt', 'min', 'msst',
                 'nemd', 'obstacle', 'pour', 'voronoi',
             ]
 
@@ -749,7 +749,7 @@ class EB_LAMMPS(CMakeMake):
             # And this should be done for every file specified above
             for check_file in test_paths
             # Double check if test exists for this may differ between LAMMPS versions
-            if os.path.isfile(check_file) 
+            if os.path.isfile(check_file)
         ]
 
         # check if a GPU is available for tests
