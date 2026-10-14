@@ -51,7 +51,7 @@ update/bugfix release
   - add support for newer opam releases in the OCaml easyblock (#4239)
   - update jaxlib easyblock: adapt compiler handling for jax 0.10+ (#4242)
 - enhancements and fixes for test suite:
-  - remove superfluos mock methods in `EasyBlockSpecificTest` (#4202)
+  - remove superfluous mock methods in `EasyBlockSpecificTest` (#4202)
   - re-enable apt-get update in CI workflow for test suite (#4244)
   - replace `assertErrorRegex` by `assertRaisesRegex` (#4245)
 
