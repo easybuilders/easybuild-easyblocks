@@ -36,7 +36,7 @@ from collections import OrderedDict
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, run_pip_check
 from easybuild.tools import LooseVersion
-from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, read_file, write_file
 from easybuild.tools.modules import get_software_root_env_var_name
 from easybuild.tools.utilities import flatten
@@ -112,7 +112,7 @@ class EB_EasyBuildMeta(PythonPackage):
             self.log.warning(e.msg)
             self.cfg['sanity_pip_check'] = False
             msg = "Running 'pip check' failed before installing EasyBuild so disable post-install 'pip check'."
-            print_msg("     " + msg + "\n", prefix=False)
+            print_warning("     " + msg + "\n", prefix=False)
             self.log.info(msg)
 
     def check_readiness_step(self):
