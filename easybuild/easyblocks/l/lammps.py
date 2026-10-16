@@ -760,6 +760,8 @@ class EB_LAMMPS(CMakeMake):
             # And this should be done for every file specified above
             for check_file in test_paths
             # Double check if test exists for this may differ between LAMMPS versions
+            # This does not cause a failure but the test to hang indefinitely if the file does not exist
+            # See https://github.com/lammps/lammps/issues/5248
             if os.path.isfile(check_file)
         ]
 
@@ -775,6 +777,8 @@ class EB_LAMMPS(CMakeMake):
 
         # add accelerator-specific tests
         # INTEL package - it requires mpi4py - run only for updated easyconfigs >= 29Aug2024
+        # If msst_test_path is not a valid path the test will hang indefinitely
+        # See https://github.com/lammps/lammps/issues/5248
         if 'msst' in sanity_check_test_inputs and os.path.isfile(msst_test_path):
             if LooseVersion(self.version) >= LooseVersion('29Aug2024'):
                 custom_commands.append(
