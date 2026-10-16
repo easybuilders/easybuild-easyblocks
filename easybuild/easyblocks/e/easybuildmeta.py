@@ -112,8 +112,7 @@ class EB_EasyBuildMeta(PythonPackage):
             self.log.warning(e.msg)
             self.cfg['sanity_pip_check'] = False
             msg = "Running 'pip check' failed before installing EasyBuild so disabling post-install 'pip check'."
-            print_warning(msg)
-            self.log.info(msg)
+            print_warning(msg, log=self.log)
 
     def check_readiness_step(self):
         """Make sure EasyBuild can be installed with a loaded EasyBuild module."""
