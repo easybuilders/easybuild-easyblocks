@@ -752,11 +752,9 @@ class EB_LAMMPS(CMakeMake):
                 msst_test_path,
             ]
             test_paths = test_paths + sanity_check_test_shock
-            
         else:
             msst_test_path = os.path.join(self.installdir, "examples", "msst", "in.msst")
             
-
         custom_commands = [
             # LAMMPS test - you need to call specific test file on path
             'from lammps import lammps; l=lammps(); l.file("%s")' % check_file
