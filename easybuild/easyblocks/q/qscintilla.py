@@ -197,6 +197,6 @@ class EB_QScintilla(ConfigureMake):
                 os.path.join('qsci', 'api', 'python'),
                 os.path.join('share', 'sip', self.pyqt_pkg_name),
             ])
-            custom_commands.append("python -c 'import %s.Qsci'" % self.pyqt_pkg_name)
+            custom_commands.append("python -s -c 'import %s.Qsci'" % self.pyqt_pkg_name)
 
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
