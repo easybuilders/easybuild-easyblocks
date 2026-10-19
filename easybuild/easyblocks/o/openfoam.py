@@ -70,6 +70,47 @@ class EB_OpenFOAM(EasyBlock):
         })
         return extra_vars
 
+    @property
+    def wm_compiler(self):
+        """Dynamically determine WM_COMPILER based on loaded modules."""
+        if self._wm_compiler is not None:
+            return self._wm_compiler
+
+        comp_fam = self.toolchain.comp_family()
+        if comp_fam == toolchain.GCC:  # @UndefinedVariable
+            self._wm_compiler = 'Gcc'
+        elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
+            # 1. Determine Intel compiler version based on active modules
+            intel_ver = None
+            if get_software_root('icc'):
+                intel_ver = get_software_version('icc')
+            elif get_software_root('intel-compilers'):
+                intel_ver = get_software_version('intel-compilers')
+
+            # 2. Check if the version corresponds to Intel oneAPI (2021+) which uses ICX
+            has_icx = False
+            if intel_ver and LooseVersion(intel_ver) >= LooseVersion('2021.0'):
+                has_icx = True
+
+            # 3. Check the OpenFOAM version (v2206+ and v2506 supports 'Icx' natively)
+            is_modern_of = False
+            if self.version.startswith('v'):
+                try:
+                    of_ver_num = int(self.version[1:])
+                    if of_ver_num >= 2206:
+                        is_modern_of = True
+                except ValueError:
+                    is_modern_of = False
+
+            # 4. Set final value
+            if has_icx and is_modern_of:
+                self._wm_compiler = 'Icx'
+            else:
+                self._wm_compiler = 'Icc'
+        else:
+            raise EasyBuildError("Unknown compiler family, don't know how to set WM_COMPILER")
+        return self._wm_compiler
+
     def __init__(self, *args, **kwargs):
         """Specify that OpenFOAM should be built in install dir."""
 
@@ -110,19 +151,9 @@ class EB_OpenFOAM(EasyBlock):
         else:
             self.build_type = 'Opt'
 
-        # determine values for wm_compiler and wm_mplib
-        comp_fam = self.toolchain.comp_family()
-        if comp_fam == toolchain.GCC:  # @UndefinedVariable
-            self.wm_compiler = 'Gcc'
-        elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            self.wm_compiler = 'Icc'
-        else:
-            raise EasyBuildError("Unknown compiler family, don't know how to set WM_COMPILER")
-
-        # set to an MPI unknown by OpenFOAM, since we're handling the MPI settings ourselves (via mpicc, etc.)
-        # Note: this name must contain 'MPI' so the MPI version of the
-        # Pstream library is built (cf src/Pstream/Allwmake)
+        # Set wm_mplib to easybuild one, wm_compiler is defined as dynamic property
         self.wm_mplib = "EASYBUILDMPI"
+        self._wm_compiler = None  # Internal cache for property
 
     def extract_step(self):
         """Extract sources as expected by the OpenFOAM(-Extend) build scripts."""
@@ -177,8 +208,9 @@ class EB_OpenFOAM(EasyBlock):
                 extra_flags += ' -fno-delete-null-pointer-checks'
 
         elif comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            # make sure -no-prec-div is used with Intel compilers
-            extra_flags = '-no-prec-div'
+            # make sure -no-prec-div is used with old Intel compilers
+            if self.wm_compiler == 'Icc':
+                extra_flags = '-no-prec-div'
 
         for env_var in ['CFLAGS', 'CXXFLAGS']:
             env.setvar(env_var, "%s %s" % (os.environ.get(env_var, ''), extra_flags))
@@ -247,7 +279,7 @@ class EB_OpenFOAM(EasyBlock):
             for comp_var, newval in comp_vars.items():
                 regex_subs.append((r"^(%s\s*(=|:=)\s*).*$" % re.escape(comp_var), r"\1%s" % newval))
             # replace /lib/cpp by cpp, but keep the arguments
-            regex_subs.append((r"^(CPP\s*(=|:=)\s*)/lib/cpp(.*)$", r"\1cpp\2"))
+            regex_subs.append((r"^(CPP\s*(=|:=)\s*)/lib/cpp(.*)$", r"\1cpp\3"))
             apply_regex_substitutions(fullpath, regex_subs)
 
         # use relative paths to object files when compiling shared libraries
@@ -391,8 +423,6 @@ class EB_OpenFOAM(EasyBlock):
 
     def det_psubdir(self):
         """Determine the platform-specific installation directory for OpenFOAM."""
-        # OpenFOAM >= 3.0.0 can use 64 bit integers
-        # same goes for OpenFOAM-Extend >= 4.1
         if self.is_extend:
             set_int_size = self.looseversion >= LooseVersion('4.1')
         else:
