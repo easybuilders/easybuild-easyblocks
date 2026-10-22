@@ -73,7 +73,7 @@ class EB_FDTD_underscore_Solutions(PackedBinary):
             else:
                 raise EasyBuildError("Failed to isolate top-level directory using %s", top_dir_glob)
 
-        copy_dir(top_dir, self.installdir, symlinks=self.cfg['keepsymlinks'])
+        copy_dir(top_dir, self.installdir, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=True)
 
     def sanity_check_step(self):
         """Custom sanity check for FDTD Solutions."""

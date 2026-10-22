@@ -29,7 +29,6 @@ EasyBuild support for Molpro, implemented as an easyblock
 """
 import glob
 import os
-import shutil
 import re
 
 from easybuild.easyblocks.generic.binary import Binary
@@ -39,7 +38,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
-from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir, read_file, symlink
+from easybuild.tools.filetools import apply_regex_substitutions, change_dir, clean_dir, mkdir, read_file, symlink
 from easybuild.tools.run import run_shell_cmd
 
 
@@ -208,8 +207,8 @@ class EB_Molpro(ConfigureMake, Binary):
 
             for src in self.src:
                 if LooseVersion(self.version) >= LooseVersion('2015'):
-                    # install dir must be non-existent
-                    shutil.rmtree(self.installdir)
+                    # install dir must be non-existent or empty
+                    clean_dir(self.installdir)
                     cmd = "./{0} -batch -prefix {1}".format(src['name'], self.installdir)
                 else:
                     cmd = "./{0} -batch -instbin {1}/bin -instlib {1}/lib".format(src['name'], self.installdir)

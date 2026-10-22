@@ -29,13 +29,12 @@ EasyBuild support for building and installing Go, implemented as an easyblock
 @author: Kenneth Hoste (HPC-UGent)
 """
 import os
-import shutil
 
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import remove_dir
+from easybuild.tools.filetools import clean_dir, copy_dir
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.modules import get_software_root
 
@@ -76,7 +75,7 @@ class EB_Go(ConfigureMake):
         run_shell_cmd(cmd, work_dir=srcdir)
 
         try:
-            remove_dir(self.installdir)
-            shutil.copytree(self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'])
+            clean_dir(self.installdir)
+            copy_dir(self.cfg['start_dir'], self.installdir, symlinks=self.cfg['keepsymlinks'], dirs_exist_ok=True)
         except OSError as err:
             raise EasyBuildError("Failed to copy installation to %s: %s", self.installdir, err)

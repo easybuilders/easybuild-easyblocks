@@ -305,32 +305,41 @@ class EB_WIEN2k(EasyBlock):
                     (r"Please enter the full path to your temporary directory:", '/tmp'),
                 ])
 
-                elparoot = get_software_root('ELPA')
-                if elparoot:
+                elpa_root = get_software_root('ELPA')
+                if elpa_root:
 
                     apply_regex_substitutions(self.cfgscript, [(r"cat elpahelp2$", "cat -n elpahelp2")])
 
-                    elpa_dict = {
-                        'root': elparoot,
-                        'version': get_software_version('ELPA'),
-                        'variant': 'elpa_openmp' if self.toolchain.get_flag('openmp') else 'elpa',
-                    }
-
-                    elpa_dir = "%(root)s/include/%(variant)s-%(version)s" % elpa_dict
+                    elpa_variant = 'elpa_openmp' if self.toolchain.get_flag('openmp') else 'elpa'
 
                     qa.extend([
                         (r"Do you want to use ELPA\? \(y,N\):", 'y'),
                         (r"Do you want to automatically search for ELPA installations\? \(Y,n\):", 'n'),
                         (r"Please specify the ROOT-path of your ELPA installation \(like /usr/local/elpa/\) "
-                            r"or accept present path \(Enter\):", elparoot),
+                            r"or accept present path \(Enter\):", elpa_root),
                         (r"Please specify the lib-directory of your ELPA installation \(e.g. lib or lib64\)\!:", 'lib'),
                         (r"Please specify the lib-directory of your ELPA installation \(e.g. lib or lib64\):", 'lib'),
                         (r"Please specify the name of your installed ELPA library \(e.g. elpa or elpa_openmp\)\!:",
-                         elpa_dict['variant']),
+                         elpa_variant),
                         (r"Please specify the name of your installed ELPA library \(e.g. elpa or elpa_openmp\):",
-                         elpa_dict['variant']),
-                        (r".*(?P<number>[0-9]+)\t%s\n(.*\n)*" % elpa_dir, '%(number)s'),
+                         elpa_variant),
                     ])
+
+                    # specify path to ELPA header files, by picking the right number from a list;
+                    # example output being matched here:
+                    #   More than one set of include files in your ELPA-ROOT directory.
+                    #   Pick one (enter line number) or enter 0 to manually specify a version!:
+                    #      1  /software/ELPA/2025.06.002-intel-2025b/include/elpa_openmp-2025.06.002
+                    #      2  /software/ELPA/2025.06.002-intel-2025b/include/elpa_openmp-2025.06.002/elpa
+                    #      3  /software/ELPA/2025.06.002-intel-2025b/include/elpa-2025.06.002
+                    #      4  /software/ELPA/2025.06.002-intel-2025b/include/elpa-2025.06.002/elpa
+                    #      5  /software/ELPA/2025.06.002-intel-2025b/share/doc/elpa
+                    elpa_version = get_software_version('ELPA')
+                    elpa_dir = os.path.join(elpa_root, 'include', elpa_variant + '-' + elpa_version)
+                    # we need to make sure that this regex is specific enough, i.e. that it doesn't match random lines,
+                    # i.e. we shouldn't use something like '(.*\n)*'
+                    elpa_dir_pattern = rf".*(?P<number>[0-9]+)\t{elpa_dir}\n(.*{elpa_root}/.*\n)*"
+                    qa.append((elpa_dir_pattern, '%(number)s'))
                 else:
                     qa.append((r"Do you want to use ELPA\? \(y,N\):", 'n'))
         else:

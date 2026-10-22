@@ -33,8 +33,8 @@ from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig.default import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.filetools import compute_checksum, create_index, is_readable, mkdir, move_file, remove_file
-from easybuild.tools.filetools import symlink
+from easybuild.tools.filetools import change_dir, compute_checksum, create_index, is_readable, mkdir, move_file
+from easybuild.tools.filetools import remove_file, symlink
 from easybuild.tools.utilities import trace_msg
 
 
@@ -48,7 +48,13 @@ class Dataset(Binary):
         extra_vars.update({
             'extract_sources': [True, "Whether or not to extract data sources", CUSTOM],
             'data_install_path': [None, "Custom installation path for datasets", CUSTOM],
-            'cleanup_data_sources': [False, "Whether or not to delete the data sources after installation", CUSTOM]
+            'cleanup_data_sources': [False, "Whether or not to delete the data sources after installation", CUSTOM],
+            'hardlink_object_storage': [
+                False, ("Whether to use hardlinks instead of symlinks for object storage. "
+                        "N.B. not all filesystems support hardlinks and is never possible accross filesystems"), CUSTOM
+            ],
+            'object_storage_ignore_dirs': [[], "List of directories (relative to installdir) to be excluded from "
+                                               "object storage (use '.' for full installdir)", CUSTOM],
         })
         return extra_vars
 
@@ -60,6 +66,12 @@ class Dataset(Binary):
             raise EasyBuildError(
                 "Easyconfig parameter 'sources' is not supported for this EasyBlock. Use 'data_sources' instead.")
 
+        with self.cfg.disable_templating():
+            ignore_dirs = self.cfg['object_storage_ignore_dirs']
+        if not isinstance(ignore_dirs, (list, tuple)):
+            raise EasyBuildError(f"Incorrect value type '{type(ignore_dirs).__name__}' for "
+                                 "object_storage_ignore_dirs, should be list or tuple.")
+
         if self.cfg['data_install_path']:
             self.installdir = self.cfg['data_install_path']
 
@@ -70,13 +82,39 @@ class Dataset(Binary):
         """No install step, datasets are extracted directly into installdir"""
         pass
 
+    def make_module_req(self):
+        """No required environment variables"""
+        return ''
+
     def post_processing_step(self):
-        """Add files to object_storage, remove duplicates, add symlinks"""
-        trace_msg('adding files to object_storage...')
+        """Add files to object_storage, remove duplicates, add links"""
+
+        EasyBlock.post_processing_step(self)
+
+        trace_msg("adding files to 'object_storage'...")
 
         # creating object storage at root of software name to reuse identical files in different versions
-        object_storage = os.path.join(os.pardir, 'object_storage')
-        datafiles = create_index(os.curdir)
+        change_dir(self.installdir)
+        object_storage = os.path.normpath(os.path.join(os.getcwd(), os.pardir, 'object_storage'))
+
+        ignore_dirs = self.cfg['object_storage_ignore_dirs']
+        if ignore_dirs and '.' in ignore_dirs:
+            datafiles = []
+        else:
+            datafiles = create_index(os.curdir, ignore_dirs=ignore_dirs)
+
+        def _link_fn(objstor_file, datafile):
+            '''Helper for link logic depending on hard link or symlink'''
+            if not self.cfg["hardlink_object_storage"]:
+                # use relative paths for symlinks to easily relocate data installations later on if needed
+                symlink(objstor_file, datafile, use_abspath_source=False)
+                self.log.debug(f"Created symlink {datafile} to {objstor_file}")
+            else:
+                try:
+                    os.link(objstor_file, datafile)
+                    self.log.debug(f"Created hard link {datafile} to {objstor_file}")
+                except OSError as err:
+                    raise EasyBuildError(f"Hard linking {datafile} to {objstor_file} failed: {err}")
 
         for datafile in datafiles:
             cks = compute_checksum(datafile, checksum_type='sha256')
@@ -90,9 +128,8 @@ class Dataset(Binary):
                 remove_file(datafile)
             else:
                 move_file(datafile, objstor_file)
-            # use relative paths for symlinks to easily relocate data installations later on if needed
-            symlink(objstor_file, datafile, use_abspath_source=False)
-            self.log.debug(f"Created symlink {datafile} to {objstor_file}")
+
+            _link_fn(objstor_file, datafile)
 
     def cleanup_step(self):
         """Cleanup sources after installation"""

@@ -139,6 +139,8 @@ class EB_Boost(EasyBlock):
                 toolset = 'intel-linux'
             elif self.toolchain.comp_family() == toolchain.GCC:
                 toolset = 'gcc'
+            elif self.toolchain.comp_family() == toolchain.NVHPC:
+                toolset = 'pgi'
             elif self.toolchain.comp_family() == toolchain.LLVM:
                 toolset = 'clang'
             else:
@@ -348,10 +350,13 @@ class EB_Boost(EasyBlock):
                         os.path.join('lib', 'libboost_python%s%s.%s' % (suffix, lib_mt_suffix, shlib_ext)))
 
         else:
-            custom_paths['files'].append(os.path.join('lib', 'libboost_system.%s' % shlib_ext))
+            if LooseVersion(self.version) <= LooseVersion("1.88.0"):
+                custom_paths['files'].append(os.path.join('lib', 'libboost_system.%s' % shlib_ext))
 
             if self.cfg['tagged_layout']:
-                custom_paths['files'].append(os.path.join('lib', 'libboost_system%s.%s' % (lib_mt_suffix, shlib_ext)))
+                if LooseVersion(self.version) <= LooseVersion("1.88.0"):
+                    p = os.path.join('lib', 'libboost_system%s.%s' % (lib_mt_suffix, shlib_ext))
+                    custom_paths['files'].append(p)
                 custom_paths['files'].append(os.path.join('lib', 'libboost_thread%s.%s' % (lib_mt_suffix, shlib_ext)))
 
             if self.cfg['boost_mpi']:
