@@ -171,7 +171,7 @@ class CMakeMake(ConfigureMake):
                                          "otherwise a new, empty folder is created. "
                                          "A relative path is relative to %(builddir)s. "
                                          "To build in the source directory set this to 'False'.", CUSTOM],
-            'offline': [None, "(Attempt) to avoid downloads, e.g. through CMakes FetchContent module", CUSTOM],
+            'offline': [False, "(Attempt) to avoid downloads, e.g. through CMakes FetchContent module", CUSTOM],
         })
         return extra_vars
 
