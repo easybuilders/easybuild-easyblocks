@@ -92,8 +92,8 @@ class EB_ParMETIS(EasyBlock):
             self.parmetis_builddir = 'build'
             try:
                 os.chdir(self.parmetis_builddir)
-                cmd = 'cmake .. %s -DCMAKE_INSTALL_PREFIX="%s"' % (self.cfg['configopts'],
-                                                                   self.installdir)
+                cmd = '%s cmake .. %s -DCMAKE_INSTALL_PREFIX="%s"' % (self.cfg['preconfigopts'], self.cfg['configopts'],
+                                                                      self.installdir)
                 run_shell_cmd(cmd)
                 os.chdir(self.cfg['start_dir'])
             except OSError as err:
@@ -136,7 +136,7 @@ class EB_ParMETIS(EasyBlock):
 
         if LooseVersion(self.version) >= LooseVersion("4"):
             # includedir etc changed in v4, use a normal make install
-            cmd = "make install %s" % self.cfg['installopts']
+            cmd = "%s make install %s" % (self.cfg['preinstallopts'], self.cfg['installopts'])
             try:
                 os.chdir(self.parmetis_builddir)
                 run_shell_cmd(cmd)
