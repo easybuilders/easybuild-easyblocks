@@ -89,6 +89,11 @@ class EB_CUDA(Binary):
 
         super().__init__(*args, **kwargs)
 
+        if self.cfg['requires_eula'] is None:
+            self.cfg['requires_eula'] = [
+                'CUDA', 'https://docs.nvidia.com/cuda/eula/index.html'
+            ]
+
         self.cfg.template_values['cudaarch'] = cudaarch
         self.cfg.generate_template_values()
 
@@ -113,16 +118,6 @@ class EB_CUDA(Binary):
         self.module_load_environment.LIBRARY_PATH = lib_path + [os.path.join('stubs', 'lib64')]
         self.module_load_environment.PATH = bin_path
         self.module_load_environment.PKG_CONFIG_PATH = ['pkgconfig']
-
-    def fetch_step(self, *args, **kwargs):
-        """Check for EULA acceptance prior to getting sources."""
-        # EULA for CUDA must be accepted via --accept-eula-for EasyBuild configuration option,
-        # or via 'accept_eula = True' in easyconfig file
-        self.check_accepted_eula(
-            name='CUDA',
-            more_info='https://docs.nvidia.com/cuda/eula/index.html'
-        )
-        return super().fetch_step(*args, **kwargs)
 
     def extract_step(self):
         """Extract installer to have more control, e.g. options, patching Perl scripts, etc."""
