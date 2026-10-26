@@ -141,6 +141,8 @@ def get_cmake_offline_config_dict() -> Dict[str, str]:
     return {
         "FETCHCONTENT_FULLY_DISCONNECTED": "ON",
         "FETCHCONTENT_BASE_DIR": "'%(builddir)s/_deps'",
+        # Error out when FetchContent source directory was not manually populated
+        "CMAKE_POLICY_DEFAULT_CMP0170", "NEW",
     }
 
 
