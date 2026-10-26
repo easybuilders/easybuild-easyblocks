@@ -36,6 +36,7 @@ EasyBuild support for software that is configured with CMake, implemented as an 
 import glob
 import re
 import os
+from typing import Dict
 from easybuild.tools import LooseVersion
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
@@ -109,7 +110,7 @@ def setup_cmake_env_python_hints(cmake_version=None):
             setvar('Python2_ROOT_DIR', python_root)
 
 
-def get_cmake_python_config_dict():
+def get_cmake_python_config_dict() -> Dict[str, str]:
     """Get a dictionary with CMake configuration options for finding Python if loaded as a module."""
     options = {}
     python_root = get_software_root('Python')
@@ -127,12 +128,22 @@ def get_cmake_python_config_dict():
     return options
 
 
-def get_cmake_python_config_str():
+def get_cmake_python_config_str() -> str:
     """Get CMake configuration arguments for finding Python if loaded as a module.
     This string is intended to be passed to the invocation of `cmake`.
     """
     options = get_cmake_python_config_dict()
     return ' '.join('-D%s=%s' % (key, value) for key, value in options.items())
+
+
+def get_cmake_offline_config_dict() -> Dict[str, str]:
+    """Get CMake options to disable downloads"""
+    return {
+        "FETCHCONTENT_FULLY_DISCONNECTED": "ON",
+        "FETCHCONTENT_BASE_DIR": "'%(builddir)s/_deps'",
+        # Error out when FetchContent source directory was not manually populated
+        "CMAKE_POLICY_DEFAULT_CMP0170", "NEW",
+    }
 
 
 class CMakeMake(ConfigureMake):
@@ -162,6 +173,7 @@ class CMakeMake(ConfigureMake):
                                          "otherwise a new, empty folder is created. "
                                          "A relative path is relative to %(builddir)s. "
                                          "To build in the source directory set this to 'False'.", CUSTOM],
+            'offline': [False, "(Attempt) to avoid downloads, e.g. through CMakes FetchContent module", CUSTOM],
         })
         return extra_vars
 
@@ -205,9 +217,9 @@ class CMakeMake(ConfigureMake):
         """Build type set in the EasyConfig with default determined by toolchainopts"""
         build_type = self.cfg.get('build_type')
         if build_type is None:
-            if self.toolchain.options.get('noopt', None):  # also implies debug but is the closest match
+            if self.toolchain.options.get('noopt'):  # also implies debug but is the closest match
                 build_type = 'Debug'
-            elif self.toolchain.options.get('debug', None):
+            elif self.toolchain.options.get('debug'):
                 build_type = 'RelWithDebInfo'
             else:
                 build_type = 'Release'
@@ -258,7 +270,7 @@ class CMakeMake(ConfigureMake):
             default_srcdir = '.'
 
         if srcdir is None:
-            if self.cfg.get('srcdir', None) is not None:
+            if self.cfg.get('srcdir') is not None:
                 # Note that the join returns srcdir if it is absolute
                 srcdir = os.path.join(default_srcdir, self.cfg['srcdir'])
             else:
@@ -378,6 +390,9 @@ class CMakeMake(ConfigureMake):
 
         # ensure CMake uses EB python, not system or virtualenv python
         options.update(get_cmake_python_config_dict())
+
+        if self.cfg['offline']:
+            options.update(get_cmake_offline_config_dict())
 
         # pass the preferred host compiler, CUDA compiler, and CUDA architectures to the CUDA compiler
         cuda_root = get_software_root('CUDA')
