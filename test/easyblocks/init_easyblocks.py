@@ -43,11 +43,11 @@ from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_
 from easybuild.framework.easyconfig.tools import get_paths_for
 from easybuild.tools import config
 from easybuild.tools.config import GENERAL_CLASS
-from easybuild.tools.filetools import write_file
+from easybuild.tools.filetools import read_file, write_file
 from easybuild.tools.options import set_tmpdir
 # these imports are required because of checks done in template_init_test
-from easybuild.tools.environment import modify_env, read_environment  # noqa
-from easybuild.tools.run import parse_log_for_error, run_cmd, run_cmd_qa  # noqa
+from easybuild.tools.environment import modify_env, read_environment  # noqa, pylint: disable=unused-import
+from easybuild.tools.run import parse_log_for_error, run_cmd, run_cmd_qa  # noqa, pylint: disable=unused-import
 
 
 class InitTest(TestCase):
@@ -124,9 +124,7 @@ def template_init_test(self, easyblock, name='foo', version='1.3.2', toolchain=N
     self.log.debug("easyblock: %s" % easyblock)
 
     # read easyblock Python module
-    f = open(easyblock, "r")
-    txt = f.read()
-    f.close()
+    txt = read_file(easyblock)
 
     regexps = [
         # make sure error reporting is done correctly (no more log.error, log.exception)

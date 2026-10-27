@@ -292,7 +292,7 @@ def template_module_only_test(self, easyblock, name, version='1.3.2', extra_txt=
             os.environ['INTEL_LICENSE_FILE'] = os.path.join(tmpdir, 'intel.lic')
             write_file(os.environ['INTEL_LICENSE_FILE'], '# dummy license')
 
-        elif app_class == PythonBundle or app_class == CargoPythonBundle:
+        elif app_class in (PythonBundle, CargoPythonBundle):
             # $EBROOTPYTHON must be set for PythonBundle easyblock
             os.environ['EBROOTPYTHON'] = '/fake/install/prefix/Python/2.7.14-foss-2018a'
 
