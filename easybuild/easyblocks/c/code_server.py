@@ -31,7 +31,7 @@ import os
 
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.easyblocks.generic.packedbinary import PackedBinary
-from easybuild.easyblocks.j.java import find_sysroot_interpreter_and_paths, patch_path_for_sysroot
+from easybuild.easyblocks.java import find_sysroot_interpreter_and_paths, patch_path_for_sysroot
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import build_option
 from easybuild.tools.systemtools import AARCH64, X86_64, get_cpu_architecture
