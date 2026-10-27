@@ -91,7 +91,7 @@ class EB_code_minus_server(PackedBinary, EasyBlock):
                 if node_executable_paths:
                     for path in node_executable_paths:
                         patch_path_for_sysroot(
-                            path, rpath_updates=sysroot_lib_paths,interpreter=elf_interp, logger=self.log
+                            path, rpath_updates=sysroot_lib_paths, interpreter=elf_interp, logger=self.log
                         )
                 else:
                     raise EasyBuildError("No node executable found in %s", libdirs)
