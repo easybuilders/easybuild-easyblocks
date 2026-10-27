@@ -58,7 +58,9 @@ class EB_ROCm_minus_LLVM(EB_LLVM):
             'DEFAULT_ROCM_PATH': self.installdir,
             'LIBOMP_COPY_EXPORTS': 'OFF',
             'CLANG_ENABLE_AMDCLANG': 'ON',
-            'LIBOMPTARGET_EXTERNAL_PROJECT_ROCM_DEVICE_LIBS_PATH': os.path.join(self.llvm_src_dir, 'amd', 'device-libs'),
+            'LIBOMPTARGET_EXTERNAL_PROJECT_ROCM_DEVICE_LIBS_PATH': os.path.join(
+                self.llvm_src_dir, 'amd', 'device-libs'
+            ),
         }
 
         # Only set LLVM_EXTERNAL_PROJECTS if openmp/offload are NOT in runtimes
