@@ -384,13 +384,7 @@ class CMakeMake(ConfigureMake):
         if cuda_root:
             options['CMAKE_CUDA_HOST_COMPILER'] = which(os.getenv('CXX', 'g++'))
             options['CMAKE_CUDA_COMPILER'] = which('nvcc')
-            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
-            if cuda_cc:
-                options['CMAKE_CUDA_ARCHITECTURES'] = self.list_to_cmake_arg(cc.replace('.', '') for cc in cuda_cc)
-            else:
-                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
-                                     'cuda_compute_capabilities easyconfig parameter or via '
-                                     '--cuda-compute-capabilities')
+            options['CMAKE_CUDA_ARCHITECTURES'] = self.cfg.get_cuda_cc_template_value('cuda_cc_cmake')
 
         if not self.cfg.get('allow_system_boost', False):
             boost_root = get_software_root('Boost')
