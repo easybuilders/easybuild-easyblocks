@@ -6,6 +6,19 @@ These release notes can also be consulted at https://docs.easybuild.io/release-n
 The latest version of easybuild-easyblocks provides 211 software-specific easyblocks and 48 generic easyblocks.
 
 
+v5.4.2 (30 Oct 2026)
+--------------------
+
+update/bugfix release
+
+enhancements:
+  - add extra easyconfig parameter `hardlink_object_storage` to generic `Dataset` easyblock (#4162)
+  - disable post-install 'pip check' if it failed before install for `EasyBuild` (#4260)
+  - make ParMETIS easyblock honour preconfigopts and preinstallopts (#4266)
+  - hoist useful functionality in Java easyblock into reusable functions `find_sysroot_interpreter_and_paths` + `patch_path_for_sysroot` (#4268)
+  - patch `node` binary shipped with code-server when using a sysroot (#4268)
+
+
 v5.4.1 (14 Oct 2026)
 --------------------
 
