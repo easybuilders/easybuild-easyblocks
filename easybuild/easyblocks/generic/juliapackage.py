@@ -31,6 +31,8 @@ import ast
 import glob
 import os
 import re
+import tempfile
+from typing import List, Tuple
 
 from easybuild.tools import LooseVersion
 
@@ -118,6 +120,18 @@ class JuliaPackage(ExtensionEasyBlock):
 
         return parsed_var
 
+    def __init__(self, *args, **kwargs):
+        """Initialize JuliaPackage easyblock."""
+        super().__init__(*args, **kwargs)
+        self._tmp_depot_path = None
+
+    @property
+    def tmp_depot_path(self):
+        """Temporary path to be used as top DEPOT_PATH during module load."""
+        if not self._tmp_depot_path:
+            self._tmp_depot_path = tempfile.mkdtemp(suffix='-julia_depot')
+        return self._tmp_depot_path
+
     def julia_env_path(self, absolute=True, base=True):
         """
         Return path to installation environment file.
@@ -150,6 +164,24 @@ class JuliaPackage(ExtensionEasyBlock):
                 )
                 raise EasyBuildError(errmsg, julia_version)
 
+    def determine_clean_paths(self, keep_installdir=False) -> Tuple[List[str], List[str]]:
+        """Determine cleaned DEPOT_PATH and LOAD_PATH excluding user depot paths."""
+        # Grab both DEPOT_PATH and LOAD_PATH before any changes are made
+        # given that Julia might automatically update LOAD_PATH from a change on DEPOT_PATH
+        dirty_depot = self.get_julia_env("DEPOT_PATH")
+        self.log.debug('DEPOT_PATH read from Julia environment: %s', os.pathsep.join(dirty_depot))
+        dirty_load = self.get_julia_env("LOAD_PATH")
+        self.log.debug('LOAD_PATH read from Julia environment: %s', os.pathsep.join(dirty_load))
+
+        clean_depot = [path for path in dirty_depot
+                       if not USER_DEPOT_PATTERN.search(path) and (keep_installdir or path != self.installdir)]
+
+        project_toml = self.julia_env_path(base=False)
+        clean_load = [path for path in dirty_load
+                      if not USER_DEPOT_PATTERN.search(path) and (keep_installdir or path != project_toml)]
+
+        return clean_depot, clean_load
+
     def prepare_julia_env(self):
         """
         1. Remove user depot and prepend installation directory to DEPOT_PATH.
@@ -166,21 +198,11 @@ class JuliaPackage(ExtensionEasyBlock):
 
         4. Enable automatic precompilation of packages after each build.
         """
-        # Grab both DEPOT_PATH and LOAD_PATH before any changes are made
-        # given that Julia might automatically update LOAD_PATH from a change on DEPOT_PATH
-        dirty_depot = self.get_julia_env("DEPOT_PATH")
-        self.log.debug('DEPOT_PATH read from Julia environment: %s', os.pathsep.join(dirty_depot))
-        dirty_load = self.get_julia_env("LOAD_PATH")
-        self.log.debug('LOAD_PATH read from Julia environment: %s', os.pathsep.join(dirty_load))
-
-        # First set DEPOT_PATH and then LOAD_PATH to avoid any automatic changes made by Julia
-        clean_depot = [path for path in dirty_depot if not USER_DEPOT_PATTERN.search(path) and path != self.installdir]
+        clean_depot, clean_load = self.determine_clean_paths()
         install_depot = os.pathsep.join([self.installdir] + clean_depot)
         self.log.debug("Preparing Julia 'DEPOT_PATH' for installation: %s", install_depot)
         env.setvar("JULIA_DEPOT_PATH", install_depot)
-
         project_toml = self.julia_env_path(base=False)
-        clean_load = [path for path in dirty_load if not USER_DEPOT_PATTERN.search(path) and path != project_toml]
         install_load = os.pathsep.join([project_toml] + clean_load)
         self.log.debug("Preparing Julia 'LOAD_PATH' for installation: %s", install_load)
         env.setvar("JULIA_LOAD_PATH", install_load)
@@ -285,7 +307,6 @@ class JuliaPackage(ExtensionEasyBlock):
 
     def install_extension(self):
         """Install Julia package as an extension."""
-
         if not self.src:
             errmsg = "No source found for Julia package %s, required for installation. (src: %s)"
             raise EasyBuildError(errmsg, self.name, self.src)
@@ -294,18 +315,36 @@ class JuliaPackage(ExtensionEasyBlock):
         self.prepare_julia_env()
         self.install_pkg()
 
+    def load_module(self, *args, **kwargs):
+        """Set JULIA_DEPOT_PATH excluding the users depot path to avoid writing to $HOME
+        Also prepend a temporary directory to JULIA_DEPOT_PATH so that sanity check operations
+        do not write to the installdir DEPOT_PATH
+
+        Required for e.g. sanity checks that run a julia command.
+        """
+        super().load_module(*args, **kwargs)
+
+        if LooseVersion(get_software_version('Julia')) >= LooseVersion('1.11'):
+            depot_path = os.environ['JULIA_DEPOT_PATH'].strip(':')  # Always set by module
+            # Append a colon at the end to exclude the users depot path (in $HOME)
+            depot_path += ':'
+        else:
+            # In older Julia versions the trailing colon doesn't prevent the user $HOME being added
+            # So use the extra logic to avoid that, see https://github.com/easybuilders/easybuild-easyblocks/pull/4102
+            depot_path = os.pathsep.join(self.determine_clean_paths(keep_installdir=True)[0])
+        # Prepend a temporary directory so the install path is not affected by sanity checks
+        env.setvar('JULIA_DEPOT_PATH', f"{self.tmp_depot_path}:{depot_path}")
+        self.set_pkg_offline()
+
     def sanity_check_step(self, *args, **kwargs):
         """Custom sanity check for JuliaPackage"""
 
-        pkg_dir = os.path.join('packages', self.name)
-
         custom_paths = {
             'files': [],
-            'dirs': [pkg_dir],
+            'dirs': [os.path.join('packages', self.name)],
         }
-        kwargs.update({'custom_paths': custom_paths})
-
-        return ExtensionEasyBlock.sanity_check_step(self, EXTS_FILTER_JULIA_PACKAGES, *args, **kwargs)
+        kwargs.setdefault('custom_paths', custom_paths)
+        return super().sanity_check_step(EXTS_FILTER_JULIA_PACKAGES, *args, **kwargs)
 
     def make_module_extra(self, *args, **kwargs):
         """
@@ -317,7 +356,7 @@ class JuliaPackage(ExtensionEasyBlock):
         allowing user to add custom Julia packages while having packages in this installation available.
         See issue easybuilders/easybuild-easyconfigs#17455
         """
-        mod = super().make_module_extra()
+        mod = super().make_module_extra(*args, **kwargs)
         if self.module_generator.SYNTAX:
             mod += JULIA_PATHS_SOFT_INIT[self.module_generator.SYNTAX]
         mod += self.module_generator.append_paths('JULIA_DEPOT_PATH', [''])
