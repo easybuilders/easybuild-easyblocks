@@ -92,12 +92,12 @@ def find_sysroot_interpreter_and_paths(logger=None):
     return elf_interp, sysroot_lib_paths
 
 
-def patch_path_for_sysroot(path, rpath_updates=[], interpreter=None, logger=None, shrink_rpath=True):
+def patch_path_for_sysroot(path, rpath_updates=None, interpreter=None, logger=None, shrink_rpath=True):
     """
     Patch the ELF interpreter and/or RPATH of a dynamically linked file.
     """
     res = run_shell_cmd("file '%s'" % path, hidden=True)
-    file_info = res.output
+    file_info = res.output.lower()
 
     if "dynamically linked" not in file_info:
         if logger:
@@ -109,6 +109,18 @@ def patch_path_for_sysroot(path, rpath_updates=[], interpreter=None, logger=None
         raise EasyBuildError("patchelf not found via $PATH, required to patch RPATH section in binaries/libraries")
 
     if rpath_updates:
+        if not isinstance(rpath_updates, list) or not all(isinstance(d, str) for d in rpath_updates):
+            raise EasyBuildError(f"RPATH directories to add must be a list of strings: {rpath_updates}")
+        if shrink_rpath:
+            # We can already shrink the list to only include directories which exist
+            rpath_updates_existing_dirs = [d for d in rpath_updates if os.path.isdir(d)]
+            if logger:
+                logger.debug(
+                    "Removing non-existing directories from included RPATHs: %s",
+                    [rpath for rpath in rpath_updates if rpath not in rpath_updates_existing_dirs]
+                )
+            rpath_updates = rpath_updates_existing_dirs
+
         res = run_shell_cmd("patchelf --print-rpath '%s'" % path, hidden=True)
         curr_rpath = res.output.strip()
         if logger:
@@ -129,6 +141,12 @@ def patch_path_for_sysroot(path, rpath_updates=[], interpreter=None, logger=None
     # According to https://github.com/NixOS/patchelf/issues/524 the order we do things matters
     # so we must change the interpreter only _after_ changing the RPATHs
     if interpreter is not None and is_executable:
+        # Check that the interpreter looks like an interpreter
+        res = run_shell_cmd("file --brief '%s'" % path, hidden=True)
+        interpreter_info = res.output.lower()
+        if 'elf' not in interpreter_info:
+            raise EasyBuildError(f"Interpreter {interpreter} doesn't look like an ELF binary: {interpreter_info}")
+
         res = run_shell_cmd("patchelf --print-interpreter '%s'" % path, hidden=True)
         orig_interp = res.output.strip()
         if logger:
@@ -229,9 +247,7 @@ class EB_Java(PackedBinary):
                     for path, _, filenames in os.walk(libdir):
                         shlibs = [os.path.join(path, x) for x in filenames if x.endswith(shlib_ext)]
                         for shlib in shlibs:
-                            patch_path_for_sysroot(
-                                shlib, rpath_updates=sysroot_lib_paths, interpreter=elf_interp, logger=self.log
-                            )
+                            patch_path_for_sysroot(shlib, rpath_updates=sysroot_lib_paths, logger=self.log)
 
             except OSError as err:
                 raise EasyBuildError("Failed to patch RPATH section in binaries/libraries: %s", err)
