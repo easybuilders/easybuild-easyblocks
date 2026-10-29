@@ -46,7 +46,7 @@ from easybuild.tools import LooseVersion
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
-from easybuild.easyblocks.generic.cmakemake import setup_cmake_env
+from easybuild.easyblocks.generic.cmakemake import get_cmake_python_config_str, setup_cmake_env
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.toolchains.compiler.fujitsu import TC_CONSTANT_FUJITSU
@@ -341,6 +341,8 @@ class EB_OpenFOAM(EasyBlock):
         # Some parts of OpenFOAM uses CMake to build
         # make sure the basic environment is correct
         setup_cmake_env(self.toolchain)
+        cmake_opts = get_cmake_python_config_str()
+        env.setvar("EBOFCMAKEOPTS", cmake_opts)
 
         precmd = "source %s" % os.path.join(self.builddir, self.openfoamdir, "etc", "bashrc")
         if not self.is_extend and self.looseversion >= LooseVersion('4.0'):
