@@ -55,18 +55,31 @@ class EB_Hypre(ConfigureMake):
 
         if '--enable-shared' in self.cfg['configopts']:
             self.config_shared = True
-            ext_libs = 'LIB%s'
         else:
             self.config_static = True
-            ext_libs = '%s_STATIC_LIBS'
 
-        # Use BLAS/LAPACK from EB
-        for dep in ["BLAS", "LAPACK"]:
-            blas_libs = ' '.join(os.getenv(ext_libs % dep).split(','))
-            blas_libs = blas_libs.replace('-l', '')  # Remove any '-l' as those are prepended for shared builds
-            self.cfg.update('configopts', '--with-%s-libs="%s"' % (dep.lower(), blas_libs))
-            self.cfg.update('configopts', '--with-%s-lib-dirs="%s"' % (dep.lower(),
-                                                                       os.getenv('%s_LIB_DIR' % dep)))
+        # Hypre's --with-{blas,lapack}-libs options take bare library names and
+        # prepend '-l' (AC_ARG_WITH(blas-libs): "base name only").
+        # $BLAS_STATIC_LIBS / $LAPACK_STATIC_LIBS are comma-separated filenames
+        # (libflexiblas.a, libgfortran.a, ...). Passing those through yields
+        # -llibflexiblas.a. toolchain.get_variable(..., typ=list) is the names
+        # only, as used by the numpy easyblock. Select LIBBLAS vs LIBBLAS_MT
+        # (and the LAPACK equivalents) from the OpenMP toolchain option, as the
+        # Siesta easyblock does.
+        lib_var_suffix = '_MT' if self.toolchain.options.get('openmp', None) else ''
+
+        for dep in ['BLAS', 'LAPACK']:
+            lib_var = 'LIB%s%s' % (dep, lib_var_suffix)
+            lib_names = self.toolchain.get_variable(lib_var, typ=list)
+            if not lib_names:
+                raise EasyBuildError("No %s libraries found via $%s", dep, lib_var)
+
+            self.cfg.update('configopts', '--with-%s-libs="%s"' % (dep.lower(), ' '.join(lib_names)))
+
+            lib_dirs = os.getenv('%s_LIB_DIR' % dep)
+            if not lib_dirs:
+                raise EasyBuildError("$%s_LIB_DIR is not defined", dep)
+            self.cfg.update('configopts', '--with-%s-lib-dirs="%s"' % (dep.lower(), lib_dirs))
 
         # Use MPI implementation from EB
         self.cfg.update('configopts', '--with-MPI-include=%s' % os.getenv('MPI_INC_DIR'))
@@ -84,6 +97,15 @@ class EB_Hypre(ConfigureMake):
             self.cfg.update('configopts', '--with-gpu-arch="%s"' % cuda_cc_string)
 
         super().configure_step()
+
+    def test_step(self):
+        """Run Hypre's small driver test (`make check`) unless disabled."""
+        # Same pattern as the OpenMPI easyblock: default to `make check`,
+        # and allow easyconfigs to opt out with `runtest = False`.
+        if self.cfg['runtest'] is None:
+            self.cfg['runtest'] = 'check'
+
+        super().test_step()
 
     def sanity_check_step(self):
         """Custom sanity check for Hypre."""
