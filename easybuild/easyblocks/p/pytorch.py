@@ -633,8 +633,9 @@ class EB_PyTorch(PythonPackage):
     def test_step(self):
         """Run unit tests"""
         self._set_cache_dirs()
-        # Pretend to be on FB CI which disables some tests, especially those which download stuff
-        env.setvar('SANDCASTLE', '1')
+        if LooseVersion(self.version) < '2.13':
+            # Pretend to be on FB CI which disables some tests, especially those which download stuff
+            env.setvar('SANDCASTLE', '1')
         # Skip this test(s) which is very flaky
         env.setvar('SKIP_TEST_BOTTLENECK', '1')
         env.setvar('MAX_JOBS', str(self.cfg.parallel))
