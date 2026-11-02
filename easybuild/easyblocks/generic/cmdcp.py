@@ -48,7 +48,11 @@ class CmdCp(MakeCp):
         extra_vars = MakeCp.extra_options(extra_vars=extra_vars)
         extra_vars['cmds_map'] = [
             [('.*', "$CC $CFLAGS %(source)s -o %(target)s")],
-            "List of regex/template command (with 'source'/'target' fields) tuples",
+            "List of commands to run. ",
+            "Entries are tuples of a regex to a command (may use 'source'&'target' templates) "
+            "to be executed on sources matching the regex.\n",
+            "Any element that is not a tuple, i.e. a string, "
+            "is a command to be executed after all tuple entries are handled.",
             CUSTOM,
         ]
         return extra_vars
@@ -60,24 +64,29 @@ class CmdCp(MakeCp):
         except OSError as err:
             raise EasyBuildError("Failed to move (back) to %s: %s", self.cfg['start_dir'], err)
 
-        for src in self.src:
-            src = src['path']
-            target, _ = os.path.splitext(os.path.basename(src))
+        cmds_map = self.cfg['cmds_map']
+        template_cmds = [cmd for cmd in cmds_map if isinstance(cmd, tuple)]
+        additional_cmds = [cmd for cmd in cmds_map if not isinstance(cmd, tuple)]
 
-            # determine command to use
-            # find (first) regex match, then complete matching command template
-            cmd = None
-            for pattern, regex_cmd in self.cfg['cmds_map']:
+        if template_cmds:
+            # Verify regexes
+            regex_cmds = []
+            for pattern, cmd in template_cmds:
                 try:
                     regex = re.compile(pattern)
                 except re.error as err:
                     raise EasyBuildError("Failed to compile regular expression '%s': %s", pattern, err)
+                regex_cmds.append((regex, cmd))
 
-                if regex.match(os.path.basename(src)):
-                    cmd = regex_cmd % {'source': src, 'target': target}
-                    break
-            if cmd is None:
-                raise EasyBuildError("No match for %s in %s, don't know which command to use.",
-                                     src, self.cfg['cmds_map'])
+            for src in self.src:
+                src = src['path']
+                target = os.path.splitext(os.path.basename(src))[0]
 
+                # determine command to use by finding first regex match
+                cmd = next((cur_cmd for regex, cur_cmd in regex_cmds if regex.match(os.path.basename(src))), None)
+                if cmd is None:
+                    raise EasyBuildError("No match for %s in %s, don't know which command to use.",
+                                         src, self.cfg['cmds_map'])
+                run_shell_cmd(cmd % {'source': src, 'target': target})
+        for cmd in additional_cmds:
             run_shell_cmd(cmd)
