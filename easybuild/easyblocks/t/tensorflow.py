@@ -215,6 +215,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False) -> Union[str,
     # Software recognized by TF but which is always disabled (usually because no EC is known)
     # Format: <TF name>: <version range>
     unused_system_libs: Dict[str, str] = {
+        'absl_py': '2.20.0:',  # System build support removed in TensorFlow 2.20
         'boringssl': '2.0.0:',  # Implied by cURL and existence of OpenSSL anywhere in the dependency chain
         'com_github_googleapis_googleapis': '2.0.0:2.5.0',
         'com_github_googlecloudplatform_google_cloud_cpp': '2.0.0:',  # Not used due to $TF_NEED_GCP=0
@@ -226,7 +227,7 @@ def get_system_libs_for_version(tf_version, as_valid_libs=False) -> Union[str,
     # Will be checked for availabilitly
     # Format: (<package name>, <version range>): <TF name>
     python_system_libs: Dict[Tuple[str, str], str] = {
-        ('absl', '2.0.0:'): 'absl_py',
+        ('absl', '2.0.0:2.20.0'): 'absl_py',
         ('astor', '2.0.0:'): 'astor_archive',
         ('astunparse', '2.2.0:'): 'astunparse_archive',
         ('cython', '2.0.0:'): 'cython',  # Part of Python EC
