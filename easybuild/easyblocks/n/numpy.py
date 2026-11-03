@@ -42,10 +42,17 @@ from easybuild.easyblocks.generic.fortranpythonpackage import FortranPythonPacka
 from easybuild.easyblocks.generic.pythonpackage import det_pylibdir
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools import LooseVersion
+
+# NumPy documents cpu-baseline=none for older x86-64 CPUs. From 2.4, min is X86_V2.
+# https://numpy.org/doc/2.4/reference/simd/build-options.html
+NUMPY_CPU_BASELINE_NONE = '-Csetup-args=-Dcpu-baseline=none'
 
 
 class EB_numpy(FortranPythonPackage):
@@ -67,6 +74,18 @@ class EB_numpy(FortranPythonPackage):
         self.sitecfg = None
         self.sitecfgfn = 'site.cfg'
         self.testinstall = True
+
+    def _set_generic_x86_64_cpu_baseline(self):
+        """cpu-baseline=none for generic x86-64. Optarch dict handling follows EB_GROMACS.get_gromacs_arch."""
+        # Meson builds start at 1.26. cpu-baseline-detect= does not match cpu-baseline=.
+        if LooseVersion(self.version) < LooseVersion('1.26') or get_cpu_architecture() != X86_64:
+            return
+        optarch = build_option('optarch')
+        if isinstance(optarch, dict):
+            optarch = optarch.get(self.toolchain.COMPILER_FAMILY)
+        if optarch != OPTARCH_GENERIC or re.search(r'cpu-baseline=', self.cfg['installopts'] or ''):
+            return
+        self.cfg.update('installopts', NUMPY_CPU_BASELINE_NONE)
 
     def configure_step(self):
         """Configure numpy build by composing site.cfg contents."""
@@ -272,6 +291,8 @@ class EB_numpy(FortranPythonPackage):
                     raise EasyBuildError("Unknown LAPACK library for numpy %s: %s", self.version, lapack_family)
 
                 self.cfg.update('installopts', "-Csetup-args=-Dallow-noblas=false")
+
+        self._set_generic_x86_64_cpu_baseline()
 
     def build_step(self, *args, **kwargs):
         """
