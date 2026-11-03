@@ -786,6 +786,32 @@ class EasyBlockSpecificTest(TestCase):
         with self.assertRaisesRegex(EasyBuildError, "no HOST_ARCH known"):
             det(X86_64, cpu_target='x86_64/intel/unknown')
 
+    def test_seissol_gpu_binary_name(self):
+        """GPU binaries use DEVICE_ARCH and DEVICE_BACKEND, not HOST_ARCH."""
+        exe = seissol.seissol_exe_name
+        self.assertEqual(exe('Release', 'double', 6, 'elastic', 'hsw'),
+                         'SeisSol_Release_dhsw_6_elastic')
+        self.assertEqual(exe('Release', 'single', 6, 'elastic', 'hsw'),
+                         'SeisSol_Release_shsw_6_elastic')
+        # CMakeLists.txt EXE_NAME_PREFIX when DEVICE_ARCH is set, and the v1.3.2 GPU CI name
+        self.assertEqual(exe('Release', 'double', 6, 'elastic', 'hsw',
+                             device_arch='sm_80', device_backend='cuda'),
+                         'SeisSol_Release_dsm_80_cuda_6_elastic')
+        self.assertEqual(exe('Release', 'single', 6, 'elastic', 'noarch',
+                             device_arch='sm_60', device_backend='cuda'),
+                         'SeisSol_Release_ssm_60_cuda_6_elastic')
+
+        cc = seissol.device_arch_from_cuda_cc
+        self.assertEqual(cc(None), None)
+        self.assertEqual(cc([]), None)
+        # A100 is compute capability 8.0, H100 is 9.0 (SeisSol DEVICE_ARCH_OPTIONS sm_80, sm_90)
+        self.assertEqual(cc(['8.0']), 'sm_80')
+        self.assertEqual(cc(['9.0']), 'sm_90')
+        with self.assertRaisesRegex(EasyBuildError, "one DEVICE_ARCH"):
+            cc(['8.0', '9.0'])
+        with self.assertRaisesRegex(EasyBuildError, "not major.minor"):
+            cc(['sm_80'])
+
     def test_pytorch_test_log_parsing(self):
         """Verify parsing of XML files produced by PyTorch tests."""
         TestState = pytorch.TestState
