@@ -35,7 +35,7 @@ import sys
 import tempfile
 import textwrap
 from pathlib import Path
-from unittest import TestLoader, TextTestRunner
+from unittest import TestLoader, TextTestRunner, mock
 from test.easyblocks.module import cleanup
 
 import easybuild.tools.options as eboptions
@@ -48,17 +48,20 @@ import easybuild.easyblocks.p.pytorch as pytorch
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
+from easybuild.easyblocks.n.numpy import EB_numpy
 from easybuild.easyblocks.tensorflow import det_binutils_bin_path
 from easybuild.framework.easyblock import EasyBlock, get_easyblock_instance
-from easybuild.framework.easyconfig.easyconfig import process_easyconfig
+from easybuild.framework.easyconfig.easyconfig import EasyConfig, process_easyconfig
 from easybuild.tools import config
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import GENERAL_CLASS, get_module_syntax
+from easybuild.tools.config import GENERAL_CLASS, get_module_syntax, update_build_option
 from easybuild.tools.environment import modify_env
 from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, remove_dir, symlink, write_file
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.run import RunShellCmdResult
+from easybuild.tools.systemtools import AARCH64, X86_64
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
@@ -919,6 +922,59 @@ class EasyBlockSpecificTest(TestCase):
                                pytorch.get_test_results, error_log_dir / 'consistency')
         self.assertRaisesRegex(ValueError, "Duplicate test",
                                pytorch.get_test_results, error_log_dir / 'duplicate')
+
+    def _numpy_app(self, version):
+        """Return an EB_numpy instance for a SYSTEM-toolchain easyconfig."""
+        ec_path = os.path.join(self.tmpdir, 'numpy-%s.eb' % version)
+        write_file(ec_path, '\n'.join([
+            'easyblock = "EB_numpy"',
+            'name = "numpy"',
+            'version = "%s"' % version,
+            'homepage = "https://numpy.org"',
+            'description = "NumPy test easyconfig."',
+            'toolchain = SYSTEM',
+            'sources = []',
+        ]))
+        return EB_numpy(EasyConfig(ec_path))
+
+    def test_numpy_generic_cpu_baseline(self):
+        """cpu-baseline=none is added only for a generic x86-64 Meson build."""
+        none_opt = '-Csetup-args=-Dcpu-baseline=none'
+        orig_optarch = update_build_option('optarch', OPTARCH_GENERIC)
+
+        def apply(version, arch=X86_64, installopts=''):
+            app = self._numpy_app(version)
+            if installopts:
+                app.cfg['installopts'] = installopts
+            with mock.patch('easybuild.easyblocks.n.numpy.get_cpu_architecture', return_value=arch):
+                app._set_generic_x86_64_cpu_baseline()
+            return app
+
+        try:
+            generic = apply('2.4.6')
+            self.assertIn(none_opt, generic.cfg['installopts'])
+            generic.close_log()
+
+            update_build_option('optarch', None)
+            native = apply('2.4.6')
+            self.assertNotIn(none_opt, native.cfg['installopts'])
+            native.close_log()
+
+            update_build_option('optarch', OPTARCH_GENERIC)
+            arm = apply('2.4.6', arch=AARCH64)
+            self.assertNotIn(none_opt, arm.cfg['installopts'])
+            arm.close_log()
+
+            old = apply('1.25.1')
+            self.assertNotIn('cpu-baseline=', old.cfg['installopts'])
+            old.close_log()
+
+            kept = '-Csetup-args=-Dcpu-baseline=native'
+            preset = apply('2.4.6', installopts=kept)
+            self.assertEqual(preset.cfg['installopts'], kept)
+            preset.close_log()
+        finally:
+            update_build_option('optarch', orig_optarch)
 
 
 def suite(loader):
