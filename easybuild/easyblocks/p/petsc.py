@@ -192,6 +192,10 @@ class EB_PETSc(ConfigureMake):
         if self.toolchain.options.get('usempi', None):
             self.cfg.update('configopts', '--with-mpi=1')
 
+        # OpenMP
+        if self.toolchain.options.get('openmp', None):
+            self.cfg.update('configopts', '--with-openmp=1')
+
         # build options
         self.cfg.update('configopts', f'--with-build-step-np={self.cfg.parallel}')
         self.cfg.update('configopts', '--with-shared-libraries=%d' % self.cfg['shared_libs'])

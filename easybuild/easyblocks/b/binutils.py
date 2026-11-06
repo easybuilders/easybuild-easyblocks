@@ -109,7 +109,18 @@ class EB_binutils(ConfigureMake):
         # this should 'harden' the resulting binutils to bootstrap GCC
         # (no trouble when other libstdc++ is build etc)
         lib_paths = self.determine_used_library_paths()
-        self.search_paths = lib_paths.copy()
+
+        # Filter out any search paths from dependencies, to avoid baking non-needed libraries into ld
+        dep_roots = []
+        for dep in self.cfg.dependencies():
+            dep_root = get_software_root(dep['name'])
+            if dep_root:
+                dep_roots.append(dep_root)
+
+        for spath in lib_paths:
+            if not any(spath.startswith(dep_root) for dep_root in dep_roots):
+                self.search_paths.append(spath)
+
         if self.toolchain.is_system_toolchain():
             # The installed lib dir must come first though to avoid taking system libs over installed ones, see:
             # https://github.com/easybuilders/easybuild-easyconfigs/issues/10056
