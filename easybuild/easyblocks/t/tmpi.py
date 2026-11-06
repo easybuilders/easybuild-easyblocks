@@ -49,31 +49,13 @@ class EB_tmpi(CmdCp):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.cfg['skipsteps'] = ['configure', 'build']
+        self.cfg['skipsteps'] = ['build']
         self.cfg['files_to_copy'] = [
             (['tmpi'], 'bin'),
         ]
 
-    def _check_required_dependencies(self, dependencies):
-        """
-        tmpi does not check dependencies during installation or sanity checks;
-        if dependencies are not checked explicitly, then the program will fail at runtime.
-        """
-        required_deps = ('GDB',)
-
-        missing = [pkg for pkg in required_deps if pkg not in dependencies]
-
-        if missing:
-            raise EasyBuildError(
-                "Missing required dependencies for %s: %s",
-                self.name,
-                ', '.join(missing)
-            )
-
     def prepare_step(self, *args, **kwargs):
         dep_names = [dep['name'] for dep in self.cfg['dependencies']]
-
-        self._check_required_dependencies(dep_names)
 
         if 'tmux' not in dep_names and 'tmux' not in self.cfg['osdependencies']:
             self.cfg['osdependencies'].append('tmux')
@@ -84,6 +66,23 @@ class EB_tmpi(CmdCp):
             )
 
         super().prepare_step(*args, **kwargs)
+
+    def configure_step(self):
+        """
+        tmpi does not check dependencies during installation or sanity checks;
+        if dependencies are not checked explicitly, then the program will fail at runtime.
+        """
+        required_deps = ('GDB',)
+        deps = [dep['name'] for dep in self.cfg['dependencies']]
+
+        missing_deps = [pkg for pkg in required_deps if pkg not in deps]
+
+        if missing_deps:
+            raise EasyBuildError(
+                "Missing required dependencies for %s: %s",
+                self.name,
+                ', '.join(missing_deps)
+            )
 
     def sanity_check_step(self):
         custom_paths = {
