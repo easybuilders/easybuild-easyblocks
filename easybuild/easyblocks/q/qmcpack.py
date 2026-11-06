@@ -56,9 +56,6 @@ from easybuild.tools.run import run_shell_cmd
 
 GPU_MODELS = ('cuda', 'hip', 'sycl')
 
-# These two ctest tests need 12 and 16 MPI slots, more than a build node offers even oversubscribed.
-TEST_EXCLUDES = ('unit_test_message-r12', 'unit_test_new_drivers_mpi-r16')
-
 # Open MPI 5 (PRRTE) refuses to oversubscribe by default; ctest -j launches several multi-rank mpiexec at once.
 TEST_ENV = 'export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe'
 
@@ -178,7 +175,6 @@ class EB_QMCPACK(CMakeNinja):
                 '&&',
                 self.cfg['pretestopts'],
                 'ctest -L deterministic -j %s --output-on-failure' % self.cfg.parallel,
-                "-E '%s'" % '|'.join(TEST_EXCLUDES),
                 self.cfg['testopts'],
             ])
             return run_shell_cmd(cmd).output
