@@ -1083,7 +1083,7 @@ class EB_TensorFlow(PythonPackage):
             ])
 
         # determine number of cores/GPUs to use for tests
-        max_num_test_jobs = self.cfg['test_max_parallel'] or self.cfg.parallel
+        max_num_test_jobs = min(self.cfg['test_max_parallel'] or self.cfg.parallel, self.cfg.parallel)
         if self._with_cuda:
             if not which('nvidia-smi', on_error=IGNORE):
                 print_warning('Could not find nvidia-smi. Assuming a system without GPUs and skipping GPU tests!')
