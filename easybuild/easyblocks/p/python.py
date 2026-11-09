@@ -77,6 +77,7 @@ PY_ENV_VARS = {
 }
 
 REGEX_PIP_NORMALIZE = re.compile(r"[-_.]+")
+REGEX_PIP_PARTIAL_NORMALIZE = re.compile(r"[-_]+")
 
 # We want the following import order:
 # 1. Packages installed into VirtualEnv
@@ -233,7 +234,14 @@ def normalize_pip(name):
     return REGEX_PIP_NORMALIZE.sub('-', name).lower()
 
 
-def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None, check_names_versions=None):
+def partial_normalize_pip(name):
+    """
+    Partially normalize pip package name: substitute underscores with hyphens and convert to lower case
+    """
+    return REGEX_PIP_PARTIAL_NORMALIZE.sub('-', name).lower()
+
+
+def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None, check_names_versions=True, strict_check=None):
     """
     Run pip list to verify normalized names and versions of installed Python packages
 
@@ -241,6 +249,8 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None, check_names_v
     :param python_cmd: Python command to use (if None, 'python' is used)
     :param unversioned_packages: set of Python packages to exclude in the version existence check
     :param check_names_versions: boolean to indicate whether name and versions of Python packages should be checked
+    :param strict_check: boolean to indicate whether to raise an error if package names or versions don’t match,
+                       or emit a warning
     """
 
     log = fancylogger.getLogger('run_pip_list', fname=False)
@@ -256,15 +266,16 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None, check_names_v
     if build_option('ignore_pip_unversioned_pkgs'):
         unversioned_packages.update(build_option('ignore_pip_unversioned_pkgs'))
 
-    if check_names_versions is None:
-        # by default only check names and versions if --upload-test-report is used,
-        # so we can enforce that extension names/versions are correct for contributions
+    if strict_check is None:
+        # by default only raise an error for mismatched names or versions if --upload-test-report is used,
+        # to enforce correct extension names/versions for contributions
         if build_option('upload_test_report'):
-            check_names_versions = True
+            strict_check = True
         else:
-            check_names_versions = False
+            strict_check = False
 
     pip_list_errors = []
+    pip_list_warnings = []
 
     msg = "Check on installed Python package names and versions with 'pip list': "
     try:
@@ -335,7 +346,11 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None, check_names_v
             # Check for missing (likely wrong) packages names and propose close matches
             if name not in normalized_pip_pkgs:
                 close_matches = difflib.get_close_matches(name, normalized_pip_pkgs.keys())
-                missing_names.append(f"{name} (close matches in 'pip list' output: " + ', '.join(close_matches))
+                if close_matches:
+                    msg = f"{name} (close matches in 'pip list' output: " + ', '.join(close_matches) + ")"
+                else:
+                    msg = f"{name} (no close matches found in 'pip list' output)"
+                missing_names.append(msg)
 
             # Check for missing (likely wrong) package versions
             elif version != normalized_pip_pkgs[name]:
@@ -347,14 +362,24 @@ def run_pip_list(pkgs, python_cmd=None, unversioned_packages=None, check_names_v
         if missing_names:
             missing_names_str = '\n'.join(missing_names)
             msg = "The following Python packages were likely specified with a wrong name because they are missing "
-            msg += f"in the 'pip list' output:\n{missing_names_str}"
-            pip_list_errors.append(msg)
+            msg += f"in the 'pip list' output (causes failure if --upload-test-report is set):\n{missing_names_str}"
+            if strict_check:
+                pip_list_errors.append(msg)
+            else:
+                pip_list_warnings.append(msg)
 
         if missing_versions:
             missing_versions_str = '\n'.join(missing_versions)
             msg = "The following Python packages were likely specified with a wrong version because they have "
-            msg += f"another version in the 'pip list' output:\n{missing_versions_str}"
-            pip_list_errors.append(msg)
+            msg += "another version in the 'pip list' output (causes failure if --upload-test-report is set):\n"
+            msg += missing_versions_str
+            if strict_check:
+                pip_list_errors.append(msg)
+            else:
+                pip_list_warnings.append(msg)
+
+    if pip_list_warnings:
+        print_warning('\n'.join(pip_list_warnings), log=log)
 
     if pip_list_errors:
         raise EasyBuildError('\n' + '\n'.join(pip_list_errors))
@@ -393,6 +418,7 @@ class EB_Python(ConfigureMake):
         """Add extra config options specific to Python."""
         extra_vars = {
             'ebpythonprefixes': [True, "Create sitecustomize.py and allow use of $EBPYTHONPREFIXES", CUSTOM],
+            'exts_formatter': [partial_normalize_pip, "Function to format extension names in module file", CUSTOM],
             'fix_python_shebang_for': [['bin/*'], "List of files for which Python shebang should be fixed "
                                                   "to '#!/usr/bin/env python' (glob patterns supported) "
                                                   "(default: ['bin/*'])", CUSTOM],

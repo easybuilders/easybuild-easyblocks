@@ -81,7 +81,7 @@ class EB_pybind11(CMakePythonPackage):
         # don't add user site directory to sys.path (equivalent to python -s)
         env.setvar('PYTHONNOUSERSITE', '1', verbose=False)
 
-        fake_mod_data = self.sanity_check_load_module(extension=self.is_extension)
+        fake_mod_data = self.sanity_check_load_module()
 
         # Get python includes
         cmd = "%s -c 'import pybind11; print(pybind11.get_include())'" % self.python_cmd

@@ -37,7 +37,7 @@ from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root, get_software_version
-from easybuild.tools.systemtools import AARCH32, AARCH64, X86_64, get_cpu_architecture
+from easybuild.tools.systemtools import AARCH32, AARCH64, RISCV64, X86_64, get_cpu_architecture
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
@@ -101,10 +101,35 @@ class GoPackage(EasyBlock):
             opt_level = "v8.0"
             # Allowed values are v8.{0-9} and v9.{0-5}. This may be followed by an option specifying extensions
             # implemented by target hardware. Example: GOARM64=v8.0,lse
-            if optarch.startswith("v8.") or optarch.startswith("v9."):
-                opt_level = optarch
+            if optarch.startswith("V8.") or optarch.startswith("V9."):
+                # GOARM64 values should be lowercase, see https://go.dev/wiki/MinimumRequirements#arm64
+                opt_level = optarch.lower()
             elif optarch == OPTARCH_GENERIC:
                 opt_level = "v8.0"
+            elif optarch:
+                opt_level = None
+
+        elif get_cpu_architecture() == RISCV64:
+            if LooseVersion(get_software_version('Go')) < LooseVersion("1.23"):
+                self.log.debug(
+                    "Go version %s does not support microarchitecture optimization for %s", self.version, RISCV64
+                )
+                return None
+
+            # default to rva20u64 profile, default in Go for RISCV64
+            microarch = 'GORISCV64'
+            opt_level = 'rva20u64'
+            # Currenty only RISC-V profiles rva20u64, rva22u64, rva23u64 are supported,
+            # see https://pkg.go.dev/cmd/internal/obj/riscv#hdr-RISC_V_extensions
+            # for what the latest Go version supports.
+            # Profile rva23u64 requires Go version 1.25 or newer.
+            optarch = optarch.lower()
+            if optarch in ['rva20u64', 'rva22u64', 'rva23u64']:
+                if optarch == 'rva23u64' and LooseVersion(get_software_version('Go')) < LooseVersion("1.25"):
+                    raise EasyBuildError("Profile rva23u64 requires Go 1.25 or newer.")
+                opt_level = optarch
+            elif optarch == OPTARCH_GENERIC:
+                opt_level = 'rva20u64'
             elif optarch:
                 opt_level = None
 

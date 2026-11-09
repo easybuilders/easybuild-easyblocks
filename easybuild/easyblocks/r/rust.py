@@ -31,14 +31,16 @@ import glob
 import os
 import re
 
+import easybuild.tools.environment as env
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools import LooseVersion
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, EasyBuildExit
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import is_binary, read_file
 from easybuild.tools.run import run_shell_cmd
-from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.systemtools import X86_64, get_cpu_architecture, get_shared_lib_ext
+from easybuild.tools.utilities import trace_msg
 
 DEFAULT_CHANNEL = 'stable'
 
@@ -62,8 +64,13 @@ class EB_Rust(ConfigureMake):
 
         # see https://rustc-dev-guide.rust-lang.org/building/how-to-build-and-run.html#what-is-xpy
         # note: ConfigureMake.build_step automatically adds '-j <parallel>'
-        self.cfg['build_cmd'] = "./x.py build"
-        self.cfg['install_cmd'] = "./x.py install -j %(parallel)s"
+        build_cmd = "./x.py build"
+        install_cmd = "./x.py install -j %(parallel)s"
+        if build_option('debug'):
+            build_cmd += ' --verbose'
+            install_cmd += ' --verbose'
+        self.cfg['build_cmd'] = build_cmd
+        self.cfg['install_cmd'] = install_cmd
 
     def _convert_runpaths_to_rpaths(self):
         """
@@ -100,6 +107,33 @@ class EB_Rust(ConfigureMake):
             else:
                 self.log.debug(f"No RUNPATH section found in {runpath_file}")
 
+    def _control_rpath_link_flags(self):
+        """
+        Helper function to set configure options required to control RPATH link flags
+        """
+        # if rust.lld is used as linker, which is the default for Rust 1.90.0+ on x86_64
+        # (see https://blog.rust-lang.org/2025/09/01/rust-lld-on-1.90.0-stable)
+        # we need to make sure that RPATH is set correctly for the binaries of the Rust compiler,
+        # see also https://github.com/easybuilders/easybuild-easyconfigs/issues/26232
+        rust_version = LooseVersion(self.version)
+        if rust_version >= '1.90.0' and get_cpu_architecture() == X86_64:
+
+            lib_paths = [x for x in os.getenv('LIBRARY_PATH', '').split(os.pathsep) if x]
+            link_args = [f"-Clink-arg=-Wl,-rpath={x}" for x in lib_paths]
+
+            # force use of RPATH linking, rather than RUNPATH
+            link_args.append("-Clink-arg=-Wl,--disable-new-dtags")
+
+            # we use $RUSTFLAGS_BOOTSTRAP + $RUSTFLAGS_NOT_BOOTSTRAP to inject extra linker flags;
+            # Rust 1.93.0+ supports specifying rust.rustflags in bootstrap.toml,
+            # see https://github.com/rust-lang/rust/pull/148795,
+            # but this can't be set easily via --set option of configure script:
+            # the rustflags value is not injected into bootstrap.toml as a list, but as a string,
+            # leading to an error like:
+            # invalid type: string "[-Clink-arg=-Wl,-rpath=...]", expected a sequence for key rust.rustflags
+            env.setvar('RUSTFLAGS_BOOTSTRAP', ' '.join(link_args))
+            env.setvar('RUSTFLAGS_NOT_BOOTSTRAP', ' '.join(link_args))
+
     def configure_step(self):
         """Custom configure step for Rust"""
 
@@ -127,6 +161,9 @@ class EB_Rust(ConfigureMake):
         if 'Ninja' not in build_dep_names:
             self.cfg.update('configopts', "--set=llvm.ninja=false")
 
+        if self.toolchain.use_rpath:
+            self._control_rpath_link_flags()
+
         super().configure_step()
 
         # avoid failure when home directory is an NFS mount,
@@ -139,7 +176,7 @@ class EB_Rust(ConfigureMake):
         """Custom install step for Rust"""
         super().install_step()
 
-        if build_option('rpath'):
+        if self.toolchain.use_rpath:
             self._convert_runpaths_to_rpaths()
 
     def sanity_check_step(self):
@@ -155,3 +192,27 @@ class EB_Rust(ConfigureMake):
             "rustc --version",
         ]
         return super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+
+    def sanity_check_rpath(self, *args, **kwargs):
+        """
+        Custom RPATH sanity check for Rust
+        """
+        fails = super().sanity_check_rpath(*args, **kwargs)
+
+        mod_data = super().sanity_check_load_module()
+
+        # check whether rustc binary works when $LD_LIBRARY_PATH is not set,
+        # see https://github.com/easybuilders/easybuild-easyconfigs/issues/26232
+        cmd = "LD_LIBRARY_PATH= rustc --version"
+        trace_msg(f"Testing '{cmd}'...")
+        res = run_shell_cmd(cmd, fail_on_error=False, hidden=True)
+        if res.exit_code == EasyBuildExit.SUCCESS:
+            trace_msg(f"Result of testing '{cmd}': OK")
+        else:
+            trace_msg(f"Testing of '{cmd}' FAILED!")
+            fails.append(f"Command '{cmd}' failed (exit code {res.exit_code}): {res.output}")
+
+        if mod_data:
+            self.clean_up_fake_module(mod_data)
+
+        return fails

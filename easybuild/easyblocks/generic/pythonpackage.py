@@ -32,6 +32,7 @@ EasyBuild support for Python packages, implemented as an easyblock
 @author: Jens Timmerman (Ghent University)
 @author: Alexander Grund (TU Dresden)
 @author: Samuel Moors (Vrije Universiteit Brussel)
+@author: Jan Andre Reuter (Forschungszentrum Jülich)
 """
 import os
 import re
@@ -42,13 +43,14 @@ from sysconfig import get_config_vars
 
 import easybuild.tools.environment as env
 from easybuild.base import fancylogger
-from easybuild.easyblocks.python import EXTS_FILTER_DUMMY_PACKAGES, EXTS_FILTER_PYTHON_PACKAGES, set_py_env_vars
-from easybuild.easyblocks.python import det_installed_python_packages, det_pip_version, run_pip_check, run_pip_list
+from easybuild.easyblocks.python import det_installed_python_packages, det_pip_version, EXTS_FILTER_DUMMY_PACKAGES
+from easybuild.easyblocks.python import EXTS_FILTER_PYTHON_PACKAGES, partial_normalize_pip, run_pip_check, run_pip_list
+from easybuild.easyblocks.python import set_py_env_vars, UNLIMITED
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.default import DEFAULT_CONFIG
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.framework.extensioneasyblock import ExtensionEasyBlock
-from easybuild.tools.build_log import EasyBuildError, print_msg
+from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
 from easybuild.tools.config import build_option, PYTHONPATH, EBPYTHONPREFIXES
 from easybuild.tools.filetools import change_dir, mkdir, read_file, remove_dir, symlink, which, write_file, search_file
 from easybuild.tools.modules import ModEnvVarType, get_software_root
@@ -57,6 +59,12 @@ from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.utilities import nub
 from easybuild.tools.hooks import CONFIGURE_STEP, BUILD_STEP, TEST_STEP, INSTALL_STEP
 
+
+# Default ulimit for stack size, enforced when ulimit is set to unlimited on the system.
+# This is especially important with Python 3.14 and newer, where an unlimited stack size
+# can yield an infinite recursion in recursion tests, eventually filling up all available
+# memory. See: https://github.com/python/cpython/issues/143460
+ULIMIT_DEFAULT = 8192
 
 # not 'easy_install' deliberately, to avoid that pkg installations listed in easy-install.pth get preference
 # '.' is required at the end when using easy_install/pip in unpacked source dir
@@ -491,6 +499,7 @@ class PythonPackage(ExtensionEasyBlock):
                                   CUSTOM],
             'dummy_package': [None, "Install a dummy package empty in contents but visible by Python package managers "
                                     "such as pip", CUSTOM],
+            'exts_formatter': [partial_normalize_pip, "Function to format extension names in module file", CUSTOM],
             'fix_python_shebang_for': [['bin/*'], "List of files for which Python shebang should be fixed "
                                                   "to '#!/usr/bin/env python' (glob patterns supported) "
                                                   "(default: ['bin/*'])", CUSTOM],
@@ -509,10 +518,14 @@ class PythonPackage(ExtensionEasyBlock):
             'max_py_minver': [None, "Maximum minor Python version (only relevant when using system Python)", CUSTOM],
             'sanity_pip_check': [True, "Run 'python -m pip check' to ensure all required Python packages are "
                                        "installed and check for any package with an invalid (0.0.0) version.", CUSTOM],
-            'sanity_check_pip_list': [None, "Run 'python -m pip list' to ensure specified package names and versions "
-                                            "are correct.", CUSTOM],
+            'sanity_check_pip_list': [None, "Check if specified package names and versions match 'python -m pip list' "
+                                            "output as part of 'sanity_pip_check'. Enabled by default. Raises an "
+                                            "error on failure if explicitly set to True or if '--upload-test-report' "
+                                            "is set; otherwise, emits a warning.", CUSTOM],
             'runtest': [True, "Run unit tests.", CUSTOM],  # overrides default
             'testinstall': [False, "Install into temporary directory prior to running the tests.", CUSTOM],
+            'ulimit': [None, f"Set ulimit -s to specified value. Default: Limit to {ULIMIT_DEFAULT} if unlimited.",
+                       CUSTOM],
             'unpack_sources': [None, "Unpack sources prior to build/install. Defaults to 'True' except for whl files",
                                CUSTOM],
             # A version of 0.0.0 is usually an error on installation unless the package does really not provide a
@@ -609,6 +622,39 @@ class PythonPackage(ExtensionEasyBlock):
             else:
                 raise
 
+    def set_ulimit(self):
+        """
+        Sets the ulimit stack size based on the ulimit config option.
+        Stack size is never set to any value above the hard limit specified by the system.
+        If the user has not set any stack size and the system specifies unlimited, set the
+        value to the default of ULIMIT_DEFAULT.
+        If the system specified anything else than unlimited, we only update the stack size
+        if it was set by the user.
+        """
+        # determine current stack size limit
+        res = run_shell_cmd("ulimit -s", hidden=True)
+        curr_ulimit_s = res.output.strip()
+        if not self.cfg['ulimit']:
+            if curr_ulimit_s != UNLIMITED:
+                return
+            self.cfg['ulimit'] = ULIMIT_DEFAULT
+
+        # figure out hard limit for stack size limit;
+        # this determines whether or not we can use "ulimit -s self.cfg['ulimit']"
+        res = run_shell_cmd("ulimit -s -H", hidden=True)
+        max_ulimit_s = res.output.strip()
+
+        if max_ulimit_s != UNLIMITED and int(self.cfg['ulimit']) < int(max_ulimit_s):
+            msg = "Current stack size limit is %s, and can not be set to %s due to hard limit of %s;"
+            msg += " setting stack size limit to %s instead, "
+            msg += " this may break part of the compilation..."
+            print_warning(msg % (curr_ulimit_s, self.cfg['ulimit'], max_ulimit_s, max_ulimit_s))
+            self.cfg['ulimit'] = max_ulimit_s
+
+        self.log.info(f"Current stack size limit is {curr_ulimit_s}, limiting stack size to {self.cfg['ulimit']}")
+        for opt in 'prebuildopts', 'pretestopts', 'preconfigopts':
+            self.cfg.update(opt, "ulimit -s %s && " % self.cfg['ulimit'])
+
     def determine_install_command(self):
         """
         Determine install command to use.
@@ -618,7 +664,7 @@ class PythonPackage(ExtensionEasyBlock):
             self.use_setup_py = False
             self.install_cmd = PIP_INSTALL_CMD
 
-            pip_verbose = self.cfg.get('pip_verbose', None)
+            pip_verbose = self.cfg.get('pip_verbose')
             if pip_verbose or (pip_verbose is None and build_option('debug')):
                 self.py_installopts.append('--verbose')
 
@@ -637,7 +683,7 @@ class PythonPackage(ExtensionEasyBlock):
             if self.cfg.get('zipped_egg', False):
                 self.py_installopts.append('--egg')
 
-            pip_no_index = self.cfg.get('pip_no_index', None)
+            pip_no_index = self.cfg.get('pip_no_index')
             if pip_no_index or (pip_no_index is None and self.cfg.get('download_dep_fail', True)):
                 self.py_installopts.append('--no-index')
 
@@ -671,6 +717,8 @@ class PythonPackage(ExtensionEasyBlock):
         if self.python_cmd:
             # set Python lib directories
             self.set_pylibdirs()
+
+        self.set_ulimit()
 
     def _should_unpack_source(self):
         """Determine whether we need to unpack the source(s)"""
@@ -1070,9 +1118,6 @@ class PythonPackage(ExtensionEasyBlock):
                 else:
                     run_shell_cmd(cmd)
 
-            if self.pypkg_test_installdir:
-                remove_dir(self.pypkg_test_installdir)
-
             if return_output_ec:
                 return (out, ec)
 
@@ -1197,6 +1242,15 @@ class PythonPackage(ExtensionEasyBlock):
 
         return mod_data
 
+    @property
+    def package_name(self):
+        """Determine the intended Python package name
+
+        Uses `extension_name` if set falling back to `name`
+        """
+        pkg_name = self.cfg['extension_name']
+        return self.name if pkg_name is None else pkg_name
+
     def sanity_check_step(self, *args, **kwargs):
         """
         Custom sanity check for Python packages
@@ -1209,9 +1263,9 @@ class PythonPackage(ExtensionEasyBlock):
         # since custom actions taken below require that environment is set up properly already
         # (especially when using --sanity-check-only)
         if not self.sanity_check_module_loaded:
-            extension = self.is_extension or kwargs.get('extension', False)
-            extra_modules = kwargs.get('extra_modules', None)
-            self.sanity_check_load_module(extension=extension, extra_modules=extra_modules)
+            self.sanity_check_load_module(
+                extension=kwargs.get('extension'),  # Deprecated for 6.0, let it show warning if passed
+                extra_modules=kwargs.get('extra_modules'))
 
         # Must be called here since load_module is not called for every extension,
         # see also https://github.com/easybuilders/easybuild-easyblocks/issues/1877
@@ -1274,21 +1328,22 @@ class PythonPackage(ExtensionEasyBlock):
         # inject extra '%(python)s' template value for use by sanity check commands
         self.cfg.template_values['python'] = python_cmd
 
-        params = {
+        toplevel_params = {
             'sanity_pip_check': self.cfg.get('sanity_pip_check', True),
             'sanity_check_pip_list': self.cfg.get('sanity_check_pip_list'),
+            'exts_formatter': self.cfg.get('exts_formatter'),
         }
 
         if self.is_extension:
-            for key in params:
+            for key in toplevel_params:
                 if self.master.cfg.get(key) is not None:
                     # If the main easyblock (e.g. PythonBundle) defines the variable
                     # we trust it does the 'pip check' or 'pip list' if requested and checks for mismatches
-                    params[key] = False
+                    toplevel_params[key] = False
                     self.log.info(f"'{key}' disabled for {self.name} extension, "
                                   f"assuming that parent will take care of it")
 
-        if params['sanity_pip_check']:
+        if toplevel_params['sanity_pip_check']:
             if not self.is_extension:
                 # for stand-alone Python package installations (not part of a bundle of extensions),
                 # the (fake or real) module file must be loaded at this point,
@@ -1302,9 +1357,15 @@ class PythonPackage(ExtensionEasyBlock):
             run_pip_check(python_cmd=python_cmd)
 
             unversioned_packages = self.cfg.get('unversioned_packages', [])
-            pkgs = [(self.name, self.version)]
-            run_pip_list(pkgs, python_cmd=python_cmd, unversioned_packages=unversioned_packages,
-                         check_names_versions=params['sanity_check_pip_list'])
+            pkgs = [(self.package_name, self.version)]
+            if toplevel_params['sanity_check_pip_list'] is False:
+                check_names_versions = False
+            else:
+                check_names_versions = True
+            run_pip_list(
+                pkgs, python_cmd=self.python_cmd, unversioned_packages=unversioned_packages,
+                check_names_versions=check_names_versions, strict_check=toplevel_params['sanity_check_pip_list']
+            )
 
         # ExtensionEasyBlock handles loading modules correctly for multi_deps, so we clean up fake_mod_data
         # and let ExtensionEasyBlock do its job

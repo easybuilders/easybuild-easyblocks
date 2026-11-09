@@ -85,7 +85,15 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             # see https://github.com/easybuilders/easybuild-easyblocks/issues/2237
             self.testcmd = "cd .. && %(python)s -c 'import numpy; import scipy; scipy.test(verbose=2)'"
         else:
-            if LooseVersion(self.version) >= LooseVersion('1.11'):
+            if LooseVersion(self.version) >= LooseVersion('1.17'):
+                # SciPy >= 1.17 no longer ships dev.py; EasyBuild already installs
+                # SciPy into a temporary prefix for testing, so run pytest directly
+                # against that installed tree.
+                self.testcmd = " && ".join([
+                    "cd %(tmp_pylibdir)s",
+                    "%(python)s -m pytest -v%(pytest_filter)s scipy",
+                ])
+            elif LooseVersion(self.version) >= LooseVersion('1.11'):
                 self.testcmd = " && ".join([
                     "cd ..",
                     # note: beware of adding --parallel here to speed up running the tests:
@@ -100,7 +108,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
                     "%(python)s %(srcdir)s/runtests.py -v --no-build --parallel %(parallel)s",
                 ])
 
-            if self.cfg['enable_slow_tests']:
+            if LooseVersion(self.version) < LooseVersion('1.17') and self.cfg['enable_slow_tests']:
                 self.testcmd += " -m full "
 
     def configure_step(self):
@@ -159,6 +167,10 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
 
     def test_step(self):
         """Run available scipy unit tests. Adapted from numpy easyblock"""
+        # Do not try to run tests if a user requested to not run them
+        if self.cfg['runtest'] is False:
+            self.log.info("Skipping tests due to runtest = False")
+            return ''
 
         if self.use_meson:
             # temporarily install scipy so we can run the test suite
@@ -186,6 +198,10 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             tmp_pylibdir = os.path.join(tmp_installdir, det_pylibdir())
             self.prepare_python()
 
+            pytest_filter = ""
+            if LooseVersion(self.version) >= LooseVersion('1.17') and not self.cfg['enable_slow_tests']:
+                pytest_filter = " -m 'not slow'"
+
             self.cfg['pretestopts'] = " && ".join([
                 # LDFLAGS should not be set when testing numpy/scipy, because it overwrites whatever numpy/scipy sets
                 # see http://projects.scipy.org/numpy/ticket/182
@@ -196,8 +212,10 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
             self.cfg['runtest'] = self.testcmd % {
                 'python': self.python_cmd,
                 'srcdir': self.cfg['start_dir'],
+                'tmp_pylibdir': tmp_pylibdir,
                 'installdir': tmp_installdir,
                 'parallel': self.cfg.parallel,
+                'pytest_filter': pytest_filter,
             }
 
             MesonNinja.test_step(self)
@@ -208,6 +226,7 @@ class EB_scipy(FortranPythonPackage, PythonPackage, MesonNinja):
                 'srcdir': self.cfg['start_dir'],
                 'installdir': '',
                 'parallel': self.cfg.parallel,
+                'pytest_filter': '',
             }
             FortranPythonPackage.test_step(self)
 

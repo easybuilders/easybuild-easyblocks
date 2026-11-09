@@ -160,4 +160,4 @@ class EB_AEDT(PackedBinary):
             inpfile = os.path.join(tempdir, 'sm-1.aedt')
             custom_commands = ['ansysedt -ng -batchsolve -Distributed -monitor %s' % inpfile]
 
-        super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
+            super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
