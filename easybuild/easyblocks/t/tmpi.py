@@ -84,6 +84,13 @@ class EB_tmpi(CmdCp):
                 ', '.join(missing_deps)
             )
 
+        if self.toolchain.mpi_family() is None:
+            raise EasyBuildError(
+                "Toolchain %s for %s is not supporting MPI".
+                self.toolchain.name,
+                self.name
+            )
+
     def sanity_check_step(self):
         custom_paths = {
             'files': ['bin/%(name)s'],
