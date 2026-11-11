@@ -542,6 +542,27 @@ class EB_Python(ConfigureMake):
             msg += "correctly."
             self.log.warning(msg)
 
+    def _determine_tzpaths(self):
+        """
+        Determine the time zone search path for zoneinfo.TZPATH; the list of paths will be passed to --with-tzpath.
+        Python's built-in default can be found in its configure script, e.g.:
+        https://github.com/python/cpython/blob/v3.15.2/configure#L15660
+        Since it was introduced in 3.9.0, it has always been set to:
+        /usr/share/zoneinfo:/usr/lib/zoneinfo:/usr/share/lib/zoneinfo:/etc/zoneinfo
+        For builds that use a different sysroot, we need to prepend the sysroot's timezone data paths to the list.
+        """
+
+        tzpaths = ['/usr/share/zoneinfo', '/usr/lib/zoneinfo', '/usr/share/lib/zoneinfo','/etc/zoneinfo']
+        sysroot = build_option('sysroot')
+        if sysroot:
+            # Use the default list of paths, prefix them with the sysroot, and prepend them to the list.
+            # Note that we don't check if these paths actually exist: that's normally not done either,
+            # and paths may not exist on the build node anyway.
+            # Also note that using os.path.join does not work here, as the tzpaths are interpreted as absolute paths,
+            # and then it discards all previous components.
+            tzpaths = [sysroot + tz for tz in tzpaths] + tzpaths
+        return tzpaths
+
     def patch_step(self, *args, **kwargs):
         """
         Custom patch step for Python:
@@ -620,6 +641,25 @@ class EB_Python(ConfigureMake):
                 [(orig_ld_config_call_regex, r'\1' + updated_ld_config_call + r'\2')],
                 on_missing_match=ERROR
             )
+
+        if sysroot and LooseVersion(self.version) >= LooseVersion('3.9.0'):
+            tzpaths = self._determine_tzpaths()
+            # For the datetime tests we do need an existing timezone data path,
+            # so find the first one in the list that exists.
+            for tzpath in tzpaths:
+                if os.path.exists(tzpath):
+                    datetimetester_py = os.path.join('Lib', 'test', 'datetimetester.py')
+                    apply_regex_substitutions(
+                        datetimetester_py,
+                        [("zoneroot = '/usr/share/zoneinfo'", f"zoneroot = '{tzpath}'")]
+                    )
+                    break
+            else:
+                # In the very unusual case that no timezone data can be found at all on the build node,
+                # print a warning and (try to) continue.
+                warning_msg = "No timezone data path found that exists in:\n"
+                warning_msg += '\n'.join(tzpaths)
+                warning_msg += '\nStill continuing, but datetime tests are likely to fail because of this.')
 
     def prepare_for_extensions(self):
         """
@@ -705,6 +745,13 @@ class EB_Python(ConfigureMake):
                 gcc_ver = get_software_version('GCCcore') or get_software_version('GCC')
                 if LooseVersion(gcc_ver) >= LooseVersion('8.0'):
                     self.cfg.update('configopts', "--enable-optimizations")
+
+        # Determine the timezone path(s) and pass them to the configure script,
+        # --with-tzpath option was introduced in 3.9.0.
+        sysroot = build_option('sysroot')
+        if LooseVersion(self.version) >= LooseVersion('3.9.0'):
+            tzpaths = self._determine_tzpaths()
+            self.cfg.update('configopts', "--with-tzpath=" + ':'.join(tzpaths))
 
         # When ensurepip is available we explicitely set this.
         # E.g. in 3.4 it is by default "upgrade", i.e. on which is unexpected when we did set it to off
