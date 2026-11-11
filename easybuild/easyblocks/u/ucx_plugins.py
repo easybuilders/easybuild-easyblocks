@@ -34,9 +34,11 @@ import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd, subprocess_popen_text
 from easybuild.tools.systemtools import get_shared_lib_ext
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 
 
 class EB_UCX_Plugins(ConfigureMake):
@@ -78,7 +80,14 @@ class EB_UCX_Plugins(ConfigureMake):
 
         self.cfg.update('preconfigopts', 'autoreconf -i &&')
 
-        configopts = '--enable-optimizations --without-java --disable-doxygen-doc '
+        configopts = ''
+        if build_option('optarch') == OPTARCH_GENERIC:
+            # --enable-optimizations makes configure add flags like -mavx when the build host supports them,
+            # and UCX does not check for those CPU features at runtime
+            self.log.info("Not using --enable-optimizations since --optarch=GENERIC is used")
+        else:
+            configopts += '--enable-optimizations '
+        configopts += '--without-java --disable-doxygen-doc '
         # omit the lib subdirectory since we are just installing plugins
         configopts += '--libdir=%(installdir)s '
         # include the configure options from contrib/configure-release
