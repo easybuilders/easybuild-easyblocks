@@ -46,11 +46,13 @@ import easybuild.easyblocks.l.lammps as lammps
 import easybuild.easyblocks.p.python as python
 import easybuild.easyblocks.p.pytorch as pytorch
 from easybuild.base.testing import TestCase
+from easybuild.easyblocks.c.curl import EB_cURL, det_curl_ca_configopt
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
 from easybuild.easyblocks.tensorflow import det_binutils_bin_path
 from easybuild.framework.easyblock import EasyBlock, get_easyblock_instance
-from easybuild.framework.easyconfig.easyconfig import process_easyconfig
+from easybuild.framework.easyconfig.easyconfig import EasyConfig, get_easyblock_class, process_easyconfig
+from easybuild.tools.config import update_build_option
 from easybuild.tools import config
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import GENERAL_CLASS, get_module_syntax
@@ -919,6 +921,156 @@ class EasyBlockSpecificTest(TestCase):
                                pytorch.get_test_results, error_log_dir / 'consistency')
         self.assertRaisesRegex(ValueError, "Duplicate test",
                                pytorch.get_test_results, error_log_dir / 'duplicate')
+
+    def test_curl_sysroot_ca_bundle(self):
+        """cURL uses the sysroot CA bundle unless the build already selects one."""
+        bundle_rel = os.path.join('etc', 'ssl', 'certs', 'ca-certificates.crt')
+        sysroot = os.path.join(self.tmpdir, 'sysroot')
+        bundle = os.path.join(sysroot, bundle_rel)
+        other_bundle = os.path.join(self.tmpdir, 'custom-ca.crt')
+        write_file(bundle, 'fake-ca-bundle')
+        write_file(other_bundle, 'custom-ca-bundle')
+
+        def decide(sysroot_value=sysroot, configopts='', preconfigopts='', configure_cmd='./configure',
+                   ca_bundle=None, env_ca_bundle=None, isfile=os.path.isfile):
+            """Call det_curl_ca_configopt with the defaults for this test."""
+            return det_curl_ca_configopt(
+                sysroot=sysroot_value, configopts=configopts, preconfigopts=preconfigopts,
+                configure_cmd=configure_cmd, ca_bundle=ca_bundle, env_ca_bundle=env_ca_bundle, isfile=isfile,
+            )
+
+        option, warning, skip_reason = decide(sysroot_value=None)
+        self.assertEqual((option, warning, skip_reason), (None, None, None))
+
+        option, warning, skip_reason = decide(sysroot_value=None, ca_bundle=other_bundle)
+        self.assertIsNone(option)
+        self.assertIsNone(warning)
+        self.assertTrue(skip_reason)
+
+        option, warning, skip_reason = decide()
+        self.assertEqual(option, '--with-ca-bundle=%s' % bundle)
+        self.assertIsNone(warning)
+        self.assertIsNone(skip_reason)
+
+        option, warning, skip_reason = decide(configure_cmd='cmake')
+        self.assertEqual(option, '-DCURL_CA_BUNDLE=%s' % bundle)
+        option, warning, skip_reason = decide(configure_cmd='/usr/bin/cmake')
+        self.assertEqual(option, '-DCURL_CA_BUNDLE=%s' % bundle)
+
+        option, warning, skip_reason = decide(isfile=lambda path: False)
+        self.assertIsNone(option)
+        self.assertIn(bundle, warning)
+        self.assertIn(sysroot, warning)
+
+        for configopts in (
+            '--with-ca-bundle=/etc/ssl/certs/ca-certificates.crt',
+            '--with-ca-path=/etc/ssl/certs',
+            '-DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt',
+            '-DCURL_CA_PATH:STRING=/etc/ssl/certs',
+            '--with-zlib --with-ca-bundle=/opt/ca.crt --without-libgsasl',
+        ):
+            option, warning, skip_reason = decide(configopts=configopts)
+            self.assertIsNone(option, configopts)
+            self.assertTrue(skip_reason, configopts)
+
+        option, warning, skip_reason = decide(preconfigopts='CURL_CA_BUNDLE=/opt/ca.crt')
+        self.assertIsNone(option)
+        self.assertTrue(skip_reason)
+
+        option, warning, skip_reason = decide(env_ca_bundle='/opt/ca.crt')
+        self.assertIsNone(option)
+        self.assertTrue(skip_reason)
+
+        # --with-ca-fallback does not select a bundle or path, so the sysroot bundle is still added.
+        option, warning, skip_reason = decide(configopts='--with-ca-fallback --with-zlib')
+        self.assertEqual(option, '--with-ca-bundle=%s' % bundle)
+
+        option, warning, skip_reason = decide(ca_bundle=False)
+        self.assertIsNone(option)
+        self.assertTrue(skip_reason)
+
+        option, warning, skip_reason = decide(ca_bundle=other_bundle)
+        self.assertEqual(option, '--with-ca-bundle=%s' % other_bundle)
+
+        option, warning, skip_reason = decide(configure_cmd='cmake', ca_bundle=other_bundle)
+        self.assertEqual(option, '-DCURL_CA_BUNDLE=%s' % other_bundle)
+
+        self.assertRaises(EasyBuildError, decide, ca_bundle='relative/ca.crt')
+        self.assertRaises(EasyBuildError, decide, ca_bundle=os.path.join(self.tmpdir, 'missing.crt'))
+        self.assertRaises(EasyBuildError, decide, ca_bundle='')
+        self.assertRaises(EasyBuildError, decide, ca_bundle=True)
+
+        self.assertEqual(EB_cURL.extra_options()['configure_cmd'][0], './configure')
+        curl_class = get_easyblock_class(None, name='cURL')
+        self.assertIsNotNone(curl_class)
+        self.assertEqual(curl_class.__name__, 'EB_cURL')
+
+        ec_path = os.path.join(self.tmpdir, 'cURL-test.eb')
+        write_file(ec_path, '\n'.join([
+            "name = 'cURL'",
+            "version = '8.17.0'",
+            "homepage = 'https://curl.se'",
+            "description = 'cURL test easyconfig'",
+            "toolchain = SYSTEM",
+            "source_urls = ['https://curl.se/download/']",
+            "sources = [SOURCELOWER_TAR_GZ]",
+            "configopts = '--with-zlib --without-libgsasl'",
+        ]))
+        app = EB_cURL(EasyConfig(ec_path))
+        try:
+            self.assertFalse(app._uses_cmake())
+            self.assertEqual(app.cfg['configure_cmd'], './configure')
+            orig_sysroot = update_build_option('sysroot', sysroot)
+            try:
+                app._add_sysroot_ca_bundle()
+            finally:
+                update_build_option('sysroot', orig_sysroot)
+            self.assertIn('--with-zlib', app.cfg['configopts'])
+            self.assertIn('--without-libgsasl', app.cfg['configopts'])
+            self.assertIn('--with-ca-bundle=%s' % bundle, app.cfg['configopts'])
+
+            app.cfg['configopts'] = '--with-ca-path=/etc/ssl/certs'
+            app.cfg['configure_cmd'] = 'cmake'
+            orig_sysroot = update_build_option('sysroot', sysroot)
+            try:
+                app._add_sysroot_ca_bundle()
+            finally:
+                update_build_option('sysroot', orig_sysroot)
+            self.assertNotIn('CURL_CA_BUNDLE=', app.cfg['configopts'])
+            self.assertTrue(app._uses_cmake())
+        finally:
+            app.close_log()
+            if os.path.exists(app.logfile):
+                os.remove(app.logfile)
+
+        # Official cURL easyconfigs set easyblock = 'ConfigureMake', so the parsed config does not
+        # include the ca_bundle parameter. --easyblock=EB_cURL still has to inject the sysroot bundle.
+        cm_path = os.path.join(self.tmpdir, 'cURL-configuremake.eb')
+        write_file(cm_path, '\n'.join([
+            "easyblock = 'ConfigureMake'",
+            "name = 'cURL'",
+            "version = '8.14.1'",
+            "homepage = 'https://curl.se'",
+            "description = 'cURL test easyconfig'",
+            "toolchain = SYSTEM",
+            "sources = []",
+            "configopts = '--with-zlib --with-ssl=$EBROOTOPENSSL'",
+        ]))
+        cm_app = EB_cURL(EasyConfig(cm_path))
+        try:
+            self.assertIsNone(cm_app.cfg.get('ca_bundle'))
+            orig_sysroot = update_build_option('sysroot', sysroot)
+            try:
+                cm_app._add_sysroot_ca_bundle()
+            finally:
+                update_build_option('sysroot', orig_sysroot)
+            self.assertIn('--with-zlib', cm_app.cfg['configopts'])
+            self.assertIn('--with-ca-bundle=%s' % bundle, cm_app.cfg['configopts'])
+            self.assertEqual(cm_app.cfg['configopts'].count('--with-ca-bundle'), 1)
+        finally:
+            cm_app.close_log()
+            if os.path.exists(cm_app.logfile):
+                os.remove(cm_app.logfile)
 
 
 def suite(loader):
