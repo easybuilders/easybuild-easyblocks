@@ -749,7 +749,6 @@ class EB_Python(ConfigureMake):
 
         # Determine the timezone path(s) and pass them to the configure script,
         # --with-tzpath option was introduced in 3.9.0.
-        sysroot = build_option('sysroot')
         if LooseVersion(self.version) >= LooseVersion('3.9.0'):
             tzpaths = self._determine_tzpaths()
             self.cfg.update('configopts', "--with-tzpath=" + ':'.join(tzpaths))
