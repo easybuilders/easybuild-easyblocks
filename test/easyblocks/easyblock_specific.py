@@ -812,6 +812,43 @@ class EasyBlockSpecificTest(TestCase):
         with self.assertRaisesRegex(EasyBuildError, "not major.minor"):
             cc(['sm_80'])
 
+    def test_seissol_hopper_suffix_mapping(self):
+        """Preserve supported Hopper suffixes and reject unsupported architecture guesses."""
+        cc = ['9.0a']
+        mapper = seissol.device_arch_from_cuda_cc
+        self.assertEqual(mapper(cc), 'sm_90a')
+        self.assertEqual(mapper(cc, {'sm_90', 'sm_90a'}), 'sm_90a')
+        self.assertEqual(mapper(cc, {'sm_80', 'sm_90'}), 'sm_90')
+        self.assertEqual(cc, ['9.0a'])
+        self.assertEqual(mapper(['8.0'], {'sm_80', 'sm_90'}), 'sm_80')
+        for invalid in ['9.0f', '9.0aa', '9.a', '9.0a ', 'sm_90a', '9.0;other']:
+            with self.assertRaises(EasyBuildError):
+                mapper([invalid])
+        with self.assertRaisesRegex(EasyBuildError, 'suffix is unsupported'):
+            mapper(['8.0a'])
+        with self.assertRaisesRegex(EasyBuildError, 'does not support'):
+            mapper(cc, {'sm_80'})
+        with self.assertRaisesRegex(EasyBuildError, 'does not support'):
+            mapper(['9.9'], {'sm_90'})
+
+    def test_seissol_device_options_and_resolution(self):
+        """Use the actual source architecture list for CUDA configuration."""
+        text = 'set(DEVICE_ARCH_OPTIONS none\n sm_80 sm_90 # sm_90a is not an option\n)'
+        self.assertEqual(seissol.device_arch_options_from_cmake(text), {'none', 'sm_80', 'sm_90'})
+        with self.assertRaisesRegex(EasyBuildError, 'no explicit DEVICE_ARCH_OPTIONS'):
+            seissol.device_arch_options_from_cmake('set(OTHER_OPTIONS sm_90)')
+        with tempfile.TemporaryDirectory() as root:
+            path = os.path.join(root, 'cmake', 'process_users_input.cmake')
+            mkdir(os.path.dirname(path))
+            write_file(path, text)
+            block = seissol.EB_SeisSol.__new__(seissol.EB_SeisSol)
+            block.cfg = {'start_dir': root, 'device_backend': 'cuda',
+                         'device_arch': 'auto', 'cuda_compute_capabilities': ['9.0a']}
+            self.assertEqual(block._resolve_device(), ('cuda', 'sm_90'))
+            write_file(path, 'set(DEVICE_ARCH_OPTIONS none sm_80 sm_90 sm_90a)')
+            self.assertEqual(block._resolve_device(), ('cuda', 'sm_90a'))
+            self.assertEqual(block.cfg['cuda_compute_capabilities'], ['9.0a'])
+
     def test_pytorch_test_log_parsing(self):
         """Verify parsing of XML files produced by PyTorch tests."""
         TestState = pytorch.TestState

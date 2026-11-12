@@ -35,8 +35,8 @@ the easyconfig.
 
 A GPU build sets DEVICE_BACKEND and DEVICE_ARCH. SeisSol then names the binary
 from DEVICE_ARCH and DEVICE_BACKEND (CMakeLists.txt EXE_NAME_PREFIX) instead of
-HOST_ARCH. One cuda_compute_capabilities entry (major.minor) maps onto sm_<major><minor>,
-because SeisSol accepts a single DEVICE_ARCH.
+HOST_ARCH. One cuda_compute_capabilities entry maps onto a supported DEVICE_ARCH,
+because SeisSol accepts a single device architecture.
 
 @author: Rohit Goswami (SURF)
 """
@@ -47,6 +47,7 @@ from easybuild.easyblocks.generic.cmakemake import CMakeMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option
+from easybuild.tools.filetools import read_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import AARCH64, AMD, INTEL, X86_64
 from easybuild.tools.systemtools import get_cpu_arch_name, get_cpu_architecture, get_cpu_family
@@ -144,12 +145,21 @@ def det_target_host_arch(arch, optarch=None, cpu_target=None):
     return None
 
 
-def device_arch_from_cuda_cc(cuda_compute_capabilities):
-    """Map one EasyBuild CUDA compute capability onto a SeisSol DEVICE_ARCH.
+def device_arch_options_from_cmake(text):
+    """Read SeisSol's explicit DEVICE_ARCH_OPTIONS from its CMake input."""
+    text = re.sub(r'#[^\n]*', '', text)
+    match = re.search(r'\bset\s*\(\s*DEVICE_ARCH_OPTIONS\s+([^)]*)\)', text, re.IGNORECASE)
+    if match is None:
+        raise EasyBuildError("SeisSol source has no explicit DEVICE_ARCH_OPTIONS")
+    return set(match.group(1).split())
 
-    SeisSol takes a single DEVICE_ARCH such as sm_80
-    (cmake/process_users_input.cmake, DEVICE_ARCH_OPTIONS).
-    EasyBuild spells that NVIDIA compute capability as major.minor, so 8.0 is sm_80.
+
+def device_arch_from_cuda_cc(cuda_compute_capabilities, device_arch_options=None):
+    """Map one CUDA capability onto a supported SeisSol DEVICE_ARCH.
+
+    Numeric capabilities retain their usual sm_<major><minor> spelling. Hopper
+    9.0a retains sm_90a when supported by the source. SeisSol sources that expose
+    only sm_90 use its generic Hopper kernels with an explicit diagnostic.
     """
     if not cuda_compute_capabilities:
         return None
@@ -157,11 +167,21 @@ def device_arch_from_cuda_cc(cuda_compute_capabilities):
         raise EasyBuildError("SeisSol accepts one DEVICE_ARCH; cuda_compute_capabilities has %d entries",
                              len(cuda_compute_capabilities))
     cc = str(cuda_compute_capabilities[0])
-    pieces = cc.split('.')
-    if len(pieces) != 2 or not all(piece.isdigit() for piece in pieces):
-        raise EasyBuildError("cuda_compute_capabilities entry '%s' is not major.minor", cc)
-    major, minor = pieces
-    return 'sm_%s%s' % (major, minor)
+    match = re.fullmatch(r'([0-9]+)\.([0-9]+)(a?)', cc)
+    if match is None:
+        raise EasyBuildError("cuda_compute_capabilities entry '%s' is not major.minor or Hopper 9.0a", cc)
+    major, minor, suffix = match.groups()
+    if suffix and cc != '9.0a':
+        raise EasyBuildError("SeisSol CUDA architecture suffix is unsupported for capability '%s'", cc)
+    arch = 'sm_%s%s%s' % (major, minor, suffix)
+    if device_arch_options is not None and arch not in device_arch_options:
+        if cc == '9.0a' and 'sm_90' in device_arch_options:
+            print_warning("SeisSol source supports generic Hopper sm_90 kernels, not architecture-specific "
+                          "sm_90a features; using DEVICE_ARCH=sm_90 for CUDA capability 9.0a")
+            arch = 'sm_90'
+        else:
+            raise EasyBuildError("SeisSol source DEVICE_ARCH_OPTIONS does not support '%s'", arch)
+    return arch
 
 
 def seissol_exe_name(build_type, precision, order, equations, host_arch,
@@ -216,7 +236,11 @@ class EB_SeisSol(CMakeMake):
         cuda_cc = self.cfg['cuda_compute_capabilities']
         if backend == 'cuda':
             cuda_cc = build_option('cuda_compute_capabilities') or cuda_cc
-        mapped = device_arch_from_cuda_cc(cuda_cc)
+        options = None
+        if backend == 'cuda' and cuda_cc:
+            source = os.path.join(self.start_dir, 'cmake', 'process_users_input.cmake')
+            options = device_arch_options_from_cmake(read_file(source))
+        mapped = device_arch_from_cuda_cc(cuda_cc, device_arch_options=options)
         if arch == 'auto':
             arch = mapped or 'none'
         elif mapped and mapped != arch:
