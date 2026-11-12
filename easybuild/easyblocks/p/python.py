@@ -552,7 +552,7 @@ class EB_Python(ConfigureMake):
         For builds that use a different sysroot, we need to prepend the sysroot's timezone data paths to the list.
         """
 
-        tzpaths = ['/usr/share/zoneinfo', '/usr/lib/zoneinfo', '/usr/share/lib/zoneinfo','/etc/zoneinfo']
+        tzpaths = ['/usr/share/zoneinfo', '/usr/lib/zoneinfo', '/usr/share/lib/zoneinfo', '/etc/zoneinfo']
         sysroot = build_option('sysroot')
         if sysroot:
             # Use the default list of paths, prefix them with the sysroot, and prepend them to the list.
