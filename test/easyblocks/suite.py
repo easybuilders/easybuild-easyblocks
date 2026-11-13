@@ -48,6 +48,7 @@ import test.easyblocks.module as m
 
 
 class EasyBuildEasyBlocksTestSuite(unittest.TestSuite):
+    """Combine sub-test suites into one and setup environment before execution"""
     def __init__(self, loader):
         super().__init__([x.suite(loader) for x in [g, i, m, e]])
 
@@ -85,7 +86,7 @@ class EasyBuildEasyBlocksTestSuite(unittest.TestSuite):
         return res
 
 
-def load_tests(loader, tests, pattern):
+def load_tests(loader, _tests, _pattern):
     return EasyBuildEasyBlocksTestSuite(loader)
 
 
