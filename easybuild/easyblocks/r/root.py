@@ -117,7 +117,7 @@ class EB_ROOT(CMakeMake):
 
         custom_commands = []
         if get_software_root('Python'):
-            custom_commands.append("python -c 'import ROOT'")
+            custom_commands.append("python -s -c 'import ROOT'")
 
         super().sanity_check_step(custom_commands=custom_commands, custom_paths=custom_paths)
 
