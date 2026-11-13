@@ -32,7 +32,6 @@ import os
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage, det_pylibdir
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_version, get_software_root
 import easybuild.tools.environment as env
 
@@ -66,10 +65,9 @@ class EB_torchvision(PythonPackage):
         if self.with_cuda:
             # make sure that torchvision is installed with CUDA support by setting $FORCE_CUDA
             env.setvar('FORCE_CUDA', '1')
-            # specify CUDA compute capabilities via $TORCH_CUDA_ARCH_LIST
-            cuda_cc = self.cfg['cuda_compute_capabilities'] or build_option('cuda_compute_capabilities')
-            if cuda_cc:
-                env.setvar('TORCH_CUDA_ARCH_LIST', ';'.join(cuda_cc))
+            cuda_arch_list = self.cfg.get_cuda_cc_template_value('cuda_cc_semicolon_sep')
+            if cuda_arch_list:
+                env.setvar('TORCH_CUDA_ARCH_LIST', cuda_arch_list + '+PTX')
 
         includes = []
         for lib in ['libjpeg-turbo', 'libwebp']:
