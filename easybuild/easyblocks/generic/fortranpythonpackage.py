@@ -35,6 +35,7 @@ import os
 
 import easybuild.tools.toolchain as toolchain
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.tools import LooseVersion
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.run import run_shell_cmd
 
@@ -48,8 +49,9 @@ class FortranPythonPackage(PythonPackage):
         comp_fam = self.toolchain.comp_family()
 
         if comp_fam == toolchain.INTELCOMP:  # @UndefinedVariable
-            self.cfg.update('buildopts', "--compiler=intel --fcompiler=intelem")
-            cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
+            # Don't set these for old (<2.0) numpy versions
+            if self.name != 'numpy' or LooseVersion(self.version) >= LooseVersion('2.0'):
+                self.cfg.update('buildopts', "--compiler=intel --fcompiler=intelem")
 
         elif comp_fam in [toolchain.GCC, toolchain.CLANGGCC]:  # @UndefinedVariable
             ldflags = os.getenv('LDFLAGS')
