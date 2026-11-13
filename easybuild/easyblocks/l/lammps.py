@@ -736,13 +736,33 @@ class EB_LAMMPS(CMakeMake):
                 'nemd', 'obstacle', 'pour', 'voronoi',
             ]
 
-        custom_commands = [
-            # LAMMPS test - you need to call specific test file on path
-            'from lammps import lammps; l=lammps(); l.file("%s")' %
+        test_paths = [
             # Examples are part of the install with paths like (installdir)/examples/filename/in.filename
             os.path.join(self.installdir, "examples", "%s" % check_file, "in.%s" % check_file)
-            # And this should be done for every file specified above
+            # create path for every file in sanity_check_test_inputs
             for check_file in sanity_check_test_inputs
+        ]
+
+        if LooseVersion(self.version) >= LooseVersion('30Sep2026'):
+            shock_examples_path = os.path.join(self.installdir, "examples", "PACKAGES", "shock")
+            msst_test_path = os.path.join(shock_examples_path, "msst", "in.msst")
+            sanity_check_test_inputs_shock = [
+                os.path.join(shock_examples_path, "hugonoistat", "in.hugoniostat"),
+                msst_test_path,
+            ]
+            test_paths = test_paths + sanity_check_test_inputs_shock
+        else:
+            msst_test_path = os.path.join(self.installdir, "examples", "msst", "in.msst")
+
+        custom_commands = [
+            # LAMMPS test - you need to call specific test file on path
+            'from lammps import lammps; l=lammps(); l.file("%s")' % check_file
+            # And this should be done for every file specified above
+            for check_file in test_paths
+            # Double check if test exists for this may differ between LAMMPS versions
+            # This does not cause a failure but the test to hang indefinitely if the file does not exist
+            # See https://github.com/lammps/lammps/issues/5248
+            if os.path.isfile(check_file)
         ]
 
         # check if a GPU is available for tests
@@ -757,40 +777,42 @@ class EB_LAMMPS(CMakeMake):
 
         # add accelerator-specific tests
         # INTEL package - it requires mpi4py - run only for updated easyconfigs >= 29Aug2024
-        if 'msst' in sanity_check_test_inputs:
+        # If msst_test_path is not a valid path the test will hang indefinitely
+        # See https://github.com/lammps/lammps/issues/5248
+        if 'msst' in sanity_check_test_inputs and os.path.isfile(msst_test_path):
             if LooseVersion(self.version) >= LooseVersion('29Aug2024'):
                 custom_commands.append(
                     'from lammps import lammps; '
                     'l=lammps(cmdargs=["-sf", "intel"]).file("%s") '
                     'if "INTEL" in lammps().installed_packages else None' %
-                    os.path.join(self.installdir, "examples", "msst", "in.msst")
+                    msst_test_path
                 )
             if self.cfg['kokkos']:  # KOKKOS package
                 if self.cuda:
                     if run_gpu_tests:
                         custom_commands.append(
                             'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on", "g", "1"]); '
-                            'l.file("%s")' % os.path.join(self.installdir, "examples", "msst", "in.msst")
+                            'l.file("%s")' % msst_test_path
                         )
                 else:  # CPU only
                     custom_commands.append(
-                        'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on"]); l.file("%s")' %
-                        os.path.join(self.installdir, "examples", "msst", "in.msst")
+                        'from lammps import lammps; l=lammps(cmdargs=["-sf", "kk", "-k", "on"]); '
+                        'l.file("%s")' % msst_test_path
                     )
             elif run_gpu_tests:  # GPU package
                 custom_commands.append(
-                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "gpu", "-pk", "gpu", "1"]); l.file("%s")' %
-                    os.path.join(self.installdir, "examples", "msst", "in.msst")
+                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "gpu", "-pk", "gpu", "1"]); '
+                    'l.file("%s")' % msst_test_path
                 )
             if self.toolchain.options.get('openmp', None):  # OPENMP package
                 custom_commands.append(
-                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "omp", "-pk", "omp", "2"]); l.file("%s")' %
-                    os.path.join(self.installdir, "examples", "msst", "in.msst")
+                    'from lammps import lammps; l=lammps(cmdargs=["-sf", "omp", "-pk", "omp", "2"]); '
+                    'l.file("%s")' % msst_test_path
                 )
             # OPT package
             custom_commands.append(
-                'from lammps import lammps; l=lammps(cmdargs=["-sf", "opt"]); l.file("%s")' %
-                os.path.join(self.installdir, "examples", "msst", "in.msst")
+                'from lammps import lammps; l=lammps(cmdargs=["-sf", "opt"]); '
+                'l.file("%s")' % msst_test_path
             )
 
         # mpirun command needs an l.finalize() in the sanity check from LAMMPS 29Sep2021
