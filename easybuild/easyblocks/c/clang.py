@@ -419,23 +419,14 @@ class EB_Clang(CMakeMake):
 
         # If 'NVPTX' is in the build targets we assume the user would like OpenMP offload support as well
         if 'NVPTX' in build_targets:
-            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-            cfg_cuda_cc = build_option('cuda_compute_capabilities')
-            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
-            if not cuda_cc:
-                raise EasyBuildError("Can't build Clang with CUDA support "
-                                     "without specifying 'cuda-compute-capabilities'")
-            default_cc = self.cfg['default_cuda_capability'] or min(cuda_cc)
+            cuda_cc = self.cfg.get_cuda_cc_template_value('cuda_int_comma_sep')
+            default_cc = self.cfg['default_cuda_capability'] or min(cuda_cc.split(), key=int)
             if not self.cfg['default_cuda_capability']:
                 print_warning("No default CUDA capability defined! "
                               "Using '%s' taken as minimum from 'cuda_compute_capabilities'" % default_cc)
-            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            default_cc = default_cc.replace('.', '')
+            cuda_cc = self.cfg.get_cuda_cc_template_value('cuda_int_comma_sep')
             self.cfg.update('configopts', '-DCLANG_OPENMP_NVPTX_DEFAULT_ARCH=sm_%s' % default_cc)
-            self.cfg.update('configopts', '-DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES=%s' % ','.join(cuda_cc))
+            self.cfg.update('configopts', f'-DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES={cuda_cc}')
         # If we don't want to build with CUDA (not in dependencies) trick CMakes FindCUDA module into not finding it by
         # using the environment variable which is used as-is and later checked for a falsy value when determining
         # whether CUDA was found
@@ -720,26 +711,22 @@ class EB_Clang(CMakeMake):
             # The static 'nvptx.a' library is not built from version 12 onwards
             if version < '12.0':
                 custom_paths['files'].append("lib/libomptarget-nvptx.a")
-            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-            cfg_cuda_cc = build_option('cuda_compute_capabilities')
-            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
-            # We need the CUDA capability in the form of '75' and not '7.5'
-            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
+            cuda_sm = self.cfg.get_cuda_cc_template_value('cuda_sm_space_sep').split()
             if '12.0' < version < '13.0':
-                custom_paths['files'].extend(["lib/libomptarget-nvptx-cuda_%s-sm_%s.bc" % (x, y)
-                                             for x in CUDA_TOOLKIT_SUPPORT for y in cuda_cc])
+                custom_paths['files'].extend([f"lib/libomptarget-nvptx-cuda_{x}-{sm}.bc"
+                                             for x in CUDA_TOOLKIT_SUPPORT for sm in cuda_sm])
             # libomptarget-nvptx-sm*.bc is not there for Clang 14.x;
             elif version < '14.0' or version >= '15.0':
-                custom_paths['files'].extend(["lib/libomptarget-nvptx-sm_%s.bc" % cc
-                                             for cc in cuda_cc])
+                custom_paths['files'].extend([f"lib/libomptarget-nvptx-{sm}.bc"
+                                             for sm in cuda_sm])
             # From version 13, and hopefully onwards, the naming of the CUDA
             # '.bc' files became a bit simpler and now we don't need to take
             # into account the CUDA version Clang was compiled with, making it
             # easier to check for the bitcode files we expect;
             # libomptarget-new-nvptx-sm*.bc is only there in Clang 13.x and 14.x;
             if version >= '13.0' and version < '15.0':
-                custom_paths['files'].extend(["lib/libomptarget-new-nvptx-sm_%s.bc" % cc
-                                              for cc in cuda_cc])
+                custom_paths['files'].extend([f"lib/libomptarget-new-nvptx-{sm}.bc"
+                                              for sm in cuda_sm])
         # If building for AMDGPU check that OpenMP target library was created
         if 'AMDGPU' in self.cfg['build_targets']:
             custom_paths['files'].append("lib/libLLVMAMDGPUCodeGen.a")
