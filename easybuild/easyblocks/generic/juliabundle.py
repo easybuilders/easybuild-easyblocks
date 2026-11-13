@@ -27,8 +27,6 @@ EasyBuild support for bundles of Julia packages, implemented as an easyblock
 
 @author: Alex Domingo (Vrije Universiteit Brussel)
 """
-import os
-
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JuliaPackage
 
@@ -76,23 +74,7 @@ class JuliaBundle(Bundle, JuliaPackage):
 
         self.log.info("exts_default_options: %s", self.cfg['exts_default_options'])
 
-    def prepare_step(self, *args, **kwargs):
-        """Prepare for installing bundle of Julia packages."""
-        super().prepare_step(*args, **kwargs)
-
     def install_step(self):
-        """Prepare installation environment and dd all dependencies to project environment."""
+        """Prepare installation environment and add all dependencies to project environment."""
         self.prepare_julia_env()
         self.include_pkg_dependencies()
-
-    def sanity_check_step(self, *args, **kwargs):
-        """Custom sanity check for bundle of Julia packages"""
-        custom_paths = {
-            'files': [],
-            'dirs': [os.path.join('packages', self.name)],
-        }
-        super().sanity_check_step(custom_paths=custom_paths)
-
-    def make_module_extra(self, *args, **kwargs):
-        """Custom module environment from JuliaPackage"""
-        return super().make_module_extra(*args, **kwargs)
