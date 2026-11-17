@@ -75,6 +75,9 @@ class Dataset(Binary):
         if self.cfg['data_install_path']:
             self.installdir = self.cfg['data_install_path']
 
+        # avoid .mod file sanity check for datasets
+        self.cfg['skip_mod_files_sanity_check'] = True
+
         # extract/copy sources directly into installation directory
         self.build_in_installdir = True
 
