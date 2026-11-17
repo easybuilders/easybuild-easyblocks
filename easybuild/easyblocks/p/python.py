@@ -49,7 +49,7 @@ from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.framework.easyconfig.templates import PYPI_SOURCE
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option, ERROR, EBPYTHONPREFIXES
+from easybuild.tools.config import build_option, ERROR, EBPYTHONPREFIXES, WARN
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
@@ -658,7 +658,7 @@ class EB_Python(ConfigureMake):
                 on_missing_match=ERROR
             )
 
-        if sysroot and LooseVersion(self.version) >= LooseVersion('3.9.0'):
+        if LooseVersion(self.version) >= LooseVersion('3.9.0'):
             tzpaths = self._determine_tzpaths()
             # For the datetime tests we do need an existing timezone data path,
             # so find the first one in the list that exists.
@@ -667,7 +667,8 @@ class EB_Python(ConfigureMake):
                     datetimetester_py = os.path.join('Lib', 'test', 'datetimetester.py')
                     apply_regex_substitutions(
                         datetimetester_py,
-                        [("zoneroot = '/usr/share/zoneinfo'", f"zoneroot = '{tzpath}'")]
+                        [("zoneroot = '/usr/share/zoneinfo'", f"zoneroot = '{tzpath}'")],
+                        on_missing_match=WARN,
                     )
                     break
             else:
