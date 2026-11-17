@@ -549,18 +549,34 @@ class EB_Python(ConfigureMake):
         https://github.com/python/cpython/blob/v3.15.2/configure#L15660
         Since it was introduced in 3.9.0, it has always been set to:
         /usr/share/zoneinfo:/usr/lib/zoneinfo:/usr/share/lib/zoneinfo:/etc/zoneinfo
+        We try to find and parse this line in the configure script,
+        and fall back to the above one if that fails.
         For builds that use a different sysroot, we need to prepend the sysroot's timezone data paths to the list.
         """
 
         tzpaths = ['/usr/share/zoneinfo', '/usr/lib/zoneinfo', '/usr/share/lib/zoneinfo', '/etc/zoneinfo']
+        python_configure_script = read_file('configure')
+        tzpath_pattern = re.compile(r'^TZPATH=(["\']?)(.*?)\1\s*$', re.MULTILINE)
+        tzpath_search = re.search(tzpath_pattern, python_configure_script)
+        if tzpath_search and len(tzpath_search.groups()) >= 2:
+            tzpaths = tzpath_search.group(2).split(':')
+            self.log.debug("Found the following timezone paths in Python's configure script: " + ':'.join(tzpaths))
+        else:
+            msg = 'Could not find the TZPATH variable in the configure script! '
+            msg += 'Continuing with the following default value: '
+            msg += ':'.join(tzpaths)
+            self.log.warning(msg)
+
         sysroot = build_option('sysroot')
         if sysroot:
-            # Use the default list of paths, prefix them with the sysroot, and prepend them to the list.
+            # Use the standard list of paths, prefix them with the sysroot, and prepend them to the list.
             # Note that we don't check if these paths actually exist: that's normally not done either,
             # and paths may not exist on the build node anyway.
             # Also note that using os.path.join does not work here, as the tzpaths are interpreted as absolute paths,
-            # and then it discards all previous components.
+            # and os.path.join discards all previous components if abosule paths are used.
             tzpaths = [sysroot + tz for tz in tzpaths] + tzpaths
+
+        self.log.debug('The following timezone paths will be used: ' + ':'.join(tzpaths))
         return tzpaths
 
     def patch_step(self, *args, **kwargs):
