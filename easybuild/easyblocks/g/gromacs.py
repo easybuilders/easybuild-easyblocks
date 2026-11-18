@@ -100,7 +100,6 @@ class EB_GROMACS(CMakeMake):
             self.libext = 'a'
 
         self.with_cuda_support = get_software_root('CUDA') is not None or 'CUDA' in self.cfg.dependency_names()
-        print("CUDA", self.with_cuda_support)
 
     def get_gromacs_arch(self):
         """Determine value of GMX_SIMD CMake flag based on optarch string.
