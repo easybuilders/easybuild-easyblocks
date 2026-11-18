@@ -82,8 +82,8 @@ class MesonNinja(EasyBlock):
         # make sure both Meson and Ninja are included as build dependencies
         build_dep_names = [d['name'] for d in self.cfg.builddependencies()]
         for tool in ['Ninja', 'Meson']:
-            if tool not in build_dep_names:
-                raise EasyBuildError("%s not included as build dependency", tool)
+            if get_software_version(tool) is None:
+                raise EasyBuildError("No %s recognised by EasyBuild found in the environment.", tool)
             cmd = tool.lower()
             if not which(cmd):
                 raise EasyBuildError("'%s' command not found", cmd)
