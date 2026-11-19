@@ -445,6 +445,8 @@ class EB_Python(ConfigureMake):
         """Constructor for Python easyblock."""
         super().__init__(*args, **kwargs)
 
+self._determined_tzpaths = None
+
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
         ext_defaults = {
@@ -676,7 +678,7 @@ class EB_Python(ConfigureMake):
                 # print a warning and (try to) continue.
                 warning_msg = "No timezone data path found that exists in:\n"
                 warning_msg += '\n'.join(tzpaths)
-                warning_msg += '\nStill continuing, but datetime tests are likely to fail because of this.'
+                warning_msg += '\nStill continuing, but datetime tests may fail because of this.'
                 self.log.warning(warning_msg)
 
     def prepare_for_extensions(self):
