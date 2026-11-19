@@ -37,6 +37,7 @@ class EB_OpenBLAS(ConfigureMake):
                                                     "due to numerical errors", CUSTOM],
             'max_failing_lapack_tests_other_errors': [0, "Maximum number of LAPACK tests failing "
                                                       "due to non-numerical errors", CUSTOM],
+            'max_num_threads': [None, "Maximum number of threads that OpenBLAS can use", CUSTOM],
             'run_lapack_tests': [False, "Run LAPACK tests during test step, "
                                         "and check whether failing tests exceeds threshold", CUSTOM],
         }
@@ -81,6 +82,16 @@ class EB_OpenBLAS(ConfigureMake):
             'INTERFACE64': '1',
             'SYMBOLSUFFIX': self.cfg['ilp64_symbol_suffix'],
         }
+
+        # set the maximum number of threads that OpenBLAS can use;
+        # defaults to the number of cores on the build host if not specified
+        if self.cfg['max_num_threads']:
+            default_opts['NUM_THREADS'] = self.cfg['max_num_threads']
+        else:
+            msg = "Easyconfig parameter max_num_threads is not set, so build option NUM_THREADS will not be set. "
+            msg += "OpenBLAS will default to a maximum number of threads equal to the number of CPUs "
+            msg += "on the build host, which may be too low if the same build is used on a larger system."
+            print_warning(msg)
 
         # ensure build/test/install options don't persist between iterations
         if self.cfg['enable_ilp64']:
