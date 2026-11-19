@@ -175,7 +175,7 @@ class EB_NEURON(CMakeMake):
         ]
 
         if self.python_root:
-            custom_commands.append("python -c 'import neuron; neuron.test()'")
+            custom_commands.append("python -s -c 'import neuron; neuron.test()'")
 
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)
 
