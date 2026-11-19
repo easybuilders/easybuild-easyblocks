@@ -445,6 +445,8 @@ class EB_Python(ConfigureMake):
         """Constructor for Python easyblock."""
         super().__init__(*args, **kwargs)
 
+        self._determined_tzpaths = None
+
         self.pyshortver = '.'.join(self.version.split('.')[:2])
 
         ext_defaults = {
@@ -554,30 +556,34 @@ class EB_Python(ConfigureMake):
         For builds that use a different sysroot, we need to prepend the sysroot's timezone data paths to the list.
         """
 
-        tzpaths = ['/usr/share/zoneinfo', '/usr/lib/zoneinfo', '/usr/share/lib/zoneinfo', '/etc/zoneinfo']
-        python_configure_script = read_file('configure')
-        tzpath_pattern = re.compile(r'^TZPATH=(["\']?)(.*?)\1\s*$', re.MULTILINE)
-        tzpath_search = re.search(tzpath_pattern, python_configure_script)
-        if tzpath_search and len(tzpath_search.groups()) >= 2:
-            tzpaths = tzpath_search.group(2).split(':')
-            self.log.debug("Found the following timezone paths in Python's configure script: " + ':'.join(tzpaths))
-        else:
-            msg = 'Could not find the TZPATH variable in the configure script! '
-            msg += 'Continuing with the following default value: '
-            msg += ':'.join(tzpaths)
-            self.log.warning(msg)
+        if self._determined_tzpaths is None:
+            tzpaths = ['/usr/share/zoneinfo', '/usr/lib/zoneinfo', '/usr/share/lib/zoneinfo', '/etc/zoneinfo']
+            python_configure_script = read_file('configure')
+            tzpath_pattern = re.compile(r'^TZPATH=(["\']?)(.*?)\1\s*$', re.MULTILINE)
+            tzpath_search = re.search(tzpath_pattern, python_configure_script)
+            if tzpath_search and len(tzpath_search.groups()) >= 2:
+                tzpaths = tzpath_search.group(2).split(':')
+                self.log.debug("Found the following timezone paths in Python's configure script: " + ':'.join(tzpaths))
+            else:
+                msg = 'Could not find the TZPATH variable in the configure script! '
+                msg += 'Continuing with the following default value: '
+                msg += ':'.join(tzpaths)
+                self.log.warning(msg)
 
-        sysroot = build_option('sysroot')
-        if sysroot:
-            # Use the standard list of paths, prefix them with the sysroot, and prepend them to the list.
-            # Note that we don't check if these paths actually exist: that's normally not done either,
-            # and paths may not exist on the build node anyway.
-            # Also note that using os.path.join does not work here, as the tzpaths are interpreted as absolute paths,
-            # and os.path.join discards all previous components if abosule paths are used.
-            tzpaths = [sysroot + tz for tz in tzpaths] + tzpaths
+            sysroot = build_option('sysroot')
+            if sysroot:
+                # Use the standard list of paths, prefix them with the sysroot, and prepend them to the list.
+                # Note that we don't check if these paths actually exist: that's normally not done either,
+                # and paths may not exist on the build node anyway.
+                # Also note that using os.path.join does not work here, as the tzpaths are interpreted as absolute paths,
+                # and os.path.join discards all previous components if abosule paths are used.
+                tzpaths = [sysroot + tz for tz in tzpaths] + tzpaths
 
-        self.log.debug('The following timezone paths will be used: ' + ':'.join(tzpaths))
-        return tzpaths
+            self.log.debug('The following timezone paths will be used: ' + ':'.join(tzpaths))
+            # Store the determined tzpaths, so it can be easily returned when this function is called again.
+            self._determined_tzpaths = tzpaths
+
+        return self._determined_tzpaths
 
     def patch_step(self, *args, **kwargs):
         """
@@ -676,7 +682,7 @@ class EB_Python(ConfigureMake):
                 # print a warning and (try to) continue.
                 warning_msg = "No timezone data path found that exists in:\n"
                 warning_msg += '\n'.join(tzpaths)
-                warning_msg += '\nStill continuing, but datetime tests are likely to fail because of this.'
+                warning_msg += '\nStill continuing, but datetime tests may fail because of this.'
                 self.log.warning(warning_msg)
 
     def prepare_for_extensions(self):
