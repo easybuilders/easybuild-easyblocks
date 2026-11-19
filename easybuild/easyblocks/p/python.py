@@ -575,8 +575,8 @@ class EB_Python(ConfigureMake):
                 # Use the standard list of paths, prefix them with the sysroot, and prepend them to the list.
                 # Note that we don't check if these paths actually exist: that's normally not done either,
                 # and paths may not exist on the build node anyway.
-                # Also note that using os.path.join does not work here, as the tzpaths are interpreted as absolute paths,
-                # and os.path.join discards all previous components if abosule paths are used.
+                # Also note that using os.path.join does not work here: the tzpaths are interpreted as absolute paths,
+                # and os.path.join discards all previous components if absolute paths are used.
                 tzpaths = [sysroot + tz for tz in tzpaths] + tzpaths
 
             self.log.debug('The following timezone paths will be used: ' + ':'.join(tzpaths))
