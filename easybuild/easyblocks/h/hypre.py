@@ -33,8 +33,6 @@ EasyBuild support for Hypre, implemented as an easyblock
 import os
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
-from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import build_option
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import get_shared_lib_ext
 
@@ -73,15 +71,8 @@ class EB_Hypre(ConfigureMake):
 
         if get_software_root('CUDA'):
             self.cfg.update('configopts', '--with-cuda')
-
-            cuda_cc = build_option('cuda_compute_capabilities') or self.cfg['cuda_compute_capabilities']
-            if not cuda_cc:
-                raise EasyBuildError('List of CUDA compute capabilities must be specified, either via '
-                                     'cuda_compute_capabilities easyconfig parameter or via '
-                                     '--cuda-compute-capabilities')
-
-            cuda_cc_string = ' '.join([x.replace('.', '') for x in cuda_cc])
-            self.cfg.update('configopts', '--with-gpu-arch="%s"' % cuda_cc_string)
+            cuda_cc_string = self.cfg.get_cuda_cc_template_value('cuda_int_space_sep')
+            self.cfg.update('configopts', f'--with-gpu-arch="{cuda_cc_string}"')
 
         super().configure_step()
 
