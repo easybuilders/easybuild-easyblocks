@@ -1053,6 +1053,8 @@ class PythonPackage(ExtensionEasyBlock):
             self.log.info(f"Skipping test step for installation of dummy package {self.name}-{self.version}")
             return None
 
+        env.setvar('PYTEST_XDIST_AUTO_NUM_WORKERS', str(self.cfg.parallel))
+
         if isinstance(self.cfg['runtest'], str):
             self.testcmd = self.cfg['runtest']
 
