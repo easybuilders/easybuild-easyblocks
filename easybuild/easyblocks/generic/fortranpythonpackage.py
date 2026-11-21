@@ -51,6 +51,12 @@ class FortranPythonPackage(PythonPackage):
             self.cfg.update('buildopts', "--compiler=intel --fcompiler=intelem")
             cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
 
+        elif comp_fam == toolchain.FUJITSU:   # @UndefinedVariable
+            self.cfg.update('buildopts', "--fcompiler=fujitsu")
+            if self.cfg['use_pip']:
+                self.cfg.update('installopts', '--global-option="--fcompiler=fujitsu"')
+            cmd = "%s %s setup.py build %s" % (self.cfg['prebuildopts'], self.python_cmd, self.cfg['buildopts'])
+
         elif comp_fam in [toolchain.GCC, toolchain.CLANGGCC]:  # @UndefinedVariable
             ldflags = os.getenv('LDFLAGS')
             if ldflags:
