@@ -451,7 +451,7 @@ def suite(loader):
         write_file(os.path.join(TMPDIR, 'modules', 'all', prgenv, '1.2.3'), "#%Module")
 
     # add empty module files for dependencies that are required for testing easyblocks
-    for dep_mod_name in ('foo/1.2.3.4.5', 'PyTorch/1.12.1'):
+    for dep_mod_name in ('foo/1.2.3.4.5', 'PyTorch/1.12.1', "Julia/1.6.7"):
         write_file(os.path.join(TMPDIR, 'modules', 'all', dep_mod_name), "#%Module")
 
     for easyblock in easyblocks:
@@ -505,6 +505,10 @@ def suite(loader):
         elif eb_fn in ['python.py', 'tkinter.py']:
             # custom easyblock for Python (ensurepip) requires version >= 3.4.0
             innertest = make_inner_test(easyblock, name=eb_fn.replace('_', '-')[:-3], version='3.4.0')
+        elif eb_fn in ['juliapackage.py', 'juliabundle.py']:
+            # Building a Julia package/bundle requires Julia as a dependency
+            extra_txt = 'dependencies = [("Julia", "1.6.7")]'
+            innertest = make_inner_test(easyblock, name='julia-stuff', extra_txt=extra_txt)
         elif eb_fn == 'torchvision.py':
             # torchvision easyblock requires that PyTorch is listed as dependency
             extra_txt = "dependencies = [('PyTorch', '1.12.1')]"
