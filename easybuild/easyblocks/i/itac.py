@@ -58,6 +58,12 @@ class EB_itac(IntelBase):
         """Constructor, initialize class variables."""
         super().__init__(*args, **kwargs)
 
+        if self.cfg['requires_eula'] is None:
+            self.cfg['requires_eula'] = [
+                'Intel-oneAPI',
+                'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
+            ]
+
         if LooseVersion(self.version) < LooseVersion('2019'):
             raise EasyBuildError(
                 f"Version {self.version} of {self.name} is unsupported. Mininum supported version is 2019.0."
@@ -95,10 +101,6 @@ class EB_itac(IntelBase):
         """
         Actual installation for versions 2021.x onwards.
         """
-        # require that EULA is accepted
-        intel_eula_url = 'https://software.intel.com/content/www/us/en/develop/articles/end-user-license-agreement.html'
-        self.check_accepted_eula(name='Intel-oneAPI', more_info=intel_eula_url)
-
         # exactly one "source" file is expected: the (offline) installation script
         if len(self.src) == 1:
             install_script = self.src[0]['name']
