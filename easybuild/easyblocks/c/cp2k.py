@@ -220,13 +220,23 @@ class EB_CP2K(EasyBlock):
             options['LIBS'] += ' -lelpa'
             elpa_inc_dir = os.path.join(elpa, 'include', 'elpa-%s' % get_software_version('ELPA'), 'modules')
             options['FCFLAGSOPT'] += ' -I%s ' % elpa_inc_dir
-            if LooseVersion(self.version) >= LooseVersion('6.1'):
+            if LooseVersion(self.version) >= LooseVersion('7.1'):
+                options['DFLAGS'] += ' -D__ELPA'
+            elif LooseVersion(self.version) >= LooseVersion('6.1'):
                 elpa_ver = ''.join(get_software_version('ELPA').split('.')[:2])
                 options['DFLAGS'] += ' -D__ELPA=%s' % elpa_ver
                 elpa_inc_dir = os.path.join(elpa, 'include', 'elpa-%s' % get_software_version('ELPA'), 'elpa')
                 options['FCFLAGSOPT'] += ' -I%s ' % elpa_inc_dir
             else:
                 options['DFLAGS'] += ' -D__ELPA3'
+
+        # SPGLIB
+        spglib = get_software_root('spglib')
+        if spglib:
+            options['LIBS'] += ' -lsymspg'
+            elpa_inc_dir = os.path.join(spglib, 'include')
+            options['FCFLAGSOPT'] += ' -I%s ' % elpa_inc_dir
+            options['DFLAGS'] += ' -D__SPGLIB'
 
         # CUDA
         cuda = get_software_root('CUDA')
