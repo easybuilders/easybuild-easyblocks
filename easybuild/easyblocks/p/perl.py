@@ -41,8 +41,9 @@ from easybuild.tools.environment import setvar, unset_env_vars
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.run import run_shell_cmd
 
-# perldoc -lm seems to be the safest way to test if a module is available, based on exit code
-EXTS_FILTER_PERL_MODULES = ("perldoc -lm %(ext_name)s ", "")
+# check whether module is available by trying to load it in a minimal Perl program;
+# this way, we also check whether Perl modules that are required as a dependency are available
+EXTS_FILTER_PERL_MODULES = ("perl -e 'require %(ext_name)s'", '')
 
 
 class EB_Perl(ConfigureMake):
