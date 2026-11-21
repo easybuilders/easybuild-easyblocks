@@ -26,11 +26,27 @@
 EasyBuild support for bundles of Julia packages, implemented as an easyblock
 
 @author: Alex Domingo (Vrije Universiteit Brussel)
+@author: Davide Grassano (CECAM, EPFL)
 """
+import hashlib
 import os
+import subprocess
+import sys
+import tempfile
+import time
+from collections import defaultdict
 
 from easybuild.easyblocks.generic.bundle import Bundle
 from easybuild.easyblocks.generic.juliapackage import EXTS_FILTER_JULIA_PACKAGES, JuliaPackage
+from easybuild.tools import tomllib as toml
+
+
+HAS_REQUESTS = False
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    pass
 
 
 class JuliaBundle(Bundle, JuliaPackage):
@@ -96,3 +112,445 @@ class JuliaBundle(Bundle, JuliaPackage):
     def make_module_extra(self, *args, **kwargs):
         """Custom module environment from JuliaPackage"""
         return super().make_module_extra(*args, **kwargs)
+
+
+IsJuliaPackage = type('IsJuliaPackage', (), {})  # sentinel value to indicate package is part of Julia stdlib
+
+JULIA_EXEC = None
+GIT_EXEC = None
+SYSTEM_PACKAGES = set()
+SYSTEM_PACKAGES_TESTED = set()
+
+
+def get_git_exec():
+    """Get path to git executable"""
+    global GIT_EXEC
+    if GIT_EXEC is None:
+        GIT_EXEC = subprocess.run(['which', 'git'], capture_output=True, text=True).stdout.strip()
+    return GIT_EXEC
+
+
+def get_julia_exec():
+    """Get path to Julia executable"""
+    global JULIA_EXEC
+    if JULIA_EXEC is None:
+        JULIA_EXEC = subprocess.run(['which', 'julia'], capture_output=True, text=True).stdout.strip()
+    return JULIA_EXEC
+
+
+def check_needed_tools():
+    """Check if needed dependencies and executables are available for determining source URLs from git tree SHA1"""
+    julia_exec = get_julia_exec()
+    git_exec = get_git_exec()
+
+    if not julia_exec:
+        print("WARNING: No Julia executable found in PATH, cannot determine if packages are part of standard library")
+    else:
+        print(f"Found Julia executable at: {julia_exec}")
+
+    if not git_exec:
+        print(
+            "WARNING: No git executable found in PATH, cannot determine commit from git tree SHA1 for packages "
+            "hosted on GitLab"
+            )
+    else:
+        print(f"Found git executable at: {git_exec}")
+
+    if not HAS_REQUESTS:
+        print("WARNING: requests library not available, cannot fetch package data from General registry")
+
+
+def get_commit_from_git_tree_sha1(repo, git_tree_sha1):
+    """"Determine commit corresponding to git tree SHA1 by cloning the repo and searching the git log"""
+    git_exec = get_git_exec()
+    if not git_exec:
+        return None
+
+    commit = None
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        print(
+            f'Attempting to determine commit for git tree SHA1 by cloning repo {repo} '
+            f'into temporary directory {tmpdir}...'
+        )
+        try:
+            print('Running git clone command...')
+            subprocess.run(
+                [git_exec, 'clone', repo, tmpdir],
+                capture_output=True, text=True, check=True
+            )
+            print('Running git log command to find commit for git tree SHA1...')
+            result = subprocess.run(
+                [git_exec, '-C', tmpdir, 'log', '--all', '--pretty=format:"%T %H"'],
+                capture_output=True, text=True, check=True
+            )
+            output = result.stdout.strip().replace('"', '')
+            for line in output.splitlines():
+                if line.startswith(git_tree_sha1 + ' '):
+                    commit = line.split()[1]
+                    break
+            else:
+                print(f"WARNING: Could not find commit for git tree SHA1 {git_tree_sha1} in repo {repo}")
+                print(f"Git log output:\n{output}")
+        except subprocess.CalledProcessError as e:
+            print(f"Error running git command: {e}")
+
+    return commit
+
+
+def get_sha256_from_url(url):
+    """Helper to get SHA256 checksum from URL by downloading the file and calculating the checksum"""
+    if not HAS_REQUESTS:
+        return None
+
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+        sha256_hash = hashlib.sha256()
+        for chunk in response.iter_content(chunk_size=8192):
+            sha256_hash.update(chunk)
+        return sha256_hash.hexdigest()
+    except requests.RequestException as exc:
+        print(f"Error fetching file from URL {url} to calculate SHA256 checksum: {exc}")
+        return None
+
+
+def get_url_from_general(pkg, version, git_tree_sha1, max_retries=3):
+    """Get the package info from the General registry"""
+    if not HAS_REQUESTS:
+        return None, None, None
+    if pkg.endswith('_jll'):
+        base_url = "https://github.com/JuliaRegistries/General/raw/refs/heads/master/jll/{}/{}/"
+    else:
+        base_url = "https://github.com/JuliaRegistries/General/raw/refs/heads/master/{}/{}/"
+    base_url = base_url.format(pkg[0].upper(), pkg)
+    package_url = base_url + "Package.toml"
+
+    sleep_time = 1
+
+    last_exception = None
+    while max_retries > 0:
+        time.sleep(sleep_time)
+        sleep_time *= 2  # exponential backoff
+        try:
+            package_data = requests.get(package_url).text
+        except requests.RequestException as exc:
+            last_exception = exc
+            print(f"Error fetching package data from General registry: {exc}")
+            max_retries -= 1
+            continue
+        else:
+            try:
+                package_info = toml.loads(package_data)
+                break
+            except toml.TOMLDecodeError as exc:
+                last_exception = exc
+                print(f"Error parsing Package.toml for package {pkg} from General registry: {exc}")
+                max_retries -= 1
+    else:
+        print(f"Failed to fetch and parse package data for {pkg} from General registry after multiple attempts")
+        print(f"Last error fetching package data from General registry: {last_exception}")
+        print(f"Last package data that caused the error:\n{package_data}")
+        raise RuntimeError(
+            f"Failed to fetch and parse package data for {pkg} from General registry after multiple attempts"
+        )
+
+    repo = package_info['repo']
+    base_url = repo.rstrip('/')
+    if base_url.endswith('.git'):
+        base_url = base_url[:-4]
+
+    filename = None
+    is_default_filename = False
+    default_tag = f'v{version}'
+    default_filename = f'{default_tag}.tar.gz'
+
+    if 'github.com' in base_url:
+        url = base_url + "/archive/"
+        # Test if downloading based on tag works
+        res = requests.head(url + default_filename, allow_redirects=True)
+        if res.status_code == 200:
+            is_default_filename = True
+            filename = default_filename
+        else:
+            filename = f'{git_tree_sha1}.tar.gz'
+            # Tree SHAs can be associated to a subdirectory (not the root-directory) so one would need to traverse all
+            # the commits/tags and their associated root tree to find the commit that contains the given tree SHA1.
+            # commit = get_commit_from_git_tree_sha1(repo, git_tree_sha1)
+            # if commit:
+            #     filename = f'{commit}.tar.gz'
+            # else:
+            #     url = None
+            #     filename = None
+            #     print(f"WARNING: Could not determine commit for git tree SHA1 {git_tree_sha1} in GITHUB repo {repo}")
+
+    if 'gitlab.com' in base_url:
+        # https://gitlab.com/ExpandingMan/ShowCases.jl/-/archive/1ea211f349b40165a2b5fbbc80f771d6dcb725ad/ShowCases.jl-1ea211f349b40165a2b5fbbc80f771d6dcb725ad.tar.gz
+        # https://gitlab.com/QEF/q-e/-/archive/qe-7.5/q-e-qe-7.5.tar.gz
+        url = base_url + f"/-/archive/{default_tag}/"
+        # Test if downloading based on tag works
+        res = requests.head(url + f'{pkg}.jl-' + default_filename, allow_redirects=True)
+        if res.status_code == 200:
+            # is_default_filename = True
+            url = base_url + "/-/archive/v%(version)s/"
+            filename = f'{pkg}.jl-{default_tag}.tar.gz'
+        else:
+            commit = get_commit_from_git_tree_sha1(repo, git_tree_sha1)
+            if commit:
+                url = base_url + f"/-/archive/{commit}/"
+                filename = f'{pkg}.jl-{commit[:8]}.tar.gz'
+            else:
+                url = None
+                filename = None
+                print(f"WARNING: Could not determine commit for git tree SHA1 {git_tree_sha1} in GITLAB repo {repo}")
+
+    return url, filename, is_default_filename
+
+
+def is_system_package(pkg_name):
+    """Helper to determine if a package is part of the Julia standard library"""
+    if pkg_name in SYSTEM_PACKAGES_TESTED:
+        return pkg_name in SYSTEM_PACKAGES
+
+    SYSTEM_PACKAGES_TESTED.add(pkg_name)
+    julia_exec = get_julia_exec()
+    if not julia_exec:
+        return False
+
+    req = subprocess.run(
+        [julia_exec, '-e', f'import Base; println(Base.find_package("{pkg_name}"))'],
+        capture_output=True, text=True
+    )
+    path = req.stdout.strip()
+    res = bool(path and path != "nothing")
+    if res:
+        SYSTEM_PACKAGES.add(pkg_name)
+    return res
+
+
+def generate_package_data(sourcedir):
+    """Extract package data from Manifest.toml, including determining source URLs for
+    packages based on available information"""
+    with open(os.path.join(sourcedir, 'Manifest.toml'), 'r') as f:
+        content = f.read()
+        manifest_toml = toml.loads(content)
+
+    packages_data = {}
+
+    deps = manifest_toml.get('deps', {})
+    for pkg_name, pkg_data in deps.items():
+        if len(pkg_data) != 1:
+            raise ValueError(
+                f"Expected exactly one entry for package {pkg_name} in Manifest.toml deps, "
+                f"got {len(pkg_data)}: {pkg_data}"
+            )
+        pkg_data = pkg_data[0]
+        version = pkg_data.get('version')
+        git_tree_sha1 = pkg_data.get('git-tree-sha1', None)
+
+        is_default = False
+        url = None
+        item = {
+            'name': pkg_name,
+            'version': version,
+            'checksum': None,
+        }
+
+        if url is None and 'repo-url' in pkg_data:
+            url = pkg_data['repo-url']
+            print(f"Found package {pkg_name:>30s} with explicit repo URL: {url}")
+
+        if url is None and git_tree_sha1 is not None:
+            url, download_filename, is_default = get_url_from_general(pkg_name, version, git_tree_sha1)
+            filename = '%(name)s-%(version)s.tar.gz'
+            if not is_default:
+                item['sources'] = [{
+                    'download_filename': download_filename,
+                    'filename': filename,
+                }]
+            print(f"Found package {pkg_name:>30s} with git tree SHA1, determined URL from General registry: {url}")
+
+        # Check if the package is part of the Julia standard library, if so we don't need a source URL
+        if url is None and is_system_package(pkg_name):
+            print(f"Found Package {pkg_name:>30s} is part of the Julia standard library, no source URL needed")
+            url = IsJuliaPackage()
+
+        if url is None:
+            print(f"WARNING: Could not determine source URL for package {pkg_name} (version {version})")
+
+        item['url'] = url
+        packages_data[pkg_name] = item
+
+        # Do not calculate checksum if is_default is False since tree-sha checksums are not stable
+        if url is not None and isinstance(url, str) and download_filename is not None and is_default:
+            item['checksum'] = get_sha256_from_url(url + download_filename)
+
+    return packages_data
+
+
+def get_package_dep_graph(sourcedir):
+    """Helper for generating package dependency graph from Manifest.toml
+
+    Parameters:
+        - sourcedir: path to folder containing Manifest.toml
+
+    Returns:
+        - nodes: set of package names
+        - graph: dict mapping package name to set of packages that depend on it
+    """
+    with open(os.path.join(sourcedir, 'Manifest.toml'), 'r') as f:
+        content = f.read()
+        manifest_toml = toml.loads(content)
+
+    nodes = set()
+    graph = defaultdict(set)
+
+    deps = manifest_toml.get('deps', {})
+    for pkg_name, pkg_data in deps.items():
+        if len(pkg_data) != 1:
+            raise ValueError(
+                f"Expected exactly one entry for package {pkg_name} in Manifest.toml deps, "
+                f"got {len(pkg_data)}: {pkg_data}"
+            )
+        pkg_data = pkg_data[0]
+        nodes.add(pkg_name)
+        sub_deps = set(pkg_data.get('deps', []))
+        nodes |= sub_deps
+        for sub_dep in sub_deps:
+            graph[sub_dep].add(pkg_name)
+
+    return nodes, graph
+
+
+def topological_sort(nodes, graph):
+    """Sort packages deps in topological order to ensure dependencies are installed before dependents
+
+    Parameters:
+        - nodes: set of package names
+        - graph: dict mapping package name to set of packages that depend on it
+
+    Returns:
+        - sorted_list: list of package names sorted in topological order
+    """
+    incoming_count = dict.fromkeys(nodes, 0)
+    for parents in graph.values():
+        for parent in parents:
+            incoming_count[parent] += 1
+
+    sorted_list = []
+    while nodes:
+        no_incoming = [node for node in nodes if incoming_count[node] == 0]
+        if not no_incoming:
+            raise ValueError("Graph has a cycle, cannot perform topological sort")
+        no_incoming.sort()  # sort alphabetically
+        sorted_list.extend(no_incoming)
+        for node in no_incoming:
+            nodes.remove(node)
+            for parent in graph[node]:
+                incoming_count[parent] -= 1
+
+    return sorted_list
+
+
+def print_dep_graph(pkg_name, graph=None, graph_inv=None, level=0, prefix='| ', hide_system=True):
+    """Helper for printing package dependency graph"""
+    if graph:
+        graph_inv = defaultdict(set)
+        for node, parents in graph.items():
+            for parent in parents:
+                graph_inv[parent].add(node)
+
+        dependent_count = {node: len(parents) for node, parents in graph.items()}
+        print("Packages sorted by number of dependents (packages that depend on them):")
+        for item in sorted((v, k) for k, v in dependent_count.items())[::-1]:
+            print(f"{item[1]:>40s}: {item[0]:>4d} dependents")
+        with_str = "with" if not hide_system else "without"
+        print(f"\nDependency graph ({with_str} system packages):")
+
+    if hide_system and is_system_package(pkg_name):
+        return
+
+    print(f"{prefix*level}{pkg_name}")
+    for dep in sorted(graph_inv.get(pkg_name, [])):
+        print_dep_graph(dep, graph_inv=graph_inv, level=level+1, prefix=prefix, hide_system=hide_system)
+
+
+def generate_exts_list(sourcedir, packages, tab_depth=4):
+    """Helper for generating exts_list with Julia packages in topological order"""
+    package_data = generate_package_data(sourcedir)
+
+    tab = ' ' * tab_depth
+
+    exts_list = []
+
+    exts_list.extend([
+        '',
+        '-' * 80,
+        '- Extensions list to copy in the JuliaBundle easyconfig:',
+        '# Default options for all extensions, can be overridden by individual packages if needed',
+        'exts_default_options = {',
+        tab + "# Some julia packages like LLVM and CUDA would default to the LLVM/CUDA EasyBlock respectively",
+        tab + "'easyblock': 'JuliaPackage',",
+        '}',
+        '',
+    ])
+
+    exts_list.append(
+        '# Order is important as all dependencies of a package must be installed before the package itself'
+    )
+    exts_list.append('exts_list = [')
+    for pkg_name in packages:
+        pkg_info = package_data[pkg_name]
+        name = pkg_info['name']
+        version = pkg_info['version']
+        url = pkg_info['url']
+        sources = pkg_info.get('sources', None)
+        checksum = pkg_info['checksum']
+        if checksum is not None:
+            checksum = f"'{checksum}'"
+        if isinstance(url, IsJuliaPackage):
+            continue
+        exts_list.append(tab + f"('{name}', '{version}', {{")
+        exts_list.append(tab*2 + f"'source_urls': ['{url}'],")
+        if sources is not None:
+            # exts_list.append(tab*2 + f"'sources': {sources},")
+            exts_list.append(tab*2 + "'sources': [{")
+            for key, value in sources[0].items():
+                exts_list.append(tab*3 + f"'{key}': '{value}',")
+            exts_list.append(tab*2 + "}],")
+
+        exts_list.append(tab*2 + f"'checksums': [{checksum}],")
+        exts_list.append(tab + '}),')
+    exts_list.append(']')
+
+    return '\n'.join(exts_list)
+
+
+def main():
+    if len(sys.argv) < 2:
+        print('Expected path to folder containing Manifest.toml')
+        sys.exit(1)
+
+    sourcedir = sys.argv[1]
+    tab_depth = 4
+    print_graph_info = False
+
+    if len(sys.argv) > 2:
+        tab_depth = int(sys.argv[2])
+    if len(sys.argv) > 3:
+        print_graph_info = bool(sys.argv[3].lower() in ['true', '1', 'yes'])
+    if len(sys.argv) > 4:
+        print('Ignoring extra arguments: %s' % sys.argv[3:])
+
+    check_needed_tools()
+
+    nodes, graph = get_package_dep_graph(sourcedir)
+    sorted_packages = topological_sort(nodes, graph)
+    if print_graph_info:
+        print_dep_graph(sorted_packages[-1], graph=graph, hide_system=True)
+
+    print(generate_exts_list(sourcedir, sorted_packages, tab_depth=tab_depth))
+
+
+if __name__ == '__main__':
+    main()
