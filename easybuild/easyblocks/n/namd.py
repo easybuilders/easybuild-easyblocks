@@ -122,15 +122,15 @@ class EB_NAMD(MakeCp):
             charm_arch_comps = {
                 toolchain.GCC: 'gcc',
                 toolchain.INTELCOMP: 'icc',
+                toolchain.LLVM: 'clang',
+                toolchain.ROCM: 'clang',
             }
-            charm_arch_comp = charm_arch_comps.get(comp_fam, None)
+            charm_arch_comp = charm_arch_comps.get(comp_fam, '')
         namd_comps = {
-            toolchain.GCC: 'g++',
             toolchain.INTELCOMP: 'icc',
         }
-        namd_comp = namd_comps.get(comp_fam, None)
-        if charm_arch_comp is None or namd_comp is None:
-            raise EasyBuildError("Unknown compiler family, can't complete Charm++/NAMD target architecture.")
+        # g++ works as generic comp and --cc will override CXX=g++ in any case
+        namd_comp = namd_comps.get(comp_fam, 'g++')
 
         # NOTE: important to add smp BEFORE the compiler
         # charm arch style is: mpi-linux-x86_64-smp-mpicxx
@@ -159,10 +159,11 @@ class EB_NAMD(MakeCp):
 
         # compiler (options)
         self.cfg.update('namd_cfg_opts', '--cc "%s" --cc-opts "%s"' % (os.environ['CC'], os.environ['CFLAGS']))
-        cxxflags = os.environ['CXXFLAGS']
+        cxx = os.environ['CXX']
         if LooseVersion(self.version) >= LooseVersion('2.12'):
-            cxxflags += ' --std=c++11'
-        self.cfg.update('namd_cfg_opts', '--cxx "%s" --cxx-opts "%s"' % (os.environ['CXX'], cxxflags))
+            cxx += ' -std=c++11'
+        cxxflags = os.environ['CXXFLAGS']
+        self.cfg.update('namd_cfg_opts', f'--cxx "{cxx}" --cxx-opts "{cxxflags}"')
 
         # NAMD dependencies: CUDA, TCL, FFTW
         cuda = get_software_root('CUDA')
