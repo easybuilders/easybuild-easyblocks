@@ -64,11 +64,15 @@ class EB_ROOT(CMakeMake):
         llvm_root = get_software_root('LLVM')
         if llvm_root:
             llvm_inc = os.path.join(llvm_root, 'include')
-            cpath = os.getenv('CPATH')
-            if cpath:
-                new_cpath = [p for p in cpath.split(os.pathsep) if p != llvm_inc]
-                self.log.info("Filtered %s from $CPATH to avoid using LLVM loaded as indirect dependency", llvm_inc)
-                setvar('CPATH', os.pathsep.join(new_cpath))
+            header_vars = self.toolchain.search_path_vars_headers
+            for header_var in header_vars:
+                header_paths = os.getenv(header_var, "")
+                new_header_paths = [p for p in header_paths.split(os.pathsep) if p != llvm_inc]
+                if new_header_paths:
+                    self.log.info(
+                        f"Filtered '{llvm_inc}' from ${header_var} to avoid using LLVM loaded as indirect dependency"
+                    )
+                    setvar(header_var, os.pathsep.join(new_header_paths))
 
         cfitsio_root = get_software_root('CFITSIO')
         if cfitsio_root:
