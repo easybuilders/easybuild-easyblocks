@@ -125,7 +125,7 @@ class EB_impi(IntelBase):
                     self.log.info("Rebuild of libfabric is requested, but %s does not exist, so skipping...",
                                   libfabric_src_tgz_fn)
             else:
-                raise EasyBuildError("Rebuild of libfabric is requested, but ofi_internal is set to False.")
+                self.log.info("Rebuild of libfabric is requested, but ofi_internal is set to False.")
 
     def rebuild_f08_bindings(self):
         """
@@ -286,14 +286,8 @@ class EB_impi(IntelBase):
         impi_ver = LooseVersion(self.version)
         if impi_ver >= LooseVersion('2021'):
             mpi_subdir = self.get_versioned_subdir('mpi')
-            path_dirs = [
-                os.path.join(mpi_subdir, 'bin'),
-                os.path.join(mpi_subdir, 'libfabric', 'bin'),
-            ]
-            lib_dirs = [
-                os.path.join(mpi_subdir, 'lib'),
-                os.path.join(mpi_subdir, 'libfabric', 'lib'),
-            ]
+            path_dirs = [os.path.join(mpi_subdir, 'bin')]
+            lib_dirs = [os.path.join(mpi_subdir, 'lib')]
             if impi_ver < LooseVersion('2021.11'):
                 lib_dirs.insert(1, os.path.join(mpi_subdir, 'lib', 'release'))
             include_dirs = [os.path.join(mpi_subdir, 'include')]
