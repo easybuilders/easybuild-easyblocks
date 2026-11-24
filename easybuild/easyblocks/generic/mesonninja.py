@@ -125,6 +125,11 @@ class MesonNinja(EasyBlock):
         """
         Run tests using Ninja.
         """
+        # Meson by default determines test thread count on physical cores, potentially resulting in oversubscription
+        # Make Meson's test respect the parallelism set by EasyBuild instead
+        # See https://github.com/easybuilders/easybuild-easyconfigs/pull/27499#issuecomment-7132501439
+        env.setvar('MESON_TESTTHREADS', str(self.cfg.parallel))
+
         if self.cfg['runtest']:
             cmd = "%s %s %s" % (self.cfg['pretestopts'], self.cfg['runtest'], self.cfg['testopts'])
             (out, _) = run_cmd(cmd, log_all=True, simple=False)
