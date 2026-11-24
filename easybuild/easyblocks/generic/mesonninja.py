@@ -28,6 +28,7 @@ EasyBuild support for installing software with Meson & Ninja.
 @author: Kenneth Hoste (Ghent University)
 """
 
+import easybuild.tools.environment as env
 from easybuild.tools import LooseVersion
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig import CUSTOM
