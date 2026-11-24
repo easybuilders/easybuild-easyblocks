@@ -1053,6 +1053,12 @@ class PythonPackage(ExtensionEasyBlock):
             self.log.info(f"Skipping test step for installation of dummy package {self.name}-{self.version}")
             return None
 
+        # By default, xdist's `-n auto` setting autodetects the amount of physical cores, causing issues on partial
+        # node allocations.
+        # This instead restricts it to the level of parallelism set by EasyBuild
+        # See also https://github.com/easybuilders/easybuild/issues/941
+        env.setvar('PYTEST_XDIST_AUTO_NUM_WORKERS', str(self.cfg.parallel))
+
         if isinstance(self.cfg['runtest'], str):
             self.testcmd = self.cfg['runtest']
 
