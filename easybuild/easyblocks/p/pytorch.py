@@ -487,7 +487,7 @@ class EB_PyTorch(PythonPackage):
                 not_used_dep_names.append(dep_name)
                 # Explicitely toggle to avoid picking up system libs, restricted to 2.7+ to avoid retesting older ECs
                 if pytorch_version >= '2.7' and enable_opt[-1] in ('0', '1'):
-                    add_enable_option(enable_opt[:-1], enable_opt[-1] != '1')
+                    add_enable_option(enable_opt[:-2], enable_opt[-1] != '1')
         self.log.info('Did not enable options for the following dependencies as they are not used in the EC: %s',
                       not_used_dep_names)
 
