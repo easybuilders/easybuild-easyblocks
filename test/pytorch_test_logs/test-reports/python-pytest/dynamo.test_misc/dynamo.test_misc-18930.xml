@@ -1,11 +1,23 @@
 <?xml version="1.0"?>
 <testsuites>
-  <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="4.2">
+  <testsuite name="pytest" errors="0" failures="3" skipped="2" tests="5" time="4.2">
     <testcase classname="MiscTests" name="test_parameter_free" time="4.2" file="dynamo/test_misc.py">
       <rerun message="...">[snip]</rerun>
       <rerun message="...">[snip]</rerun>
       <failure message="...">[snip]</failure>
       <system-out>[snip]</system-out>
+    </testcase>
+    <testcase classname="MiscTests" name="test_fail_then_xfail" time="4.2" file="dynamo/test_misc.py">
+      <failure message="...">[snip]</failure>
+    </testcase>
+    <testcase classname="MiscTests" name="test_fail_then_skip" time="4.2" file="dynamo/test_misc.py">
+      <failure message="...">[snip]</failure>
+    </testcase>
+    <testcase classname="MiscTests" name="test_fail_then_xfail2" time="4.2" file="dynamo/test_misc.py">
+      <skipped type="pytest.xfail" message=""/>
+    </testcase>
+    <testcase classname="MiscTests" name="test_fail_then_skip2" time="4.2" file="dynamo/test_misc.py">
+      <skipped type="pytest.skip" message="..."/>
     </testcase>
   </testsuite>
 </testsuites>

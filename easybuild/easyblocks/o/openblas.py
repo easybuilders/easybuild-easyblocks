@@ -84,14 +84,14 @@ class EB_OpenBLAS(ConfigureMake):
 
         # ensure build/test/install options don't persist between iterations
         if self.cfg['enable_ilp64']:
-            if self.iter_idx > 0:
+            if self.iter_idx == 0:
+                # store original options
+                for key in self.orig_opts:
+                    self.orig_opts[key] = self.cfg[key]
+            else:
                 # reset to original build/test/install options
                 for key, opt_val in self.orig_opts.items():
                     self.cfg[key] = opt_val
-            else:
-                # store original options
-                for key, opt_val in self.orig_opts.items():
-                    self.orig_opts[key] = opt_val
 
         if '%s=' % TARGET in self.cfg['buildopts']:
             # Add any TARGET in buildopts to default_opts, so it is passed to testopts and installopts

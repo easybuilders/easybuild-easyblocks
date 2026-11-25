@@ -25,10 +25,12 @@
 """
 EasyBuild support for building and installing SEPP, implemented as an easyblock
 @author: Pavel Grochal (INUITS)
+@author: Cintia Willemyns (Vrije Universiteit Brussel)
 """
 import os
 
 from easybuild.easyblocks.generic.pythonpackage import PythonPackage
+from easybuild.tools import LooseVersion
 from easybuild.tools.filetools import apply_regex_substitutions, copy_dir, write_file
 from easybuild.tools.run import run_shell_cmd
 
@@ -40,8 +42,9 @@ class EB_SEPP(PythonPackage):
         """Configure SEPP using setup.py."""
         super().configure_step(*args, **kwargs)
 
-        # Configure sepp
-        run_shell_cmd("python setup.py config -c")
+        # SEPP >= 4.5.6 no longer provides setup.py
+        if LooseVersion(self.version) < LooseVersion('4.5.6'):
+            run_shell_cmd("python setup.py config -c")
 
     def install_step(self, *args, **kwargs):
         """
@@ -54,12 +57,40 @@ class EB_SEPP(PythonPackage):
         python_site_packages_dir = os.path.join(self.installdir, self.pylibdir)
 
         # original path to SEPP config
-        sepp_orig_config_dir = os.path.join(self.builddir, self.name.lower() + "-" + self.version, '.sepp')
+        sepp_source_dir = os.path.join(self.builddir, self.name.lower() + "-" + self.version)
+        sepp_orig_config_dir = os.path.join(sepp_source_dir, '.sepp')
+
+        if LooseVersion(self.version) >= LooseVersion('4.5.6'):
+            # SEPP >= 4.5.6 uses config_sepp/config_upp instead of setup.py config
+            pythonpath = "PYTHONPATH=%s:$PYTHONPATH" % python_site_packages_dir
+
+            run_shell_cmd(
+                "%s %s -c" % (
+                    pythonpath,
+                    os.path.join(self.installdir, 'bin', 'config_sepp'),
+                ),
+                work_dir=sepp_source_dir,
+            )
+            run_shell_cmd(
+                "%s %s -c" % (
+                    pythonpath,
+                    os.path.join(self.installdir, 'bin', 'config_upp'),
+                ),
+                work_dir=sepp_source_dir,
+            )
+
+            sepp_final_home_path_file = os.path.join(
+                python_site_packages_dir,
+                'sepp-%s.dist-info' % self.version,
+                'home.path',
+            )
+            config_files = ['main.config', 'upp.config']
+        else:
+            sepp_final_home_path_file = os.path.join(python_site_packages_dir, 'home.path')
+            config_files = ['main.config']
 
         # correct SEPP paths
-        sepp_final_home_path_file = os.path.join(python_site_packages_dir, 'home.path')
         sepp_final_config_dir = os.path.join(python_site_packages_dir, '.sepp')
-        sepp_final_config_file = os.path.join(sepp_final_config_dir, 'main.config')
 
         # create correct home.path file which contains location of .sepp config dir
         self.log.info("Creating home.path file for SEPP at %s", sepp_final_home_path_file)
@@ -72,18 +103,25 @@ class EB_SEPP(PythonPackage):
         regex_subs = [
             (r'%s' % sepp_orig_config_dir, '%s' % sepp_final_config_dir),
         ]
-        apply_regex_substitutions(sepp_final_config_file, regex_subs)
+        for config_file in config_files:
+            apply_regex_substitutions(os.path.join(sepp_final_config_dir, config_file), regex_subs)
 
     def sanity_check_step(self):
         """Custom sanity check for SEPP."""
-        scripts = [
-            'run_abundance.py', 'run_sepp.py', 'run_tipp.py',
-            'run_tipp_tool.py', 'run_upp.py', 'split_sequences.py'
-        ]
+
+        if LooseVersion(self.version) >= LooseVersion('4.5.6'):
+            scripts = [
+                'run_sepp.py', 'run_upp.py', 'split_sequences.py',
+            ]
+        else:
+            scripts = [
+                'run_abundance.py', 'run_sepp.py', 'run_tipp.py',
+                'run_tipp_tool.py', 'run_upp.py', 'split_sequences.py'
+            ]
+
         custom_paths = {
             'files': [os.path.join('bin', s) for s in scripts],
             'dirs': [os.path.join(self.pylibdir, 'sepp')],
         }
         custom_commands = ["%s --help" % s for s in scripts]
-
         super().sanity_check_step(custom_paths=custom_paths, custom_commands=custom_commands)

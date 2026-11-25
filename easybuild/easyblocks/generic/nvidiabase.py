@@ -81,6 +81,27 @@ NVHPC_MINIMAL_EXAMPLE = """
 int main(){ return 0; }
 """
 
+# C sources used for MPI example compiled in the sanity check, used as a replacement
+# for the one shipped with NVHPC <26.5. While hpcx v2.20 still contains the hello_c
+# example, hpcx v2.50 dropped the test codes entirely.
+NVHPC_MPI_EXAMPLE = '''
+#include <mpi.h>
+#include <stdio.h>
+
+int main(int argc, char** argv)
+{
+    int rank, size;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    printf("Hello, world, I am %d of %d\\n", rank, size);
+    MPI_Finalize();
+
+    return 0;
+}
+'''
+
 
 class NvidiaBase(PackedBinary):
     """
@@ -619,8 +640,17 @@ class NvidiaBase(PackedBinary):
             custom_commands.extend([f"{comp} --version" for comp in mpi_compiler_names])
 
             # Build MPI test binary
-            hpcx_dir = os.path.join(self.installdir, prefix, 'comm_libs', self.active_cuda_version, 'hpcx')
-            mpi_hello_src = os.path.join(hpcx_dir, 'latest', 'ompi', 'tests', 'examples', 'hello_c.c')
+            # In NVHPC 26.5, the default hpcx is v2.50, which removed all examples from the sources.
+            # v2.20 still exists and contains the sources, but might be removed in the future.
+            # Hence, we provide our own minimal code for future proofing.
+            if self.version < LooseVersion('26.5'):
+                hpcx_dir = os.path.join(self.installdir, prefix, 'comm_libs', self.active_cuda_version, 'hpcx')
+                mpi_hello_src = os.path.join(hpcx_dir, 'latest', 'ompi', 'tests', 'examples', 'hello_c.c')
+            else:
+                tmpdir = tempfile.mkdtemp()
+                mpi_hello_src = os.path.join(tmpdir, 'hello_c.c')
+                write_file(mpi_hello_src, NVHPC_MPI_EXAMPLE)
+
             mpi_hello_exe = os.path.join(tmpdir, 'mpi_test_' + os.path.splitext(os.path.basename(mpi_hello_src))[0])
             self.log.info("Adding minimal MPI test program to sanity checks: %s", mpi_hello_exe)
             custom_commands.append(f"mpicc {mpi_hello_src} -o {mpi_hello_exe}")
@@ -632,7 +662,9 @@ class NvidiaBase(PackedBinary):
 
             mpi_cmd = ' && '.join([
                 # allow oversubscription of MPI ranks to cores
+                # respect both OpenMPI v4.x and v5.x.
                 "export OMPI_MCA_rmaps_base_oversubscribe=true",
+                'export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe',
                 # workaround for problem with core binding with OpenMPI 4.x,
                 # errors like: hwloc_set_cpubind returned "Error" for bitmap "0"
                 # see https://github.com/open-mpi/ompi/issues/12470
