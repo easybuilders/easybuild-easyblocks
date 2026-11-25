@@ -42,6 +42,134 @@ from easybuild.tools.systemtools import AARCH64, POWER, RISCV64, X86_64, get_cpu
 from easybuild.tools.utilities import nub
 
 
+def find_sysroot_interpreter_and_paths(logger=None):
+    """
+    Find sysroot library paths and isolate the ELF interpreter.
+
+    :param sysroot: Path to the target sysroot.
+    :param logger: Logger for diagnostic messages.
+    :return: Tuple of (ELF interpreter path, sysroot library paths).
+    """
+    sysroot = build_option('sysroot')
+    if not sysroot:
+        raise EasyBuildError("No 'sysroot' build option specified")
+
+    sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
+    sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
+    sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
+
+    if sysroot_lib_paths:
+        if logger:
+            logger.info("List of library paths in %s to add to RPATH section: %s", sysroot, sysroot_lib_paths)
+    else:
+        raise EasyBuildError("sysroot has no library paths, that can't be right!")
+
+    elf_interp = None
+
+    for ld_glob_pattern in (r'ld-linux-*.so.*', r'ld*.so.*'):
+        matches = glob.glob(os.path.join(sysroot, 'lib*', ld_glob_pattern))
+        if logger:
+            logger.debug("Paths for ELF interpreter via '%s' pattern: %s", ld_glob_pattern, matches)
+
+        if not matches:
+            continue
+
+        # Keep the symbolic link path, but ensure all matches resolve
+        # to the same underlying interpreter.
+        real_paths = nub([os.path.realpath(path) for path in matches])
+
+        if len(real_paths) != 1:
+            raise EasyBuildError("Multiple different unique ELF interpreters found: %s", real_paths)
+
+        elf_interp = matches[0]
+        if logger:
+            logger.info("ELF interpreter found at %s", elf_interp)
+        break
+
+    if elf_interp is None:
+        raise EasyBuildError("Failed to isolate ELF interpreter!")
+
+    return elf_interp, sysroot_lib_paths
+
+
+def patch_path_for_sysroot(path, rpath_updates=None, interpreter=None, logger=None, shrink_rpath=True):
+    """
+    Patch the ELF interpreter and/or RPATH of a dynamically linked file.
+    """
+    res = run_shell_cmd("file '%s'" % path, hidden=True)
+    file_info = res.output.lower()
+
+    if "dynamically linked" not in file_info:
+        if logger:
+            logger.debug("File is not dynamically linked, ignoring %s", path)
+        return
+    is_executable = "executable" in file_info
+
+    if not which('patchelf'):
+        raise EasyBuildError("patchelf not found via $PATH, required to patch RPATH section in binaries/libraries")
+
+    if rpath_updates:
+        if not isinstance(rpath_updates, list) or not all(isinstance(d, str) for d in rpath_updates):
+            raise EasyBuildError(f"RPATH directories to add must be a list of strings: {rpath_updates}")
+        if shrink_rpath:
+            # We can already shrink the list to only include directories which exist
+            rpath_updates_existing_dirs = [d for d in rpath_updates if os.path.isdir(d)]
+            if logger:
+                logger.debug(
+                    "Removing non-existing directories from included RPATHs: %s",
+                    [rpath for rpath in rpath_updates if rpath not in rpath_updates_existing_dirs]
+                )
+            rpath_updates = rpath_updates_existing_dirs
+
+        res = run_shell_cmd("patchelf --print-rpath '%s'" % path, hidden=True)
+        curr_rpath = res.output.strip()
+        if logger:
+            logger.debug("RPATH for %s before patchelf: %s", path, curr_rpath)
+
+        rpath_entries = curr_rpath.split(':') if curr_rpath else []
+        new_entries = rpath_entries + [
+            lib_path for lib_path in rpath_updates
+            if lib_path not in rpath_entries
+        ]
+        new_rpath = ':'.join(new_entries)
+
+        run_shell_cmd("patchelf --set-rpath '%s' '%s'" % (new_rpath, path), hidden=True)
+
+        if shrink_rpath:
+            run_shell_cmd("patchelf --shrink-rpath '%s'" % path, hidden=True)
+
+    # According to https://github.com/NixOS/patchelf/issues/524 the order we do things matters
+    # so we must change the interpreter only _after_ changing the RPATHs
+    if interpreter is not None and is_executable:
+        # Check that the interpreter looks like an interpreter
+        res = run_shell_cmd("file --brief '%s'" % path, hidden=True)
+        interpreter_info = res.output.lower()
+        if 'elf' not in interpreter_info:
+            raise EasyBuildError(f"Interpreter {interpreter} doesn't look like an ELF binary: {interpreter_info}")
+
+        res = run_shell_cmd("patchelf --print-interpreter '%s'" % path, hidden=True)
+        orig_interp = res.output.strip()
+        if logger:
+            logger.debug("ELF interpreter for %s before updating: %s", path, orig_interp)
+
+        run_shell_cmd("patchelf --set-interpreter '%s' '%s'" % (interpreter, path), hidden=True)
+
+        res = run_shell_cmd("patchelf --print-interpreter '%s'" % path, hidden=True)
+        curr_interp = res.output.strip()
+        if curr_interp != interpreter:
+            raise EasyBuildError(
+                "Failed to set ELF interpreter for %s: expected %s, got %s", path, interpreter, curr_interp
+            )
+
+    if rpath_updates:
+        res = run_shell_cmd("patchelf --print-rpath '%s'" % path, hidden=True)
+        curr_rpath = res.output.strip()
+        if logger:
+            logger.debug(
+                "RPATH for %s after updating%s: %s", path, " and shrinking" if shrink_rpath else "", curr_rpath,
+            )
+
+
 class EB_Java(PackedBinary):
     """Support for installing Java as a packed binary file (.tar.gz)
     Use the PackedBinary easyblock and set some extra paths.
@@ -97,37 +225,9 @@ class EB_Java(PackedBinary):
         # patch binaries and libraries when using alternate sysroot in combination with RPATH
         sysroot = build_option('sysroot')
         if sysroot and self.toolchain.use_rpath:
-            if not which('patchelf'):
-                error_msg = "patchelf not found via $PATH, required to patch RPATH section in binaries/libraries"
-                raise EasyBuildError(error_msg)
-
             try:
                 # list of paths in sysroot to consider for adding to RPATH section
-                sysroot_lib_paths = glob.glob(os.path.join(sysroot, 'lib*'))
-                sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*'))
-                sysroot_lib_paths += glob.glob(os.path.join(sysroot, 'usr', 'lib*', 'gcc', '*', '*'))
-                if sysroot_lib_paths:
-                    self.log.info("List of library paths in %s to add to RPATH section: %s", sysroot, sysroot_lib_paths)
-
-                # find path to ELF interpreter
-                elf_interp = None
-
-                for ld_glob_pattern in (r'ld-linux-*.so.*', r'ld*.so.*'):
-                    res = glob.glob(os.path.join(sysroot, 'lib*', ld_glob_pattern))
-                    self.log.debug("Paths for ELF interpreter via '%s' pattern: %s", ld_glob_pattern, res)
-                    if res:
-                        # if there are multiple hits, make sure they resolve to the same paths,
-                        # but keep using the symbolic link, not the resolved path!
-                        real_paths = nub([os.path.realpath(x) for x in res])
-                        if len(real_paths) == 1:
-                            elf_interp = res[0]
-                            self.log.info("ELF interpreter found at %s", elf_interp)
-                            break
-                        else:
-                            raise EasyBuildError("Multiple different unique ELF interpreters found: %s", real_paths)
-
-                if elf_interp is None:
-                    raise EasyBuildError("Failed to isolate ELF interpreter!")
+                elf_interp, sysroot_lib_paths = find_sysroot_interpreter_and_paths(self.log)
 
                 # Expand paths in PATH and make sure these are unique real paths
                 bindirs = self.module_load_environment.PATH.expand_paths(self.installdir)
@@ -135,33 +235,9 @@ class EB_Java(PackedBinary):
                 for bindir in bindirs:
                     for path in os.listdir(bindir):
                         path = os.path.join(bindir, path)
-                        res = run_shell_cmd("file %s" % path, hidden=True)
-                        if "dynamically linked" in res.output:
-
-                            res = run_shell_cmd("patchelf --print-interpreter %s" % path)
-                            self.log.debug("ELF interpreter for %s: %s" % (path, res.output))
-
-                            run_shell_cmd("patchelf --set-interpreter %s %s" % (elf_interp, path), hidden=True)
-
-                            res = run_shell_cmd("patchelf --print-interpreter %s" % path, hidden=True)
-                            self.log.debug("ELF interpreter for %s: %s" % (path, res.output))
-
-                            res = run_shell_cmd("patchelf --print-rpath %s" % path, hidden=True)
-                            curr_rpath = res.output.strip()
-                            self.log.debug("RPATH for %s: %s" % (path, curr_rpath))
-
-                            new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
-                            # note: it's important to wrap the new RPATH value in single quotes,
-                            # to avoid magic values like $ORIGIN being resolved by the shell
-                            run_shell_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, path), hidden=True)
-
-                            res = run_shell_cmd("patchelf --print-rpath %s" % path, hidden=True)
-                            self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, res.output))
-
-                            run_shell_cmd("patchelf --shrink-rpath %s" % path, hidden=True)
-
-                            res = run_shell_cmd("patchelf --print-rpath %s" % path, hidden=True)
-                            self.log.debug("RPATH for %s (after shrinking): %s" % (path, res.output))
+                        patch_path_for_sysroot(
+                            path, rpath_updates=sysroot_lib_paths, interpreter=elf_interp, logger=self.log
+                        )
 
                 # Expand paths in LIBRARY_PATH and make sure these are unique real paths
                 libdirs = self.module_load_environment.LIBRARY_PATH.expand_paths(self.installdir)
@@ -171,22 +247,7 @@ class EB_Java(PackedBinary):
                     for path, _, filenames in os.walk(libdir):
                         shlibs = [os.path.join(path, x) for x in filenames if x.endswith(shlib_ext)]
                         for shlib in shlibs:
-                            res = run_shell_cmd("patchelf --print-rpath %s" % shlib, hidden=True)
-                            curr_rpath = res.output.strip()
-                            self.log.debug("RPATH for %s: %s" % (shlib, curr_rpath))
-
-                            new_rpath = ':'.join([curr_rpath] + sysroot_lib_paths)
-                            # note: it's important to wrap the new RPATH value in single quotes,
-                            # to avoid magic values like $ORIGIN being resolved by the shell
-                            run_shell_cmd("patchelf --set-rpath '%s' %s" % (new_rpath, shlib), hidden=True)
-
-                            res = run_shell_cmd("patchelf --print-rpath %s" % shlib, hidden=True)
-                            self.log.debug("RPATH for %s (prior to shrinking): %s" % (path, res.output))
-
-                            run_shell_cmd("patchelf --shrink-rpath %s" % shlib, hidden=True)
-
-                            res = run_shell_cmd("patchelf --print-rpath %s" % shlib, hidden=True)
-                            self.log.debug("RPATH for %s (after shrinking): %s" % (path, res.output))
+                            patch_path_for_sysroot(shlib, rpath_updates=sysroot_lib_paths, logger=self.log)
 
             except OSError as err:
                 raise EasyBuildError("Failed to patch RPATH section in binaries/libraries: %s", err)

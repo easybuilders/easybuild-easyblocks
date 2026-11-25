@@ -267,6 +267,13 @@ class Cargo(ExtensionEasyBlock):
         if self.cfg['offline']:
             env.setvar('CARGO_NET_OFFLINE', 'true')
 
+        # Pass parallelism on to cargo via the environment, such that it also applies to cargo invocations
+        # that are not under our control (e.g. via maturin or setuptools-rust when building using CargoPythonPackage
+        # or CargoPythonBundle).
+        # Guarded, because parallelism is not known yet when set_cargo_vars is called the first time (from __init__)
+        if self.cfg.is_parallel_set:
+            env.setvar('CARGO_BUILD_JOBS', str(self.cfg.parallel))
+
     @property
     def crates(self):
         """Return the crates as defined in the EasyConfig"""
@@ -540,10 +547,6 @@ class Cargo(ExtensionEasyBlock):
 
     def build_step(self):
         """Build with cargo"""
-        parallel = ''
-        if self.cfg.parallel > 1:
-            parallel = f"-j {self.cfg.parallel}"
-
         tests = ''
         if self.cfg['enable_tests']:
             tests = "--tests"
@@ -559,7 +562,6 @@ class Cargo(ExtensionEasyBlock):
             '--profile=' + self.profile,
             lto,
             tests,
-            parallel,
             self.cfg['buildopts'],
         ])
         run_shell_cmd(cmd)
