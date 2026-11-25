@@ -418,6 +418,8 @@ class CMakeMake(ConfigureMake):
                 self.cfg['preconfigopts'],
                 DEFAULT_CONFIGURE_CMD,
                 generator,
+                '-Wno-deprecated',  # Suppress warnings about e.g. using OLD policies
+                '-Wno-dev',         # Suppress warnings targeted at developers of CMakeLists.txt
                 self.cfg['configopts'],
                 srcdir])
         else:
