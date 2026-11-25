@@ -33,7 +33,6 @@ import os
 from easybuild.easyblocks.generic.binary import Binary
 from easybuild.framework.easyconfig import CUSTOM
 from easybuild.tools.build_log import EasyBuildError, print_warning
-from easybuild.tools.config import build_option
 from easybuild.tools.filetools import move_file, remove_file
 from easybuild.tools.modules import get_software_root
 from easybuild.tools.systemtools import AARCH64, POWER, X86_64
@@ -87,29 +86,12 @@ class EB_AOMP(Binary):
         ]
         install_options.append(f'NUM_THREADS={self.cfg.parallel}')
         # Check if CUDA is loaded and alternatively build CUDA backend
-        if get_software_root('CUDA') or get_software_root('CUDAcore'):
-            cuda_root = get_software_root('CUDA') or get_software_root('CUDAcore')
+        cuda_root = get_software_root('CUDA') or get_software_root('CUDAcore')
+        if cuda_root:
             install_options.append('AOMP_BUILD_CUDA=1')
-            install_options.append('CUDA="{!s}"'.format(cuda_root))
-            # list of CUDA compute capabilities to use can be specifed in two ways (where (2) overrules (1)):
-            # (1) in the easyconfig file, via the custom cuda_compute_capabilities;
-            # (2) in the EasyBuild configuration, via --cuda-compute-capabilities configuration option;
-            ec_cuda_cc = self.cfg['cuda_compute_capabilities']
-            cfg_cuda_cc = build_option('cuda_compute_capabilities')
-            cuda_cc = cfg_cuda_cc or ec_cuda_cc or []
-            if cfg_cuda_cc and ec_cuda_cc:
-                warning_msg = "cuda_compute_capabilities specified in easyconfig (%s) are overruled by " % ec_cuda_cc
-                warning_msg += "--cuda-compute-capabilities configuration option (%s)" % cfg_cuda_cc
-                print_warning(warning_msg)
-            if not cuda_cc:
-                raise EasyBuildError("CUDA module was loaded, "
-                                     "indicating a build with CUDA, "
-                                     "but no CUDA compute capability "
-                                     "was specified!")
-            # Convert '7.0' to '70' format
-            cuda_cc = [cc.replace('.', '') for cc in cuda_cc]
-            cuda_str = ",".join(cuda_cc)
-            install_options.append('NVPTXGPUS="{!s}"'.format(cuda_str))
+            install_options.append(f'CUDA="{cuda_root}"')
+            cuda_str = self.cfg.get_cuda_cc_template_value('cuda_int_comma_sep')
+            install_options.append(f'NVPTXGPUS="{cuda_str}"')
         else:
             # Explicitly disable CUDA
             install_options.append('AOMP_BUILD_CUDA=0')
