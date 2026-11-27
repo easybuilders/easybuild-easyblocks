@@ -91,7 +91,7 @@ class EB_OpenBLAS(ConfigureMake):
             msg = "Easyconfig parameter max_num_threads is not set, so build option NUM_THREADS will not be set. "
             msg += "OpenBLAS will default to a maximum number of threads equal to the number of CPUs "
             msg += "on the build host, which may be too low if the same build is used on a larger system."
-            print_msg(msg)
+            print_msg(msg, log=self.log)
 
         # ensure build/test/install options don't persist between iterations
         if self.cfg['enable_ilp64']:
