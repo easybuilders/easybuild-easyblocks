@@ -42,6 +42,7 @@ import easybuild.tools.options as eboptions
 import easybuild.tools.tomllib as tomllib
 import easybuild.easyblocks.generic.pythonpackage as pythonpackage
 import easybuild.easyblocks.generic.cargo as cargo
+import easybuild.easyblocks.e.eon as eon
 import easybuild.easyblocks.l.lammps as lammps
 import easybuild.easyblocks.p.python as python
 import easybuild.easyblocks.p.pytorch as pytorch
@@ -51,7 +52,7 @@ from easybuild.easyblocks.generic.toolchain import Toolchain
 from easybuild.easyblocks.tensorflow import det_binutils_bin_path
 from easybuild.framework.easyblock import EasyBlock, get_easyblock_instance
 from easybuild.framework.easyconfig.easyconfig import process_easyconfig
-from easybuild.tools import config
+from easybuild.tools import config, systemtools
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import GENERAL_CLASS, get_module_syntax
 from easybuild.tools.environment import modify_env
@@ -212,6 +213,50 @@ class EasyBlockSpecificTest(TestCase):
             if any(key.startswith(x) for x in ['EBROOT', 'EBVERSION']):
                 extra_eb_env_vars.append(key)
         self.assertEqual(extra_eb_env_vars, [])
+
+    def test_eon_hide_highway(self):
+        """Test that the eOn easyblock hides Highway from Meson on aarch64 only."""
+        self.assertEqual(eon.drop_prefix('/hwy/lib/pkgconfig:/other/lib/pkgconfig:/hwy2', '/hwy'),
+                         '/other/lib/pkgconfig:/hwy2')
+        self.assertEqual(eon.drop_prefix('/hwy:/x', '/hwy/'), '/x')
+        self.assertEqual(eon.drop_prefix('', '/hwy'), '')
+
+        class FakeLog:
+            def info(self, *args):
+                pass
+
+        class FakeEB:
+            log = FakeLog()
+
+            def __init__(self, highway_on_aarch64=False):
+                self.cfg = {'highway_on_aarch64': highway_on_aarch64}
+
+        orig_arch, orig_root = eon.get_cpu_architecture, eon.get_software_root
+        self.addCleanup(setattr, eon, 'get_cpu_architecture', orig_arch)
+        self.addCleanup(setattr, eon, 'get_software_root', orig_root)
+        eon.get_software_root = lambda name: '/sw/Highway/1.4.0' if name == 'Highway' else None
+        pkg_path = '/sw/Highway/1.4.0/lib64/pkgconfig:/sw/fmt/lib/pkgconfig'
+        cmake_path = '/sw/Highway/1.4.0:/sw/fmt'
+
+        # x86_64: nothing changes
+        os.environ['PKG_CONFIG_PATH'], os.environ['CMAKE_PREFIX_PATH'] = pkg_path, cmake_path
+        eon.get_cpu_architecture = lambda: systemtools.X86_64
+        self.assertEqual(eon.EB_eOn._hide_highway(FakeEB()), [])
+        self.assertEqual(os.environ['PKG_CONFIG_PATH'], pkg_path)
+
+        # aarch64 with highway_on_aarch64: nothing changes
+        eon.get_cpu_architecture = lambda: systemtools.AARCH64
+        self.assertEqual(eon.EB_eOn._hide_highway(FakeEB(highway_on_aarch64=True)), [])
+        self.assertEqual(os.environ['CMAKE_PREFIX_PATH'], cmake_path)
+
+        # aarch64 by default: Highway leaves both search paths
+        self.assertEqual(eon.EB_eOn._hide_highway(FakeEB()), ['PKG_CONFIG_PATH', 'CMAKE_PREFIX_PATH'])
+        self.assertEqual(os.environ['PKG_CONFIG_PATH'], '/sw/fmt/lib/pkgconfig')
+        self.assertEqual(os.environ['CMAKE_PREFIX_PATH'], '/sw/fmt')
+
+        # no Highway dependency: nothing to do
+        eon.get_software_root = lambda name: None
+        self.assertEqual(eon.EB_eOn._hide_highway(FakeEB()), [])
 
     def test_det_cmake_version(self):
         """Tests for det_cmake_version function provided along with CMakeMake generic easyblock."""
