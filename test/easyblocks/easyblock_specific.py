@@ -45,20 +45,22 @@ import easybuild.easyblocks.generic.cargo as cargo
 import easybuild.easyblocks.l.lammps as lammps
 import easybuild.easyblocks.p.python as python
 import easybuild.easyblocks.p.pytorch as pytorch
+import easybuild.easyblocks.u.ucx_plugins as ucx_plugins
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
 from easybuild.easyblocks.tensorflow import det_binutils_bin_path
 from easybuild.framework.easyblock import EasyBlock, get_easyblock_instance
-from easybuild.framework.easyconfig.easyconfig import process_easyconfig
+from easybuild.framework.easyconfig.easyconfig import EasyConfig, process_easyconfig
 from easybuild.tools import config
 from easybuild.tools.build_log import EasyBuildError
-from easybuild.tools.config import GENERAL_CLASS, get_module_syntax
+from easybuild.tools.config import GENERAL_CLASS, get_module_syntax, update_build_option
 from easybuild.tools.environment import modify_env
 from easybuild.tools.filetools import adjust_permissions, mkdir, move_file, remove_dir, symlink, write_file
 from easybuild.tools.modules import modules_tool
 from easybuild.tools.options import set_tmpdir
 from easybuild.tools.run import RunShellCmdResult
+from easybuild.tools.toolchain.compiler import OPTARCH_GENERIC
 from easybuild.tools.toolchain.toolchain import RPATH_WRAPPERS_SUBDIR
 
 
@@ -919,6 +921,45 @@ class EasyBlockSpecificTest(TestCase):
                                pytorch.get_test_results, error_log_dir / 'consistency')
         self.assertRaisesRegex(ValueError, "Duplicate test",
                                pytorch.get_test_results, error_log_dir / 'duplicate')
+
+    def test_ucx_plugins_generic_optarch(self):
+        """Test that the UCX_Plugins easyblock only uses --enable-optimizations when optarch is not GENERIC."""
+        test_ec_path = os.path.join(self.tmpdir, 'test.eb')
+        write_file(test_ec_path, '\n'.join([
+            "easyblock = 'EB_UCX_Plugins'",
+            "name = 'UCX-CUDA'",
+            "version = '1.19.0'",
+            "homepage = 'https://example.com'",
+            "description = 'just a test'",
+            "toolchain = SYSTEM",
+        ]))
+        os.environ['EBROOTUCX'] = self.tmpdir
+
+        # only the configure options composed by the easyblock itself are of interest here
+        orig_configure_step = ucx_plugins.ConfigureMake.configure_step
+        ucx_plugins.ConfigureMake.configure_step = lambda self: None
+        orig_optarch = config.build_option('optarch')
+
+        def get_configopts(optarch):
+            update_build_option('optarch', optarch)
+            ucx_inst = ucx_plugins.EB_UCX_Plugins(EasyConfig(test_ec_path))
+            # %(installdir)s can not be resolved here, so leave templates as they are
+            with ucx_inst.cfg.disable_templating():
+                ucx_inst.configure_step()
+                return ucx_inst.cfg['configopts'].split()
+
+        try:
+            for optarch in (None, 'march=x86-64-v3'):
+                configopts = get_configopts(optarch)
+                self.assertIn('--enable-optimizations', configopts)
+                self.assertIn('--disable-logging', configopts)
+
+            configopts = get_configopts(OPTARCH_GENERIC)
+            self.assertNotIn('--enable-optimizations', configopts)
+            self.assertIn('--disable-logging', configopts)
+        finally:
+            ucx_plugins.ConfigureMake.configure_step = orig_configure_step
+            update_build_option('optarch', orig_optarch)
 
 
 def suite(loader):
