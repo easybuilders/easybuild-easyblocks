@@ -11,7 +11,7 @@ import re
 from easybuild.tools import LooseVersion
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
 from easybuild.framework.easyconfig import CUSTOM
-from easybuild.tools.build_log import EasyBuildError, print_warning
+from easybuild.tools.build_log import EasyBuildError, print_msg, print_warning
 from easybuild.tools.config import build_option
 from easybuild.tools.filetools import apply_regex_substitutions
 from easybuild.tools.run import run_shell_cmd
@@ -91,7 +91,7 @@ class EB_OpenBLAS(ConfigureMake):
             msg = "Easyconfig parameter max_num_threads is not set, so build option NUM_THREADS will not be set. "
             msg += "OpenBLAS will default to a maximum number of threads equal to the number of CPUs "
             msg += "on the build host, which may be too low if the same build is used on a larger system."
-            print_warning(msg)
+            print_msg(msg)
 
         # ensure build/test/install options don't persist between iterations
         if self.cfg['enable_ilp64']:
