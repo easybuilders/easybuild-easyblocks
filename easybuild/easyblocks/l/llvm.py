@@ -1197,6 +1197,10 @@ class EB_LLVM(CMakeMake):
             else:
                 self.log.warning("`LLVM_HOST_TRIPLE` not found in the output of the configure step")
 
+        # Ensure also 1st stage runtimes are built with rpath wrappers if requested
+        # This is not a problem for LLVM where runtimes binaries are not used during the 2nd stage, but can be a problem
+        # For easyblock deriving on it like ROCm-llvm where `offload-tblgen` is used during the 2nd stage and needs to
+        # find the linked libraries also in an environment where LD_LIBRARY_PATH is filtered.
         runtimes = self.final_runtimes if self.cfg['bootstrap'] else self.intermediate_runtimes
         if build_option('rpath') and runtimes:  # Check for final runtimes as we are not bootstrapping
             # Ensure RPATH wrappers are used for the runtimes also at the first stage
