@@ -45,6 +45,7 @@ import easybuild.easyblocks.generic.cargo as cargo
 import easybuild.easyblocks.l.lammps as lammps
 import easybuild.easyblocks.p.python as python
 import easybuild.easyblocks.p.pytorch as pytorch
+import easybuild.easyblocks.s.seissol as seissol
 from easybuild.base.testing import TestCase
 from easybuild.easyblocks.generic.cmakemake import det_cmake_version
 from easybuild.easyblocks.generic.toolchain import Toolchain
@@ -752,6 +753,101 @@ class EasyBlockSpecificTest(TestCase):
         write_file(version_file, version_txt)
 
         self.assertEqual(lammps.translate_lammps_version('d3adb33f', path=self.tmpdir), '2025.04.02.3')
+
+    def test_seissol_det_target_host_arch(self):
+        """Test det_target_host_arch function from SeisSol easyblock"""
+        det = seissol.det_target_host_arch
+        X86_64, AARCH64 = seissol.X86_64, seissol.AARCH64
+
+        # nothing set: fall back to the build host
+        self.assertEqual(det(X86_64), None)
+        self.assertEqual(det(X86_64, optarch='march=native'), None)
+
+        # a set optarch decides, and wins over the CPU target
+        self.assertEqual(det(X86_64, optarch='GENERIC', cpu_target='x86_64/amd/zen4'), 'noarch')
+        self.assertEqual(det(AARCH64, optarch='GENERIC'), 'neon')
+        self.assertEqual(det(X86_64, optarch='march=haswell', cpu_target='x86_64/amd/zen4'), 'hsw')
+        self.assertEqual(det(X86_64, optarch='-march=znver3 -mtune=znver3'), 'milan')
+        self.assertEqual(det(X86_64, optarch='march=icelake-server'), 'skx')
+        self.assertEqual(det(X86_64, optarch='march=x86-64-v3'), 'hsw')
+        self.assertEqual(det(X86_64, optarch='march=x86-64-v4'), 'skx')
+        self.assertEqual(det(AARCH64, optarch='mcpu=neoverse-v1+sve'), 'sve256')
+        with self.assertRaisesRegex(EasyBuildError, "cannot derive HOST_ARCH"):
+            det(X86_64, optarch='O3')
+        with self.assertRaisesRegex(EasyBuildError, "no HOST_ARCH known"):
+            det(X86_64, optarch='march=pentium4')
+
+        # then the EESSI CPU target
+        self.assertEqual(det(X86_64, cpu_target='x86_64/generic'), 'noarch')
+        self.assertEqual(det(AARCH64, cpu_target='aarch64/generic'), 'neon')
+        self.assertEqual(det(X86_64, cpu_target='x86_64/intel/skylake_avx512'), 'skx')
+        self.assertEqual(det(X86_64, cpu_target='x86_64/amd/zen4'), 'bergamo')
+        self.assertEqual(det(AARCH64, cpu_target='aarch64/a64fx'), 'a64fx')
+        with self.assertRaisesRegex(EasyBuildError, "no HOST_ARCH known"):
+            det(X86_64, cpu_target='x86_64/intel/unknown')
+
+    def test_seissol_gpu_binary_name(self):
+        """GPU binaries use DEVICE_ARCH and DEVICE_BACKEND, not HOST_ARCH."""
+        exe = seissol.seissol_exe_name
+        self.assertEqual(exe('Release', 'double', 6, 'elastic', 'hsw'),
+                         'SeisSol_Release_dhsw_6_elastic')
+        self.assertEqual(exe('Release', 'single', 6, 'elastic', 'hsw'),
+                         'SeisSol_Release_shsw_6_elastic')
+        # CMakeLists.txt EXE_NAME_PREFIX when DEVICE_ARCH is set, and the v1.3.2 GPU CI name
+        self.assertEqual(exe('Release', 'double', 6, 'elastic', 'hsw',
+                             device_arch='sm_80', device_backend='cuda'),
+                         'SeisSol_Release_dsm_80_cuda_6_elastic')
+        self.assertEqual(exe('Release', 'single', 6, 'elastic', 'noarch',
+                             device_arch='sm_60', device_backend='cuda'),
+                         'SeisSol_Release_ssm_60_cuda_6_elastic')
+
+        cc = seissol.device_arch_from_cuda_cc
+        self.assertEqual(cc(None), None)
+        self.assertEqual(cc([]), None)
+        # A100 is compute capability 8.0, H100 is 9.0 (SeisSol DEVICE_ARCH_OPTIONS sm_80, sm_90)
+        self.assertEqual(cc(['8.0']), 'sm_80')
+        self.assertEqual(cc(['9.0']), 'sm_90')
+        with self.assertRaisesRegex(EasyBuildError, "one DEVICE_ARCH"):
+            cc(['8.0', '9.0'])
+        with self.assertRaisesRegex(EasyBuildError, "not major.minor"):
+            cc(['sm_80'])
+
+    def test_seissol_hopper_suffix_mapping(self):
+        """Preserve supported Hopper suffixes and reject unsupported architecture guesses."""
+        cc = ['9.0a']
+        mapper = seissol.device_arch_from_cuda_cc
+        self.assertEqual(mapper(cc), 'sm_90a')
+        self.assertEqual(mapper(cc, {'sm_90', 'sm_90a'}), 'sm_90a')
+        self.assertEqual(mapper(cc, {'sm_80', 'sm_90'}), 'sm_90')
+        self.assertEqual(cc, ['9.0a'])
+        self.assertEqual(mapper(['8.0'], {'sm_80', 'sm_90'}), 'sm_80')
+        for invalid in ['9.0f', '9.0aa', '9.a', '9.0a ', 'sm_90a', '9.0;other']:
+            with self.assertRaises(EasyBuildError):
+                mapper([invalid])
+        with self.assertRaisesRegex(EasyBuildError, 'suffix is unsupported'):
+            mapper(['8.0a'])
+        with self.assertRaisesRegex(EasyBuildError, 'does not support'):
+            mapper(cc, {'sm_80'})
+        with self.assertRaisesRegex(EasyBuildError, 'does not support'):
+            mapper(['9.9'], {'sm_90'})
+
+    def test_seissol_device_options_and_resolution(self):
+        """Use the actual source architecture list for CUDA configuration."""
+        text = 'set(DEVICE_ARCH_OPTIONS none\n sm_80 sm_90 # sm_90a is not an option\n)'
+        self.assertEqual(seissol.device_arch_options_from_cmake(text), {'none', 'sm_80', 'sm_90'})
+        with self.assertRaisesRegex(EasyBuildError, 'no explicit DEVICE_ARCH_OPTIONS'):
+            seissol.device_arch_options_from_cmake('set(OTHER_OPTIONS sm_90)')
+        with tempfile.TemporaryDirectory() as root:
+            path = os.path.join(root, 'cmake', 'process_users_input.cmake')
+            mkdir(os.path.dirname(path))
+            write_file(path, text)
+            block = seissol.EB_SeisSol.__new__(seissol.EB_SeisSol)
+            block.cfg = {'start_dir': root, 'device_backend': 'cuda',
+                         'device_arch': 'auto', 'cuda_compute_capabilities': ['9.0a']}
+            self.assertEqual(block._resolve_device(), ('cuda', 'sm_90'))
+            write_file(path, 'set(DEVICE_ARCH_OPTIONS none sm_80 sm_90 sm_90a)')
+            self.assertEqual(block._resolve_device(), ('cuda', 'sm_90a'))
+            self.assertEqual(block.cfg['cuda_compute_capabilities'], ['9.0a'])
 
     def test_pytorch_test_log_parsing(self):
         """Verify parsing of XML files produced by PyTorch tests."""
