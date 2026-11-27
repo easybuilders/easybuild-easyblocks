@@ -52,7 +52,7 @@ from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import build_option, ERROR, EBPYTHONPREFIXES
 from easybuild.tools.modules import get_software_libdir, get_software_root, get_software_version
 from easybuild.tools.filetools import apply_regex_substitutions, change_dir, mkdir
-from easybuild.tools.filetools import read_file, remove_dir, symlink, write_file
+from easybuild.tools.filetools import read_file, clean_dir, symlink, write_file
 from easybuild.tools.run import run_shell_cmd
 from easybuild.tools.systemtools import get_shared_lib_ext
 from easybuild.tools.utilities import trace_msg
@@ -791,11 +791,11 @@ class EB_Python(ConfigureMake):
         # see also https://bugs.python.org/issue29712
         enable_opts_flag = '--enable-optimizations'
         if build_option('rpath') and enable_opts_flag in self.cfg['configopts'] and os.path.exists(self.installdir):
-            warning_msg = "Removing existing installation directory '%s', "
+            warning_msg = "Cleaning existing installation directory '%s', "
             warning_msg += "because EasyBuild is configured to use RPATH linking "
             warning_msg += "and %s configure option is used." % enable_opts_flag
             print_warning(warning_msg % self.installdir)
-            remove_dir(self.installdir)
+            clean_dir(self.installdir)
 
         if self.cfg['ulimit_unlimited']:
             # determine current stack size limit
